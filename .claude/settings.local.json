@@ -3,7 +3,8 @@
     "allow": [
       "Bash(echo $NODE_ENV)",
       "Bash(npm run dev:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(touch:*)"
     ],
     "deny": [],
     "ask": []

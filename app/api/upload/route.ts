@@ -43,20 +43,65 @@ async function createDriveClient() {
     
     const { google } = await import('googleapis');
     
+    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     let privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
-    if (!privateKey) {
-      throw new Error('Private key not found');
+    
+    console.log('🔍 [UPLOAD] 환경변수 상태:', {
+      hasEmail: !!clientEmail,
+      hasPrivateKey: !!privateKey,
+      emailLength: clientEmail?.length || 0,
+      privateKeyLength: privateKey?.length || 0,
+      privateKeyStart: privateKey?.substring(0, 50) || 'N/A'
+    });
+    
+    if (!clientEmail) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_EMAIL 환경변수가 설정되지 않았습니다');
     }
     
-    // Private key 정규화
-    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-      privateKey = JSON.parse(privateKey);
+    if (!privateKey) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY 환경변수가 설정되지 않았습니다');
     }
-    privateKey = privateKey.replace(/\\n/g, '\n');
+    
+    // Private key 정규화 (여러 형식 지원)
+    try {
+      // 1. JSON으로 감싸진 경우 처리
+      if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+        console.log('🔧 [UPLOAD] JSON 파싱 시도');
+        privateKey = JSON.parse(privateKey);
+      }
+      
+      // 2. 이스케이프된 개행문자 처리
+      privateKey = privateKey.replace(/\\n/g, '\n');
+      
+      // 3. Base64 인코딩 확인 및 디코딩
+      if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+        console.log('🔧 [UPLOAD] Base64 디코딩 시도');
+        try {
+          const decoded = Buffer.from(privateKey, 'base64').toString('utf8');
+          if (decoded.includes('-----BEGIN PRIVATE KEY-----')) {
+            privateKey = decoded;
+            console.log('✅ [UPLOAD] Base64 디코딩 성공');
+          }
+        } catch (decodeError) {
+          console.warn('⚠️ [UPLOAD] Base64 디코딩 실패:', decodeError);
+        }
+      }
+      
+      // 4. 키 형식 최종 검증
+      if (!privateKey.includes('-----BEGIN PRIVATE KEY-----') || !privateKey.includes('-----END PRIVATE KEY-----')) {
+        throw new Error(`Private Key 형식이 올바르지 않습니다. 다음을 포함해야 합니다: -----BEGIN PRIVATE KEY----- 및 -----END PRIVATE KEY-----`);
+      }
+      
+      console.log('✅ [UPLOAD] Private Key 형식 검증 완료');
+      
+    } catch (keyError) {
+      console.error('❌ [UPLOAD] Private Key 처리 실패:', keyError);
+      throw new Error(`Private Key 처리 오류: ${keyError.message}`);
+    }
     
     const auth = new google.auth.GoogleAuth({
       credentials: {
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        client_email: clientEmail,
         private_key: privateKey,
       },
       scopes: ['https://www.googleapis.com/auth/drive'],
