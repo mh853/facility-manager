@@ -340,7 +340,7 @@ async function findOrCreateBusinessFolder(drive: any, businessName: string, pare
         includeItemsFromAllDrives: true
       }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Folder search timeout')), 10000))
-    ]);
+    ]) as any;
 
     if (searchResponse.data.files?.length > 0) {
       const existingFolderId = searchResponse.data.files[0].id!;
@@ -361,7 +361,7 @@ async function findOrCreateBusinessFolder(drive: any, businessName: string, pare
         supportsAllDrives: true
       }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Folder creation timeout')), 15000))
-    ]);
+    ]) as any;
 
     const businessFolderId = folderResponse.data.id!;
     console.log(`✅ [UPLOAD] 폴더 생성 완료: ${businessFolderId}`);
@@ -456,7 +456,7 @@ async function uploadSingleFile(
         supportsAllDrives: true
       }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Upload timeout')), 30000)) // 30초 타임아웃
-    ]);
+    ]) as any;
 
     if (!response?.data?.id) {
       throw new Error('Google Drive 업로드 응답이 올바르지 않습니다');
@@ -534,9 +534,9 @@ async function updateSheetLogAsync(
         range,
       }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Sheet read timeout')), 10000))
-    ]);
+    ]) as any;
     
-    const rows = response.data.values || [];
+    const rows = response.data?.values || [];
     let targetRowIndex = -1;
     
     for (let i = 0; i < rows.length; i++) {
@@ -570,7 +570,7 @@ async function updateSheetLogAsync(
           },
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Sheet update timeout')), 10000))
-      ]);
+      ]) as any;
       
       console.log('📊 [UPLOAD] 구글시트 로그 추가 완료');
     } else {
@@ -607,7 +607,7 @@ async function getTargetFolder(drive: any, businessFolderId: string, fileType: s
         includeItemsFromAllDrives: true
       }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Subfolder search timeout')), 5000))
-    ]);
+    ]) as any;
     
     if (searchResponse.data.files?.length > 0) {
       return searchResponse.data.files[0].id!;
