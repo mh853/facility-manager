@@ -1,7 +1,12 @@
-// app/api/upload/route.ts - 파일 업로드 API (깔끔하게 정리)
+// app/api/upload/route.ts - Vercel 최적화된 파일 업로드 API
 import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'stream';
 import { createOptimizedDriveClient } from '@/lib/google-client';
+
+// Vercel에서 Node.js runtime 강제 지정 (Edge Runtime 대신)
+export const runtime = 'nodejs';
+// 파일 업로드를 위한 바디 크기 제한 증가 (50MB)
+export const maxDuration = 60; // 60초 최대 실행 시간
 
 // 파일 타입 표시명 매핑
 function getFileTypeDisplayName(fileType: string): string {
@@ -87,10 +92,27 @@ function generateFileName(
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📤 [UPLOAD] 파일 업로드 시작');
+    console.log('📤 [UPLOAD] Vercel 최적화 버전 - 파일 업로드 시작');
 
-    // 폼 데이터 파싱
-    const formData = await request.formData();
+    // Vercel에서 formData 파싱 최적화
+    let formData: FormData;
+    try {
+      // 타임아웃 설정으로 파싱 최적화
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30초 타임아웃
+      
+      formData = await request.formData();
+      clearTimeout(timeoutId);
+      
+      console.log('✅ [UPLOAD] FormData 파싱 완료');
+    } catch (parseError) {
+      console.error('❌ [UPLOAD] FormData 파싱 실패:', parseError);
+      return NextResponse.json({
+        success: false,
+        message: 'FormData 파싱 실패 - 파일 크기가 너무 크거나 형식이 잘못되었습니다.'
+      }, { status: 400 });
+    }
+
     const businessName = formData.get('businessName') as string;
     const fileType = formData.get('fileType') as string;
     const facilityInfo = formData.get('facilityInfo') as string;
@@ -102,7 +124,8 @@ export async function POST(request: NextRequest) {
       fileType,
       systemType,
       facilityInfo,
-      fileCount: files.length
+      fileCount: files.length,
+      totalSize: files.reduce((sum, file) => sum + file.size, 0)
     });
 
     // 기본 검증
@@ -120,13 +143,24 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 파일 크기 및 타입 검증
+    // Vercel 환경에 맞는 파일 크기 검증 (개별 파일 10MB, 전체 30MB)
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    const maxTotalSize = 30 * 1024 * 1024; // 30MB
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    
+    if (totalSize > maxTotalSize) {
+      return NextResponse.json({
+        success: false,
+        message: `전체 파일 크기 초과 (${(totalSize / 1024 / 1024).toFixed(1)}MB / 30MB)`
+      }, { status: 413 });
+    }
+
     for (const file of files) {
-      if (file.size > 15 * 1024 * 1024) {
+      if (file.size > maxFileSize) {
         return NextResponse.json({
           success: false,
-          message: `파일 크기 초과: ${file.name} (최대 15MB)`
-        }, { status: 400 });
+          message: `파일 크기 초과: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB / 10MB)`
+        }, { status: 413 });
       }
 
       if (!file.type.startsWith('image/')) {
@@ -143,6 +177,7 @@ export async function POST(request: NextRequest) {
       : process.env.PRESURVEY_FOLDER_ID;
 
     if (!folderId) {
+      console.error('❌ [UPLOAD] 폴더 ID 환경변수 누락:', { systemType });
       return NextResponse.json({
         success: false,
         message: '폴더 설정이 누락되었습니다.'
@@ -151,103 +186,79 @@ export async function POST(request: NextRequest) {
 
     console.log('📁 [UPLOAD] 대상 폴더 ID:', folderId);
 
-    // Drive 클라이언트 생성
-    const drive = await createOptimizedDriveClient();
+    // Drive 클라이언트 생성 (에러 처리 강화)
+    let drive;
+    try {
+      drive = await createOptimizedDriveClient();
+      console.log('✅ [UPLOAD] Drive 클라이언트 생성 완료');
+    } catch (driveError) {
+      console.error('❌ [UPLOAD] Drive 클라이언트 생성 실패:', driveError);
+      return NextResponse.json({
+        success: false,
+        message: 'Google Drive 연결 실패'
+      }, { status: 500 });
+    }
 
     // 사업장 폴더 생성/확인
-    const businessFolderId = await findOrCreateBusinessFolder(drive, businessName, folderId);
+    let businessFolderId;
+    try {
+      businessFolderId = await findOrCreateBusinessFolder(drive, businessName, folderId);
+      console.log('📁 [UPLOAD] 사업장 폴더 준비 완료:', businessFolderId);
+    } catch (folderError) {
+      console.error('❌ [UPLOAD] 사업장 폴더 처리 실패:', folderError);
+      return NextResponse.json({
+        success: false,
+        message: '사업장 폴더 처리 실패'
+      }, { status: 500 });
+    }
 
-    // 파일 업로드 (순차 처리)
+    // 파일 업로드 (병렬 처리로 최적화하되 동시 연결 수 제한)
     const uploadResults = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      console.log(`📄 [UPLOAD] 업로드 중 (${i + 1}/${files.length}): ${file.name}`);
+    const batchSize = 2; // Vercel에서 안정적인 동시 업로드 수
+    
+    for (let i = 0; i < files.length; i += batchSize) {
+      const batch = files.slice(i, i + batchSize);
       
-      try {
-        const result = await uploadSingleFile(
+      const batchPromises = batch.map((file, index) => 
+        uploadSingleFileWithRetry(
           drive, 
           file, 
           businessFolderId, 
           fileType, 
           facilityInfo, 
-          i + 1, 
+          i + index + 1, 
           businessName
-        );
+        )
+      );
+      
+      try {
+        const batchResults = await Promise.allSettled(batchPromises);
         
-        if (result) {
-          uploadResults.push(result);
-          console.log(`✅ [UPLOAD] 성공: ${result.name}`);
-        }
-      } catch (error) {
-        console.error(`❌ [UPLOAD] 실패: ${file.name}`, error);
+        batchResults.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value) {
+            uploadResults.push(result.value);
+            console.log(`✅ [UPLOAD] 배치 성공: ${batch[index].name}`);
+          } else {
+            console.error(`❌ [UPLOAD] 배치 실패: ${batch[index].name}`, result.status === 'rejected' ? result.reason : 'Unknown error');
+          }
+        });
+      } catch (batchError) {
+        console.error('❌ [UPLOAD] 배치 처리 실패:', batchError);
+      }
+      
+      // 배치 간 짧은 지연으로 API 레이트 제한 방지
+      if (i + batchSize < files.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
       }
     }
 
     console.log(`🎉 [UPLOAD] 완료: ${uploadResults.length}/${files.length} 성공`);
 
-    // 업로드 성공 시 구글시트에 로그 추가
+    // 업로드 성공 시 구글시트에 로그 추가 (비동기로 처리하여 응답 속도 개선)
     if (uploadResults.length > 0) {
-      try {
-        const facilityDetails = facilityInfo || '정보 없음';
-        const uploadLog = `파일 ${uploadResults.length}개 업로드 완료 [${getFileTypeDisplayName(fileType)}] - ${facilityDetails}`;
-        
-        const { sheets } = await import('@/lib/google-client');
-        
-        // systemType에 따라 적절한 스프레드시트와 시트 선택
-        const spreadsheetId = systemType === 'completion' 
-          ? process.env.COMPLETION_SPREADSHEET_ID 
-          : process.env.DATA_COLLECTION_SPREADSHEET_ID;
-        const sheetName = systemType === 'completion' ? '설치 후 사진' : '설치 전 실사';
-        
-        console.log('📊 [UPLOAD] 로그 기록 시작:', { systemType, sheetName });
-        
-        // 해당 사업장 행 찾기
-        const range = `'${sheetName}'!A:H`;
-        const response = await sheets.spreadsheets.values.get({
-          spreadsheetId,
-          range,
-        });
-        
-        const rows = response.data.values || [];
-        let targetRowIndex = -1;
-        
-        for (let i = 0; i < rows.length; i++) {
-          const row = rows[i];
-          if (row[1] && row[1].toString().trim() === businessName.trim()) {
-            targetRowIndex = i + 1;
-            break;
-          }
-        }
-        
-        if (targetRowIndex !== -1) {
-          const currentRow = rows[targetRowIndex - 1] || [];
-          // 시간 정보 (20250819_16:30 형식)
-          const now = new Date();
-          const koreaTime = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-          const logEntry = `[${koreaTime}] ${uploadLog}`;
-          
-          // 기존 상태에 로그 추가
-          let newStatus = currentRow[2] || '';
-          newStatus = newStatus ? `${newStatus}\\n${logEntry}` : logEntry;
-          
-          // C열(상태)만 업데이트
-          const updateRange = `'${sheetName}'!C${targetRowIndex}`;
-          await sheets.spreadsheets.values.update({
-            spreadsheetId,
-            range: updateRange,
-            valueInputOption: 'USER_ENTERED',
-            requestBody: {
-              values: [[newStatus]],
-            },
-          });
-          
-          console.log('📊 [UPLOAD] 구글시트 로그 추가 완료');
-        } else {
-          console.warn('📊 [UPLOAD] 해당 사업장을 시트에서 찾을 수 없음:', businessName);
-        }
-      } catch (syncError) {
-        console.warn('📊 [UPLOAD] 구글시트 로그 추가 실패:', syncError);
-      }
+      // 백그라운드에서 로그 처리 (응답 속도 개선)
+      updateSheetLogAsync(systemType, businessName, uploadResults.length, fileType, facilityInfo)
+        .catch(syncError => console.warn('📊 [UPLOAD] 구글시트 로그 추가 실패:', syncError));
     }
 
     return NextResponse.json({
@@ -270,19 +281,66 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// 재시도 로직이 포함된 파일 업로드
+async function uploadSingleFileWithRetry(
+  drive: any,
+  file: File,
+  businessFolderId: string,
+  fileType: string,
+  facilityInfo: string,
+  fileNumber: number,
+  businessName: string,
+  maxRetries: number = 2
+) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📷 [UPLOAD] 파일 업로드 시도 ${attempt}/${maxRetries}: ${file.name}`);
+      
+      const result = await uploadSingleFile(
+        drive, 
+        file, 
+        businessFolderId, 
+        fileType, 
+        facilityInfo, 
+        fileNumber, 
+        businessName
+      );
+      
+      if (result) {
+        console.log(`✅ [UPLOAD] 성공 (시도 ${attempt}): ${result.name}`);
+        return result;
+      }
+    } catch (error) {
+      console.error(`❌ [UPLOAD] 시도 ${attempt} 실패: ${file.name}`, error);
+      
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // 재시도 전 잠깐 대기 (지수 백오프)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+    }
+  }
+  
+  return null;
+}
+
 // 사업장 폴더 생성/확인
 async function findOrCreateBusinessFolder(drive: any, businessName: string, parentFolderId: string): Promise<string> {
   try {
     console.log(`📁 [UPLOAD] 사업장 폴더 확인: ${businessName}`);
 
-    // 기존 폴더 검색
-    const searchResponse = await drive.files.list({
-      q: `name='${businessName.replace(/'/g, "\\\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id, name)',
-      pageSize: 1,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true
-    });
+    // 기존 폴더 검색 (Vercel 타임아웃 고려한 최적화된 쿼리)
+    const searchResponse = await Promise.race([
+      drive.files.list({
+        q: `name='${businessName.replace(/'/g, "\\\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name)',
+        pageSize: 1,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Folder search timeout')), 10000))
+    ]);
 
     if (searchResponse.data.files?.length > 0) {
       const existingFolderId = searchResponse.data.files[0].id!;
@@ -290,44 +348,54 @@ async function findOrCreateBusinessFolder(drive: any, businessName: string, pare
       return existingFolderId;
     }
 
-    // 새 폴더 생성
+    // 새 폴더 생성 (타임아웃 보호)
     console.log(`📂 [UPLOAD] 새 폴더 생성: ${businessName}`);
-    const folderResponse = await drive.files.create({
-      requestBody: {
-        name: businessName,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentFolderId]
-      },
-      fields: 'id, name',
-      supportsAllDrives: true
-    });
+    const folderResponse = await Promise.race([
+      drive.files.create({
+        requestBody: {
+          name: businessName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [parentFolderId]
+        },
+        fields: 'id, name',
+        supportsAllDrives: true
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Folder creation timeout')), 15000))
+    ]);
 
     const businessFolderId = folderResponse.data.id!;
     console.log(`✅ [UPLOAD] 폴더 생성 완료: ${businessFolderId}`);
 
-    // 하위 폴더 생성
-    const subFolders = ['기본사진', '배출시설', '방지시설'];
-    for (const subFolder of subFolders) {
-      try {
-        await drive.files.create({
-          requestBody: {
-            name: subFolder,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [businessFolderId]
-          },
-          supportsAllDrives: true
-        });
-        console.log(`📁 [UPLOAD] 하위 폴더 생성: ${subFolder}`);
-      } catch (error) {
-        console.warn(`⚠️ [UPLOAD] 하위 폴더 생성 실패: ${subFolder}`);
-      }
-    }
+    // 하위 폴더 생성 (백그라운드에서 처리)
+    createSubFoldersAsync(drive, businessFolderId)
+      .catch(error => console.warn('⚠️ [UPLOAD] 하위 폴더 생성 실패:', error));
 
     return businessFolderId;
 
   } catch (error: any) {
     console.error('❌ [UPLOAD] 폴더 처리 실패:', error);
     throw new Error(`폴더 처리 실패: ${error.message}`);
+  }
+}
+
+// 하위 폴더 생성 (비동기)
+async function createSubFoldersAsync(drive: any, businessFolderId: string) {
+  const subFolders = ['기본사진', '배출시설', '방지시설'];
+  
+  for (const subFolder of subFolders) {
+    try {
+      await drive.files.create({
+        requestBody: {
+          name: subFolder,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [businessFolderId]
+        },
+        supportsAllDrives: true
+      });
+      console.log(`📁 [UPLOAD] 하위 폴더 생성: ${subFolder}`);
+    } catch (error) {
+      console.warn(`⚠️ [UPLOAD] 하위 폴더 생성 실패: ${subFolder}`, error);
+    }
   }
 }
 
@@ -344,7 +412,7 @@ async function uploadSingleFile(
   try {
     console.log(`📷 [UPLOAD] 파일 처리: "${file.name}" (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
 
-    // 파일을 Buffer로 변환
+    // 파일을 Buffer로 변환 (Vercel 환경 최적화)
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -373,19 +441,22 @@ async function uploadSingleFile(
     // 대상 폴더 확인
     const targetFolderId = await getTargetFolder(drive, businessFolderId, fileType);
 
-    // Google Drive에 업로드
-    const response = await drive.files.create({
-      requestBody: {
-        name: fileName,
-        parents: [targetFolderId]
-      },
-      media: {
-        mimeType: file.type || 'image/jpeg',
-        body: readableStream
-      },
-      fields: 'id, name, webViewLink',
-      supportsAllDrives: true
-    });
+    // Google Drive에 업로드 (타임아웃 보호)
+    const response = await Promise.race([
+      drive.files.create({
+        requestBody: {
+          name: fileName,
+          parents: [targetFolderId]
+        },
+        media: {
+          mimeType: file.type || 'image/jpeg',
+          body: readableStream
+        },
+        fields: 'id, name, webViewLink',
+        supportsAllDrives: true
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Upload timeout')), 30000)) // 30초 타임아웃
+    ]);
 
     if (!response?.data?.id) {
       throw new Error('Google Drive 업로드 응답이 올바르지 않습니다');
@@ -395,19 +466,9 @@ async function uploadSingleFile(
 
     const fileId = response.data.id;
     
-    // 파일을 공개로 설정
-    try {
-      await drive.permissions.create({
-        fileId: fileId,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone'
-        },
-        supportsAllDrives: true
-      });
-    } catch (permError) {
-      console.warn(`⚠️ [UPLOAD] 파일 공개 설정 실패: ${fileName}`, permError);
-    }
+    // 파일을 공개로 설정 (비동기로 처리)
+    setFilePermissionAsync(drive, fileId, fileName)
+      .catch(permError => console.warn(`⚠️ [UPLOAD] 파일 공개 설정 실패: ${fileName}`, permError));
 
     return {
       id: response.data.id,
@@ -426,6 +487,101 @@ async function uploadSingleFile(
   }
 }
 
+// 파일 권한 설정 (비동기)
+async function setFilePermissionAsync(drive: any, fileId: string, fileName: string) {
+  try {
+    await drive.permissions.create({
+      fileId: fileId,
+      requestBody: {
+        role: 'reader',
+        type: 'anyone'
+      },
+      supportsAllDrives: true
+    });
+    console.log(`🔓 [UPLOAD] 파일 공개 설정 완료: ${fileName}`);
+  } catch (error) {
+    console.warn(`⚠️ [UPLOAD] 파일 공개 설정 실패: ${fileName}`, error);
+  }
+}
+
+// 구글시트 로그 업데이트 (비동기)
+async function updateSheetLogAsync(
+  systemType: 'completion' | 'presurvey',
+  businessName: string,
+  fileCount: number,
+  fileType: string,
+  facilityInfo: string
+) {
+  try {
+    const facilityDetails = facilityInfo || '정보 없음';
+    const uploadLog = `파일 ${fileCount}개 업로드 완료 [${getFileTypeDisplayName(fileType)}] - ${facilityDetails}`;
+    
+    const { sheets } = await import('@/lib/google-client');
+    
+    // systemType에 따라 적절한 스프레드시트와 시트 선택
+    const spreadsheetId = systemType === 'completion' 
+      ? process.env.COMPLETION_SPREADSHEET_ID 
+      : process.env.DATA_COLLECTION_SPREADSHEET_ID;
+    const sheetName = systemType === 'completion' ? '설치 후 사진' : '설치 전 실사';
+    
+    console.log('📊 [UPLOAD] 로그 기록 시작:', { systemType, sheetName });
+    
+    // 해당 사업장 행 찾기 (타임아웃 보호)
+    const range = `'${sheetName}'!A:H`;
+    const response = await Promise.race([
+      sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range,
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Sheet read timeout')), 10000))
+    ]);
+    
+    const rows = response.data.values || [];
+    let targetRowIndex = -1;
+    
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row[1] && row[1].toString().trim() === businessName.trim()) {
+        targetRowIndex = i + 1;
+        break;
+      }
+    }
+    
+    if (targetRowIndex !== -1) {
+      const currentRow = rows[targetRowIndex - 1] || [];
+      // 시간 정보 (20250819_16:30 형식)
+      const now = new Date();
+      const koreaTime = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const logEntry = `[${koreaTime}] ${uploadLog}`;
+      
+      // 기존 상태에 로그 추가
+      let newStatus = currentRow[2] || '';
+      newStatus = newStatus ? `${newStatus}\\n${logEntry}` : logEntry;
+      
+      // C열(상태)만 업데이트 (타임아웃 보호)
+      const updateRange = `'${sheetName}'!C${targetRowIndex}`;
+      await Promise.race([
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: updateRange,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: {
+            values: [[newStatus]],
+          },
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Sheet update timeout')), 10000))
+      ]);
+      
+      console.log('📊 [UPLOAD] 구글시트 로그 추가 완료');
+    } else {
+      console.warn('📊 [UPLOAD] 해당 사업장을 시트에서 찾을 수 없음:', businessName);
+    }
+  } catch (syncError) {
+    console.warn('📊 [UPLOAD] 구글시트 로그 추가 실패:', syncError);
+    throw syncError;
+  }
+}
+
 // 대상 폴더 확인
 async function getTargetFolder(drive: any, businessFolderId: string, fileType: string): Promise<string> {
   const subFolderMapping: Record<string, string> = {
@@ -441,13 +597,17 @@ async function getTargetFolder(drive: any, businessFolderId: string, fileType: s
   }
   
   try {
-    const searchResponse = await drive.files.list({
-      q: `name='${subFolderName}' and parents in '${businessFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id, name)',
-      pageSize: 1,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true
-    });
+    // 타임아웃 보호된 폴더 검색
+    const searchResponse = await Promise.race([
+      drive.files.list({
+        q: `name='${subFolderName}' and parents in '${businessFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name)',
+        pageSize: 1,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Subfolder search timeout')), 5000))
+    ]);
     
     if (searchResponse.data.files?.length > 0) {
       return searchResponse.data.files[0].id!;

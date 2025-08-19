@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, memo } from 'react';
+import { useState, useCallback, useMemo, memo, useEffect } from 'react';
 import { FacilitiesData, SystemType, Facility } from '@/types';
 import { Upload, Zap, Shield, Radio, Wind, Camera, Building, Wrench, Cpu, Power, Settings, Home } from 'lucide-react';
 
@@ -184,7 +184,7 @@ function FileUploadSection({
   const [uploads, setUploads] = useState<Record<string, { files: File[]; status: string; uploading: boolean }>>({});
 
   // 파일 선택 핸들러 (이벤트 기반으로 최적화)
-  useState(() => {
+  useEffect(() => {
     const handleFilesSelected = (event: CustomEvent) => {
       const { uploadId, files } = event.detail;
       setUploads(prev => ({
@@ -202,13 +202,14 @@ function FileUploadSection({
     return () => {
       window.removeEventListener('filesSelected', handleFilesSelected as EventListener);
     };
-  });
+  }, []);
 
-  // 업로드 함수 최적화 with debugging
+  // 업로드 함수 최적화 (Vercel 환경 대응)
   const uploadFiles = useCallback(async (uploadId: string, fileType: string, facilityInfo: string) => {
     const uploadData = uploads[uploadId];
     if (!uploadData || !uploadData.files.length) {
       console.warn('📁 업로드 데이터 없음:', { uploadId, uploadData });
+      showToast('업로드할 파일이 없습니다.', 'error');
       return;
     }
 
@@ -219,6 +220,33 @@ function FileUploadSection({
       [uploadId]: { ...prev[uploadId], uploading: true, status: '업로드 중...' }
     }));
 
+    // 파일 크기 검증 (Vercel 제한에 맞춤)
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    const maxTotalSize = 30 * 1024 * 1024; // 30MB
+    const totalSize = uploadData.files.reduce((sum, file) => sum + file.size, 0);
+    
+    if (totalSize > maxTotalSize) {
+      const errorMsg = `전체 파일 크기가 30MB를 초과합니다 (${(totalSize / 1024 / 1024).toFixed(1)}MB)`;
+      setUploads(prev => ({
+        ...prev,
+        [uploadId]: { ...prev[uploadId], uploading: false, status: `❌ ${errorMsg}` }
+      }));
+      showToast(errorMsg, 'error');
+      return;
+    }
+    
+    for (const file of uploadData.files) {
+      if (file.size > maxFileSize) {
+        const errorMsg = `파일이 너무 큽니다: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB / 10MB)`;
+        setUploads(prev => ({
+          ...prev,
+          [uploadId]: { ...prev[uploadId], uploading: false, status: `❌ ${errorMsg}` }
+        }));
+        showToast(errorMsg, 'error');
+        return;
+      }
+    }
+
     try {
       const formData = new FormData();
       formData.append('businessName', businessName);
@@ -228,69 +256,106 @@ function FileUploadSection({
       
       // 파일 추가 (이미 최적화됨)
       uploadData.files.forEach((file, index) => {
-        console.log(`📄 파일 추가 (${index + 1}): ${file.name}, ${file.size} bytes`);
+        console.log(`📄 파일 추가 (${index + 1}): ${file.name}, ${(file.size / 1024 / 1024).toFixed(2)}MB`);
         formData.append('files', file);
       });
 
       console.log('🚀 API 요청 전송 시작...');
 
+      // 타임아웃과 함께 요청 (60초)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
       const response = await fetch('/api/upload', {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
       console.log('📁 업로드 응답 상태:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+      }
 
       const result = await response.json();
       console.log('📁 업로드 응답 데이터:', result);
       
       if (result.success) {
+        const successMsg = `${result.message || '업로드 성공'} (${result.stats?.success || 0}/${result.stats?.total || 0})`;
+        
         setUploads(prev => ({
           ...prev,
           [uploadId]: { 
             ...prev[uploadId], 
             uploading: false, 
-            status: `✅ ${result.message || '업로드 성공'}` 
+            status: `✅ ${successMsg}`,
+            files: [] // 성공 시 파일 목록 초기화
           }
         }));
         
-        // 성공 토스트 표시
-        const toast = document.createElement('div');
-        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
-        toast.textContent = result.message || '업로드 성공!';
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-          toast.remove();
-        }, 3000);
+        showToast(successMsg, 'success');
       } else {
         throw new Error(result.message || '업로드 실패');
       }
     } catch (error) {
       console.error('🚫 업로드 오류:', error);
       
-      const errorMessage = error instanceof Error ? error.message : '업로드 실패';
+      let errorMessage = '업로드 실패';
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = '업로드 시간이 초과되었습니다. 파일 크기를 줄이거나 나누어서 업로드해 보세요.';
+        } else if (error.message.includes('413')) {
+          errorMessage = '파일 크기가 너무 큽니다. 10MB 이하로 줄여주세요.';
+        } else if (error.message.includes('400')) {
+          errorMessage = '잘못된 요청입니다. 파일 형식을 확인해주세요.';
+        } else if (error.message.includes('500')) {
+          errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+        } else {
+          errorMessage = error.message || '업로드 실패';
+        }
+      }
       
       setUploads(prev => ({
         ...prev,
         [uploadId]: { 
           ...prev[uploadId], 
           uploading: false, 
-          status: `❌ 업로드 실패: ${errorMessage}` 
+          status: `❌ ${errorMessage}` 
         }
       }));
       
-      // 오류 토스트 표시
-      const toast = document.createElement('div');
-      toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
-      toast.textContent = `업로드 실패: ${errorMessage}`;
-      document.body.appendChild(toast);
-      
-      setTimeout(() => {
-        toast.remove();
-      }, 5000);
+      showToast(errorMessage, 'error');
     }
   }, [uploads, businessName, systemType]);
+
+  // 토스트 메시지 표시 함수
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    const toast = document.createElement('div');
+    const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+    toast.className = `fixed top-4 right-4 ${bgColor} text-white px-4 py-2 rounded-lg z-50 shadow-lg max-w-sm break-words`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // 애니메이션 추가
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    toast.style.transition = 'all 0.3s ease-in-out';
+    
+    setTimeout(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateX(0)';
+    }, 100);
+    
+    const duration = type === 'error' ? 7000 : 4000;
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(100%)';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }, []);
 
   // 메모화된 섹션들
   const preventionSection = useMemo(() => {
