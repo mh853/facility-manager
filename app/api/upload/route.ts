@@ -291,33 +291,16 @@ async function uploadSingleFile(
     // MIME 타입 기본값 설정 (카메라 사진 대비)
     const mimeType = file.type || 'image/jpeg';
     
-    // 대한민국 시간대로 파일명 생성
-    const koreaTime = new Date().toLocaleString('ko-KR', {
-      timeZone: 'Asia/Seoul',
-      year: 'numeric',
-      month: '2-digit', 
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    }).replace(/[.\s:/]/g, '-');
-    
-    let safeFileName = file.name || `camera_image_${koreaTime}`;
-    
-    // 파일명에서 특수문자 제거
-    safeFileName = safeFileName.replace(/[^a-zA-Z0-9성-힣一-鿿._-]/g, '_');
-    
-    console.log(`📄 [UPLOAD] 원본 파일: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-    
-    // 파일을 Buffer로 변환
-    const arrayBuffer = await file.arrayBuffer();
-    let buffer = Buffer.from(arrayBuffer);
-    
-    // 파일 크기 로깅만 (속도 최적화를 위해 압축 생략)
-    if (file.size > 5 * 1024 * 1024) {
-      console.log(`📊 [UPLOAD] 대용량 파일: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    // 카메라 사진을 위한 최대한 단순한 처리
+    let safeFileName = 'camera_image';
+    if (file.name && typeof file.name === 'string' && file.name.trim()) {
+      // 영어와 숫자, 점, 하이픈만 허용
+      safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '').substring(0, 50) || 'camera_image';
     }
+    
+    // 속도 최적화: 최소한의 처리
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
     // Buffer를 Readable Stream으로 변환
     const readableStream = new Readable({
@@ -327,14 +310,19 @@ async function uploadSingleFile(
       }
     });
 
-    // 파일명 생성 (안전한 이름 사용)
+    // 최대한 단순한 파일명 생성
     const fileName = generateFileName(businessName, fileType, facilityInfo, fileNumber, safeFileName);
     
     console.log(`📝 [UPLOAD] 생성된 파일명: ${fileName}`);
     
-    // Google Drive API 호출 전 파일명 유효성 최종 검사
-    if (!fileName || fileName.length > 255) {
-      throw new Error(`파일명이 너무 깁니다: ${fileName?.length || 0}자`);
+    // 파일명 기본 검사
+    if (!fileName || typeof fileName !== 'string' || fileName.length > 200) {
+      throw new Error(`파일명 오류: ${fileName}`);
+    }
+    
+    // ASCII 문자만 허용하는지 최종 검사
+    if (!/^[a-zA-Z0-9._-]+$/.test(fileName)) {
+      throw new Error(`파일명에 허용되지 않는 문자가 있습니다: ${fileName}`);
     }
     
     // 대상 폴더 확인
@@ -412,7 +400,7 @@ async function uploadSingleFile(
   }
 }
 
-// 파일명 생성 (카메라 사진 지원 개선 + 한국 시간대)
+// 최대한 단순하고 안전한 파일명 생성 (카메라 사진 특화)
 function generateFileName(
   businessName: string,
   fileType: string,
@@ -420,64 +408,29 @@ function generateFileName(
   fileNumber: number,
   originalName: string
 ): string {
-  // 대한민국 시간대로 타임스탬프 생성
-  const timestamp = new Date().toLocaleString('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  }).replace(/[.\s:/]/g, '-');
+  // 기본 안전 파일명 생성 (영어 + 숫자만)
+  const now = new Date();
+  const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
   
-  // 카메라 사진의 경우 확장자가 없을 수 있음
-  let extension = 'jpg'; // 기본값
-  if (originalName && originalName.includes('.')) {
-    extension = originalName.split('.').pop()?.toLowerCase() || 'jpg';
+  // 확장자 처리
+  let extension = 'jpg';
+  if (originalName && typeof originalName === 'string' && originalName.includes('.')) {
+    const parts = originalName.split('.');
+    if (parts.length > 1) {
+      extension = parts[parts.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    }
   }
   
-  const typeMapping: Record<string, string> = {
-    'basic': '기본사진',
-    'discharge': '배출시설',
-    'prevention': '방지시설'
-  };
-  
-  const typeFolder = typeMapping[fileType] || '기본사진';
-  
-  // facilityInfo에서 안전한 이름 추출
-  let facilityName = 'facility';
-  if (facilityInfo && facilityInfo.trim()) {
-    facilityName = facilityInfo.split('-')[0]?.trim() || facilityInfo.trim();
+  // 유효한 확장자만 허용
+  const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+  if (!validExtensions.includes(extension)) {
+    extension = 'jpg';
   }
   
-  // 모든 특수문자와 공백을 안전하게 처리
-  const sanitizePart = (part: string): string => {
-    return part
-      .replace(/[\s\uFEFF\xA0]+/g, '_') // 모든 종류의 공백을 _로 변경
-      .replace(/[\u0000-\u001f\u007f-\u009f]/g, '') // 제어 문자 제거
-      .replace(/[\/\\:*?"<>|\[\]{}()#%&+@!^~`=]/g, '_') // 특수문자를 _로 변경
-      .replace(/[ㄱ-ㅎㅏ-ㅣ가-힣]/g, (char) => char) // 한글은 유지
-      .replace(/_+/g, '_') // 연속된 _를 하나로
-      .replace(/^_|_$/g, '') // 시작과 끝의 _ 제거
-      .substring(0, 50); // 길이 제한
-  };
+  // 영어 + 숫자만 사용하는 최대한 단순한 이름
+  const safeBaseName = `img_${timestamp}_${fileNumber}`;
   
-  const safeName = [
-    sanitizePart(businessName || 'business'),
-    sanitizePart(typeFolder),
-    sanitizePart(facilityName),
-    `${fileNumber}`,
-    timestamp.replace(/[^0-9-]/g, '') // 타임스탬프에서 숫자와 -만 유지
-  ]
-    .filter(Boolean)
-    .join('_');
-  
-  // 최종 파일명 길이 제한 (Google Drive 제한: 255자)
-  const finalName = safeName.length > 200 ? safeName.substring(0, 200) : safeName;
-  
-  return `${finalName}.${extension}`;
+  return `${safeBaseName}.${extension}`;
 }
 
 // 대상 폴더 확인 (공유 드라이브 지원)
