@@ -86,40 +86,31 @@ export async function POST(request: NextRequest) {
     // 사업장 폴더 생성/확인
     const businessFolderId = await findOrCreateBusinessFolder(drive, businessName, folderId);
 
-    // 파일 업로드 (병렬 처리로 속도 향상)
+    // 파일 업로드 (단순 순차 처리로 속도 최적화)
     const uploadResults = [];
-    const maxConcurrent = 3; // 동시 업로드 제한
     
-    for (let i = 0; i < files.length; i += maxConcurrent) {
-      const batch = files.slice(i, i + maxConcurrent);
-      const batchPromises = batch.map(async (file, batchIndex) => {
-        const fileIndex = i + batchIndex + 1;
-        console.log(`📄 [UPLOAD] 업로드 중 (${fileIndex}/${files.length}): ${file.name}`);
-        
-        try {
-          const result = await uploadSingleFile(
-            drive, 
-            file, 
-            businessFolderId, 
-            fileType, 
-            facilityInfo, 
-            fileIndex, 
-            businessName
-          );
-          
-          if (result) {
-            console.log(`✅ [UPLOAD] 성공: ${result.name}`);
-            return result;
-          }
-          return null;
-        } catch (error) {
-          console.error(`❌ [UPLOAD] 실패: ${file.name}`, error);
-          return null;
-        }
-      });
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      console.log(`📄 [UPLOAD] 업로드 중 (${i + 1}/${files.length}): ${file.name}`);
       
-      const batchResults = await Promise.all(batchPromises);
-      uploadResults.push(...batchResults.filter(Boolean));
+      try {
+        const result = await uploadSingleFile(
+          drive, 
+          file, 
+          businessFolderId, 
+          fileType, 
+          facilityInfo, 
+          i + 1, 
+          businessName
+        );
+        
+        if (result) {
+          uploadResults.push(result);
+          console.log(`✅ [UPLOAD] 성공: ${result.name}`);
+        }
+      } catch (error) {
+        console.error(`❌ [UPLOAD] 실패: ${file.name}`, error);
+      }
     }
 
     console.log(`🎉 [UPLOAD] 완료: ${uploadResults.length}/${files.length} 성공`);
@@ -165,8 +156,18 @@ export async function POST(request: NextRequest) {
         
         if (targetRowIndex !== -1) {
           const currentRow = rows[targetRowIndex - 1] || [];
-          const timestamp = new Date().toLocaleString('ko-KR');
-          const logEntry = `[${timestamp}] ${uploadLog}`;
+          // 대한민국 시간대로 시간 생성
+          const koreaTime = new Date().toLocaleString('ko-KR', {
+            timeZone: 'Asia/Seoul',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          });
+          const logEntry = `[${koreaTime}] ${uploadLog}`;
           
           // 기존 상태에 로그 추가
           let newStatus = currentRow[2] || '';
@@ -283,13 +284,26 @@ async function uploadSingleFile(
 ) {
   try {
     // 파일 유효성 검사
-    if (!file || !file.type) {
-      throw new Error('올바르지 않은 파일 형식');
+    if (!file) {
+      throw new Error('올바르지 않은 파일');
     }
     
-    // 날짜 포맷 올바른 파일명 생성
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-    let safeFileName = file.name || `camera_image_${timestamp}`;
+    // MIME 타입 기본값 설정 (카메라 사진 대비)
+    const mimeType = file.type || 'image/jpeg';
+    
+    // 대한민국 시간대로 파일명 생성
+    const koreaTime = new Date().toLocaleString('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).replace(/[.\s:/]/g, '-');
+    
+    let safeFileName = file.name || `camera_image_${koreaTime}`;
     
     // 파일명에서 특수문자 제거
     safeFileName = safeFileName.replace(/[^a-zA-Z0-9성-힣一-鿿._-]/g, '_');
@@ -300,17 +314,9 @@ async function uploadSingleFile(
     const arrayBuffer = await file.arrayBuffer();
     let buffer = Buffer.from(arrayBuffer);
     
-    // 이미지 크기 최적화 (5MB 이상일 때)
-    if (file.size > 5 * 1024 * 1024 && file.type.startsWith('image/')) {
-      try {
-        console.log(`📊 [UPLOAD] 이미지 압축 시도: ${file.name}`);
-        
-        // Canvas를 사용한 이미지 리사이징 (서버사이드에서는 어려우므로 생략)
-        // 대신 JPEG 품질 조정으로 대체
-        console.log(`⚠️ [UPLOAD] 이미지 압축 생략 (서버사이드)`);
-      } catch (compressionError) {
-        console.warn(`⚠️ [UPLOAD] 이미지 압축 실패, 원본 사용:`, compressionError);
-      }
+    // 파일 크기 로깅만 (속도 최적화를 위해 압축 생략)
+    if (file.size > 5 * 1024 * 1024) {
+      console.log(`📊 [UPLOAD] 대용량 파일: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
     }
 
     // Buffer를 Readable Stream으로 변환
@@ -343,7 +349,7 @@ async function uploadSingleFile(
           parents: [targetFolderId]
         },
         media: {
-          mimeType: file.type || 'image/jpeg',
+          mimeType: mimeType,
           body: readableStream
         },
         fields: 'id, name, webViewLink',
@@ -406,7 +412,7 @@ async function uploadSingleFile(
   }
 }
 
-// 파일명 생성 (카메라 사진 지원 개선)
+// 파일명 생성 (카메라 사진 지원 개선 + 한국 시간대)
 function generateFileName(
   businessName: string,
   fileType: string,
@@ -414,9 +420,17 @@ function generateFileName(
   fileNumber: number,
   originalName: string
 ): string {
-  const timestamp = new Date().toISOString()
-    .replace(/[:.]/g, '-')
-    .slice(0, -5);
+  // 대한민국 시간대로 타임스탬프 생성
+  const timestamp = new Date().toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(/[.\s:/]/g, '-');
   
   // 카메라 사진의 경우 확장자가 없을 수 있음
   let extension = 'jpg'; // 기본값

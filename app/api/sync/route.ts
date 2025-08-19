@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
     // C열에는 업로드 로그 추가 (기존 상태에 로그 추가)
     let newStatus = currentRow[2] || '';
     if (updateData.uploadLog) {
-      const timestamp = new Date().toLocaleString('ko-KR');
+      const timestamp = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
       const logEntry = `[${timestamp}] ${updateData.uploadLog}`;
       newStatus = newStatus ? `${newStatus}\n${logEntry}` : logEntry;
     } else if (updateData.상태) {

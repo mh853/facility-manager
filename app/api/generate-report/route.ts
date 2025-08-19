@@ -203,7 +203,7 @@ async function generatePDFReport(data: any): Promise<Buffer> {
   // 생성일시
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const generateDate = `생성일시: ${new Date().toLocaleString('ko-KR')}`;
+  const generateDate = `생성일시: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`;
   doc.text(generateDate, pageWidth - margin - doc.getTextWidth(generateDate), yPos);
   yPos += 15;
 
