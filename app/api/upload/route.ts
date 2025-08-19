@@ -291,11 +291,24 @@ async function uploadSingleFile(
     // MIME 타입 기본값 설정 (카메라 사진 대비)
     const mimeType = file.type || 'image/jpeg';
     
-    // 카메라 사진을 위한 최대한 단순한 처리
+    // 카메라 사진의 동일한 파일명 문제 해결
     let safeFileName = 'camera_image';
     if (file.name && typeof file.name === 'string' && file.name.trim()) {
-      // 영어와 숫자, 점, 하이픈만 허용
-      safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '').substring(0, 50) || 'camera_image';
+      const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '').substring(0, 50);
+      // image.jpg 같은 기본 파일명 감지 및 고유 이름 생성
+      if (cleanName && cleanName !== 'image.jpg' && cleanName !== 'image.jpeg' && cleanName !== 'image.png') {
+        safeFileName = cleanName;
+      } else {
+        // 기본 파일명인 경우 고유 이름 생성
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 1000);
+        safeFileName = `camera_${timestamp}_${random}`;
+      }
+    } else {
+      // 파일명이 없는 경우도 고유 이름 생성
+      const timestamp = Date.now();
+      const random = Math.floor(Math.random() * 1000);
+      safeFileName = `camera_${timestamp}_${random}`;
     }
     
     // 속도 최적화: 최소한의 처리
@@ -310,20 +323,24 @@ async function uploadSingleFile(
       }
     });
 
-    // 최대한 단순한 파일명 생성
+    // 고유 파일명 생성
     const fileName = generateFileName(businessName, fileType, facilityInfo, fileNumber, safeFileName);
     
-    console.log(`📝 [UPLOAD] 생성된 파일명: ${fileName}`);
+    console.log(`📝 [UPLOAD] 원본명: "${file.name}" → 생성명: "${fileName}"`);
     
-    // 파일명 기본 검사
+    // 파일명 안전성 검사
     if (!fileName || typeof fileName !== 'string' || fileName.length > 200) {
-      throw new Error(`파일명 오류: ${fileName}`);
+      console.error(`❌ [UPLOAD] 파일명 길이 오류: ${fileName?.length || 0}자`);
+      throw new Error(`파일명 길이 오류: ${fileName}`);
     }
     
     // ASCII 문자만 허용하는지 최종 검사
     if (!/^[a-zA-Z0-9._-]+$/.test(fileName)) {
-      throw new Error(`파일명에 허용되지 않는 문자가 있습니다: ${fileName}`);
+      console.error(`❌ [UPLOAD] 파일명 문자 오류: "${fileName}"`);
+      throw new Error(`파일명에 허용되지 않는 문자: ${fileName}`);
     }
+    
+    console.log(`✅ [UPLOAD] 파일명 검증 통과: ${fileName}`);
     
     // 대상 폴더 확인
     const targetFolderId = await getTargetFolder(drive, businessFolderId, fileType);
@@ -400,7 +417,7 @@ async function uploadSingleFile(
   }
 }
 
-// 최대한 단순하고 안전한 파일명 생성 (카메라 사진 특화)
+// 파일명 충돌 방지를 위한 고유 파일명 생성
 function generateFileName(
   businessName: string,
   fileType: string,
@@ -408,9 +425,11 @@ function generateFileName(
   fileNumber: number,
   originalName: string
 ): string {
-  // 기본 안전 파일명 생성 (영어 + 숫자만)
+  // 고유성을 보장하는 타임스탬프 + 랜덤값
   const now = new Date();
   const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   
   // 확장자 처리
   let extension = 'jpg';
@@ -427,10 +446,10 @@ function generateFileName(
     extension = 'jpg';
   }
   
-  // 영어 + 숫자만 사용하는 최대한 단순한 이름
-  const safeBaseName = `img_${timestamp}_${fileNumber}`;
+  // 절대 중복될 수 없는 고유 파일명 생성
+  const uniqueName = `img_${timestamp}_${milliseconds}_${random}_${fileNumber}`;
   
-  return `${safeBaseName}.${extension}`;
+  return `${uniqueName}.${extension}`;
 }
 
 // 대상 폴더 확인 (공유 드라이브 지원)
