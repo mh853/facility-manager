@@ -10,45 +10,80 @@ interface FileUploadSectionProps {
   facilities: FacilitiesData | null;
 }
 
-// 간단한 이미지 압축 함수
+// 단순화된 이미지 압축 함수
 const compressImage = async (file: File): Promise<File> => {
-  // 2MB 이하면 그대로 반환
-  if (file.size <= 2 * 1024 * 1024) return file;
+  // 5MB 이하면 그대로 반환
+  if (file.size <= 5 * 1024 * 1024) return file;
 
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
-    const img = new Image();
+  try {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
 
-    img.onload = () => {
-      // 최대 크기 제한
-      const maxSize = 1920;
-      const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      const img = new Image();
       
-      canvas.width = img.width * ratio;
-      canvas.height = img.height * ratio;
-
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            const compressedFile = new File([blob], file.name, {
-              type: 'image/webp',
-              lastModified: Date.now()
-            });
-            resolve(compressedFile);
-          } else {
-            resolve(file);
+      img.onload = () => {
+        try {
+          // 최대 해상도 제한 (1920x1920)
+          const maxSize = 1920;
+          let { width, height } = img;
+          
+          if (width > maxSize || height > maxSize) {
+            const ratio = Math.min(maxSize / width, maxSize / height);
+            width = Math.floor(width * ratio);
+            height = Math.floor(height * ratio);
           }
-        },
-        'image/webp',
-        0.8
-      );
-    };
-
-    img.src = URL.createObjectURL(file);
-  });
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // 이미지 그리기
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // WebP로 압축 (품질 75%)
+          canvas.toBlob(
+            (blob) => {
+              if (blob && blob.size < file.size) {
+                const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.webp'), {
+                  type: 'image/webp',
+                  lastModified: Date.now()
+                });
+                console.log(`🗜️ 이미지 압축: ${file.name} ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
+                resolve(compressedFile);
+              } else {
+                resolve(file); // 압축 실패하면 원본 반환
+              }
+            },
+            'image/webp',
+            0.75
+          );
+        } catch (error) {
+          console.warn('이미지 압축 중 오류:', error);
+          resolve(file);
+        }
+      };
+      
+      img.onerror = () => {
+        console.warn('이미지 로드 실패:', file.name);
+        resolve(file);
+      };
+      
+      img.src = URL.createObjectURL(file);
+      
+      // 5초 타임아웃
+      setTimeout(() => {
+        console.warn('이미지 압축 타임아웃:', file.name);
+        resolve(file);
+      }, 5000);
+    });
+  } catch (error) {
+    console.warn('이미지 압축 실패:', error);
+    return file;
+  }
 };
 
 // 업로드 아이템 컴포넌트 메모화
@@ -204,7 +239,7 @@ function FileUploadSection({
     };
   }, []);
 
-  // 업로드 함수 최적화 (Vercel 환경 대응)
+  // 간소화된 업로드 함수
   const uploadFiles = useCallback(async (uploadId: string, fileType: string, facilityInfo: string) => {
     const uploadData = uploads[uploadId];
     if (!uploadData || !uploadData.files.length) {
@@ -213,20 +248,27 @@ function FileUploadSection({
       return;
     }
 
-    console.log('📁 업로드 시작:', { uploadId, fileType, facilityInfo, fileCount: uploadData.files.length });
+    console.log('🚀 [CLIENT] 업로드 시작:', { 
+      uploadId, 
+      fileType, 
+      fileCount: uploadData.files.length,
+      totalSize: `${(uploadData.files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024).toFixed(2)}MB`
+    });
 
+    // 업로드 시작 상태 설정
     setUploads(prev => ({
       ...prev,
-      [uploadId]: { ...prev[uploadId], uploading: true, status: '업로드 중...' }
+      [uploadId]: { ...prev[uploadId], uploading: true, status: '업로드 준비 중...' }
     }));
 
-    // 파일 크기 검증 (Vercel 제한에 맞춤)
+    // 기본 검증
     const maxFileSize = 10 * 1024 * 1024; // 10MB
-    const maxTotalSize = 30 * 1024 * 1024; // 30MB
+    const maxTotalSize = 50 * 1024 * 1024; // 50MB
     const totalSize = uploadData.files.reduce((sum, file) => sum + file.size, 0);
     
+    // 파일 크기 검증
     if (totalSize > maxTotalSize) {
-      const errorMsg = `전체 파일 크기가 30MB를 초과합니다 (${(totalSize / 1024 / 1024).toFixed(1)}MB)`;
+      const errorMsg = `전체 파일 크기 초과: ${(totalSize / 1024 / 1024).toFixed(1)}MB (최대 50MB)`;
       setUploads(prev => ({
         ...prev,
         [uploadId]: { ...prev[uploadId], uploading: false, status: `❌ ${errorMsg}` }
@@ -235,36 +277,43 @@ function FileUploadSection({
       return;
     }
     
-    for (const file of uploadData.files) {
-      if (file.size > maxFileSize) {
-        const errorMsg = `파일이 너무 큽니다: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB / 10MB)`;
-        setUploads(prev => ({
-          ...prev,
-          [uploadId]: { ...prev[uploadId], uploading: false, status: `❌ ${errorMsg}` }
-        }));
-        showToast(errorMsg, 'error');
-        return;
-      }
+    const oversizedFiles = uploadData.files.filter(file => file.size > maxFileSize);
+    if (oversizedFiles.length > 0) {
+      const errorMsg = `파일 크기 초과: ${oversizedFiles[0].name} (${(oversizedFiles[0].size / 1024 / 1024).toFixed(1)}MB > 10MB)`;
+      setUploads(prev => ({
+        ...prev,
+        [uploadId]: { ...prev[uploadId], uploading: false, status: `❌ ${errorMsg}` }
+      }));
+      showToast(errorMsg, 'error');
+      return;
     }
 
     try {
+      // FormData 생성
       const formData = new FormData();
       formData.append('businessName', businessName);
       formData.append('fileType', fileType);
-      formData.append('facilityInfo', facilityInfo);
       formData.append('type', systemType);
       
-      // 파일 추가 (이미 최적화됨)
+      // 파일 추가
       uploadData.files.forEach((file, index) => {
-        console.log(`📄 파일 추가 (${index + 1}): ${file.name}, ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+        console.log(`📄 [CLIENT] 파일 추가: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
         formData.append('files', file);
       });
 
-      console.log('🚀 API 요청 전송 시작...');
+      // 업로드 진행 상태 업데이트
+      setUploads(prev => ({
+        ...prev,
+        [uploadId]: { ...prev[uploadId], status: '서버에 업로드 중...' }
+      }));
 
-      // 타임아웃과 함께 요청 (60초)
+      console.log('📡 [CLIENT] API 요청 전송');
+
+      // 업로드 요청 (90초 타임아웃)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 90000);
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -273,48 +322,43 @@ function FileUploadSection({
       });
 
       clearTimeout(timeoutId);
-      console.log('📁 업로드 응답 상태:', response.status, response.statusText);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
-      }
+      console.log(`📡 [CLIENT] 응답 받음: ${response.status} ${response.statusText}`);
 
+      // 응답 처리
       const result = await response.json();
-      console.log('📁 업로드 응답 데이터:', result);
+      console.log('📡 [CLIENT] 응답 데이터:', result);
       
-      if (result.success) {
-        const successMsg = `${result.message || '업로드 성공'} (${result.stats?.success || 0}/${result.stats?.total || 0})`;
+      if (response.ok && result.success) {
+        const successMsg = `✅ ${result.message} (${result.stats?.success}/${result.stats?.total})`;
         
         setUploads(prev => ({
           ...prev,
           [uploadId]: { 
             ...prev[uploadId], 
             uploading: false, 
-            status: `✅ ${successMsg}`,
+            status: successMsg,
             files: [] // 성공 시 파일 목록 초기화
           }
         }));
         
-        showToast(successMsg, 'success');
+        showToast(result.message, 'success');
       } else {
-        throw new Error(result.message || '업로드 실패');
+        throw new Error(result.message || `Server error: ${response.status}`);
       }
+      
     } catch (error) {
-      console.error('🚫 업로드 오류:', error);
+      console.error('💥 [CLIENT] 업로드 실패:', error);
       
       let errorMessage = '업로드 실패';
+      
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
-          errorMessage = '업로드 시간이 초과되었습니다. 파일 크기를 줄이거나 나누어서 업로드해 보세요.';
-        } else if (error.message.includes('413')) {
-          errorMessage = '파일 크기가 너무 큽니다. 10MB 이하로 줄여주세요.';
-        } else if (error.message.includes('400')) {
-          errorMessage = '잘못된 요청입니다. 파일 형식을 확인해주세요.';
-        } else if (error.message.includes('500')) {
-          errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+          errorMessage = '업로드 시간 초과 (90초) - 파일 크기를 줄이거나 네트워크를 확인하세요';
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = '네트워크 연결 오류 - 인터넷 연결을 확인하세요';
         } else {
-          errorMessage = error.message || '업로드 실패';
+          errorMessage = error.message;
         }
       }
       
