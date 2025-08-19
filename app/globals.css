@@ -1,0 +1,245 @@
+/* 기본 성능 최적화된 CSS */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* CSS 변수 */
+:root {
+  --primary-50: #eff6ff;
+  --primary-600: #2563eb;
+  --primary-700: #1d4ed8;
+  --primary-800: #1e40af;
+}
+
+/* 기본 최적화 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-feature-settings: 'rlig' 1, 'calt' 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 성능 최적화된 컴포넌트 클래스 */
+.btn-base {
+  @apply inline-flex items-center justify-center gap-2 px-6 py-2 text-sm font-medium rounded-lg transition-colors;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-primary {
+  @apply btn-base bg-blue-600 text-white hover:bg-blue-700;
+}
+
+.btn-secondary {
+  @apply btn-base bg-gray-200 text-gray-900 hover:bg-gray-300;
+}
+
+.btn-success {
+  @apply btn-base bg-green-600 text-white hover:bg-green-700;
+}
+
+.btn-warning {
+  @apply btn-base bg-yellow-600 text-white hover:bg-yellow-700;
+}
+
+/* 카드 컴포넌트 */
+.card {
+  @apply bg-white rounded-xl shadow-lg;
+}
+
+.card-header {
+  @apply flex items-center gap-2 mb-4 md:mb-6;
+}
+
+.card-title {
+  @apply text-lg md:text-xl font-bold text-gray-900;
+}
+
+.card-content {
+  @apply p-4 md:p-6;
+}
+
+/* 테이블 최적화 */
+.table-container {
+  @apply overflow-x-auto;
+}
+
+.table-base {
+  @apply w-full border-collapse border border-gray-300;
+}
+
+.table-header {
+  @apply border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm font-medium;
+}
+
+.table-cell {
+  @apply border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm;
+}
+
+.table-row {
+  @apply hover:bg-gray-50 transition-colors;
+}
+
+/* 입력 필드 최적화 */
+.input-base {
+  @apply w-full p-3 border border-gray-300 rounded-lg;
+  @apply focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+  @apply transition-colors duration-200;
+}
+
+.textarea-base {
+  @apply input-base resize-none;
+}
+
+/* 로딩 애니메이션 */
+.loading-spinner {
+  @apply w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin;
+}
+
+.loading-pulse {
+  @apply animate-pulse bg-gray-200 rounded;
+}
+
+/* 그리드 레이아웃 */
+.grid-responsive {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6;
+}
+
+.grid-two-cols {
+  @apply grid lg:grid-cols-2 gap-4 lg:gap-6;
+}
+
+/* 플렉스 유틸리티 */
+.flex-center {
+  @apply flex items-center justify-center;
+}
+
+.flex-between {
+  @apply flex items-center justify-between;
+}
+
+/* 텍스트 유틸리티 */
+.text-responsive {
+  @apply text-sm md:text-base;
+}
+
+.heading-responsive {
+  @apply text-lg md:text-xl font-bold text-gray-900;
+}
+
+/* 스페이싱 최적화 */
+.space-y-responsive {
+  @apply space-y-4 md:space-y-6;
+}
+
+.p-responsive {
+  @apply p-4 md:p-6;
+}
+
+/* 성능 최적화된 애니메이션 */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none;
+  }
+  
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* 모션 감소 설정 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 인쇄 최적화 */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+  
+  .card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+}
+
+/* 스크롤바 스타일 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* 성능 최적화된 그라디언트 */
+.gradient-blue {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+}
+
+/* 이미지 최적화 */
+img {
+  max-width: 100%;
+  height: auto;
+}
