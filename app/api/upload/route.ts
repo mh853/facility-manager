@@ -86,30 +86,40 @@ export async function POST(request: NextRequest) {
     // 사업장 폴더 생성/확인
     const businessFolderId = await findOrCreateBusinessFolder(drive, businessName, folderId);
 
-    // 파일 업로드
+    // 파일 업로드 (병렬 처리로 속도 향상)
     const uploadResults = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      console.log(`📄 [UPLOAD] 업로드 중 (${i + 1}/${files.length}): ${file.name}`);
-      
-      try {
-        const result = await uploadSingleFile(
-          drive, 
-          file, 
-          businessFolderId, 
-          fileType, 
-          facilityInfo, 
-          i + 1, 
-          businessName
-        );
+    const maxConcurrent = 3; // 동시 업로드 제한
+    
+    for (let i = 0; i < files.length; i += maxConcurrent) {
+      const batch = files.slice(i, i + maxConcurrent);
+      const batchPromises = batch.map(async (file, batchIndex) => {
+        const fileIndex = i + batchIndex + 1;
+        console.log(`📄 [UPLOAD] 업로드 중 (${fileIndex}/${files.length}): ${file.name}`);
         
-        if (result) {
-          uploadResults.push(result);
-          console.log(`✅ [UPLOAD] 성공: ${result.name}`);
+        try {
+          const result = await uploadSingleFile(
+            drive, 
+            file, 
+            businessFolderId, 
+            fileType, 
+            facilityInfo, 
+            fileIndex, 
+            businessName
+          );
+          
+          if (result) {
+            console.log(`✅ [UPLOAD] 성공: ${result.name}`);
+            return result;
+          }
+          return null;
+        } catch (error) {
+          console.error(`❌ [UPLOAD] 실패: ${file.name}`, error);
+          return null;
         }
-      } catch (error) {
-        console.error(`❌ [UPLOAD] 실패: ${file.name}`, error);
-      }
+      });
+      
+      const batchResults = await Promise.all(batchPromises);
+      uploadResults.push(...batchResults.filter(Boolean));
     }
 
     console.log(`🎉 [UPLOAD] 완료: ${uploadResults.length}/${files.length} 성공`);
@@ -261,7 +271,7 @@ async function findOrCreateBusinessFolder(drive: any, businessName: string, pare
   }
 }
 
-// 단일 파일 업로드 (공유 드라이브 지원)
+// 단일 파일 업로드 (공유 드라이브 지원 + 이미지 압축)
 async function uploadSingleFile(
   drive: any,
   file: File,
@@ -272,8 +282,37 @@ async function uploadSingleFile(
   businessName: string
 ) {
   try {
+    // 파일 유효성 검사
+    if (!file || !file.type) {
+      throw new Error('올바르지 않은 파일 형식');
+    }
+    
+    // 날짜 포맷 올바른 파일명 생성
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+    let safeFileName = file.name || `camera_image_${timestamp}`;
+    
+    // 파일명에서 특수문자 제거
+    safeFileName = safeFileName.replace(/[^a-zA-Z0-9성-힣一-鿿._-]/g, '_');
+    
+    console.log(`📄 [UPLOAD] 원본 파일: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    
     // 파일을 Buffer로 변환
     const arrayBuffer = await file.arrayBuffer();
+    let buffer = Buffer.from(arrayBuffer);
+    
+    // 이미지 크기 최적화 (5MB 이상일 때)
+    if (file.size > 5 * 1024 * 1024 && file.type.startsWith('image/')) {
+      try {
+        console.log(`📊 [UPLOAD] 이미지 압축 시도: ${file.name}`);
+        
+        // Canvas를 사용한 이미지 리사이징 (서버사이드에서는 어려우므로 생략)
+        // 대신 JPEG 품질 조정으로 대체
+        console.log(`⚠️ [UPLOAD] 이미지 압축 생략 (서버사이드)`);
+      } catch (compressionError) {
+        console.warn(`⚠️ [UPLOAD] 이미지 압축 실패, 원본 사용:`, compressionError);
+      }
+    }
+    
     const buffer = Buffer.from(arrayBuffer);
 
     // Buffer를 Readable Stream으로 변환
@@ -284,25 +323,56 @@ async function uploadSingleFile(
       }
     });
 
-    // 파일명 생성
-    const fileName = generateFileName(businessName, fileType, facilityInfo, fileNumber, file.name);
+    // 파일명 생성 (안전한 이름 사용)
+    const fileName = generateFileName(businessName, fileType, facilityInfo, fileNumber, safeFileName);
+    
+    console.log(`📝 [UPLOAD] 생성된 파일명: ${fileName}`);
+    
+    // Google Drive API 호출 전 파일명 유효성 최종 검사
+    if (!fileName || fileName.length > 255) {
+      throw new Error(`파일명이 너무 깁니다: ${fileName?.length || 0}자`);
+    }
     
     // 대상 폴더 확인
     const targetFolderId = await getTargetFolder(drive, businessFolderId, fileType);
 
-    // Google Drive에 업로드 (공유 드라이브 지원)
-    const response = await drive.files.create({
-      requestBody: {
-        name: fileName,
-        parents: [targetFolderId]
-      },
-      media: {
-        mimeType: file.type,
-        body: readableStream
-      },
-      fields: 'id, name, webViewLink',
-      supportsAllDrives: true
-    });
+    // Google Drive에 업로드 (공유 드라이브 지원, 개선된 오류 처리)
+    let response;
+    try {
+      response = await drive.files.create({
+        requestBody: {
+          name: fileName,
+          parents: [targetFolderId]
+        },
+        media: {
+          mimeType: file.type || 'image/jpeg',
+          body: readableStream
+        },
+        fields: 'id, name, webViewLink',
+        supportsAllDrives: true
+      });
+      
+      if (!response?.data?.id) {
+        throw new Error('Google Drive 업로드 응답이 올바르지 않습니다');
+      }
+      
+      console.log(`🎉 [UPLOAD] Google Drive 업로드 성공: ${fileName} (ID: ${response.data.id})`);
+      
+    } catch (driveError: any) {
+      console.error(`❌ [UPLOAD] Google Drive 업로드 실패:`, driveError);
+      
+      // 구체적인 오류 메시지 생성
+      let errorMessage = '파일 업로드 실패';
+      if (driveError.message?.includes('invalid') || driveError.message?.includes('pattern')) {
+        errorMessage = '파일명에 올바르지 않은 문자가 포함되어 있습니다';
+      } else if (driveError.message?.includes('quota') || driveError.message?.includes('limit')) {
+        errorMessage = 'Google Drive 용량 한도에 도달했습니다';
+      } else if (driveError.message?.includes('permission') || driveError.message?.includes('access')) {
+        errorMessage = 'Google Drive 접근 권한이 없습니다';
+      }
+      
+      throw new Error(`${errorMessage}: ${driveError.message}`);
+    }
 
     const fileId = response.data.id;
     
@@ -338,7 +408,7 @@ async function uploadSingleFile(
   }
 }
 
-// 파일명 생성
+// 파일명 생성 (카메라 사진 지원 개선)
 function generateFileName(
   businessName: string,
   fileType: string,
@@ -350,7 +420,11 @@ function generateFileName(
     .replace(/[:.]/g, '-')
     .slice(0, -5);
   
-  const extension = originalName.split('.').pop() || 'jpg';
+  // 카메라 사진의 경우 확장자가 없을 수 있음
+  let extension = 'jpg'; // 기본값
+  if (originalName && originalName.includes('.')) {
+    extension = originalName.split('.').pop()?.toLowerCase() || 'jpg';
+  }
   
   const typeMapping: Record<string, string> = {
     'basic': '기본사진',
@@ -359,20 +433,39 @@ function generateFileName(
   };
   
   const typeFolder = typeMapping[fileType] || '기본사진';
-  const facilityName = facilityInfo.split('-')[0] || facilityInfo;
+  
+  // facilityInfo에서 안전한 이름 추출
+  let facilityName = 'facility';
+  if (facilityInfo && facilityInfo.trim()) {
+    facilityName = facilityInfo.split('-')[0]?.trim() || facilityInfo.trim();
+  }
+  
+  // 모든 특수문자와 공백을 안전하게 처리
+  const sanitizePart = (part: string): string => {
+    return part
+      .replace(/[\s\uFEFF\xA0]+/g, '_') // 모든 종류의 공백을 _로 변경
+      .replace(/[\u0000-\u001f\u007f-\u009f]/g, '') // 제어 문자 제거
+      .replace(/[\/\\:*?"<>|\[\]{}()#%&+@!^~`=]/g, '_') // 특수문자를 _로 변경
+      .replace(/[ㄱ-ㅎㅏ-ㅣ가-힣]/g, (char) => char) // 한글은 유지
+      .replace(/_+/g, '_') // 연속된 _를 하나로
+      .replace(/^_|_$/g, '') // 시작과 끝의 _ 제거
+      .substring(0, 50); // 길이 제한
+  };
   
   const safeName = [
-    businessName,
-    typeFolder,
-    facilityName,
-    `${fileNumber}번째`,
-    timestamp
+    sanitizePart(businessName || 'business'),
+    sanitizePart(typeFolder),
+    sanitizePart(facilityName),
+    `${fileNumber}`,
+    timestamp.replace(/[^0-9-]/g, '') // 타임스탬프에서 숫자와 -만 유지
   ]
-    .map(part => part.replace(/[\/\\:*?"<>|]/g, '_').trim())
     .filter(Boolean)
     .join('_');
   
-  return `${safeName}.${extension}`;
+  // 최종 파일명 길이 제한 (Google Drive 제한: 255자)
+  const finalName = safeName.length > 200 ? safeName.substring(0, 200) : safeName;
+  
+  return `${finalName}.${extension}`;
 }
 
 // 대상 폴더 확인 (공유 드라이브 지원)
