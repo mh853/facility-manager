@@ -43,7 +43,7 @@ function FacilityStats({ facilities, loading }: FacilityStatsProps) {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border-2 border-blue-200">
           <div className="flex items-center gap-2 mb-2">
-            <Target className="w-5 h-5 text-blue-600" />
+            <Target className="w-3 h-3 text-blue-600" />
             <span className="text-sm font-medium text-blue-700">배출구</span>
           </div>
           <div className="text-2xl font-bold text-blue-600">
@@ -53,7 +53,7 @@ function FacilityStats({ facilities, loading }: FacilityStatsProps) {
         
         <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border-2 border-red-200">
           <div className="flex items-center gap-2 mb-2">
-            <Zap className="w-5 h-5 text-red-600" />
+            <Zap className="w-3 h-3 text-red-600" />
             <span className="text-sm font-medium text-red-700">배출시설</span>
           </div>
           <div className="text-2xl font-bold text-red-600">
@@ -63,7 +63,7 @@ function FacilityStats({ facilities, loading }: FacilityStatsProps) {
         
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border-2 border-green-200">
           <div className="flex items-center gap-2 mb-2">
-            <Shield className="w-5 h-5 text-green-600" />
+            <Shield className="w-3 h-3 text-green-600" />
             <span className="text-sm font-medium text-green-700">방지시설</span>
           </div>
           <div className="text-2xl font-bold text-green-600">

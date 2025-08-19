@@ -126,8 +126,14 @@ export async function POST(request: NextRequest) {
         
         // 기존 Google Client 사용
         const { sheets } = await import('@/lib/google-client');
-        const spreadsheetId = process.env.DATA_COLLECTION_SPREADSHEET_ID;
-        const sheetName = '설치 전 실사';
+        
+        // systemType에 따라 적절한 스프레드시트와 시트 선택
+        const spreadsheetId = systemType === 'completion' 
+          ? process.env.COMPLETION_SPREADSHEET_ID 
+          : process.env.DATA_COLLECTION_SPREADSHEET_ID;
+        const sheetName = systemType === 'completion' ? '설치 후 사진' : '설치 전 실사';
+        
+        console.log('📊 [UPLOAD] 업로드 로그 대상:', { systemType, spreadsheetId: spreadsheetId?.slice(0, 10) + '...', sheetName });
         
         // 해당 사업장 행 찾기
         const range = `'${sheetName}'!A:H`;

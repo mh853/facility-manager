@@ -1,19 +1,7 @@
 // app/api/uploaded-files/route.ts - 업로드된 파일 관리 API
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
-
-// 구글 드라이브 클라이언트 생성
-async function createDriveClient() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    },
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
-
-  return google.drive({ version: 'v3', auth });
-}
+import { createOptimizedDriveClient } from '@/lib/google-client';
+import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 
 // 업로드된 파일 목록 조회 (GET)
 export async function GET(request: NextRequest) {
@@ -32,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     console.log('📂 [FILES] 업로드된 파일 조회 시작:', { businessName, systemType, forceRefresh });
 
-    const drive = await createDriveClient();
+    const drive = await createOptimizedDriveClient();
     
     // 폴더 ID 확인
     const folderId = systemType === 'completion' 
@@ -102,7 +90,7 @@ export async function DELETE(request: NextRequest) {
 
     console.log('🗑️ [FILES] 파일 삭제 시작:', fileName);
 
-    const drive = await createDriveClient();
+    const drive = await createOptimizedDriveClient();
 
     // 파일 삭제
     await drive.files.delete({
