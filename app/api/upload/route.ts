@@ -459,7 +459,7 @@ function generateFileName(
     const typePrefix = typeMap[fileType as keyof typeof typeMap] || '기타';
     
     // facilityInfo 정보 파싱
-    let facilityParts = [];
+    let facilityParts: string[] = [];
     if (facilityInfo && facilityInfo.trim()) {
       facilityParts = facilityInfo.split(/[-,/]/).map(p => p.trim()).filter(Boolean);
     }
