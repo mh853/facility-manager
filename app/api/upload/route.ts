@@ -124,16 +124,8 @@ export async function POST(request: NextRequest) {
         
         const uploadLog = `파일 ${uploadResults.length}개 업로드 완료 [${getFileTypeDisplayName(fileType)}] - ${facilityDetails}`;
         
-        // Google Sheets API 직접 호출
-        const auth = new google.auth.GoogleAuth({
-          credentials: {
-            client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-            private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-          },
-          scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-        });
-        
-        const sheets = google.sheets({ version: 'v4', auth });
+        // 기존 Google Client 사용
+        const { sheets } = await import('@/lib/google-client');
         const spreadsheetId = process.env.DATA_COLLECTION_SPREADSHEET_ID;
         const sheetName = '설치 전 실사';
         

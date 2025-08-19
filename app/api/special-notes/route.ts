@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sheets } from '@/lib/google-client';
+import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 
-export async function POST(request: NextRequest) {
-  try {
-    console.log('📝 [SPECIAL-NOTES] 특이사항 저장 시작...');
+export const POST = withApiHandler(async (request: NextRequest) => {
+  console.log('📝 [SPECIAL-NOTES] 특이사항 저장 시작...');
     
     const body = await request.json();
     const { businessName, specialNotes, systemType } = body;
@@ -86,25 +86,10 @@ export async function POST(request: NextRequest) {
 
     console.log('📝 [SPECIAL-NOTES] ✅ 저장 완료 (E열 업데이트)');
 
-    return NextResponse.json({
-      success: true,
-      message: '특이사항이 저장되었습니다.',
-      data: {
-        rowIndex: targetRowIndex,
-        businessName,
-        specialNotes: specialNotes || ''
-      }
-    });
+    return createSuccessResponse({
+      rowIndex: targetRowIndex,
+      businessName,
+      specialNotes: specialNotes || ''
+    }, '특이사항이 저장되었습니다.');
 
-  } catch (error) {
-    console.error('📝 [SPECIAL-NOTES] ❌ 저장 오류:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: '특이사항 저장 중 오류가 발생했습니다.',
-        error: error instanceof Error ? error.message : '알 수 없는 오류'
-      },
-      { status: 500 }
-    );
-  }
-}
+}, { logLevel: 'debug' });

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sheets } from '@/lib/google-client';
+import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 
-export async function POST(request: NextRequest) {
-  try {
-    console.log('👤 [INSPECTOR] 실사자 정보 저장 시작...');
+export const POST = withApiHandler(async (request: NextRequest) => {
+  console.log('👤 [INSPECTOR] 실사자 정보 저장 시작...');
     
     const body = await request.json();
     const { businessName, inspectorInfo, systemType } = body;
@@ -15,17 +15,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!businessName) {
-      return NextResponse.json(
-        { success: false, message: '사업장명이 필요합니다.' },
-        { status: 400 }
-      );
+      return createErrorResponse('사업장명이 필요합니다.', 400);
     }
 
     if (!inspectorInfo || !inspectorInfo.name) {
-      return NextResponse.json(
-        { success: false, message: '실사자 성명이 필요합니다.' },
-        { status: 400 }
-      );
+      return createErrorResponse('실사자 성명이 필요합니다.', 400);
     }
 
     // systemType에 따라 다른 시트 사용
@@ -37,10 +31,7 @@ export async function POST(request: NextRequest) {
     if (!spreadsheetId) {
       const envVarName = systemType === 'completion' ? 'COMPLETION_SPREADSHEET_ID' : 'DATA_COLLECTION_SPREADSHEET_ID';
       console.error(`❌ ${envVarName}가 설정되지 않음`);
-      return NextResponse.json(
-        { success: false, message: `${envVarName}가 설정되지 않았습니다.` },
-        { status: 500 }
-      );
+      return createErrorResponse(`${envVarName}가 설정되지 않았습니다.`, 500);
     }
 
     console.log('👤 [INSPECTOR] 사업장 행 검색 중:', businessName);
@@ -67,10 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (targetRowIndex === -1) {
-      return NextResponse.json(
-        { success: false, message: `"${businessName}" 사업장을 찾을 수 없습니다.` },
-        { status: 404 }
-      );
+      return createErrorResponse(`"${businessName}" 사업장을 찾을 수 없습니다.`, 404);
     }
 
     // 연락처 형식 검증 (010-0000-0000)
@@ -129,25 +117,10 @@ export async function POST(request: NextRequest) {
 
     console.log('👤 [INSPECTOR] ✅ 저장 완료 (행 업데이트)');
 
-    return NextResponse.json({
-      success: true,
-      message: '실사자 정보가 저장되었습니다.',
-      data: {
-        rowIndex: targetRowIndex,
-        businessName,
-        url: siteUrl
-      }
-    });
+    return createSuccessResponse({
+      rowIndex: targetRowIndex,
+      businessName,
+      url: siteUrl
+    }, '실사자 정보가 저장되었습니다.');
 
-  } catch (error) {
-    console.error('👤 [INSPECTOR] ❌ 저장 오류:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: '실사자 정보 저장 중 오류가 발생했습니다.',
-        error: error instanceof Error ? error.message : '알 수 없는 오류'
-      },
-      { status: 500 }
-    );
-  }
-}
+}, { logLevel: 'debug' });
