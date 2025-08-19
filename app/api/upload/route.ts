@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 파일 업로드 (병렬 처리로 최적화하되 동시 연결 수 제한)
-    const uploadResults = [];
+    const uploadResults: any[] = [];
     const batchSize = 2; // Vercel에서 안정적인 동시 업로드 수
     
     for (let i = 0; i < files.length; i += batchSize) {
