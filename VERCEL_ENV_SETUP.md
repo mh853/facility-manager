@@ -11,15 +11,34 @@ GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nyour_private_ke
 ```
 
 **⚠️ IMPORTANT: Private Key 설정 시 주의사항**
-1. Private Key는 반드시 큰따옴표("")로 감싸야 합니다
-2. 개행 문자는 `\n`으로 이스케이프해야 합니다
-3. 또는 Base64로 인코딩해서 설정할 수 있습니다:
-   ```bash
-   # Base64로 인코딩하여 설정하는 방법
-   echo "-----BEGIN PRIVATE KEY-----
-   your_private_key_here
-   -----END PRIVATE KEY-----" | base64
-   ```
+
+### 방법 1: 표준 방식 (가장 일반적)
+```
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nyour_private_key_here\n-----END PRIVATE KEY-----"
+```
+
+### 방법 2: Base64 인코딩 방식 (DECODER 오류 발생 시)
+```bash
+# 1. Private Key를 Base64로 인코딩
+echo "-----BEGIN PRIVATE KEY-----
+your_private_key_here
+-----END PRIVATE KEY-----" | base64 -w 0
+
+# 2. 결과를 Vercel 환경변수에 설정
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=LS0tLS1CRUdJTi...
+```
+
+### 방법 3: 전체 Service Account JSON 방식 (권장)
+```bash
+# 1. Google Cloud Console에서 Service Account JSON 파일 다운로드
+# 2. JSON 내용을 한 줄로 압축 (minify)
+# 3. 전체 JSON을 환경변수로 설정
+GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"your-project",...}
+```
+
+**설정 순서:**
+1. 방법 1로 시도
+2. DECODER 오류 발생 시 방법 2 또는 3 사용
 
 ### Google Sheets ID
 ```
