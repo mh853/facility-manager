@@ -13,7 +13,9 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     hasDataCollectionId: !!process.env.DATA_COLLECTION_SPREADSHEET_ID,
     finalId: uploadSpreadsheetId?.slice(0, 10) + '...',
     hasGoogleEmail: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    hasGoogleKey: !!process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
+    hasGoogleKey: !!process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+    keyStartsWithBegin: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.includes('-----BEGIN'),
+    keyLength: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.length || 0
   });
   
   if (!uploadSpreadsheetId) {

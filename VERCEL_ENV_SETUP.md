@@ -10,6 +10,17 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@your-project.iam.gserviceaccou
 GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nyour_private_key_here\n-----END PRIVATE KEY-----"
 ```
 
+**⚠️ IMPORTANT: Private Key 설정 시 주의사항**
+1. Private Key는 반드시 큰따옴표("")로 감싸야 합니다
+2. 개행 문자는 `\n`으로 이스케이프해야 합니다
+3. 또는 Base64로 인코딩해서 설정할 수 있습니다:
+   ```bash
+   # Base64로 인코딩하여 설정하는 방법
+   echo "-----BEGIN PRIVATE KEY-----
+   your_private_key_here
+   -----END PRIVATE KEY-----" | base64
+   ```
+
 ### Google Sheets ID
 ```
 MAIN_SPREADSHEET_ID=your_main_spreadsheet_id

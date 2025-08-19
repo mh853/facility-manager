@@ -66,10 +66,24 @@ export function withApiHandler(
       const duration = Date.now() - startTime;
       console.error(`❌ [API] ${request.method} ${request.url} 실패 (${duration}ms):`, error);
       
+      // Google Auth 관련 에러는 더 자세히 로깅
+      if (error instanceof Error && error.message.includes('DECODER')) {
+        console.error('🔐 [GOOGLE-AUTH] Private Key 디코딩 오류 - Vercel 환경변수 확인 필요');
+        console.error('🔐 [GOOGLE-AUTH] Private Key 형식:', {
+          hasBeginMarker: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.includes('-----BEGIN'),
+          hasEndMarker: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.includes('-----END'),
+          keyLength: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.length,
+          isQuoted: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.startsWith('"')
+        });
+      }
+      
       return createErrorResponse(
         error instanceof Error ? error.message : '서버 오류가 발생했습니다.',
         500,
-        process.env.NODE_ENV === 'development' ? { stack: error instanceof Error ? error.stack : undefined } : undefined
+        process.env.NODE_ENV === 'development' ? { 
+          stack: error instanceof Error ? error.stack : undefined,
+          errorType: error instanceof Error ? error.constructor.name : 'Unknown'
+        } : undefined
       );
     }
   };
