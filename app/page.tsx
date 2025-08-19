@@ -201,4 +201,4 @@ export default memo(function HomePage() {
       </div>
     </div>
   );
-}
+});

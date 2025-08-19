@@ -1,6 +1,7 @@
 // app/api/upload/route.ts - 최적화된 파일 업로드 API
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'stream';
+import { google } from 'googleapis';
 import { createOptimizedDriveClient } from '@/lib/google-client';
 import { withApiHandler, createSuccessResponse, createErrorResponse, sanitizeFileName, withTimeout } from '@/lib/api-utils';
 
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     console.log('📁 [UPLOAD] 대상 폴더 ID:', folderId);
 
     // Drive 클라이언트 생성
-    const drive = await createDriveClient();
+    const drive = await createOptimizedDriveClient();
 
     // 사업장 폴더 생성/확인
     const businessFolderId = await findOrCreateBusinessFolder(drive, businessName, folderId);

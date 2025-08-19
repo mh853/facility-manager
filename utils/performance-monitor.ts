@@ -133,7 +133,7 @@ ${stats.topSlowUrls.map(item => `   ${item.url}: ${item.avgTime}ms`).join('\n')}
           Response: navigation.responseEnd - navigation.responseStart,
           DOM: navigation.domContentLoadedEventEnd - navigation.responseEnd,
           Load: navigation.loadEventEnd - navigation.loadEventStart,
-          Total: navigation.loadEventEnd - navigation.navigationStart
+          Total: navigation.loadEventEnd - navigation.startTime
         };
 
         console.log(`
@@ -175,7 +175,7 @@ ${stats.topSlowUrls.map(item => `   ${item.url}: ${item.avgTime}ms`).join('\n')}
     new PerformanceObserver((entryList) => {
       const entries = entryList.getEntries();
       entries.forEach(entry => {
-        console.log(`👆 FID: ${Math.round(entry.processingStart - entry.startTime)}ms`);
+        console.log(`👆 FID: ${Math.round((entry as any).processingStart - entry.startTime)}ms`);
       });
     }).observe({entryTypes: ['first-input']});
 

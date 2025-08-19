@@ -155,7 +155,7 @@ async function findBusinessFolder(drive: any, businessName: string, parentFolder
 
       if (searchResponse.data.files?.length > 0) {
         // 정확히 일치하는 폴더 우선 선택
-        const exactMatch = searchResponse.data.files.find(file => file.name === businessName);
+        const exactMatch = searchResponse.data.files.find((file: any) => file.name === businessName);
         const selectedFolder = exactMatch || searchResponse.data.files[0];
         
         console.log('📂 [FILES] 선택된 폴더:', selectedFolder.name, '(ID:', selectedFolder.id, ')');

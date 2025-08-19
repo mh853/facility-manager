@@ -132,7 +132,7 @@ async function sendEmail({ config, to, subject, html, text }: {
 }) {
   try {
     // SMTP 전송기 생성
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       host: config.smtpHost,
       port: config.smtpPort,
       secure: config.smtpPort === 465, // true for 465, false for other ports

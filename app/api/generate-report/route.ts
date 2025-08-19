@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ PDF 보고서 생성 완료: ${fileName}`);
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,

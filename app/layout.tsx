@@ -10,12 +10,17 @@ const inter = Inter({
   fallback: ['system-ui', 'arial']
 });
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata = {
   title: '시설 관리 시스템',
   description: '실사관리 시스템 - 시설 정보 관리 및 보고서 작성',
   keywords: '시설관리, 실사, 보고서, 시설정보',
   authors: [{ name: '시설관리팀' }],
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=5',
   
   // PWA 설정
   manifest: '/manifest.json',

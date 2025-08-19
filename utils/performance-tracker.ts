@@ -87,7 +87,7 @@ class PerformanceTracker {
         Response: navigation.responseEnd - navigation.responseStart,
         DOM: navigation.domContentLoadedEventEnd - navigation.responseEnd,
         Load: navigation.loadEventEnd - navigation.loadEventStart,
-        Total: navigation.loadEventEnd - navigation.navigationStart
+        Total: navigation.loadEventEnd - navigation.startTime
       },
       resources: this.analyzeResources(),
       deviceInfo: this.getDeviceInfo()

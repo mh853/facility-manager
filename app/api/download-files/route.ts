@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import JSZip from 'jszip';
 
+// 이 API는 동적이어야 함을 명시
+export const dynamic = 'force-dynamic';
+
 // Google API 설정
 const auth = new google.auth.GoogleAuth({
   credentials: {
@@ -16,9 +19,8 @@ const drive = google.drive({ version: 'v3', auth });
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const businessName = searchParams.get('businessName');
-    const type = searchParams.get('type') || 'completion';
+    const businessName = request.nextUrl.searchParams.get('businessName');
+    const type = request.nextUrl.searchParams.get('type') || 'completion';
 
     if (!businessName) {
       return NextResponse.json(

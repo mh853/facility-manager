@@ -156,7 +156,7 @@ export default function BusinessPage() {
       await loadSyncData(true);
 
     } catch (err) {
-      if (err.name === 'AbortError') {
+      if (err instanceof Error && err.name === 'AbortError') {
         setError('요청 시간이 초과되었습니다. 네트워크를 확인해주세요.');
       } else {
         setError('데이터 로드 중 오류가 발생했습니다.');
@@ -166,17 +166,10 @@ export default function BusinessPage() {
       setLoading(false);
       clearTimeout(timeoutId);
     }
-
-    // cleanup
-    return () => {
-      abortController.abort();
-      clearTimeout(timeoutId);
-    };
   }, [businessName, loadSyncData]);
 
   useEffect(() => {
-    const cleanup = loadData();
-    return () => cleanup?.then?.(fn => fn?.());
+    loadData();
   }, [loadData]);
 
   // systemType이 변경될 때마다 데이터 다시 로드

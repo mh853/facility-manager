@@ -12,6 +12,9 @@
     "app/api/download/**/*.ts": {
       "maxDuration": 60
     },
+    "app/api/download-files/route.ts": {
+      "maxDuration": 60
+    },
     "app/api/pdf/**/*.ts": {
       "maxDuration": 60
     },
