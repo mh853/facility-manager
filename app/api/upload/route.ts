@@ -312,8 +312,6 @@ async function uploadSingleFile(
         console.warn(`⚠️ [UPLOAD] 이미지 압축 실패, 원본 사용:`, compressionError);
       }
     }
-    
-    const buffer = Buffer.from(arrayBuffer);
 
     // Buffer를 Readable Stream으로 변환
     const readableStream = new Readable({
