@@ -44,16 +44,35 @@ export default memo(function HomePage() {
       
       const data = await response.json();
       
-      if (data.success && Array.isArray(data.businesses)) {
-        setBusinessList(data.businesses);
+      if (data.success && data.data && Array.isArray(data.data.businesses)) {
+        // '#REF!' 같은 오류 값들을 추가로 필터링
+        const cleanBusinesses = data.data.businesses.filter((business: string) => 
+          business && 
+          typeof business === 'string' && 
+          !business.startsWith('#') &&
+          !business.includes('REF!') &&
+          business.trim().length > 1
+        );
+        
+        if (cleanBusinesses.length > 0) {
+          setBusinessList(cleanBusinesses);
+        } else {
+          throw new Error('유효한 사업장 데이터가 없습니다');
+        }
       } else {
         throw new Error(data.message || '올바르지 않은 응답 형식');
       }
     } catch (err) {
-      console.error('사업장 목록 로드 실패:', err);
-      setError(err instanceof Error ? err.message : '알 수 없는 오류');
-      // 기본 데이터 사용
-      setBusinessList(['샘플 사업장']);
+      console.error('🔴 [FRONTEND] 사업장 목록 로드 실패:', err);
+      const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류';
+      setError(`데이터 로드 실패: ${errorMessage}`);
+      
+      // 디버깅 정보 표시
+      setBusinessList([
+        '❌ 데이터 로드 실패',
+        `⚠️ 오류: ${errorMessage}`,
+        '🔄 다시 시도하려면 새로고침하세요'
+      ]);
     } finally {
       setLoading(false);
     }
