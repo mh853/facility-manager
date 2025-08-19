@@ -365,8 +365,8 @@ async function uploadSingleFile(
       throw new Error(`파일명 길이 오류: ${fileName?.length || 0}자`);
     }
 
-    // 위험한 문자 검사
-    if (/[<>:"/\\\\|?*\\x00-\\x1f]/.test(fileName)) {
+    // 위험한 문자 검사 (한글과 특수문자는 허용)
+    if (/[<>:"/\\|?*\x00-\x1f]/.test(fileName)) {
       throw new Error(`파일명에 허용되지 않는 문자가 있습니다`);
     }
 
