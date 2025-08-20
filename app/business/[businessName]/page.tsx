@@ -413,7 +413,7 @@ export default function BusinessPage() {
       <div className="container mx-auto px-4 py-6">
 
         <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
-          {/* 사업장 정보 */}
+          {/* 사업장 정보 - 시설 현황 위에 표시 */}
           {businessInfo && (
             <BusinessInfoCard businessInfo={businessInfo} loading={false} />
           )}
