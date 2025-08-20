@@ -1,13 +1,36 @@
-// app/api/upload/route.ts - 안정화된 파일 업로드 API
+// app/api/upload/route.ts - Vercel 배포 안정화된 파일 업로드 API
 import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'stream';
 
-// Vercel 설정
+// Vercel 최적화 설정
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-// 환경변수 검증
-function validateEnvironment() {
+// 타입 정의
+interface UploadResult {
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+}
+
+interface UploadResponse {
+  success: boolean;
+  message: string;
+  files?: UploadResult[];
+  stats?: {
+    total: number;
+    success: number;
+    failed: number;
+  };
+  error?: {
+    type: string;
+    details: string;
+  };
+}
+
+// 환경변수 검증 함수
+function validateEnvironment(): void {
   const required = [
     'GOOGLE_SERVICE_ACCOUNT_EMAIL',
     'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY',
@@ -21,84 +44,88 @@ function validateEnvironment() {
   }
 }
 
-// 단순화된 파일명 생성
-function generateSimpleFileName(businessName: string, fileType: string, fileNumber: number, originalName: string): string {
+// 단순화된 파일명 생성 함수
+function generateFileName(
+  businessName: string,
+  fileType: string,
+  fileNumber: number,
+  originalName: string
+): string {
   const now = new Date();
   const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
   
   // 확장자 추출
   const extension = originalName.split('.').pop()?.toLowerCase() || 'jpg';
   
-  // 파일명 정리 (특수문자 제거)
+  // 파일명 정리 (특수문자 제거, 한글 허용)
   const cleanBusinessName = businessName.replace(/[^\w\s가-힣]/g, '').substring(0, 20);
-  const cleanFileType = fileType === 'basic' ? '기본' : fileType === 'discharge' ? '배출' : '방지';
+  const typeMap: Record<string, string> = {
+    'basic': '기본',
+    'discharge': '배출',
+    'prevention': '방지'
+  };
+  const cleanFileType = typeMap[fileType] || '기타';
   
   return `${cleanBusinessName}_${cleanFileType}_${fileNumber}_${timestamp}.${extension}`;
 }
 
-// Google Drive 클라이언트 생성
-async function createDriveClient() {
+// Google Drive 클라이언트 생성 함수
+async function createGoogleDriveClient() {
   try {
-    console.log('🔧 [UPLOAD] Google 클라이언트 생성 시작');
+    console.log('🔧 [UPLOAD] Google Drive 클라이언트 생성 시작');
     
+    // googleapis 동적 import
     const { google } = await import('googleapis');
     
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    let privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+    const rawPrivateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
     
     console.log('🔍 [UPLOAD] 환경변수 상태:', {
       hasEmail: !!clientEmail,
-      hasPrivateKey: !!privateKey,
+      hasPrivateKey: !!rawPrivateKey,
       emailLength: clientEmail?.length || 0,
-      privateKeyLength: privateKey?.length || 0,
-      privateKeyStart: privateKey?.substring(0, 50) || 'N/A'
+      privateKeyLength: rawPrivateKey?.length || 0
     });
     
-    if (!clientEmail) {
-      throw new Error('GOOGLE_SERVICE_ACCOUNT_EMAIL 환경변수가 설정되지 않았습니다');
+    if (!clientEmail || !rawPrivateKey) {
+      throw new Error(`환경변수 누락 - Email: ${!!clientEmail}, PrivateKey: ${!!rawPrivateKey}`);
     }
     
-    if (!privateKey) {
-      throw new Error('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY 환경변수가 설정되지 않았습니다');
-    }
+    // Private Key 처리
+    let privateKey = rawPrivateKey;
     
-    // Private key 정규화 (여러 형식 지원)
-    try {
-      // 1. JSON으로 감싸진 경우 처리
-      if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-        console.log('🔧 [UPLOAD] JSON 파싱 시도');
+    // JSON 감싸진 경우 처리
+    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+      try {
         privateKey = JSON.parse(privateKey);
+        console.log('✅ [UPLOAD] JSON wrapped key parsed');
+      } catch (parseError) {
+        console.warn('⚠️ [UPLOAD] JSON parsing failed, using raw key');
       }
-      
-      // 2. 이스케이프된 개행문자 처리
-      privateKey = privateKey.replace(/\\n/g, '\n');
-      
-      // 3. Base64 인코딩 확인 및 디코딩
-      if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-        console.log('🔧 [UPLOAD] Base64 디코딩 시도');
-        try {
-          const decoded = Buffer.from(privateKey, 'base64').toString('utf8');
-          if (decoded.includes('-----BEGIN PRIVATE KEY-----')) {
-            privateKey = decoded;
-            console.log('✅ [UPLOAD] Base64 디코딩 성공');
-          }
-        } catch (decodeError) {
-          console.warn('⚠️ [UPLOAD] Base64 디코딩 실패:', decodeError);
-        }
-      }
-      
-      // 4. 키 형식 최종 검증
-      if (!privateKey.includes('-----BEGIN PRIVATE KEY-----') || !privateKey.includes('-----END PRIVATE KEY-----')) {
-        throw new Error(`Private Key 형식이 올바르지 않습니다. 다음을 포함해야 합니다: -----BEGIN PRIVATE KEY----- 및 -----END PRIVATE KEY-----`);
-      }
-      
-      console.log('✅ [UPLOAD] Private Key 형식 검증 완료');
-      
-    } catch (keyError) {
-      console.error('❌ [UPLOAD] Private Key 처리 실패:', keyError);
-      throw new Error(`Private Key 처리 오류: ${keyError.message}`);
     }
     
+    // 개행문자 정규화
+    privateKey = privateKey.replace(/\\n/g, '\n');
+    
+    // Base64 디코딩 시도
+    if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+      try {
+        const decoded = Buffer.from(privateKey, 'base64').toString('utf8');
+        if (decoded.includes('-----BEGIN PRIVATE KEY-----')) {
+          privateKey = decoded;
+          console.log('✅ [UPLOAD] Base64 key decoded');
+        }
+      } catch (decodeError) {
+        console.warn('⚠️ [UPLOAD] Base64 decoding failed');
+      }
+    }
+    
+    // 키 형식 검증
+    if (!privateKey.includes('-----BEGIN PRIVATE KEY-----') || !privateKey.includes('-----END PRIVATE KEY-----')) {
+      throw new Error('Invalid private key format - must contain BEGIN/END markers');
+    }
+    
+    // Google Auth 생성
     const auth = new google.auth.GoogleAuth({
       credentials: {
         client_email: clientEmail,
@@ -108,22 +135,27 @@ async function createDriveClient() {
     });
     
     const drive = google.drive({ version: 'v3', auth });
-    console.log('✅ [UPLOAD] Google 클라이언트 생성 완료');
+    console.log('✅ [UPLOAD] Google Drive client created successfully');
     
     return drive;
+    
   } catch (error) {
-    console.error('❌ [UPLOAD] Google 클라이언트 생성 실패:', error);
-    throw error;
+    console.error('❌ [UPLOAD] Google Drive client creation failed:', error);
+    throw new Error(`Google Drive client error: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
-// 폴더 찾기 또는 생성
-async function findOrCreateFolder(drive: any, folderName: string, parentId: string): Promise<string> {
+// 폴더 찾기/생성 함수
+async function ensureFolderExists(
+  drive: any,
+  folderName: string,
+  parentId: string
+): Promise<string> {
   try {
-    console.log(`📁 [UPLOAD] 폴더 검색: ${folderName}`);
+    console.log(`📁 [UPLOAD] Ensuring folder exists: ${folderName}`);
     
     // 기존 폴더 검색
-    const searchQuery = `name='${folderName.replace(/'/g, "\\\'")}' and parents in '${parentId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const searchQuery = `name='${folderName.replace(/'/g, "\\'")}' and parents in '${parentId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
     
     const searchResponse = await drive.files.list({
       q: searchQuery,
@@ -133,12 +165,12 @@ async function findOrCreateFolder(drive: any, folderName: string, parentId: stri
     
     if (searchResponse.data.files && searchResponse.data.files.length > 0) {
       const folderId = searchResponse.data.files[0].id;
-      console.log(`✅ [UPLOAD] 기존 폴더 사용: ${folderId}`);
+      console.log(`✅ [UPLOAD] Using existing folder: ${folderId}`);
       return folderId;
     }
     
     // 새 폴더 생성
-    console.log(`📂 [UPLOAD] 새 폴더 생성: ${folderName}`);
+    console.log(`📂 [UPLOAD] Creating new folder: ${folderName}`);
     const createResponse = await drive.files.create({
       requestBody: {
         name: folderName,
@@ -149,22 +181,34 @@ async function findOrCreateFolder(drive: any, folderName: string, parentId: stri
     });
     
     const folderId = createResponse.data.id;
-    console.log(`✅ [UPLOAD] 폴더 생성 완료: ${folderId}`);
+    if (!folderId) {
+      throw new Error('Failed to create folder - no ID returned');
+    }
+    
+    console.log(`✅ [UPLOAD] Created new folder: ${folderId}`);
     return folderId;
     
   } catch (error) {
-    console.error(`❌ [UPLOAD] 폴더 처리 실패: ${folderName}`, error);
-    throw error;
+    console.error(`❌ [UPLOAD] Folder operation failed for ${folderName}:`, error);
+    throw new Error(`Folder error: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
-// 단일 파일 업로드
-async function uploadFile(drive: any, file: File, folderId: string, fileName: string) {
+// 단일 파일 업로드 함수
+async function uploadSingleFile(
+  drive: any,
+  file: File,
+  folderId: string,
+  fileName: string
+): Promise<UploadResult> {
   try {
-    console.log(`📤 [UPLOAD] 파일 업로드 시작: ${fileName} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`📤 [UPLOAD] Uploading file: ${fileName} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
     
-    // 파일을 스트림으로 변환
-    const buffer = Buffer.from(await file.arrayBuffer());
+    // 파일을 Buffer로 변환
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    // Buffer를 Readable Stream으로 변환
     const stream = new Readable({
       read() {
         this.push(buffer);
@@ -173,22 +217,26 @@ async function uploadFile(drive: any, file: File, folderId: string, fileName: st
     });
     
     // Google Drive에 업로드
-    const response = await drive.files.create({
+    const uploadResponse = await drive.files.create({
       requestBody: {
         name: fileName,
         parents: [folderId]
       },
       media: {
-        mimeType: file.type,
+        mimeType: file.type || 'image/jpeg',
         body: stream
       },
       fields: 'id, name'
     });
     
-    const fileId = response.data.id;
-    console.log(`✅ [UPLOAD] 파일 업로드 완료: ${fileName} (ID: ${fileId})`);
+    const fileId = uploadResponse.data.id;
+    if (!fileId) {
+      throw new Error('Upload failed - no file ID returned');
+    }
     
-    // 파일 공개 설정
+    console.log(`✅ [UPLOAD] File uploaded successfully: ${fileId}`);
+    
+    // 파일 공개 권한 설정 (오류 무시)
     try {
       await drive.permissions.create({
         fileId: fileId,
@@ -197,9 +245,9 @@ async function uploadFile(drive: any, file: File, folderId: string, fileName: st
           type: 'anyone'
         }
       });
-      console.log(`🔓 [UPLOAD] 파일 공개 설정 완료: ${fileName}`);
+      console.log(`🔓 [UPLOAD] File made public: ${fileId}`);
     } catch (permError) {
-      console.warn(`⚠️ [UPLOAD] 파일 공개 설정 실패: ${fileName}`, permError);
+      console.warn(`⚠️ [UPLOAD] Failed to make file public: ${fileId}`, permError);
     }
     
     return {
@@ -210,21 +258,22 @@ async function uploadFile(drive: any, file: File, folderId: string, fileName: st
     };
     
   } catch (error) {
-    console.error(`❌ [UPLOAD] 파일 업로드 실패: ${fileName}`, error);
-    throw error;
+    console.error(`❌ [UPLOAD] File upload failed: ${fileName}`, error);
+    throw new Error(`Upload error: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
-export async function POST(request: NextRequest) {
-  console.log('🚀 [UPLOAD] === 파일 업로드 API 시작 ===');
+// 메인 POST 핸들러
+export async function POST(request: NextRequest): Promise<NextResponse<UploadResponse>> {
+  console.log('🚀 [UPLOAD] === Upload API Started ===');
   
   try {
     // 환경변수 검증
     validateEnvironment();
-    console.log('✅ [UPLOAD] 환경변수 검증 완료');
+    console.log('✅ [UPLOAD] Environment variables validated');
     
     // FormData 파싱
-    console.log('📋 [UPLOAD] FormData 파싱 시작');
+    console.log('📋 [UPLOAD] Parsing form data');
     const formData = await request.formData();
     
     const businessName = formData.get('businessName') as string;
@@ -232,7 +281,7 @@ export async function POST(request: NextRequest) {
     const systemType = (formData.get('type') as string) || 'presurvey';
     const files = formData.getAll('files') as File[];
     
-    console.log('📋 [UPLOAD] 요청 데이터:', {
+    console.log('📋 [UPLOAD] Request data:', {
       businessName,
       fileType,
       systemType,
@@ -240,98 +289,108 @@ export async function POST(request: NextRequest) {
       fileSizes: files.map(f => `${f.name}: ${(f.size / 1024 / 1024).toFixed(2)}MB`)
     });
     
-    // 기본 검증
+    // 입력 검증
     if (!businessName?.trim()) {
-      throw new Error('사업장명이 필요합니다');
+      throw new Error('Business name is required');
     }
     
     if (!files || files.length === 0) {
-      throw new Error('업로드할 파일이 없습니다');
+      throw new Error('No files to upload');
     }
     
     // 파일 크기 검증
-    const maxFileSize = 10 * 1024 * 1024; // 10MB
-    const maxTotalSize = 50 * 1024 * 1024; // 50MB
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
     const totalSize = files.reduce((sum, file) => sum + file.size, 0);
     
-    if (totalSize > maxTotalSize) {
-      throw new Error(`전체 파일 크기 초과: ${(totalSize / 1024 / 1024).toFixed(1)}MB / 50MB`);
+    if (totalSize > MAX_TOTAL_SIZE) {
+      throw new Error(`Total file size exceeds limit: ${(totalSize / 1024 / 1024).toFixed(1)}MB / 50MB`);
     }
     
     for (const file of files) {
-      if (file.size > maxFileSize) {
-        throw new Error(`파일 크기 초과: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB / 10MB)`);
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(`File too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB / 10MB)`);
       }
       
       if (!file.type.startsWith('image/')) {
-        throw new Error(`이미지 파일만 업로드 가능: ${file.name}`);
+        throw new Error(`Only image files allowed: ${file.name} (${file.type})`);
       }
     }
     
-    console.log('✅ [UPLOAD] 파일 검증 완료');
+    console.log('✅ [UPLOAD] File validation passed');
     
     // Google Drive 클라이언트 생성
-    const drive = await createDriveClient();
+    const drive = await createGoogleDriveClient();
     
     // 루트 폴더 ID 결정
     const rootFolderId = systemType === 'completion' 
-      ? process.env.COMPLETION_FOLDER_ID 
-      : process.env.PRESURVEY_FOLDER_ID;
+      ? process.env.COMPLETION_FOLDER_ID!
+      : process.env.PRESURVEY_FOLDER_ID!;
     
-    console.log(`📁 [UPLOAD] 루트 폴더: ${rootFolderId} (${systemType})`);
+    console.log(`📁 [UPLOAD] Root folder ID: ${rootFolderId} (${systemType})`);
     
     // 사업장 폴더 생성/확인
-    const businessFolderId = await findOrCreateFolder(drive, businessName, rootFolderId!);
+    const businessFolderId = await ensureFolderExists(drive, businessName, rootFolderId);
     
     // 파일 타입별 하위 폴더 생성/확인
-    const subFolderName = fileType === 'basic' ? '기본사진' : 
-                         fileType === 'discharge' ? '배출시설' : '방지시설';
-    const targetFolderId = await findOrCreateFolder(drive, subFolderName, businessFolderId);
+    const subFolderMap: Record<string, string> = {
+      'basic': '기본사진',
+      'discharge': '배출시설',
+      'prevention': '방지시설'
+    };
+    const subFolderName = subFolderMap[fileType] || '기타';
+    const targetFolderId = await ensureFolderExists(drive, subFolderName, businessFolderId);
     
     // 파일 업로드 (순차 처리)
-    const uploadResults = [];
+    console.log('📤 [UPLOAD] Starting file uploads');
+    const uploadResults: UploadResult[] = [];
+    
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const fileName = generateSimpleFileName(businessName, fileType, i + 1, file.name);
+      const fileName = generateFileName(businessName, fileType, i + 1, file.name);
       
       try {
-        const result = await uploadFile(drive, file, targetFolderId, fileName);
+        const result = await uploadSingleFile(drive, file, targetFolderId, fileName);
         uploadResults.push(result);
         
-        // 파일 간 짧은 대기 (API 레이트 제한 방지)
+        // 파일 간 짧은 지연 (API 레이트 제한 방지)
         if (i < files.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       } catch (fileError) {
-        console.error(`❌ [UPLOAD] 개별 파일 업로드 실패: ${file.name}`, fileError);
-        // 개별 파일 실패해도 계속 진행
+        console.error(`❌ [UPLOAD] Individual file upload failed: ${file.name}`, fileError);
+        // 개별 파일 실패시에도 계속 진행
       }
     }
     
-    console.log(`🎉 [UPLOAD] === 업로드 완료: ${uploadResults.length}/${files.length} ===`);
+    console.log(`🎉 [UPLOAD] === Upload Complete: ${uploadResults.length}/${files.length} successful ===`);
     
     // 성공 응답
-    return NextResponse.json({
+    const response: UploadResponse = {
       success: uploadResults.length > 0,
-      message: `${uploadResults.length}장의 파일이 업로드되었습니다`,
+      message: `${uploadResults.length}개의 파일이 성공적으로 업로드되었습니다`,
       files: uploadResults,
       stats: {
         total: files.length,
         success: uploadResults.length,
         failed: files.length - uploadResults.length
       }
-    });
+    };
+    
+    return NextResponse.json(response);
     
   } catch (error) {
-    console.error('💥 [UPLOAD] === 전체 업로드 실패 ===', error);
+    console.error('💥 [UPLOAD] === Upload Failed ===', error);
     
-    return NextResponse.json({
+    const errorResponse: UploadResponse = {
       success: false,
-      message: error instanceof Error ? error.message : '업로드 실패',
+      message: error instanceof Error ? error.message : 'Upload failed',
       error: {
         type: error instanceof Error ? error.constructor.name : 'UnknownError',
         details: error instanceof Error ? error.message : String(error)
       }
-    }, { status: 500 });
+    };
+    
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }
