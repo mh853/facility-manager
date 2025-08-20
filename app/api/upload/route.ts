@@ -145,22 +145,52 @@ async function createGoogleDriveClient() {
   }
 }
 
-// 폴더 찾기/생성 함수
+// 폴더 찾기/생성 함수 (오류 진단 강화)
 async function ensureFolderExists(
   drive: any,
   folderName: string,
   parentId: string
 ): Promise<string> {
   try {
-    console.log(`📁 [UPLOAD] Ensuring folder exists: ${folderName}`);
+    console.log(`📁 [UPLOAD] Ensuring folder exists: ${folderName} in parent: ${parentId}`);
     
-    // 기존 폴더 검색
+    // 먼저 부모 폴더 존재 확인
+    try {
+      const parentCheck = await drive.files.get({
+        fileId: parentId,
+        fields: 'id, name, mimeType, trashed'
+      });
+      
+      console.log(`✅ [UPLOAD] Parent folder verified:`, {
+        id: parentCheck.data.id,
+        name: parentCheck.data.name,
+        mimeType: parentCheck.data.mimeType,
+        trashed: parentCheck.data.trashed
+      });
+      
+      if (parentCheck.data.trashed) {
+        throw new Error(`Parent folder is trashed: ${parentId}`);
+      }
+      
+    } catch (parentError) {
+      console.error(`❌ [UPLOAD] Parent folder access failed:`, parentError);
+      throw new Error(`Cannot access parent folder ${parentId}: ${parentError instanceof Error ? parentError.message : String(parentError)}`);
+    }
+    
+    // 기존 폴더 검색 (더 안전한 쿼리)
     const searchQuery = `name='${folderName.replace(/'/g, "\\'")}' and parents in '${parentId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    console.log(`🔍 [UPLOAD] Search query: ${searchQuery}`);
     
     const searchResponse = await drive.files.list({
       q: searchQuery,
-      fields: 'files(id, name)',
-      pageSize: 1
+      fields: 'files(id, name, parents)',
+      pageSize: 10
+    });
+    
+    console.log(`🔍 [UPLOAD] Search results:`, {
+      query: searchQuery,
+      resultCount: searchResponse.data.files?.length || 0,
+      results: searchResponse.data.files?.map((f: any) => ({ id: f.id, name: f.name })) || []
     });
     
     if (searchResponse.data.files && searchResponse.data.files.length > 0) {
@@ -170,14 +200,14 @@ async function ensureFolderExists(
     }
     
     // 새 폴더 생성
-    console.log(`📂 [UPLOAD] Creating new folder: ${folderName}`);
+    console.log(`📂 [UPLOAD] Creating new folder: ${folderName} in parent: ${parentId}`);
     const createResponse = await drive.files.create({
       requestBody: {
         name: folderName,
         mimeType: 'application/vnd.google-apps.folder',
         parents: [parentId]
       },
-      fields: 'id'
+      fields: 'id, name, parents'
     });
     
     const folderId = createResponse.data.id;
@@ -185,12 +215,16 @@ async function ensureFolderExists(
       throw new Error('Failed to create folder - no ID returned');
     }
     
-    console.log(`✅ [UPLOAD] Created new folder: ${folderId}`);
+    console.log(`✅ [UPLOAD] Created new folder:`, {
+      id: folderId,
+      name: createResponse.data.name,
+      parents: createResponse.data.parents
+    });
     return folderId;
     
   } catch (error) {
-    console.error(`❌ [UPLOAD] Folder operation failed for ${folderName}:`, error);
-    throw new Error(`Folder error: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`❌ [UPLOAD] Folder operation failed for "${folderName}" in parent "${parentId}":`, error);
+    throw new Error(`Folder error for "${folderName}": ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

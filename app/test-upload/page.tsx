@@ -13,6 +13,40 @@ export default function TestUploadPage() {
     console.log(message);
   };
 
+  const verifyFolders = async () => {
+    addLog('🔍 폴더 검증 시작');
+    setResult(null);
+
+    try {
+      const response = await fetch('/api/verify-folders');
+      const data = await response.json();
+      
+      addLog(`📊 폴더 검증 결과: ${data.success ? '✅ 성공' : '❌ 실패'}`);
+      addLog(`📧 Service Account: ${data.serviceAccount}`);
+      
+      if (data.folders) {
+        Object.entries(data.folders).forEach(([folderType, folderData]: [string, any]) => {
+          if (folderData.status === 'accessible') {
+            addLog(`✅ ${folderType.toUpperCase()}: ${folderData.info.name} (ID: ${folderData.info.id})`);
+            addLog(`   권한: ${folderData.serviceAccountAccess ? '✅ 접근 가능' : '⚠️ 권한 확인 필요'}`);
+          } else {
+            addLog(`❌ ${folderType.toUpperCase()}: ${folderData.error.message}`);
+          }
+        });
+      }
+      
+      if (data.recommendations) {
+        addLog('💡 권장사항:');
+        data.recommendations.forEach((rec: string) => addLog(`   ${rec}`));
+      }
+      
+      setResult(data);
+      
+    } catch (error) {
+      addLog(`❌ 폴더 검증 실패: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     setFiles(selectedFiles);
@@ -139,27 +173,34 @@ export default function TestUploadPage() {
               </div>
             )}
             
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
-                onClick={testUpload}
-                disabled={uploading || !files}
-                className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-300"
+                onClick={verifyFolders}
+                className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
               >
-                {uploading ? '업로드 중...' : '업로드 테스트'}
+                🔍 폴더 검증
               </button>
               
               <button
                 onClick={testHealth}
-                className="bg-green-500 text-white px-4 py-2 rounded"
+                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
               >
-                헬스체크
+                🏥 헬스체크
+              </button>
+              
+              <button
+                onClick={testUpload}
+                disabled={uploading || !files}
+                className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-300 hover:bg-blue-600"
+              >
+                {uploading ? '📤 업로드 중...' : '📤 업로드 테스트'}
               </button>
               
               <button
                 onClick={clearLogs}
-                className="bg-gray-500 text-white px-4 py-2 rounded"
+                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
               >
-                로그 지우기
+                🗑️ 로그 지우기
               </button>
             </div>
           </div>
