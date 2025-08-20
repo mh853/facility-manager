@@ -47,6 +47,42 @@ export default function TestUploadPage() {
     }
   };
 
+  const createFolders = async () => {
+    addLog('🗂️ Google Drive 폴더 생성 시작');
+    setResult(null);
+
+    try {
+      const response = await fetch('/api/create-folders', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        addLog('✅ 폴더 생성 성공!');
+        addLog(`📁 설치전실사 폴더: ${data.folders.presurvey.name} (${data.folders.presurvey.id})`);
+        addLog(`📁 설치후사진 폴더: ${data.folders.completion.name} (${data.folders.completion.id})`);
+        addLog(`🔗 설치전실사 링크: ${data.folders.presurvey.url}`);
+        addLog(`🔗 설치후사진 링크: ${data.folders.completion.url}`);
+        addLog('');
+        addLog('📋 Vercel 환경변수에 다음 값들을 설정하세요:');
+        addLog(`   PRESURVEY_FOLDER_ID=${data.envVariables.PRESURVEY_FOLDER_ID}`);
+        addLog(`   COMPLETION_FOLDER_ID=${data.envVariables.COMPLETION_FOLDER_ID}`);
+        addLog('');
+        addLog('⚡ 환경변수 설정 후 배포하면 업로드가 정상 작동합니다!');
+      } else {
+        addLog(`❌ 폴더 생성 실패: ${data.message}`);
+        if (data.error) {
+          addLog(`   오류 상세: ${data.error.message}`);
+        }
+      }
+      
+      setResult(data);
+      
+    } catch (error) {
+      addLog(`❌ 폴더 생성 실패: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     setFiles(selectedFiles);
@@ -174,6 +210,13 @@ export default function TestUploadPage() {
             )}
             
             <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={createFolders}
+                className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
+              >
+                🗂️ 폴더 생성
+              </button>
+              
               <button
                 onClick={verifyFolders}
                 className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
