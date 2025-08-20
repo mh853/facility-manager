@@ -155,7 +155,16 @@ export async function POST(request: NextRequest) {
         
         if (targetRowIndex !== -1) {
           const currentRow = rows[targetRowIndex - 1] || [];
-          const timestamp = new Date().toLocaleString('ko-KR');
+          const timestamp = new Date().toLocaleString('ko-KR', {
+            timeZone: 'Asia/Seoul',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          });
           const logEntry = `[${timestamp}] ${uploadLog}`;
           
           // 기존 상태에 로그 추가
@@ -346,7 +355,16 @@ function generateFileName(
   fileNumber: number,
   originalName: string
 ): string {
-  const timestamp = new Date().toISOString()
+  const timestamp = new Date().toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
     .replace(/[:.]/g, '-')
     .slice(0, -5);
   

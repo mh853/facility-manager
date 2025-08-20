@@ -19,7 +19,16 @@ export async function GET(request: NextRequest) {
     
     const health = {
       status: missingEnvVars.length === 0 ? 'healthy' : 'degraded',
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toLocaleString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }),
       version: process.env.npm_package_version || '1.0.0',
       environment: process.env.NODE_ENV || 'development',
       region: process.env.VERCEL_REGION || 'local',

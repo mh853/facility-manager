@@ -58,7 +58,16 @@ export async function GET(request: NextRequest) {
           설치담당자: row[5] || '',
           연락처: row[6] || '',
           설치일: row[7] || '',
-          lastUpdated: new Date().toISOString()
+          lastUpdated: new Date().toLocaleString('ko-KR', {
+            timeZone: 'Asia/Seoul',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          })
         };
         break;
       }
@@ -171,7 +180,16 @@ export async function POST(request: NextRequest) {
     // C열에는 업로드 로그 추가 (기존 상태에 로그 추가)
     let newStatus = currentRow[2] || '';
     if (updateData.uploadLog) {
-      const timestamp = new Date().toLocaleString('ko-KR');
+      const timestamp = new Date().toLocaleString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
       const logEntry = `[${timestamp}] ${updateData.uploadLog}`;
       newStatus = newStatus ? `${newStatus}\n${logEntry}` : logEntry;
     } else if (updateData.상태) {

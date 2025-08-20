@@ -45,7 +45,12 @@ export async function POST(request: NextRequest) {
       type
     });
 
-    const fileName = `${businessName}_${type === 'completion' ? '설치완료' : '사전실사'}_보고서_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `${businessName}_${type === 'completion' ? '설치완료' : '사전실사'}_보고서_${new Date().toLocaleDateString('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1)}.pdf`;
 
     console.log(`✅ PDF 보고서 생성 완료: ${fileName}`);
 

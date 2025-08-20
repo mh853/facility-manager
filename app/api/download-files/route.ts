@@ -74,7 +74,12 @@ export async function GET(request: NextRequest) {
 
     // ZIP 생성
     const zipBuffer = await zip.generateAsync({ type: 'arraybuffer' });
-    const fileName = `${businessName}_${type}_files_${new Date().toISOString().split('T')[0]}.zip`;
+    const fileName = `${businessName}_${type}_files_${new Date().toLocaleDateString('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1)}.zip`;
 
     console.log(`🎉 ZIP 파일 생성 완료: ${fileName}`);
 

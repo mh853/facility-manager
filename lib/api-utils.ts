@@ -12,7 +12,16 @@ export function createErrorResponse(
       success: false, 
       message,
       ...(details && { details }),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      })
     },
     { status }
   );
@@ -29,7 +38,16 @@ export function createSuccessResponse(
       success: true, 
       ...(data && { data }),
       ...(message && { message }),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      })
     },
     { 
       status,

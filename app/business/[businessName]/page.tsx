@@ -38,7 +38,12 @@ export default function BusinessPage() {
   const [inspectorInfo, setInspectorInfo] = useState(() => ({
     name: '',
     contact: '',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toLocaleDateString('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1)
   }));
 
   const [specialNotes, setSpecialNotes] = useState('');
@@ -77,7 +82,10 @@ export default function BusinessPage() {
         console.log('🔄 동기화 데이터 로드 성공:', result.data);
         
         setSyncData(result.data);
-        setLastSyncTime(new Date().toLocaleTimeString());
+        setLastSyncTime(new Date().toLocaleTimeString('ko-KR', {
+          timeZone: 'Asia/Seoul',
+          hour12: false
+        }));
         
         // 폼에 데이터 미리 채우기 (최초 로드 시에만)
         if (isInitialLoad) {
@@ -85,7 +93,12 @@ export default function BusinessPage() {
             ...prev,
             name: prev.name || result.data.설치담당자 || '',
             contact: prev.contact || result.data.연락처 || '',
-            date: prev.date || result.data.설치일 || new Date().toISOString().split('T')[0]
+            date: prev.date || result.data.설치일 || new Date().toLocaleDateString('ko-KR', {
+              timeZone: 'Asia/Seoul',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit'
+            }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1)
           }));
           
           setSpecialNotes(prev => prev || result.data.특이사항 || '');

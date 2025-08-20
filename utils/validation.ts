@@ -79,14 +79,52 @@ export function sanitizeFileName(fileName: string): string {
   return fileName.replace(/[\/\\:*?"<>|]/g, '_');
 }
 
-// 날짜 형식 생성 (YYYY-MM-DD)
+// 날짜 형식 생성 (YYYY-MM-DD) - 한국 시간 기준
 export function getDateString(): string {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1); // 2024.01.01 → 2024-01-01
 }
 
-// 시간 형식 생성 (YYYY-MM-DD HH:mm:ss)
+// 시간 형식 생성 (YYYY-MM-DD HH:mm:ss) - 한국 시간 기준
 export function getTimestamp(): string {
-  return new Date().toLocaleString('ko-KR');
+  return new Date().toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
+
+// 한국 날짜/시간 형식
+export function getKoreanDateTime(): string {
+  return new Date().toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
+
+// 한국 날짜만 (YYYY-MM-DD)
+export function getKoreanDate(): string {
+  return new Date().toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1);
 }
 
 // 파일 크기를 읽기 쉬운 형식으로 변환
@@ -116,9 +154,12 @@ export function createSafeUrl(text: string): string {
   return encodeURIComponent(text.trim());
 }
 
-// 콘솔 로그 포맷터 (개발용)
+// 콘솔 로그 포맷터 (개발용) - 한국 시간 기준
 export function logWithTimestamp(message: string, type: 'info' | 'error' | 'success' = 'info'): void {
-  const timestamp = new Date().toLocaleTimeString('ko-KR');
+  const timestamp = new Date().toLocaleTimeString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    hour12: false
+  });
   const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
   console.log(`${prefix} [${timestamp}] ${message}`);
 }
