@@ -53,6 +53,23 @@ export async function GET(
     }
 
     console.log('🏭 [FACILITIES] Google Sheets 조회 시작');
+    console.log('🏭 [FACILITIES] 사용 중인 설정:', {
+      spreadsheetId,
+      facilitySheetName,
+      range: `${facilitySheetName}!A:C`
+    });
+    
+    // 시트 메타데이터 먼저 확인
+    try {
+      const metadata = await sheets.spreadsheets.get({ spreadsheetId });
+      const availableSheets = metadata.data.sheets?.map(sheet => ({
+        title: sheet.properties?.title,
+        sheetId: sheet.properties?.sheetId
+      })) || [];
+      console.log('🏭 [FACILITIES] 사용 가능한 시트들:', availableSheets);
+    } catch (metaError) {
+      console.error('🏭 [FACILITIES] 메타데이터 조회 실패:', metaError);
+    }
     
     // 병렬 조회로 성능 개선
     const sheetQueries = Promise.allSettled([

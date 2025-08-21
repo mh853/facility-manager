@@ -17,6 +17,26 @@ export async function GET(
       return NextResponse.json({ success: true, data: cached });
     }
 
+    console.log('🏢 [BUSINESS] 사용 중인 설정:', {
+      spreadsheetId: process.env.MAIN_SPREADSHEET_ID,
+      sheetName: process.env.BUSINESS_INFO_SHEET_NAME,
+      range: `${process.env.BUSINESS_INFO_SHEET_NAME}!A:Z`
+    });
+    
+    // 시트 메타데이터 먼저 확인
+    try {
+      const metadata = await sheets.spreadsheets.get({ 
+        spreadsheetId: process.env.MAIN_SPREADSHEET_ID 
+      });
+      const availableSheets = metadata.data.sheets?.map(sheet => ({
+        title: sheet.properties?.title,
+        sheetId: sheet.properties?.sheetId
+      })) || [];
+      console.log('🏢 [BUSINESS] 사용 가능한 시트들:', availableSheets);
+    } catch (metaError) {
+      console.error('🏢 [BUSINESS] 메타데이터 조회 실패:', metaError);
+    }
+
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: process.env.MAIN_SPREADSHEET_ID,
       range: `${process.env.BUSINESS_INFO_SHEET_NAME}!A:Z`,
