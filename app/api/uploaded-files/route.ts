@@ -100,8 +100,7 @@ export async function DELETE(request: NextRequest) {
       const fileInfo = await drive.files.get({
         fileId,
         fields: 'id, name, trashed, parents',
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true
+        supportsAllDrives: true
       });
       console.log('🔍 [FILES] 파일 정보:', {
         id: fileInfo.data.id,
@@ -141,8 +140,7 @@ export async function DELETE(request: NextRequest) {
     console.log('🗑️ [FILES] 삭제 실행 중...');
     await drive.files.delete({
       fileId,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true
+      supportsAllDrives: true
     });
 
     console.log('🗑️ [FILES] ✅ 파일 삭제 완료:', fileName);
