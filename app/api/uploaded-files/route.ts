@@ -77,9 +77,13 @@ export async function GET(request: NextRequest) {
 
 // 파일 삭제 (DELETE)
 export async function DELETE(request: NextRequest) {
+  let fileId: string | undefined;
+  let fileName: string | undefined;
+  
   try {
     const body = await request.json();
-    const { fileId, fileName } = body;
+    fileId = body.fileId;
+    fileName = body.fileName;
 
     console.log('🗑️ [FILES] 삭제 요청 데이터:', { fileId, fileName });
 
@@ -94,49 +98,7 @@ export async function DELETE(request: NextRequest) {
 
     const drive = await createOptimizedDriveClient();
 
-    // 파일 존재 확인 먼저 시도
-    try {
-      console.log('🔍 [FILES] 파일 존재 확인:', fileId);
-      const fileInfo = await drive.files.get({
-        fileId,
-        fields: 'id, name, trashed, parents',
-        supportsAllDrives: true
-      });
-      console.log('🔍 [FILES] 파일 정보:', {
-        id: fileInfo.data.id,
-        name: fileInfo.data.name,
-        trashed: fileInfo.data.trashed,
-        parents: fileInfo.data.parents
-      });
-    } catch (getError: any) {
-      console.error('🔍 [FILES] 파일 조회 실패:', {
-        fileId,
-        fileName,
-        error: getError?.message || String(getError),
-        code: getError?.code,
-        status: getError?.status
-      });
-      
-      // Google API 에러 코드별 처리
-      if (getError?.code === 404 || getError?.message?.includes('File not found')) {
-        return NextResponse.json({
-          success: false,
-          message: `파일을 찾을 수 없습니다. (ID: ${fileId})`
-        }, { status: 404 });
-      } else if (getError?.code === 403 || getError?.message?.includes('Forbidden')) {
-        return NextResponse.json({
-          success: false,
-          message: '파일에 접근할 권한이 없습니다.'
-        }, { status: 403 });
-      } else {
-        return NextResponse.json({
-          success: false,
-          message: `파일 조회 중 오류 발생: ${getError?.message || 'Unknown error'}`
-        }, { status: 500 });
-      }
-    }
-
-    // 파일 삭제 실행
+    // 파일 삭제 실행 (존재 확인 단계 건너뛰고 바로 삭제 시도)
     console.log('🗑️ [FILES] 삭제 실행 중...');
     await drive.files.delete({
       fileId,
@@ -150,19 +112,28 @@ export async function DELETE(request: NextRequest) {
       message: `"${fileName}" 파일이 삭제되었습니다.`
     });
 
-  } catch (error) {
-    console.error('🗑️ [FILES] ❌ 파일 삭제 실패:', error);
+  } catch (error: any) {
+    console.error('🗑️ [FILES] ❌ 파일 삭제 실패:', {
+      fileId,
+      fileName,
+      error: error?.message || String(error),
+      code: error?.code,
+      status: error?.status,
+      response: error?.response?.data
+    });
     
-    // 에러 메시지 상세화
+    // 에러 메시지 및 상태 코드 결정
     let errorMessage = '파일 삭제 실패';
-    if (error instanceof Error) {
-      if (error.message.includes('File not found') || error.message.includes('notFound')) {
-        errorMessage = '파일을 찾을 수 없습니다';
-      } else if (error.message.includes('Insufficient Permission') || error.message.includes('forbidden')) {
-        errorMessage = '파일 삭제 권한이 없습니다';
-      } else {
-        errorMessage = error.message;
-      }
+    let statusCode = 500;
+    
+    if (error?.code === 404 || error?.message?.includes('File not found') || error?.message?.includes('notFound')) {
+      errorMessage = '파일을 찾을 수 없습니다';
+      statusCode = 404;
+    } else if (error?.code === 403 || error?.message?.includes('Insufficient Permission') || error?.message?.includes('forbidden')) {
+      errorMessage = '파일 삭제 권한이 없습니다';
+      statusCode = 403;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
     }
     
     return NextResponse.json({
@@ -170,9 +141,11 @@ export async function DELETE(request: NextRequest) {
       message: errorMessage,
       debug: process.env.NODE_ENV === 'development' ? {
         error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
+        code: error?.code,
+        fileId,
+        fileName
       } : undefined
-    }, { status: 500 });
+    }, { status: statusCode });
   }
 }
 
