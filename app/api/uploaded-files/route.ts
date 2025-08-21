@@ -98,10 +98,11 @@ export async function DELETE(request: NextRequest) {
 
     const drive = await createOptimizedDriveClient();
 
-    // 파일 삭제 실행 (존재 확인 단계 건너뛰고 바로 삭제 시도)
+    // 파일 삭제 실행 (휴지통으로 이동)
     console.log('🗑️ [FILES] 삭제 실행 중...');
-    await drive.files.delete({
+    await drive.files.update({
       fileId,
+      requestBody: { trashed: true },
       supportsAllDrives: true
     });
 
