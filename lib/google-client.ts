@@ -1,9 +1,9 @@
 // lib/google-client.ts - 최적화된 Google API 클라이언트
 import { google } from 'googleapis';
 
-// 환경변수 확인 (한 번만) - Base64 키를 우선 사용
-const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-let privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+// 환경변수 확인 (한 번만) - Base64 키를 우선 사용하고 개행문자 제거
+const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
+let privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY)?.trim();
 
 console.log('🔍 [GOOGLE-CLIENT] 환경변수 초기값:', {
   hasEmail: !!clientEmail,

@@ -44,9 +44,9 @@ export async function GET(
       return NextResponse.json({ success: true, data: cached }, { headers: CACHE_HEADERS });
     }
 
-    // 환경변수 확인
-    const spreadsheetId = process.env.MAIN_SPREADSHEET_ID;
-    const facilitySheetName = process.env.FACILITY_SHEET_NAME || '대기필증 DB';
+    // 환경변수 확인 (개행문자 제거)
+    const spreadsheetId = process.env.MAIN_SPREADSHEET_ID?.trim();
+    const facilitySheetName = (process.env.FACILITY_SHEET_NAME || '대기필증 DB')?.trim();
     
     if (!spreadsheetId) {
       throw new Error('MAIN_SPREADSHEET_ID가 설정되지 않았습니다');

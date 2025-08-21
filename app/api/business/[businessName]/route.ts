@@ -17,13 +17,13 @@ export async function GET(
       return NextResponse.json({ success: true, data: cached });
     }
 
-    // 스프레드시트 ID 확인
-    const spreadsheetId = process.env.MAIN_SPREADSHEET_ID;
+    // 스프레드시트 ID 확인 (개행문자 제거)
+    const spreadsheetId = process.env.MAIN_SPREADSHEET_ID?.trim();
     
     console.log('🏢 [BUSINESS] 사용 중인 설정:', {
       spreadsheetId,
-      sheetName: process.env.BUSINESS_INFO_SHEET_NAME,
-      range: `${process.env.BUSINESS_INFO_SHEET_NAME}!A:Z`
+      sheetName: process.env.BUSINESS_INFO_SHEET_NAME?.trim(),
+      range: `${process.env.BUSINESS_INFO_SHEET_NAME?.trim()}!A:Z`
     });
     
     // 시트 메타데이터 먼저 확인
@@ -42,7 +42,7 @@ export async function GET(
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${process.env.BUSINESS_INFO_SHEET_NAME}!A:Z`,
+      range: `${process.env.BUSINESS_INFO_SHEET_NAME?.trim()}!A:Z`,
     });
 
     const values = response.data.values || [];
