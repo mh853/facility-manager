@@ -1,6 +1,6 @@
 // app/api/uploaded-files/route.ts - 업로드된 파일 관리 API
 import { NextRequest, NextResponse } from 'next/server';
-import { createOptimizedDriveClient } from '@/lib/google-client';
+import { createOptimizedDriveClient, sheets } from '@/lib/google-client';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 
 // 업로드된 파일 목록 조회 (GET)
@@ -108,6 +108,17 @@ export async function DELETE(request: NextRequest) {
 
     console.log('🗑️ [FILES] ✅ 파일 삭제 완료:', fileName);
 
+    // Google Sheets에 삭제 이력 기록
+    if (fileName && fileId) {
+      try {
+        await recordDeletionHistory(fileName, fileId);
+        console.log('📝 [FILES] 삭제 이력 기록 완료');
+      } catch (historyError) {
+        console.error('📝 [FILES] 삭제 이력 기록 실패:', historyError);
+        // 이력 기록 실패해도 삭제는 성공으로 처리
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: `"${fileName}" 파일이 삭제되었습니다.`
@@ -147,6 +158,85 @@ export async function DELETE(request: NextRequest) {
         fileName
       } : undefined
     }, { status: statusCode });
+  }
+}
+
+// 파일 삭제 이력을 Google Sheets에 기록
+async function recordDeletionHistory(fileName: string, fileId: string) {
+  try {
+    const spreadsheetId = process.env.DATA_COLLECTION_SPREADSHEET_ID?.trim();
+    const sheetName = (process.env.PRESURVEY_UPLOAD_SHEET_NAME || '설치 전 실사')?.trim();
+    
+    if (!spreadsheetId) {
+      throw new Error('DATA_COLLECTION_SPREADSHEET_ID가 설정되지 않았습니다');
+    }
+
+    // 현재 시간 (한국 시간)
+    const now = new Date();
+    const kstTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const timeString = kstTime.toISOString().replace('T', ' ').replace('Z', '').substring(0, 19);
+    
+    // 파일명에서 사업장명 추출 (파일명 첫 번째 부분)
+    const businessName = fileName.split('_')[0];
+    
+    // C열에 삭제 이력 추가할 행 찾기
+    console.log('📝 [DELETION] 삭제 이력 기록 시작:', { businessName, fileName, fileId });
+    
+    // 기존 업로드 기록 찾기
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:C`,
+    });
+    
+    const values = response.data.values || [];
+    let targetRow = -1;
+    
+    // 해당 파일의 업로드 기록 찾기
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      if (row[0] === businessName && row[1] && row[1].includes(fileName.replace(/^[^_]*_/, ''))) {
+        targetRow = i + 1; // 1-based index
+        break;
+      }
+    }
+    
+    if (targetRow > 0) {
+      // 기존 기록이 있는 경우 C열에 삭제 정보 추가
+      const deletionInfo = `삭제됨 (${timeString})`;
+      
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!C${targetRow}`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [[deletionInfo]]
+        }
+      });
+      
+      console.log('📝 [DELETION] 기존 기록에 삭제 정보 추가:', { targetRow, deletionInfo });
+    } else {
+      // 기존 기록이 없는 경우 새 행에 삭제 이력 추가
+      const newRow = [
+        businessName,
+        `파일삭제: ${fileName}`,
+        `삭제됨 (${timeString})`
+      ];
+      
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: `${sheetName}!A:C`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [newRow]
+        }
+      });
+      
+      console.log('📝 [DELETION] 새 삭제 이력 추가:', newRow);
+    }
+    
+  } catch (error) {
+    console.error('📝 [DELETION] 삭제 이력 기록 실패:', error);
+    throw error;
   }
 }
 

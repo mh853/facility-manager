@@ -39,4 +39,13 @@ yarn-error.log*
 # OS
 Thumbs.db
 
-.vercel
+# Sensitive files - NEVER commit these
+*.key
+*.pem
+*.p12
+google-credentials.json
+service-account.json
+keys/
+secrets/
+.secrets/
+test-*.js
