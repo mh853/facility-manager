@@ -100,7 +100,8 @@ export async function DELETE(request: NextRequest) {
       const fileInfo = await drive.files.get({
         fileId,
         fields: 'id, name, trashed, parents',
-        supportsAllDrives: true
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
       });
       console.log('🔍 [FILES] 파일 정보:', {
         id: fileInfo.data.id,
@@ -108,19 +109,40 @@ export async function DELETE(request: NextRequest) {
         trashed: fileInfo.data.trashed,
         parents: fileInfo.data.parents
       });
-    } catch (getError) {
-      console.error('🔍 [FILES] 파일 조회 실패:', getError);
-      return NextResponse.json({
-        success: false,
-        message: `파일을 찾을 수 없습니다. (ID: ${fileId})`
-      }, { status: 404 });
+    } catch (getError: any) {
+      console.error('🔍 [FILES] 파일 조회 실패:', {
+        fileId,
+        fileName,
+        error: getError?.message || String(getError),
+        code: getError?.code,
+        status: getError?.status
+      });
+      
+      // Google API 에러 코드별 처리
+      if (getError?.code === 404 || getError?.message?.includes('File not found')) {
+        return NextResponse.json({
+          success: false,
+          message: `파일을 찾을 수 없습니다. (ID: ${fileId})`
+        }, { status: 404 });
+      } else if (getError?.code === 403 || getError?.message?.includes('Forbidden')) {
+        return NextResponse.json({
+          success: false,
+          message: '파일에 접근할 권한이 없습니다.'
+        }, { status: 403 });
+      } else {
+        return NextResponse.json({
+          success: false,
+          message: `파일 조회 중 오류 발생: ${getError?.message || 'Unknown error'}`
+        }, { status: 500 });
+      }
     }
 
     // 파일 삭제 실행
     console.log('🗑️ [FILES] 삭제 실행 중...');
     await drive.files.delete({
       fileId,
-      supportsAllDrives: true
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
     });
 
     console.log('🗑️ [FILES] ✅ 파일 삭제 완료:', fileName);
@@ -241,7 +263,13 @@ async function getUploadedFiles(drive: any, folderId: string, folderName: string
           folderName: folderName === 'root' ? '기본사진' : folderName // root는 기본사진으로 매핑
         };
         
-        console.log(`🖼️ [FILES] 이미지 파일 발견: ${item.name} (폴더: ${fileInfo.folderName})`);
+        console.log(`🖼️ [FILES] 이미지 파일 발견:`, {
+          name: item.name,
+          id: item.id,
+          folderName: fileInfo.folderName,
+          mimeType: item.mimeType,
+          size: item.size
+        });
         allFiles.push(fileInfo);
       }
     }

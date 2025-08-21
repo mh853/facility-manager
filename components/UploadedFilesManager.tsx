@@ -110,6 +110,13 @@ function UploadedFilesManager({
     try {
       setDeleteStates(prev => ({ ...prev, [file.id]: true }));
 
+      console.log('🗑️ [CLIENT] 파일 삭제 요청:', { 
+        fileId: file.id, 
+        fileName: file.name,
+        mimeType: file.mimeType,
+        size: file.size 
+      });
+
       const response = await fetch('/api/uploaded-files', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -120,6 +127,7 @@ function UploadedFilesManager({
       });
 
       const result = await response.json();
+      console.log('🗑️ [CLIENT] 서버 응답:', result);
 
       if (result.success) {
         setFiles(prev => prev.filter(f => f.id !== file.id));
@@ -132,10 +140,11 @@ function UploadedFilesManager({
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
       } else {
+        console.error('🗑️ [CLIENT] 삭제 실패:', result);
         throw new Error(result.message || '파일 삭제 실패');
       }
     } catch (error) {
-      console.error('파일 삭제 오류:', error);
+      console.error('🗑️ [CLIENT] 파일 삭제 오류:', error);
       
       // 오류 토스트
       const toast = document.createElement('div');
