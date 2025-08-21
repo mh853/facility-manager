@@ -81,6 +81,8 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json();
     const { fileId, fileName } = body;
 
+    console.log('🗑️ [FILES] 삭제 요청 데이터:', { fileId, fileName });
+
     if (!fileId) {
       return NextResponse.json({
         success: false,
@@ -88,11 +90,34 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('🗑️ [FILES] 파일 삭제 시작:', fileName);
+    console.log('🗑️ [FILES] 파일 삭제 시작:', { fileName, fileId });
 
     const drive = await createOptimizedDriveClient();
 
-    // 파일 삭제
+    // 파일 존재 확인 먼저 시도
+    try {
+      console.log('🔍 [FILES] 파일 존재 확인:', fileId);
+      const fileInfo = await drive.files.get({
+        fileId,
+        fields: 'id, name, trashed, parents',
+        supportsAllDrives: true
+      });
+      console.log('🔍 [FILES] 파일 정보:', {
+        id: fileInfo.data.id,
+        name: fileInfo.data.name,
+        trashed: fileInfo.data.trashed,
+        parents: fileInfo.data.parents
+      });
+    } catch (getError) {
+      console.error('🔍 [FILES] 파일 조회 실패:', getError);
+      return NextResponse.json({
+        success: false,
+        message: `파일을 찾을 수 없습니다. (ID: ${fileId})`
+      }, { status: 404 });
+    }
+
+    // 파일 삭제 실행
+    console.log('🗑️ [FILES] 삭제 실행 중...');
     await drive.files.delete({
       fileId,
       supportsAllDrives: true
@@ -107,9 +132,26 @@ export async function DELETE(request: NextRequest) {
 
   } catch (error) {
     console.error('🗑️ [FILES] ❌ 파일 삭제 실패:', error);
+    
+    // 에러 메시지 상세화
+    let errorMessage = '파일 삭제 실패';
+    if (error instanceof Error) {
+      if (error.message.includes('File not found') || error.message.includes('notFound')) {
+        errorMessage = '파일을 찾을 수 없습니다';
+      } else if (error.message.includes('Insufficient Permission') || error.message.includes('forbidden')) {
+        errorMessage = '파일 삭제 권한이 없습니다';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
     return NextResponse.json({
       success: false,
-      message: error instanceof Error ? error.message : '파일 삭제 실패'
+      message: errorMessage,
+      debug: process.env.NODE_ENV === 'development' ? {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      } : undefined
     }, { status: 500 });
   }
 }
