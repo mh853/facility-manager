@@ -30,8 +30,20 @@ export async function GET(
     return NextResponse.json({ success: true, data: businessInfo });
   } catch (error) {
     console.error('Business info API error:', error);
+    console.error('Environment variables:', {
+      MAIN_SPREADSHEET_ID: process.env.MAIN_SPREADSHEET_ID ? 'SET' : 'NOT SET',
+      BUSINESS_INFO_SHEET_NAME: process.env.BUSINESS_INFO_SHEET_NAME || 'NOT SET'
+    });
     return NextResponse.json(
-      { success: false, message: '사업장 정보 조회 실패' },
+      { 
+        success: false, 
+        message: '사업장 정보 조회 실패', 
+        error: error instanceof Error ? error.message : String(error),
+        debug: {
+          hasMainSpreadsheetId: !!process.env.MAIN_SPREADSHEET_ID,
+          hasBusinessInfoSheetName: !!process.env.BUSINESS_INFO_SHEET_NAME
+        }
+      },
       { status: 500 }
     );
   }
