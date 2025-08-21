@@ -58,15 +58,38 @@ function FileUpload({
       return;
     }
 
-    // 파일 검증
+    // 파일 검증 (더 자세한 로깅 추가)
     const invalidFiles = files.filter(file => {
-      return file.size > 15 * 1024 * 1024 || !file.type.startsWith('image/');
+      console.log('📱 [FILE-CHECK] 파일 검증:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        sizeInMB: (file.size / (1024 * 1024)).toFixed(2),
+        isImage: file.type.startsWith('image/'),
+        isValidSize: file.size <= 100 * 1024 * 1024 // 100MB로 증가
+      });
+      
+      // 파일 크기를 100MB로 증가하고, MIME 타입 검사 완화
+      const isTooLarge = file.size > 100 * 1024 * 1024;
+      const isInvalidType = !file.type.startsWith('image/') && 
+                           !file.type.includes('heic') && 
+                           !file.type.includes('heif') &&
+                           file.type !== 'image/jpeg' &&
+                           file.type !== 'image/jpg' &&
+                           file.type !== 'image/png' &&
+                           file.type !== 'image/webp';
+      
+      if (isTooLarge) console.warn('📱 [FILE-CHECK] 파일 크기 초과:', file.name);
+      if (isInvalidType) console.warn('📱 [FILE-CHECK] 지원하지 않는 파일 형식:', file.name, file.type);
+      
+      return isTooLarge || isInvalidType;
     });
 
     if (invalidFiles.length > 0) {
+      const details = invalidFiles.map(f => `${f.name} (${f.type}, ${(f.size / (1024 * 1024)).toFixed(1)}MB)`).join(', ');
       setStatus({
         type: 'error',
-        message: `일부 파일이 요구사항에 맞지 않습니다. (15MB 이하, 이미지 파일만 가능)`
+        message: `일부 파일이 요구사항에 맞지 않습니다. (100MB 이하, 이미지 파일만 가능)\n문제 파일: ${details}`
       });
       return;
     }
@@ -208,7 +231,7 @@ function FileUpload({
           {label}
         </label>
         <div className="text-sm text-gray-500">
-          최대 10개, 15MB 이하
+          최대 10개, 100MB 이하
         </div>
       </div>
 
@@ -222,7 +245,8 @@ function FileUpload({
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/*"
+        accept="image/*,.heic,.heif"
+        capture="environment"
         onChange={handleFileSelect}
         className="w-full p-3 border-2 border-gray-300 rounded-lg mb-4 bg-white cursor-pointer hover:border-blue-400 transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         disabled={uploading}

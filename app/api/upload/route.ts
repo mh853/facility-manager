@@ -49,19 +49,33 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 파일 검증
+    // 파일 검증 (향상된 로깅과 HEIC 지원)
     for (const file of files) {
-      if (file.size > 15 * 1024 * 1024) {
+      console.log('📱 [UPLOAD-API] 파일 검증:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        sizeInMB: (file.size / (1024 * 1024)).toFixed(2)
+      });
+
+      if (file.size > 100 * 1024 * 1024) { // 100MB로 증가
         return NextResponse.json({
           success: false,
-          message: `파일 크기 초과: ${file.name} (최대 15MB)`
+          message: `파일 크기 초과: ${file.name} (최대 100MB, 현재 ${(file.size / (1024 * 1024)).toFixed(1)}MB)`
         }, { status: 400 });
       }
 
-      if (!file.type.startsWith('image/')) {
+      // HEIC/HEIF 포맷도 허용하도록 수정
+      const isValidImageType = file.type.startsWith('image/') || 
+                              file.type.includes('heic') || 
+                              file.type.includes('heif') ||
+                              file.name.toLowerCase().endsWith('.heic') ||
+                              file.name.toLowerCase().endsWith('.heif');
+
+      if (!isValidImageType) {
         return NextResponse.json({
           success: false,
-          message: `이미지 파일만 업로드 가능: ${file.name}`
+          message: `지원하지 않는 파일 형식: ${file.name} (${file.type || '알 수 없음'})`
         }, { status: 400 });
       }
     }

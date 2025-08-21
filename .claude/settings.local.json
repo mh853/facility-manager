@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(git switch:*)",
-      "Bash(npx vercel:*)"
+      "Bash(npx vercel:*)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

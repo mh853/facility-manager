@@ -164,74 +164,74 @@ export async function DELETE(request: NextRequest) {
 // 파일 삭제 이력을 Google Sheets에 기록
 async function recordDeletionHistory(fileName: string, fileId: string) {
   try {
-    const spreadsheetId = process.env.DATA_COLLECTION_SPREADSHEET_ID?.trim();
-    const sheetName = (process.env.PRESURVEY_UPLOAD_SHEET_NAME || '설치 전 실사')?.trim();
-    
-    if (!spreadsheetId) {
-      throw new Error('DATA_COLLECTION_SPREADSHEET_ID가 설정되지 않았습니다');
-    }
-
-    // 현재 시간 (한국 시간)
-    const now = new Date();
-    const kstTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-    const timeString = kstTime.toISOString().replace('T', ' ').replace('Z', '').substring(0, 19);
-    
-    // 파일명에서 사업장명 추출 (파일명 첫 번째 부분)
+    // 파일명에서 사업장명과 시스템 타입 추출
     const businessName = fileName.split('_')[0];
     
-    // C열에 삭제 이력 추가할 행 찾기
-    console.log('📝 [DELETION] 삭제 이력 기록 시작:', { businessName, fileName, fileId });
+    // 파일명에서 시스템 타입 판단 (설치전/설치후)
+    const isCompletion = fileName.includes('설치후') || fileName.includes('completion');
+    const spreadsheetId = isCompletion 
+      ? process.env.COMPLETION_SPREADSHEET_ID 
+      : process.env.DATA_COLLECTION_SPREADSHEET_ID;
+    const sheetName = isCompletion ? '설치 후 사진' : '설치 전 실사';
     
-    // 기존 업로드 기록 찾기
+    if (!spreadsheetId) {
+      throw new Error(`${isCompletion ? 'COMPLETION_SPREADSHEET_ID' : 'DATA_COLLECTION_SPREADSHEET_ID'}가 설정되지 않았습니다`);
+    }
+
+    console.log('📝 [DELETION] 삭제 이력 기록 시작:', { businessName, fileName, fileId, isCompletion, sheetName });
+    
+    // B열에서 사업장명이 있는 행 찾기 (업로드 로그와 동일한 방식)
+    const range = `'${sheetName}'!A:H`;
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:C`,
+      range,
     });
     
-    const values = response.data.values || [];
-    let targetRow = -1;
+    const rows = response.data.values || [];
+    let targetRowIndex = -1;
     
-    // 해당 파일의 업로드 기록 찾기
-    for (let i = 1; i < values.length; i++) {
-      const row = values[i];
-      if (row[0] === businessName && row[1] && row[1].includes(fileName.replace(/^[^_]*_/, ''))) {
-        targetRow = i + 1; // 1-based index
+    // B열(index 1)에서 사업장명 찾기
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row[1] && row[1].toString().trim() === businessName.trim()) {
+        targetRowIndex = i + 1; // 1-based index
         break;
       }
     }
     
-    if (targetRow > 0) {
-      // 기존 기록이 있는 경우 C열에 삭제 정보 추가
-      const deletionInfo = `삭제됨 (${timeString})`;
+    if (targetRowIndex !== -1) {
+      // 사업장명이 있는 행의 C열에 삭제 로그 추가
+      const currentRow = rows[targetRowIndex - 1] || [];
+      const timestamp = new Date().toLocaleString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      const logEntry = `[${timestamp}] 파일삭제: ${fileName}`;
       
+      // 기존 상태에 삭제 로그 추가 (업로드 로그와 동일한 방식)
+      let newStatus = currentRow[2] || '';
+      newStatus = newStatus ? `${newStatus}\n${logEntry}` : logEntry;
+      
+      // C열(상태)만 업데이트
+      const updateRange = `'${sheetName}'!C${targetRowIndex}`;
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `${sheetName}!C${targetRow}`,
-        valueInputOption: 'RAW',
+        range: updateRange,
+        valueInputOption: 'USER_ENTERED',
         requestBody: {
-          values: [[deletionInfo]]
-        }
+          values: [[newStatus]],
+        },
       });
       
-      console.log('📝 [DELETION] 기존 기록에 삭제 정보 추가:', { targetRow, deletionInfo });
+      console.log('📝 [DELETION] 구글시트 삭제 로그 추가 완료:', { targetRowIndex, logEntry });
     } else {
-      // 기존 기록이 없는 경우 새 행에 삭제 이력 추가
-      const newRow = [
-        businessName,
-        `파일삭제: ${fileName}`,
-        `삭제됨 (${timeString})`
-      ];
-      
-      await sheets.spreadsheets.values.append({
-        spreadsheetId,
-        range: `${sheetName}!A:C`,
-        valueInputOption: 'RAW',
-        requestBody: {
-          values: [newRow]
-        }
-      });
-      
-      console.log('📝 [DELETION] 새 삭제 이력 추가:', newRow);
+      console.warn('📝 [DELETION] 사업장명을 찾을 수 없음:', businessName);
     }
     
   } catch (error) {

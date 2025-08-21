@@ -201,18 +201,6 @@ export default memo(function HomePage() {
                 >
                   🔄 데이터 새로고침
                 </button>
-                <button 
-                  onClick={() => router.push('/admin')}
-                  className="text-green-600 hover:text-green-800 text-sm font-medium"
-                >
-                  ⚙️ 관리자 페이지
-                </button>
-                <button 
-                  onClick={() => router.push('/test')}
-                  className="text-purple-600 hover:text-purple-800 text-sm font-medium"
-                >
-                  🧪 API 테스트
-                </button>
               </div>
             </div>
           </div>
