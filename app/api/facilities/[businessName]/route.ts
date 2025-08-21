@@ -222,7 +222,12 @@ function parseFacilitiesFromSheets(
     const businessCell = currentRow[1]?.toString().trim();
     const outletCell = currentRow[2];
 
-    if (businessCell === businessName) {
+    // 디버깅: 처음 10개 행의 데이터 로깅
+    if (i <= 10) {
+      console.log(`🏭 [DEBUG] 행 ${i+1}: "${businessCell}" vs "${businessName}" (찾는중)`);
+    }
+
+    if (businessCell.trim() === businessName.trim()) {
       businessFound = true;
       console.log(`🏭 [PARSE] 사업장 발견 (행 ${i+1})`);
       businessRows.push({
@@ -241,7 +246,7 @@ function parseFacilitiesFromSheets(
       continue;
     }
 
-    if (businessFound && businessCell && businessCell !== businessName) {
+    if (businessFound && businessCell && businessCell.trim() !== businessName.trim()) {
       console.log(`🏭 [PARSE] 다른 사업장 발견, 파싱 종료 (행 ${i+1})`);
       break;
     }

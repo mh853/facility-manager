@@ -88,7 +88,7 @@ function parseBusinessInfo(data: any[][], businessName: string): BusinessInfo {
     const row = data[i];
     const cellValue = row[columnMap.businessName - 1];
     
-    if (cellValue && cellValue.toString().trim() === businessName) {
+    if (cellValue && cellValue.toString().trim() === businessName.trim()) {
       return {
         found: true,
         businessName,

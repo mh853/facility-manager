@@ -113,7 +113,7 @@ async function getCompletionStatus(businessName: string, type: string) {
     
     for (let i = 1; i < values.length; i++) {
       const row = values[i];
-      if (row[1] && row[1].toString().trim() === businessName) {
+      if (row[1] && row[1].toString().trim() === businessName.trim()) {
         return {
           status: row[2] || '',
           memo: row[4] || '',
@@ -149,7 +149,7 @@ function parseBusinessInfo(data: any[][], businessName: string) {
     const row = data[i];
     const cellValue = row[columnMap.businessName - 1];
     
-    if (cellValue && cellValue.toString().trim() === businessName) {
+    if (cellValue && cellValue.toString().trim() === businessName.trim()) {
       return {
         found: true,
         businessName,

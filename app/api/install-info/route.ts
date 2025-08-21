@@ -105,7 +105,7 @@ async function saveInstallInfo(
     let targetRow = -1;
     for (let i = 1; i < values.length; i++) {
       const row = values[i];
-      if (row[1] && row[1].toString().trim() === businessName) {
+      if (row[1] && row[1].toString().trim() === businessName.trim()) {
         targetRow = i + 1; // 1-based index
         break;
       }
