@@ -18,7 +18,7 @@ export async function GET(
     }
 
     const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.MAIN_SPREADSHEET_ID,
+      spreadsheetId: process.env.UPLOAD_SPREADSHEET_ID,
       range: `${process.env.BUSINESS_INFO_SHEET_NAME}!A:Z`,
     });
 
