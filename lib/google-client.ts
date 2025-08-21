@@ -1,9 +1,9 @@
 // lib/google-client.ts - 최적화된 Google API 클라이언트
 import { google } from 'googleapis';
 
-// 환경변수 확인 (한 번만)
+// 환경변수 확인 (한 번만) - Base64 키를 우선 사용
 const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-let privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+let privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
 
 console.log('🔍 [GOOGLE-CLIENT] 환경변수 초기값:', {
   hasEmail: !!clientEmail,
@@ -15,6 +15,13 @@ console.log('🔍 [GOOGLE-CLIENT] 환경변수 초기값:', {
 // Vercel 환경에서 private key 처리 개선
 if (privateKey) {
   try {
+    console.log('🔍 [GOOGLE-CLIENT] 원본 키 처리 시작:', {
+      startsWithQuote: privateKey.startsWith('"'),
+      endsWithQuote: privateKey.endsWith('"'),
+      includesPemHeader: privateKey.includes('-----BEGIN PRIVATE KEY-----'),
+      length: privateKey.length
+    });
+    
     // JSON 파싱이 필요한 경우 (따옴표로 감싸진 경우)
     if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
       privateKey = JSON.parse(privateKey);
@@ -31,6 +38,10 @@ if (privateKey) {
       console.log('🔍 [GOOGLE-CLIENT] Base64 디코딩 시도');
       try {
         const decoded = Buffer.from(privateKey, 'base64').toString('utf8');
+        console.log('🔍 [GOOGLE-CLIENT] Base64 디코딩 결과:', {
+          success: decoded.includes('-----BEGIN PRIVATE KEY-----'),
+          length: decoded.length
+        });
         if (decoded.includes('-----BEGIN PRIVATE KEY-----')) {
           privateKey = decoded;
           console.log('✅ [GOOGLE-CLIENT] Base64 디코딩 성공');
