@@ -665,7 +665,7 @@ export default function BusinessPage() {
                 {syncData.URL && (
                   <div className="mt-2">
                     <a 
-                      href={syncData.URL} 
+                      href="/admin" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-xs text-blue-600 hover:text-blue-800 underline"
