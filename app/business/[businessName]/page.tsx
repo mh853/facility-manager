@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { FacilitiesData, BusinessInfo, SystemType } from '@/types';
@@ -63,8 +63,53 @@ export default function BusinessPage() {
   // IoT 게이트웨이 정보 상태
   const [gatewayInfo, setGatewayInfo] = useState<{[outlet: number]: {gateway: string, vpn: '유선' | '무선'}}>({});
 
+  // 업데이트 타이머 참조
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 구글시트에 상세정보 저장
+  const saveFacilityDetailsToSheet = useCallback(async (facilityDetails: any, gatewayInfo: any) => {
+    try {
+      const response = await fetch('/api/facility-details', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          businessName,
+          facilityDetails,
+          gatewayInfo
+        }),
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        console.error('구글시트 저장 실패:', result.message);
+      } else {
+        console.log('구글시트에 상세정보 저장 완료');
+      }
+    } catch (error) {
+      console.error('구글시트 저장 오류:', error);
+    }
+  }, [businessName]);
+
+  // 구글시트에서 상세정보 불러오기
+  const loadFacilityDetailsFromSheet = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/facility-details?businessName=${encodeURIComponent(businessName)}`);
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setFacilityDetails(result.data.facilityDetails || {});
+        setGatewayInfo(result.data.gatewayInfo || {});
+        console.log('구글시트에서 상세정보 불러오기 완료');
+      }
+    } catch (error) {
+      console.error('구글시트 불러오기 오류:', error);
+    }
+  }, [businessName]);
+
   // 게이트웨이 정보 업데이트 시 자동 저장
-  const updateGatewayInfo = (outlet: number, field: 'gateway' | 'vpn', value: string) => {
+  const updateGatewayInfo = useCallback((outlet: number, field: 'gateway' | 'vpn', value: string) => {
     const newGatewayInfo = {
       ...gatewayInfo,
       [outlet]: {
@@ -74,24 +119,23 @@ export default function BusinessPage() {
     };
     setGatewayInfo(newGatewayInfo);
     
-    // 자동 로컬 저장
-    try {
-      const dataToSave = {
-        facilityDetails,
-        gatewayInfo: newGatewayInfo,
-        timestamp: new Date().toISOString()
-      };
-      localStorage.setItem(`facility-data-${businessName}`, JSON.stringify(dataToSave));
-    } catch (error) {
-      console.error('자동 저장 실패:', error);
+    // 자동 구글시트 저장 (디바운스 방지)
+    const timeoutId = setTimeout(() => {
+      saveFacilityDetailsToSheet(facilityDetails, newGatewayInfo);
+    }, 1000); // 1초 대기 후 저장
+    
+    // 이전 타이머 취소
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
     }
-  };
+    updateTimeoutRef.current = timeoutId;
+  }, [gatewayInfo, facilityDetails, saveFacilityDetailsToSheet]);
 
   // 시설별 고유 ID 생성 함수
   const getFacilityId = (facility: any) => `${facility.outlet}-${facility.number}-${facility.name}`;
 
-  // 시설 상세 데이터 업데이트 함수 (자동 저장 포함)
-  const updateFacilityDetail = (facilityId: string, field: string, value: string) => {
+  // 시설 상세 데이터 업데이트 함수 (구글시트 자동 저장 포함)
+  const updateFacilityDetail = useCallback((facilityId: string, field: string, value: string) => {
     const newDetails = {
       ...facilityDetails,
       [facilityId]: {
@@ -101,18 +145,17 @@ export default function BusinessPage() {
     };
     setFacilityDetails(newDetails);
     
-    // 자동 로컬 저장
-    try {
-      const dataToSave = {
-        facilityDetails: newDetails,
-        gatewayInfo,
-        timestamp: new Date().toISOString()
-      };
-      localStorage.setItem(`facility-data-${businessName}`, JSON.stringify(dataToSave));
-    } catch (error) {
-      console.error('자동 저장 실패:', error);
+    // 자동 구글시트 저장 (디바운스 방지)
+    const timeoutId = setTimeout(() => {
+      saveFacilityDetailsToSheet(newDetails, gatewayInfo);
+    }, 1000); // 1초 대기 후 저장
+    
+    // 이전 타이머 취소
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
     }
-  };
+    updateTimeoutRef.current = timeoutId;
+  }, [facilityDetails, gatewayInfo]);
 
   // 데이터 합계 계산 함수
   const calculateTotals = useCallback(() => {
@@ -190,45 +233,36 @@ export default function BusinessPage() {
   // 데이터 저장 및 불러오기 함수
   const saveFacilityData = useCallback(async () => {
     try {
-      // 로컬 스토리지에 저장
-      const dataToSave = {
-        facilityDetails,
-        gatewayInfo,
-        timestamp: new Date().toISOString()
-      };
-      localStorage.setItem(`facility-data-${businessName}`, JSON.stringify(dataToSave));
+      // 구글시트에 상세정보 저장
+      await saveFacilityDetailsToSheet(facilityDetails, gatewayInfo);
       
-      // 구글시트에도 업데이트
+      // 합계 데이터도 업데이트
       await updateGoogleSheets();
       
-      console.log('시설 데이터 저장 완료');
+      alert('시설 데이터가 구글시트에 저장되었습니다!');
+      console.log('시설 데이터 저장 완룮');
     } catch (error) {
       console.error('데이터 저장 실패:', error);
       alert('데이터 저장에 실패했습니다.');
     }
-  }, [facilityDetails, gatewayInfo, businessName, updateGoogleSheets]);
+  }, [facilityDetails, gatewayInfo, saveFacilityDetailsToSheet, updateGoogleSheets]);
 
-  const loadFacilityData = useCallback(() => {
+  const loadFacilityData = useCallback(async () => {
     try {
-      const savedData = localStorage.getItem(`facility-data-${businessName}`);
-      if (savedData) {
-        const parsedData = JSON.parse(savedData);
-        setFacilityDetails(parsedData.facilityDetails || {});
-        setGatewayInfo(parsedData.gatewayInfo || {});
-        alert('시설 상세 데이터가 불러오기되었습니다.');
-      } else {
-        alert('저장된 데이터가 없습니다.');
-      }
+      await loadFacilityDetailsFromSheet();
+      alert('구글시트에서 시설 데이터가 불러와졌습니다.');
     } catch (error) {
       console.error('데이터 불러오기 실패:', error);
       alert('데이터 불러오기에 실패했습니다.');
     }
-  }, [businessName]);
+  }, [loadFacilityDetailsFromSheet]);
 
   // 컴포넌트 마운트 시 데이터 불러오기
   useEffect(() => {
-    loadFacilityData();
-  }, [loadFacilityData]);
+    if (businessName) {
+      loadFacilityDetailsFromSheet();
+    }
+  }, [businessName, loadFacilityDetailsFromSheet]);
 
   // 구글시트에서 데이터 동기화 (최적화)
   const loadSyncData = useCallback(async (isInitialLoad = false) => {
