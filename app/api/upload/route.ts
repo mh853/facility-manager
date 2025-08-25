@@ -313,7 +313,54 @@ async function uploadSingleFile(
     // 대상 폴더 확인
     const targetFolderId = await getTargetFolder(drive, businessFolderId, fileType);
 
-    // Google Drive에 업로드 (공유 드라이브 지원)
+    // 중복 파일 체크 (같은 이름의 파일이 이미 있는지 확인)
+    const existingFileCheck = await drive.files.list({
+      q: `name='${fileName.replace(/'/g, "\\'")}' and parents in '${targetFolderId}' and trashed=false`,
+      fields: 'files(id, name, size)',
+      pageSize: 1,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+
+    if (existingFileCheck.data.files?.length > 0) {
+      const existingFile = existingFileCheck.data.files[0];
+      console.log(`⚠️ [UPLOAD] 중복 파일 발견, 덮어쓰기:`, {
+        fileName,
+        existingId: existingFile.id,
+        existingSize: existingFile.size,
+        newSize: file.size
+      });
+      
+      // 기존 파일 업데이트 (덮어쓰기)
+      const response = await drive.files.update({
+        fileId: existingFile.id!,
+        media: {
+          mimeType: file.type,
+          body: readableStream
+        },
+        fields: 'id, name, webViewLink',
+        supportsAllDrives: true
+      });
+
+      console.log(`✅ [UPLOAD] 파일 덮어쓰기 완료: ${fileName}`);
+      
+      const fileId = response.data.id;
+      
+      return {
+        id: response.data.id,
+        name: response.data.name,
+        url: `https://drive.google.com/file/d/${response.data.id}/view`,
+        downloadUrl: `https://drive.google.com/uc?id=${response.data.id}`,
+        thumbnailUrl: `https://drive.google.com/thumbnail?id=${response.data.id}&sz=w300-h300-c`,
+        publicUrl: `https://lh3.googleusercontent.com/d/${response.data.id}`,
+        size: file.size,
+        mimeType: file.type,
+        updated: true // 덮어쓰기 표시
+      };
+    }
+
+    // 새 파일 업로드
+    console.log(`📤 [UPLOAD] 새 파일 업로드: ${fileName}`);
     const response = await drive.files.create({
       requestBody: {
         name: fileName,
@@ -383,39 +430,75 @@ function generateFileName(
     .replace(/[:.]/g, '-')
     .slice(0, -5);
   
-  // 파일 MIME 타입 기반으로 정확한 확장자 결정
-  let extension = 'jpg'; // 기본값
+  // 모바일 파일 (특히 아이폰 HEIC) 확장자 정확한 결정
+  let extension = 'jpg'; // 안전한 기본값
   
-  // 1순위: MIME 타입으로 확장자 결정 (가장 정확)
-  if (file.type) {
+  console.log(`📱 [UPLOAD] 모바일 파일 분석:`, {
+    originalName,
+    mimeType: file.type || '없음',
+    size: file.size,
+    lastModified: new Date(file.lastModified).toISOString()
+  });
+  
+  // 1순위: MIME 타입으로 확장자 결정 (가장 신뢰도 높음)
+  if (file.type && file.type.trim() !== '') {
     const mimeToExt: Record<string, string> = {
       'image/webp': 'webp',
       'image/jpeg': 'jpg',
       'image/jpg': 'jpg', 
       'image/png': 'png',
       'image/gif': 'gif',
-      'image/heic': 'heic',
-      'image/heif': 'heif'
+      'image/heic': 'jpg',  // HEIC는 JPG로 변환됨 (압축 과정에서)
+      'image/heif': 'jpg',  // HEIF도 JPG로 변환됨
+      'image/tiff': 'jpg',  // TIFF도 JPG로 변환
+      'image/bmp': 'jpg',   // BMP도 JPG로 변환
+      'image/webm': 'jpg'   // 기타 형식도 JPG로
     };
     
-    if (mimeToExt[file.type.toLowerCase()]) {
-      extension = mimeToExt[file.type.toLowerCase()];
+    const normalizedType = file.type.toLowerCase().trim();
+    if (mimeToExt[normalizedType]) {
+      extension = mimeToExt[normalizedType];
     }
   }
   
-  // 2순위: 파일명에서 확장자 추출 (MIME 타입이 없는 경우)
-  if (extension === 'jpg' && originalName && originalName.includes('.')) {
-    const extractedExt = originalName.split('.').pop()?.toLowerCase();
-    if (extractedExt && ['webp', 'jpg', 'jpeg', 'png', 'gif', 'heic', 'heif'].includes(extractedExt)) {
-      extension = extractedExt === 'jpeg' ? 'jpg' : extractedExt;
+  // 2순위: 파일명에서 확장자 추출 (MIME 타입이 없거나 신뢰할 수 없는 경우)
+  if (originalName && originalName.includes('.')) {
+    const extractedExt = originalName.split('.').pop()?.toLowerCase()?.trim();
+    
+    if (extractedExt) {
+      // 모바일에서 자주 나오는 확장자 매핑
+      const fileExtMap: Record<string, string> = {
+        'heic': 'jpg',    // 아이폰 HEIC → JPG (압축됨)
+        'heif': 'jpg',    // 아이폰 HEIF → JPG (압축됨)  
+        'jpeg': 'jpg',    // JPEG → JPG로 통일
+        'jpg': 'jpg',
+        'png': 'png',
+        'gif': 'gif',
+        'webp': 'webp',
+        'tiff': 'jpg',
+        'tif': 'jpg',
+        'bmp': 'jpg'
+      };
+      
+      if (fileExtMap[extractedExt]) {
+        // MIME 타입이 없거나 기본값일 때만 파일명 기반으로 결정
+        if (!file.type || file.type.trim() === '' || extension === 'jpg') {
+          extension = fileExtMap[extractedExt];
+        }
+      }
     }
   }
   
-  console.log(`📷 [UPLOAD] 파일 확장자 처리:`, {
-    originalName,
-    mimeType: file.type,
-    determined: extension,
-    method: file.type ? 'MIME타입' : '파일명'
+  // 3순위: 압축 결과 기반 최종 결정 (WebP 압축이 적용된 경우)
+  if (file.type === 'image/webp' || originalName?.toLowerCase().endsWith('.webp')) {
+    extension = 'webp';
+  }
+  
+  console.log(`📷 [UPLOAD] 최종 확장자 결정:`, {
+    original: originalName,
+    mimeType: file.type || '없음',
+    finalExtension: extension,
+    reason: file.type ? `MIME타입(${file.type})` : '파일명분석'
   });
   
   const typeMapping: Record<string, string> = {
@@ -441,7 +524,10 @@ function generateFileName(
   return `${safeName}.${extension}`;
 }
 
-// 대상 폴더 확인 (공유 드라이브 지원)
+// 폴더별 생성 중인 상태 추적 (중복 생성 방지)
+const folderCreationInProgress = new Map<string, Promise<string>>();
+
+// 대상 폴더 확인 (중복 생성 방지 포함)
 async function getTargetFolder(drive: any, businessFolderId: string, fileType: string): Promise<string> {
   const subFolderMapping: Record<string, string> = {
     'basic': '기본사진',
@@ -457,6 +543,15 @@ async function getTargetFolder(drive: any, businessFolderId: string, fileType: s
     return businessFolderId;
   }
   
+  // 중복 생성 방지를 위한 고유 키
+  const folderKey = `${businessFolderId}-${subFolderName}`;
+  
+  // 이미 생성 중인 폴더가 있으면 기다리기
+  if (folderCreationInProgress.has(folderKey)) {
+    console.log(`⏳ [UPLOAD] 폴더 생성 대기 중: ${subFolderName}`);
+    return await folderCreationInProgress.get(folderKey)!;
+  }
+  
   try {
     const searchQuery = `name='${subFolderName}' and parents in '${businessFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
     console.log(`📁 [UPLOAD] 하위 폴더 검색 쿼리:`, searchQuery);
@@ -464,40 +559,79 @@ async function getTargetFolder(drive: any, businessFolderId: string, fileType: s
     const searchResponse = await drive.files.list({
       q: searchQuery,
       fields: 'files(id, name)',
-      pageSize: 1,
+      pageSize: 10, // 여러 개가 있을 수 있으니 좀 더 많이 가져옴
       supportsAllDrives: true,
       includeItemsFromAllDrives: true
     });
     
     if (searchResponse.data.files?.length > 0) {
       const targetFolder = searchResponse.data.files[0];
-      console.log(`✅ [UPLOAD] 하위 폴더 발견:`, { name: targetFolder.name, id: targetFolder.id });
+      console.log(`✅ [UPLOAD] 하위 폴더 발견:`, { 
+        name: targetFolder.name, 
+        id: targetFolder.id,
+        totalFound: searchResponse.data.files.length
+      });
+      
+      // 중복된 폴더가 있으면 로그 남기기
+      if (searchResponse.data.files.length > 1) {
+        console.warn(`⚠️ [UPLOAD] 중복 폴더 발견:`, {
+          folderName: subFolderName,
+          count: searchResponse.data.files.length,
+          folders: searchResponse.data.files.map((f: any) => ({ id: f.id, name: f.name }))
+        });
+      }
+      
       return targetFolder.id!;
     } else {
       console.log(`📂 [UPLOAD] 하위 폴더 없음, 새로 생성: ${subFolderName}`);
       
-      // 하위 폴더 생성
-      try {
-        const createResponse = await drive.files.create({
-          requestBody: {
-            name: subFolderName,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [businessFolderId]
-          },
-          fields: 'id, name',
-          supportsAllDrives: true
-        });
-        
-        const newFolderId = createResponse.data.id!;
-        console.log(`✅ [UPLOAD] 하위 폴더 생성 완료:`, { name: subFolderName, id: newFolderId });
-        return newFolderId;
-      } catch (createError) {
-        console.error(`❌ [UPLOAD] 하위 폴더 생성 실패: ${subFolderName}`, createError);
-        console.log(`📁 [UPLOAD] 폴백: 상위 폴더 사용`);
-      }
+      // 폴더 생성을 Promise로 래핑하여 중복 방지
+      const createPromise = (async (): Promise<string> => {
+        try {
+          // 생성 직전에 다시 한번 확인 (Race condition 방지)
+          const doubleCheckResponse = await drive.files.list({
+            q: searchQuery,
+            fields: 'files(id, name)',
+            pageSize: 1,
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true
+          });
+          
+          if (doubleCheckResponse.data.files?.length > 0) {
+            console.log(`🔄 [UPLOAD] 중복 생성 방지: 다른 요청에서 이미 생성됨`, subFolderName);
+            return doubleCheckResponse.data.files[0].id!;
+          }
+          
+          const createResponse = await drive.files.create({
+            requestBody: {
+              name: subFolderName,
+              mimeType: 'application/vnd.google-apps.folder',
+              parents: [businessFolderId]
+            },
+            fields: 'id, name',
+            supportsAllDrives: true
+          });
+          
+          const newFolderId = createResponse.data.id!;
+          console.log(`✅ [UPLOAD] 하위 폴더 생성 완료:`, { name: subFolderName, id: newFolderId });
+          return newFolderId;
+        } catch (createError) {
+          console.error(`❌ [UPLOAD] 하위 폴더 생성 실패: ${subFolderName}`, createError);
+          console.log(`📁 [UPLOAD] 폴백: 상위 폴더 사용`);
+          return businessFolderId;
+        } finally {
+          // 생성 완료 후 상태 제거
+          folderCreationInProgress.delete(folderKey);
+        }
+      })();
+      
+      // 생성 중 상태 등록
+      folderCreationInProgress.set(folderKey, createPromise);
+      return await createPromise;
     }
   } catch (error) {
     console.error(`❌ [UPLOAD] 하위 폴더 검색 실패: ${subFolderName}`, error);
+    folderCreationInProgress.delete(folderKey);
   }
   
   console.log(`📁 [UPLOAD] 최종 대상 폴더: 상위 폴더 (${businessFolderId})`);
