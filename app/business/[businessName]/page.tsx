@@ -137,11 +137,22 @@ export default function BusinessPage() {
       if (details.fan === 'true') totals.fan++;
     });
 
-    // VPN 데이터 합계
+    // VPN 데이터 합계 (게이트웨이 번호 기준 중복 제거)
+    const wiredGateways = new Set<string>();
+    const wirelessGateways = new Set<string>();
+    
     Object.values(gatewayInfo).forEach(info => {
-      if (info.vpn === '유선') totals.wired++;
-      if (info.vpn === '무선') totals.wireless++;
+      if (info.gateway && info.gateway.trim()) {
+        if (info.vpn === '유선') {
+          wiredGateways.add(info.gateway.trim());
+        } else if (info.vpn === '무선') {
+          wirelessGateways.add(info.gateway.trim());
+        }
+      }
     });
+    
+    totals.wired = wiredGateways.size;
+    totals.wireless = wirelessGateways.size;
 
     return totals;
   }, [facilityDetails, gatewayInfo]);
