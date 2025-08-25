@@ -11,50 +11,136 @@ interface FileUploadSectionProps {
   facilities: FacilitiesData | null;
 }
 
-// 고성능 이미지 압축 함수 (확장자 보정 포함)
+// 고성능 이미지 압축 함수 (모바일 파일명 보정 강화)
 const compressImage = async (file: File): Promise<File> => {
-  // 이미지 파일이 아니면 그대로 반환
-  if (!file.type.startsWith('image/')) return file;
-  
-  // 500KB 이하면 그대로 반환
-  if (file.size <= 500 * 1024) return file;
+  console.log('🔍 [COMPRESS] 압축 전 파일 분석:', {
+    name: file.name,
+    type: file.type,
+    size: file.size,
+    lastModified: new Date(file.lastModified).toISOString(),
+    isMobile: /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+  });
 
+  // 이미지 파일이 아니면 그대로 반환
+  if (!file.type.startsWith('image/')) {
+    console.warn('⚠️ [COMPRESS] 이미지가 아닌 파일:', file.type);
+    return file;
+  }
+  
+  // 500KB 이하면 그대로 반환 (단, 파일명은 보정)
+  if (file.size <= 500 * 1024) {
+    console.log('📦 [COMPRESS] 작은 파일, 압축 생략');
+    return ensureProperFileName(file);
+  }
+
+  // 아이폰에서는 JPG가 더 안정적일 수 있음
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const shouldUseJpg = isIOS && (!file.name || !file.name.includes('.') || !file.type);
+  
   const options = {
     maxSizeMB: 1, // 1MB로 압축
     maxWidthOrHeight: 1920, // 최대 해상도
     useWebWorker: true, // 웹워커 사용으로 성능 향상
-    // WebP는 최고 압축률이지만 JPG는 범용성이 좋음
-    // 현재는 WebP 사용 (Google Drive 완벽 지원)
-    fileType: 'image/webp'
+    // 파일 정보 손실된 iOS 파일은 JPG로, 그 외는 WebP로
+    fileType: shouldUseJpg ? 'image/jpeg' : 'image/webp'
   };
+  
+  console.log('🎯 [COMPRESS] 압축 옵션 결정:', {
+    isIOS,
+    hasFileName: !!file.name,
+    hasExtension: file.name?.includes('.'),
+    hasMimeType: !!file.type,
+    shouldUseJpg,
+    selectedFormat: options.fileType
+  });
 
   try {
+    console.log('⚙️ [COMPRESS] 압축 시작...');
     const compressedFile = await imageCompression(file, options);
     
-    // 압축된 파일의 이름을 WebP 확장자로 수정
-    const originalName = file.name;
-    const nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.')) || originalName;
-    const webpFileName = `${nameWithoutExt}.webp`;
-    
-    // 새로운 File 객체 생성 (올바른 이름과 타입으로)
-    const correctedFile = new File([compressedFile], webpFileName, {
-      type: 'image/webp',
-      lastModified: compressedFile.lastModified
+    console.log('🔍 [COMPRESS] 압축 후 파일 분석:', {
+      name: compressedFile.name,
+      type: compressedFile.type,
+      size: compressedFile.size
     });
     
-    console.log('이미지 압축 완료:', {
-      원본이름: originalName,
-      압축후이름: webpFileName,
+    // 압축된 파일의 올바른 확장자로 강제 수정
+    const originalName = file.name || `image_${Date.now()}`;
+    const nameWithoutExt = originalName.includes('.') 
+      ? originalName.substring(0, originalName.lastIndexOf('.'))
+      : originalName;
+    
+    const targetExtension = shouldUseJpg ? 'jpg' : 'webp';
+    const targetMimeType = shouldUseJpg ? 'image/jpeg' : 'image/webp';
+    const correctedFileName = `${nameWithoutExt}.${targetExtension}`;
+    
+    // 새로운 File 객체 생성 (압축 형식에 맞는 올바른 이름과 타입)
+    const correctedFile = new File([compressedFile], correctedFileName, {
+      type: targetMimeType,
+      lastModified: compressedFile.lastModified || Date.now()
+    });
+    
+    console.log('✅ [COMPRESS] 압축 및 파일명 보정 완료:', {
+      원본이름: file.name || '없음',
+      원본타입: file.type || '없음',
+      압축후이름: correctedFile.name,
+      압축후타입: correctedFile.type,
+      압축형식: targetExtension.toUpperCase(),
       원본크기: `${(file.size / 1024).toFixed(1)}KB`,
-      압축후크기: `${(compressedFile.size / 1024).toFixed(1)}KB`,
-      압축률: `${(100 - (compressedFile.size / file.size) * 100).toFixed(1)}%`
+      압축후크기: `${(correctedFile.size / 1024).toFixed(1)}KB`,
+      압축률: `${(100 - (correctedFile.size / file.size) * 100).toFixed(1)}%`,
+      isIOSFix: shouldUseJpg
     });
     
     return correctedFile;
   } catch (error) {
-    console.error('이미지 압축 실패:', error);
-    return file;
+    console.error('❌ [COMPRESS] 이미지 압축 실패:', error);
+    return ensureProperFileName(file);
   }
+};
+
+// 파일명 및 타입 강제 보정 함수 (압축하지 않는 작은 파일용)
+const ensureProperFileName = (file: File): File => {
+  console.log('🔧 [FILE-FIX] 파일명 보정 시작:', { name: file.name, type: file.type });
+  
+  // 파일명이 없거나 확장자가 없는 경우
+  if (!file.name || !file.name.includes('.')) {
+    const extension = getExtensionFromMimeType(file.type) || 'jpg';
+    const newName = file.name || `image_${Date.now()}`;
+    const correctedName = `${newName}.${extension}`;
+    
+    const correctedFile = new File([file], correctedName, {
+      type: file.type || `image/${extension}`,
+      lastModified: file.lastModified
+    });
+    
+    console.log('🔧 [FILE-FIX] 파일명 보정 완료:', {
+      원본: file.name,
+      보정후: correctedFile.name,
+      타입: correctedFile.type
+    });
+    
+    return correctedFile;
+  }
+  
+  return file;
+};
+
+// MIME 타입에서 확장자 추출
+const getExtensionFromMimeType = (mimeType: string): string => {
+  const mimeToExt: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/heic': 'jpg', // HEIC는 JPG로 처리
+    'image/heif': 'jpg', // HEIF는 JPG로 처리
+    'image/bmp': 'jpg',
+    'image/tiff': 'jpg'
+  };
+  
+  return mimeToExt[mimeType?.toLowerCase()] || 'jpg';
 };
 
 // 업로드 아이템 컴포넌트 메모화

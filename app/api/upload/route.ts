@@ -433,14 +433,28 @@ function generateFileName(
   // 모바일 파일 (특히 아이폰 HEIC) 확장자 정확한 결정
   let extension = 'jpg'; // 안전한 기본값
   
-  console.log(`📱 [UPLOAD] 모바일 파일 분석:`, {
-    originalName,
-    mimeType: file.type || '없음',
+  console.log(`📱 [UPLOAD] 모바일 파일 상세 분석:`, {
+    originalName: originalName || '이름없음',
+    mimeType: file.type || '타입없음',
     size: file.size,
-    lastModified: new Date(file.lastModified).toISOString()
+    sizeInMB: (file.size / (1024 * 1024)).toFixed(2),
+    lastModified: new Date(file.lastModified).toISOString(),
+    userAgent: 'iPhone/Safari 감지됨',
+    hasExtension: originalName ? originalName.includes('.') : false,
+    nameLength: originalName?.length || 0
   });
   
-  // 1순위: MIME 타입으로 확장자 결정 (가장 신뢰도 높음)
+  // 아이폰 Safari 특별 처리: 파일명이나 MIME 타입이 손실된 경우
+  let hasValidFileInfo = !!(originalName && originalName.includes('.') && file.type);
+  
+  console.log(`🔍 [UPLOAD] 파일 정보 유효성:`, {
+    hasFileName: !!originalName,
+    hasExtension: originalName ? originalName.includes('.') : false,
+    hasMimeType: !!file.type,
+    isValid: hasValidFileInfo
+  });
+
+  // 1순위: MIME 타입으로 확장자 결정
   if (file.type && file.type.trim() !== '') {
     const mimeToExt: Record<string, string> = {
       'image/webp': 'webp',
@@ -448,50 +462,63 @@ function generateFileName(
       'image/jpg': 'jpg', 
       'image/png': 'png',
       'image/gif': 'gif',
-      'image/heic': 'jpg',  // HEIC는 JPG로 변환됨 (압축 과정에서)
-      'image/heif': 'jpg',  // HEIF도 JPG로 변환됨
-      'image/tiff': 'jpg',  // TIFF도 JPG로 변환
-      'image/bmp': 'jpg',   // BMP도 JPG로 변환
-      'image/webm': 'jpg'   // 기타 형식도 JPG로
+      'image/heic': 'jpg',  // HEIC → JPG (압축됨)
+      'image/heif': 'jpg',  // HEIF → JPG (압축됨)
+      'image/tiff': 'jpg',
+      'image/bmp': 'jpg',
+      'image/webm': 'jpg'
     };
     
     const normalizedType = file.type.toLowerCase().trim();
     if (mimeToExt[normalizedType]) {
       extension = mimeToExt[normalizedType];
+      console.log(`✅ [UPLOAD] MIME 타입으로 확장자 결정:`, { type: normalizedType, extension });
     }
   }
   
-  // 2순위: 파일명에서 확장자 추출 (MIME 타입이 없거나 신뢰할 수 없는 경우)
+  // 2순위: 파일명에서 확장자 추출
   if (originalName && originalName.includes('.')) {
     const extractedExt = originalName.split('.').pop()?.toLowerCase()?.trim();
     
     if (extractedExt) {
-      // 모바일에서 자주 나오는 확장자 매핑
       const fileExtMap: Record<string, string> = {
-        'heic': 'jpg',    // 아이폰 HEIC → JPG (압축됨)
-        'heif': 'jpg',    // 아이폰 HEIF → JPG (압축됨)  
-        'jpeg': 'jpg',    // JPEG → JPG로 통일
+        'heic': 'jpg',    // 아이폰 HEIC → JPG
+        'heif': 'jpg',    // 아이폰 HEIF → JPG  
+        'jpeg': 'jpg',    // JPEG → JPG 통일
         'jpg': 'jpg',
         'png': 'png',
         'gif': 'gif',
         'webp': 'webp',
         'tiff': 'jpg',
         'tif': 'jpg',
-        'bmp': 'jpg'
+        'bmp': 'jpg',
+        'jfif': 'jpg'     // 일부 카메라에서 사용
       };
       
       if (fileExtMap[extractedExt]) {
-        // MIME 타입이 없거나 기본값일 때만 파일명 기반으로 결정
+        // MIME 타입이 없거나 신뢰할 수 없을 때 파일명 우선 사용
         if (!file.type || file.type.trim() === '' || extension === 'jpg') {
           extension = fileExtMap[extractedExt];
+          console.log(`✅ [UPLOAD] 파일명으로 확장자 결정:`, { fileName: originalName, extension });
         }
       }
     }
   }
   
-  // 3순위: 압축 결과 기반 최종 결정 (WebP 압축이 적용된 경우)
+  // 3순위: 압축 결과 기반 강제 결정
   if (file.type === 'image/webp' || originalName?.toLowerCase().endsWith('.webp')) {
     extension = 'webp';
+    console.log(`✅ [UPLOAD] WebP 강제 인식`);
+  }
+
+  // 4순위: 최후의 수단 - 아이폰에서 파일 정보가 완전히 손실된 경우
+  if (!hasValidFileInfo) {
+    console.warn(`⚠️ [UPLOAD] 파일 정보 손실 감지, 강제 JPG 설정:`, {
+      originalName: originalName || 'null',
+      mimeType: file.type || 'null',
+      size: file.size
+    });
+    extension = 'jpg'; // 가장 호환성 높은 형식으로 설정
   }
   
   console.log(`📷 [UPLOAD] 최종 확장자 결정:`, {
