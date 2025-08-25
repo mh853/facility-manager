@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { FacilitiesData, BusinessInfo, SystemType } from '@/types';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { AlertTriangle, Building2, User, FileText, Zap, Shield, Camera, Save, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Building2, User, FileText, Zap, Shield, Camera, Save, ChevronDown, Router, Wifi, WifiOff } from 'lucide-react';
 import UploadedFilesManager from '@/components/UploadedFilesManager'; // 일반 import로 변경
 
 // Dynamic imports for better chunk loading
@@ -56,6 +56,23 @@ export default function BusinessPage() {
     notes: false
   });
   const [showSystemTypeDropdown, setShowSystemTypeDropdown] = useState(false);
+
+  // 시설 상세정보 컬럼 토글 상태
+  const [visibleColumns, setVisibleColumns] = useState({
+    discharge: {
+      출수량: false
+    },
+    prevention: {
+      PH: false,
+      차압: false,
+      온도: false,
+      펌프: false,
+      송풍: false
+    }
+  });
+
+  // IoT 게이트웨이 정보 상태
+  const [gatewayInfo, setGatewayInfo] = useState<{[outlet: number]: {gateway: string, vpn: '유선' | '무선'}}>({});
 
   // 구글시트에서 데이터 동기화 (최적화)
   const loadSyncData = useCallback(async (isInitialLoad = false) => {
@@ -429,9 +446,27 @@ export default function BusinessPage() {
               {/* 배출시설 상세 정보 */}
               {facilityStats.hasDischarge && (
                 <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
-                  <div className="flex items-center gap-2 mb-4 md:mb-6">
-                    <Zap className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
-                    <h3 className="text-lg md:text-xl font-bold text-gray-900">배출시설 상세 정보</h3>
+                  <div className="flex items-center justify-between mb-4 md:mb-6">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
+                      <h3 className="text-lg md:text-xl font-bold text-gray-900">배출시설 상세 정보</h3>
+                    </div>
+                    {/* 컬럼 토글 버튼 */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setVisibleColumns(prev => ({
+                          ...prev,
+                          discharge: { ...prev.discharge, 출수량: !prev.discharge.출수량 }
+                        }))}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          visibleColumns.discharge.출수량 
+                            ? 'bg-red-100 text-red-700 border border-red-300' 
+                            : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                        }`}
+                      >
+                        배출CT
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="overflow-x-auto">
@@ -442,6 +477,9 @@ export default function BusinessPage() {
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">시설명</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">용량</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">수량</th>
+                          {visibleColumns.discharge.출수량 && (
+                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">배출CT</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -451,6 +489,9 @@ export default function BusinessPage() {
                             <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
                             <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.capacity}</td>
                             <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
+                            {visibleColumns.discharge.출수량 && (
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -462,9 +503,30 @@ export default function BusinessPage() {
               {/* 방지시설 상세 정보 */}
               {facilityStats.hasPrevention && (
                 <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
-                  <div className="flex items-center gap-2 mb-4 md:mb-6">
-                    <Shield className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
-                    <h3 className="text-lg md:text-xl font-bold text-gray-900">방지시설 상세 정보</h3>
+                  <div className="flex items-center justify-between mb-4 md:mb-6">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
+                      <h3 className="text-lg md:text-xl font-bold text-gray-900">방지시설 상세 정보</h3>
+                    </div>
+                    {/* 컬럼 토글 버튼 */}
+                    <div className="flex gap-1 flex-wrap">
+                      {['PH', '차압', '온도', '펌프', '송풍'].map(column => (
+                        <button
+                          key={column}
+                          onClick={() => setVisibleColumns(prev => ({
+                            ...prev,
+                            prevention: { ...prev.prevention, [column]: !prev.prevention[column as keyof typeof prev.prevention] }
+                          }))}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            visibleColumns.prevention[column as keyof typeof visibleColumns.prevention] 
+                              ? 'bg-green-100 text-green-700 border border-green-300' 
+                              : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                          }`}
+                        >
+                          {column}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   
                   <div className="overflow-x-auto">
@@ -475,6 +537,21 @@ export default function BusinessPage() {
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">시설명</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">용량</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">수량</th>
+                          {visibleColumns.prevention.PH && (
+                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">PH</th>
+                          )}
+                          {visibleColumns.prevention.차압 && (
+                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">차압</th>
+                          )}
+                          {visibleColumns.prevention.온도 && (
+                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">온도</th>
+                          )}
+                          {visibleColumns.prevention.펌프 && (
+                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">펌프</th>
+                          )}
+                          {visibleColumns.prevention.송풍 && (
+                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">송풍</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -484,6 +561,21 @@ export default function BusinessPage() {
                             <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
                             <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.capacity}</td>
                             <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
+                            {visibleColumns.prevention.PH && (
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
+                            )}
+                            {visibleColumns.prevention.차압 && (
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
+                            )}
+                            {visibleColumns.prevention.온도 && (
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
+                            )}
+                            {visibleColumns.prevention.펌프 && (
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
+                            )}
+                            {visibleColumns.prevention.송풍 && (
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -491,6 +583,93 @@ export default function BusinessPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* IoT 게이트웨이 정보 */}
+          {facilityStats.hasFacilities && (
+            <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
+              <div className="flex items-center gap-2 mb-4 md:mb-6">
+                <Router className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                <h3 className="text-lg md:text-xl font-bold text-gray-900">IoT 게이트웨이 정보</h3>
+              </div>
+              
+              <div className="grid gap-4">
+                {Object.keys(
+                  [...(facilities?.discharge || []), ...(facilities?.prevention || [])]
+                    .reduce((outlets, facility) => {
+                      outlets[facility.outlet] = true;
+                      return outlets;
+                    }, {} as {[key: number]: boolean})
+                ).sort((a, b) => parseInt(a) - parseInt(b)).map(outlet => {
+                  const outletNum = parseInt(outlet);
+                  const currentGateway = gatewayInfo[outletNum] || { gateway: '', vpn: '유선' as const };
+                  
+                  return (
+                    <div key={outlet} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-sm font-medium text-gray-700">배출구 {outlet}:</span>
+                      </div>
+                      
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {/* 게이트웨이 번호 */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600 mb-2">
+                            게이트웨이 번호
+                          </label>
+                          <input
+                            type="text"
+                            value={currentGateway.gateway}
+                            onChange={(e) => setGatewayInfo(prev => ({
+                              ...prev,
+                              [outletNum]: { ...currentGateway, gateway: e.target.value }
+                            }))}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            placeholder="게이트웨이 번호 입력"
+                          />
+                        </div>
+                        
+                        {/* VPN 정보 */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600 mb-2">
+                            VPN 연결 유형
+                          </label>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setGatewayInfo(prev => ({
+                                ...prev,
+                                [outletNum]: { ...currentGateway, vpn: '유선' }
+                              }))}
+                              className={`flex items-center gap-1 px-3 py-2 text-sm rounded-md transition-colors ${
+                                currentGateway.vpn === '유선'
+                                  ? 'bg-green-100 text-green-700 border border-green-300'
+                                  : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                              }`}
+                            >
+                              <Wifi className="w-4 h-4" />
+                              유선
+                            </button>
+                            <button
+                              onClick={() => setGatewayInfo(prev => ({
+                                ...prev,
+                                [outletNum]: { ...currentGateway, vpn: '무선' }
+                              }))}
+                              className={`flex items-center gap-1 px-3 py-2 text-sm rounded-md transition-colors ${
+                                currentGateway.vpn === '무선'
+                                  ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                  : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                              }`}
+                            >
+                              <WifiOff className="w-4 h-4" />
+                              무선
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
