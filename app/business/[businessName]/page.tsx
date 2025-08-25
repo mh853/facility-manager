@@ -611,11 +611,11 @@ export default function BusinessPage() {
                     <table className="w-full border-collapse border border-gray-300">
                       <thead>
                         <tr className="bg-red-50">
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">배출구</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">배출구</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">시설명</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">용량</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">수량</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">배출CT</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-24">용량</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">수량</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">배출CT</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -625,10 +625,10 @@ export default function BusinessPage() {
                           
                           return (
                             <tr key={index} className="hover:bg-gray-50">
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.outlet}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm text-center w-12">{facility.outlet}</td>
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.capacity}</td>
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm w-24">{facility.capacity}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm text-center w-12">{facility.quantity}</td>
                               <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
                                   type="checkbox"
@@ -658,15 +658,15 @@ export default function BusinessPage() {
                     <table className="w-full border-collapse border border-gray-300">
                       <thead>
                         <tr className="bg-green-50">
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">배출구</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">배출구</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">시설명</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">용량</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">수량</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">PH</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">차압</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">온도</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">펌프</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">송풍</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-24">용량</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">수량</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">PH</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">차압</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">온도</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">펌프</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">송풍</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -676,10 +676,10 @@ export default function BusinessPage() {
                           
                           return (
                             <tr key={index} className="hover:bg-gray-50">
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.outlet}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm text-center w-12">{facility.outlet}</td>
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.capacity}</td>
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm w-24">{facility.capacity}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm text-center w-12">{facility.quantity}</td>
                               <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
                                   type="checkbox"
