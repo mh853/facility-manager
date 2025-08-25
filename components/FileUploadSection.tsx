@@ -11,7 +11,7 @@ interface FileUploadSectionProps {
   facilities: FacilitiesData | null;
 }
 
-// 고성능 이미지 압축 함수
+// 고성능 이미지 압축 함수 (확장자 보정 포함)
 const compressImage = async (file: File): Promise<File> => {
   // 이미지 파일이 아니면 그대로 반환
   if (!file.type.startsWith('image/')) return file;
@@ -28,12 +28,27 @@ const compressImage = async (file: File): Promise<File> => {
 
   try {
     const compressedFile = await imageCompression(file, options);
+    
+    // 압축된 파일의 이름을 WebP 확장자로 수정
+    const originalName = file.name;
+    const nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.')) || originalName;
+    const webpFileName = `${nameWithoutExt}.webp`;
+    
+    // 새로운 File 객체 생성 (올바른 이름과 타입으로)
+    const correctedFile = new File([compressedFile], webpFileName, {
+      type: 'image/webp',
+      lastModified: compressedFile.lastModified
+    });
+    
     console.log('이미지 압축 완료:', {
-      원본: `${(file.size / 1024).toFixed(1)}KB`,
-      압축후: `${(compressedFile.size / 1024).toFixed(1)}KB`,
+      원본이름: originalName,
+      압축후이름: webpFileName,
+      원본크기: `${(file.size / 1024).toFixed(1)}KB`,
+      압축후크기: `${(compressedFile.size / 1024).toFixed(1)}KB`,
       압축률: `${(100 - (compressedFile.size / file.size) * 100).toFixed(1)}%`
     });
-    return compressedFile;
+    
+    return correctedFile;
   } catch (error) {
     console.error('이미지 압축 실패:', error);
     return file;

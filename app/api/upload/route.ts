@@ -308,7 +308,7 @@ async function uploadSingleFile(
     });
 
     // 파일명 생성
-    const fileName = generateFileName(businessName, fileType, facilityInfo, fileNumber, file.name);
+    const fileName = generateFileName(businessName, fileType, facilityInfo, fileNumber, file.name, file);
     
     // 대상 폴더 확인
     const targetFolderId = await getTargetFolder(drive, businessFolderId, fileType);
@@ -367,7 +367,8 @@ function generateFileName(
   fileType: string,
   facilityInfo: string,
   fileNumber: number,
-  originalName: string
+  originalName: string,
+  file: File
 ): string {
   const timestamp = new Date().toLocaleString('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -382,7 +383,27 @@ function generateFileName(
     .replace(/[:.]/g, '-')
     .slice(0, -5);
   
-  const extension = originalName.split('.').pop() || 'jpg';
+  // 압축된 파일의 올바른 확장자 처리
+  let extension = 'jpg'; // 기본값
+  
+  if (originalName && originalName.includes('.')) {
+    const extractedExt = originalName.split('.').pop()?.toLowerCase();
+    // WebP 압축 후 확장자 보정
+    if (extractedExt === 'webp' || file.type === 'image/webp') {
+      extension = 'webp';
+    } else if (['jpg', 'jpeg', 'png', 'gif'].includes(extractedExt || '')) {
+      // 원본이 일반 이미지 형식이면 WebP로 압축되었을 가능성이 높음
+      extension = file.type === 'image/webp' ? 'webp' : (extractedExt || 'jpg');
+    } else {
+      extension = 'jpg'; // 알 수 없는 형식은 jpg로
+    }
+  }
+  
+  console.log(`📷 [UPLOAD] 파일 확장자 처리:`, {
+    originalName,
+    mimeType: file.type,
+    determined: extension
+  });
   
   const typeMapping: Record<string, string> = {
     'basic': '기본사진',
