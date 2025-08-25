@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useMemo, memo } from 'react';
 import { FacilitiesData, SystemType, Facility } from '@/types';
-import { Upload, Zap, Shield, Radio, Wind, Camera, Building, Wrench, Cpu, Power, Settings, Home } from 'lucide-react';
+import { Upload, Zap, Shield, Radio, Wind, Camera, Building, Wrench, Cpu, Power, Settings, Home, Clock, CheckCircle2 } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 interface FileUploadSectionProps {
   businessName: string;
@@ -10,45 +11,33 @@ interface FileUploadSectionProps {
   facilities: FacilitiesData | null;
 }
 
-// 간단한 이미지 압축 함수
+// 고성능 이미지 압축 함수
 const compressImage = async (file: File): Promise<File> => {
-  // 2MB 이하면 그대로 반환
-  if (file.size <= 2 * 1024 * 1024) return file;
+  // 이미지 파일이 아니면 그대로 반환
+  if (!file.type.startsWith('image/')) return file;
+  
+  // 500KB 이하면 그대로 반환
+  if (file.size <= 500 * 1024) return file;
 
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
-    const img = new Image();
+  const options = {
+    maxSizeMB: 1, // 1MB로 압축
+    maxWidthOrHeight: 1920, // 최대 해상도
+    useWebWorker: true, // 웹워커 사용으로 성능 향상
+    fileType: 'image/webp' // WebP 포맷으로 변환
+  };
 
-    img.onload = () => {
-      // 최대 크기 제한
-      const maxSize = 1920;
-      const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
-      
-      canvas.width = img.width * ratio;
-      canvas.height = img.height * ratio;
-
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            const compressedFile = new File([blob], file.name, {
-              type: 'image/webp',
-              lastModified: Date.now()
-            });
-            resolve(compressedFile);
-          } else {
-            resolve(file);
-          }
-        },
-        'image/webp',
-        0.8
-      );
-    };
-
-    img.src = URL.createObjectURL(file);
-  });
+  try {
+    const compressedFile = await imageCompression(file, options);
+    console.log('이미지 압축 완료:', {
+      원본: `${(file.size / 1024).toFixed(1)}KB`,
+      압축후: `${(compressedFile.size / 1024).toFixed(1)}KB`,
+      압축률: `${(100 - (compressedFile.size / file.size) * 100).toFixed(1)}%`
+    });
+    return compressedFile;
+  } catch (error) {
+    console.error('이미지 압축 실패:', error);
+    return file;
+  }
 };
 
 // 업로드 아이템 컴포넌트 메모화
@@ -69,28 +58,30 @@ const UploadItem = memo(({
   IconComponent: any;
   facility?: Facility;
   onUpload: (uploadId: string, fileType: string, facilityInfo: string) => void;
-  uploadState: { files: File[]; status: string; uploading: boolean };
+  uploadState: { files: File[]; status: string; uploading: boolean; progress?: number };
 }) => {
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files) return;
     
-    // 파일 압축 및 최적화
-    const optimizedFiles: File[] = [];
+    console.log(`파일 압축 시작: ${files.length}개 파일`);
+    const startTime = Date.now();
     
-    for (let i = 0; i < Math.min(files.length, 10); i++) {
-      const file = files[i];
-      if (file.type.startsWith('image/')) {
-        try {
-          const optimizedFile = await compressImage(file);
-          optimizedFiles.push(optimizedFile);
-        } catch (error) {
-          console.warn('이미지 압축 실패:', error);
-          optimizedFiles.push(file);
-        }
-      } else {
-        optimizedFiles.push(file);
+    // 병렬 압축 처리
+    const compressionPromises = Array.from(files).slice(0, 10).map(async (file, index) => {
+      try {
+        const optimizedFile = await compressImage(file);
+        return { file: optimizedFile, index, success: true };
+      } catch (error) {
+        console.warn(`파일 ${index + 1} 압축 실패:`, error);
+        return { file, index, success: false };
       }
-    }
+    });
+    
+    const results = await Promise.all(compressionPromises);
+    const optimizedFiles = results.map(r => r.file);
+    const compressionTime = Date.now() - startTime;
+    
+    console.log(`파일 압축 완료: ${compressionTime}ms, 성공: ${results.filter(r => r.success).length}/${results.length}`);
     
     // 부모 컴포넌트에 최적화된 파일 전달
     const event = new CustomEvent('filesSelected', { 
@@ -144,13 +135,35 @@ const UploadItem = memo(({
         disabled={uploadState.uploading}
       />
       
+      {/* 업로드 상태 및 프로그레스 */}
       {uploadState.status && (
-        <p className={`text-sm mb-4 ${
-          uploadState.status.includes('✅') ? 'text-green-600' : 
-          uploadState.status.includes('❌') ? 'text-red-600' : 'text-gray-600'
-        }`}>
-          {uploadState.status}
-        </p>
+        <div className="mb-4 space-y-2">
+          <div className="flex items-center gap-2">
+            {uploadState.uploading ? (
+              <Clock className="w-4 h-4 text-blue-600 animate-spin" />
+            ) : uploadState.status.includes('✅') ? (
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+            ) : uploadState.status.includes('❌') ? (
+              <div className="w-4 h-4 text-red-600">❌</div>
+            ) : null}
+            <p className={`text-sm ${
+              uploadState.status.includes('✅') ? 'text-green-600' : 
+              uploadState.status.includes('❌') ? 'text-red-600' : 'text-gray-600'
+            }`}>
+              {uploadState.status}
+            </p>
+          </div>
+          
+          {/* 프로그레스바 */}
+          {uploadState.uploading && uploadState.files.length > 0 && (
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${(100 / uploadState.files.length) * Math.min(uploadState.files.length, 100)}%` }}
+              ></div>
+            </div>
+          )}
+        </div>
       )}
       
       <button
