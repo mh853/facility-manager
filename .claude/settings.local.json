@@ -4,7 +4,9 @@
       "Bash(git switch:*)",
       "Bash(npx vercel:*)",
       "Bash(npm run build:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

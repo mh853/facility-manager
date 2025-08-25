@@ -77,21 +77,87 @@ export default function BusinessPage() {
     }));
   };
 
-  // 데이터 저장 및 불러오기 함수
-  const saveFacilityData = useCallback(() => {
+  // 데이터 합계 계산 함수
+  const calculateTotals = useCallback(() => {
+    const totals = {
+      ph: 0,
+      pressure: 0,
+      temperature: 0,
+      dischargeCT: 0,
+      pump: 0,
+      fan: 0,
+      wired: 0,
+      wireless: 0
+    };
+
+    // 시설 데이터 합계
+    Object.values(facilityDetails).forEach(details => {
+      if (details.ph === 'true') totals.ph++;
+      if (details.pressure === 'true') totals.pressure++;
+      if (details.temperature === 'true') totals.temperature++;
+      if (details.dischargeCT === 'true') totals.dischargeCT++;
+      if (details.pump === 'true') totals.pump++;
+      if (details.fan === 'true') totals.fan++;
+    });
+
+    // VPN 데이터 합계
+    Object.values(gatewayInfo).forEach(info => {
+      if (info.vpn === '유선') totals.wired++;
+      if (info.vpn === '무선') totals.wireless++;
+    });
+
+    return totals;
+  }, [facilityDetails, gatewayInfo]);
+
+  // 구글시트에 데이터 업데이트
+  const updateGoogleSheets = useCallback(async () => {
     try {
+      const totals = calculateTotals();
+      
+      const response = await fetch('/api/update-facility-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          businessName,
+          data: totals
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('구글시트에 데이터가 업데이트되었습니다!');
+      } else {
+        alert(`구글시트 업데이트 실패: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('구글시트 업데이트 실패:', error);
+      alert('구글시트 업데이트 중 오류가 발생했습니다.');
+    }
+  }, [businessName, calculateTotals]);
+
+  // 데이터 저장 및 불러오기 함수
+  const saveFacilityData = useCallback(async () => {
+    try {
+      // 로컬 스토리지에 저장
       const dataToSave = {
         facilityDetails,
         gatewayInfo,
         timestamp: new Date().toISOString()
       };
       localStorage.setItem(`facility-data-${businessName}`, JSON.stringify(dataToSave));
-      alert('시설 상세 데이터가 저장되었습니다.');
+      
+      // 구글시트에도 업데이트
+      await updateGoogleSheets();
+      
+      console.log('시설 데이터 저장 완료');
     } catch (error) {
       console.error('데이터 저장 실패:', error);
       alert('데이터 저장에 실패했습니다.');
     }
-  }, [facilityDetails, gatewayInfo, businessName]);
+  }, [facilityDetails, gatewayInfo, businessName, updateGoogleSheets]);
 
   const loadFacilityData = useCallback(() => {
     try {
@@ -514,13 +580,12 @@ export default function BusinessPage() {
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.capacity}</td>
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
-                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="text"
-                                  value={currentDetails.dischargeCT || ''}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'dischargeCT', e.target.value)}
-                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-red-300 focus:border-red-400"
-                                  placeholder="-"
+                                  type="radio"
+                                  checked={currentDetails.dischargeCT === 'true'}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'dischargeCT', e.target.checked ? 'true' : 'false')}
+                                  className="w-4 h-4 text-red-600 focus:ring-red-500"
                                 />
                               </td>
                             </tr>
@@ -566,49 +631,44 @@ export default function BusinessPage() {
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.capacity}</td>
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
-                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="text"
-                                  value={currentDetails.ph || ''}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'ph', e.target.value)}
-                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-300 focus:border-green-400"
-                                  placeholder="-"
+                                  type="radio"
+                                  checked={currentDetails.ph === 'true'}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'ph', e.target.checked ? 'true' : 'false')}
+                                  className="w-4 h-4 text-green-600 focus:ring-green-500"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="text"
-                                  value={currentDetails.pressure || ''}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'pressure', e.target.value)}
-                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-300 focus:border-green-400"
-                                  placeholder="-"
+                                  type="radio"
+                                  checked={currentDetails.pressure === 'true'}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'pressure', e.target.checked ? 'true' : 'false')}
+                                  className="w-4 h-4 text-green-600 focus:ring-green-500"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="text"
-                                  value={currentDetails.temperature || ''}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'temperature', e.target.value)}
-                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-300 focus:border-green-400"
-                                  placeholder="-"
+                                  type="radio"
+                                  checked={currentDetails.temperature === 'true'}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'temperature', e.target.checked ? 'true' : 'false')}
+                                  className="w-4 h-4 text-green-600 focus:ring-green-500"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="text"
-                                  value={currentDetails.pump || ''}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'pump', e.target.value)}
-                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-300 focus:border-green-400"
-                                  placeholder="-"
+                                  type="radio"
+                                  checked={currentDetails.pump === 'true'}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'pump', e.target.checked ? 'true' : 'false')}
+                                  className="w-4 h-4 text-green-600 focus:ring-green-500"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="text"
-                                  value={currentDetails.fan || ''}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'fan', e.target.value)}
-                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-300 focus:border-green-400"
-                                  placeholder="-"
+                                  type="radio"
+                                  checked={currentDetails.fan === 'true'}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'fan', e.target.checked ? 'true' : 'false')}
+                                  className="w-4 h-4 text-green-600 focus:ring-green-500"
                                 />
                               </td>
                             </tr>
