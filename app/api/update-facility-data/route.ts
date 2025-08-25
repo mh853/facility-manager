@@ -4,7 +4,7 @@ import { sheets } from '@/lib/google-client';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessName, data } = body;
+    const { businessName, data, gatewayInfo } = body;
 
     if (!businessName || !data) {
       return NextResponse.json(
@@ -50,7 +50,33 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 [FACILITY-UPDATE] 사업장 발견: 행 ${targetRowIndex}`);
 
-    // 업데이트할 데이터 구성
+    // 게이트웨이 정보 문자열 생성
+    let gatewayString = '';
+    if (gatewayInfo && Object.keys(gatewayInfo).length > 0) {
+      const gatewayEntries = Object.entries(gatewayInfo)
+        .filter(([outlet, info]: [string, any]) => info.gateway && info.gateway.trim())
+        .map(([outlet, info]: [string, any]) => `배출구${outlet}-게이트웨이${info.gateway}`);
+      gatewayString = gatewayEntries.join(', ');
+    }
+
+    // 두 개의 업데이트 수행
+    const updates = [];
+
+    // 1. C열 (상태) - 게이트웨이 정보 업데이트
+    if (gatewayString) {
+      updates.push(
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `${sheetName}!C${targetRowIndex}`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [[gatewayString]],
+          },
+        })
+      );
+    }
+
+    // 2. I~P열 - 시설 데이터 업데이트
     const updateValues = [
       [
         data.ph || 0,        // I열 (9번째)
@@ -64,23 +90,31 @@ export async function POST(request: NextRequest) {
       ]
     ];
 
-    // 구글시트 업데이트
-    const updateResponse = await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${sheetName}!I${targetRowIndex}:P${targetRowIndex}`,
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: updateValues,
-      },
-    });
+    updates.push(
+      sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!I${targetRowIndex}:P${targetRowIndex}`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: updateValues,
+        },
+      })
+    );
 
-    console.log(`📊 [FACILITY-UPDATE] ✅ 업데이트 완료:`, updateValues[0]);
+    // 모든 업데이트 동시 수행
+    const updateResponses = await Promise.all(updates);
+
+    console.log(`📊 [FACILITY-UPDATE] ✅ 업데이트 완료:`, {
+      gatewayInfo: gatewayString,
+      facilityData: updateValues[0]
+    });
 
     return NextResponse.json({
       success: true,
-      message: '시설 데이터가 구글시트에 업데이트되었습니다.',
+      message: '시설 데이터와 게이트웨이 정보가 구글시트에 업데이트되었습니다.',
       updatedRow: targetRowIndex,
-      updatedData: updateValues[0]
+      gatewayInfo: gatewayString,
+      facilityData: updateValues[0]
     });
 
   } catch (error) {

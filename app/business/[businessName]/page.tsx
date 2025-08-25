@@ -63,18 +63,55 @@ export default function BusinessPage() {
   // IoT 게이트웨이 정보 상태
   const [gatewayInfo, setGatewayInfo] = useState<{[outlet: number]: {gateway: string, vpn: '유선' | '무선'}}>({});
 
+  // 게이트웨이 정보 업데이트 시 자동 저장
+  const updateGatewayInfo = (outlet: number, field: 'gateway' | 'vpn', value: string) => {
+    const newGatewayInfo = {
+      ...gatewayInfo,
+      [outlet]: {
+        ...gatewayInfo[outlet],
+        [field]: value
+      }
+    };
+    setGatewayInfo(newGatewayInfo);
+    
+    // 자동 로컬 저장
+    try {
+      const dataToSave = {
+        facilityDetails,
+        gatewayInfo: newGatewayInfo,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem(`facility-data-${businessName}`, JSON.stringify(dataToSave));
+    } catch (error) {
+      console.error('자동 저장 실패:', error);
+    }
+  };
+
   // 시설별 고유 ID 생성 함수
   const getFacilityId = (facility: any) => `${facility.outlet}-${facility.number}-${facility.name}`;
 
-  // 시설 상세 데이터 업데이트 함수
+  // 시설 상세 데이터 업데이트 함수 (자동 저장 포함)
   const updateFacilityDetail = (facilityId: string, field: string, value: string) => {
-    setFacilityDetails(prev => ({
-      ...prev,
+    const newDetails = {
+      ...facilityDetails,
       [facilityId]: {
-        ...prev[facilityId],
+        ...facilityDetails[facilityId],
         [field]: value
       }
-    }));
+    };
+    setFacilityDetails(newDetails);
+    
+    // 자동 로컬 저장
+    try {
+      const dataToSave = {
+        facilityDetails: newDetails,
+        gatewayInfo,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem(`facility-data-${businessName}`, JSON.stringify(dataToSave));
+    } catch (error) {
+      console.error('자동 저장 실패:', error);
+    }
   };
 
   // 데이터 합계 계산 함수
@@ -121,7 +158,8 @@ export default function BusinessPage() {
         },
         body: JSON.stringify({
           businessName,
-          data: totals
+          data: totals,
+          gatewayInfo
         }),
       });
 
@@ -582,10 +620,10 @@ export default function BusinessPage() {
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
                               <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="radio"
+                                  type="checkbox"
                                   checked={currentDetails.dischargeCT === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'dischargeCT', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-red-600 focus:ring-red-500"
+                                  className="w-4 h-4 text-red-600 focus:ring-red-500 rounded"
                                 />
                               </td>
                             </tr>
@@ -633,42 +671,42 @@ export default function BusinessPage() {
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
                               <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="radio"
+                                  type="checkbox"
                                   checked={currentDetails.ph === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'ph', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                  className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
                               <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="radio"
+                                  type="checkbox"
                                   checked={currentDetails.pressure === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'pressure', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                  className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
                               <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="radio"
+                                  type="checkbox"
                                   checked={currentDetails.temperature === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'temperature', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                  className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
                               <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="radio"
+                                  type="checkbox"
                                   checked={currentDetails.pump === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'pump', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                  className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
                               <td className="border border-gray-300 px-2 py-2 text-center w-16">
                                 <input
-                                  type="radio"
+                                  type="checkbox"
                                   checked={currentDetails.fan === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'fan', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                  className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
                             </tr>
@@ -716,10 +754,7 @@ export default function BusinessPage() {
                           <input
                             type="text"
                             value={currentGateway.gateway}
-                            onChange={(e) => setGatewayInfo(prev => ({
-                              ...prev,
-                              [outletNum]: { ...currentGateway, gateway: e.target.value }
-                            }))}
+                            onChange={(e) => updateGatewayInfo(outletNum, 'gateway', e.target.value)}
                             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                             placeholder="게이트웨이 번호 입력"
                           />
@@ -732,10 +767,7 @@ export default function BusinessPage() {
                           </label>
                           <div className="flex gap-2">
                             <button
-                              onClick={() => setGatewayInfo(prev => ({
-                                ...prev,
-                                [outletNum]: { ...currentGateway, vpn: '유선' }
-                              }))}
+                              onClick={() => updateGatewayInfo(outletNum, 'vpn', '유선')}
                               className={`flex items-center gap-1 px-3 py-2 text-sm rounded-md transition-colors ${
                                 currentGateway.vpn === '유선'
                                   ? 'bg-green-100 text-green-700 border border-green-300'
@@ -746,10 +778,7 @@ export default function BusinessPage() {
                               유선
                             </button>
                             <button
-                              onClick={() => setGatewayInfo(prev => ({
-                                ...prev,
-                                [outletNum]: { ...currentGateway, vpn: '무선' }
-                              }))}
+                              onClick={() => updateGatewayInfo(outletNum, 'vpn', '무선')}
                               className={`flex items-center gap-1 px-3 py-2 text-sm rounded-md transition-colors ${
                                 currentGateway.vpn === '무선'
                                   ? 'bg-blue-100 text-blue-700 border border-blue-300'
