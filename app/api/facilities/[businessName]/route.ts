@@ -285,7 +285,7 @@ function parseFacilitiesFromSheets(
           number: totalDischargeNumber,
           name: facility.name,
           capacity: facility.capacity,
-          quantity: facility.quantity,
+          quantity: 1, // 각각을 1개씩으로 나눔
           displayName: `배출구${outlet}-배출시설${totalDischargeNumber}`
         });
         totalDischargeNumber++;
@@ -300,7 +300,7 @@ function parseFacilitiesFromSheets(
           number: totalPreventionNumber,
           name: facility.name,
           capacity: facility.capacity,
-          quantity: facility.quantity,
+          quantity: 1, // 각각을 1개씩으로 나눔
           displayName: `배출구${outlet}-방지시설${totalPreventionNumber}`
         });
         totalPreventionNumber++;

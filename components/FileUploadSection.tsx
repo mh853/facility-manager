@@ -377,7 +377,7 @@ function FileUploadSection({
             />
             <UploadItem
               uploadId="control-panel"
-              label="제어반/전기시설(배전함)"
+              label="제어반/전기시설(배전함, 차단기)"
               fileType="basic"
               facilityInfo="제어반-배전함"
               IconComponent={Cpu}
