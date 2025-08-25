@@ -217,7 +217,7 @@ function FileUploadSection({
     };
   });
 
-  // 업로드 함수 최적화 with debugging
+  // 이중 저장 업로드 함수 (R2 + Google Drive)
   const uploadFiles = useCallback(async (uploadId: string, fileType: string, facilityInfo: string) => {
     const uploadData = uploads[uploadId];
     if (!uploadData || !uploadData.files.length) {
@@ -225,7 +225,7 @@ function FileUploadSection({
       return;
     }
 
-    console.log('📁 업로드 시작:', { uploadId, fileType, facilityInfo, fileCount: uploadData.files.length });
+    console.log('📁 이중 저장 업로드 시작:', { uploadId, fileType, facilityInfo, fileCount: uploadData.files.length });
 
     setUploads(prev => ({
       ...prev,
@@ -233,54 +233,152 @@ function FileUploadSection({
     }));
 
     try {
-      const formData = new FormData();
-      formData.append('businessName', businessName);
-      formData.append('fileType', fileType);
-      formData.append('facilityInfo', facilityInfo);
-      formData.append('type', systemType);
+      const results = [];
+      const category = fileType === 'basic' ? '기본사진' : 
+                     fileType === 'discharge' ? '배출시설' : '방지시설';
+
+      // 파일 업로드 함수 정의
+      const uploadSingleFileWithDualStorage = async (file: File, index: number) => {
+        console.log(`📄 파일 ${index + 1}/${uploadData.files.length} 처리 중: ${file.name}`);
+
+        try {
+          // 1. R2에 업로드 (빠른 CDN 액세스용) - 독립적으로 처리
+          const r2Promise = fetch('/api/upload/r2', {
+            method: 'POST',
+            body: (() => {
+              const formData = new FormData();
+              formData.append('file', file);
+              formData.append('businessName', businessName);
+              formData.append('category', category);
+              return formData;
+            })()
+          }).then(async response => {
+            if (response.ok) {
+              const result = await response.json();
+              console.log(`🚀 R2 업로드 응답 (${file.name}):`, result);
+              return result;
+            } else {
+              const errorData = await response.json().catch(() => ({}));
+              console.warn(`⚠️ R2 업로드 HTTP 실패 (${file.name}):`, response.status, errorData.error || response.statusText);
+              return null;
+            }
+          }).catch(error => {
+            console.warn(`⚠️ R2 업로드 네트워크 실패 (${file.name}):`, error.message);
+            return null;
+          });
+
+          // 2. Google Drive 업로드 준비
+          const driveFormData = new FormData();
+          driveFormData.append('businessName', businessName);
+          driveFormData.append('fileType', fileType);
+          driveFormData.append('facilityInfo', facilityInfo);
+          driveFormData.append('type', systemType);
+          driveFormData.append('files', file);
+
+          // R2와 Drive를 병렬로 처리하되, R2 결과를 Drive에 포함
+          const [r2Result] = await Promise.allSettled([r2Promise]);
+          
+          // R2 결과가 성공이면 메타데이터 추가
+          if (r2Result.status === 'fulfilled' && r2Result.value?.data?.r2Url) {
+            driveFormData.append('r2Url', r2Result.value.data.r2Url);
+            driveFormData.append('r2Key', r2Result.value.data.r2Key);
+            console.log('✅ R2 업로드 성공:', r2Result.value.data.fileName);
+          } else {
+            console.warn('⚠️ R2 업로드 실패, Google Drive만 사용');
+          }
+
+          // Google Drive 업로드 실행
+          const driveResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: driveFormData
+          });
+
+          const driveResult = await driveResponse.json();
+          
+          if (!driveResult.success) {
+            throw new Error(`Google Drive 업로드 실패: ${driveResult.message}`);
+          }
+
+          const result = {
+            fileName: file.name,
+            r2Success: r2Result.status === 'fulfilled' && r2Result.value !== null,
+            driveSuccess: driveResult.success,
+            r2Url: r2Result.status === 'fulfilled' ? r2Result.value?.data?.r2Url : undefined,
+            driveUrl: driveResult.data?.webViewLink
+          };
+
+          console.log(`✅ 파일 ${index + 1} 이중 저장 완료:`, {
+            fileName: file.name,
+            r2: result.r2Success ? '성공' : '실패',
+            drive: '성공'
+          });
+
+          return result;
+
+        } catch (fileError) {
+          console.error(`❌ 파일 ${index + 1} 업로드 실패:`, fileError);
+          return {
+            fileName: file.name,
+            r2Success: false,
+            driveSuccess: false,
+            error: fileError instanceof Error ? fileError.message : '알 수 없는 오류'
+          };
+        }
+      };
+
+      // 병렬 업로드 실행 (최대 3개씩 동시 처리)
+      const batchSize = 3;
+      const allResults = [];
       
-      // 파일 추가 (이미 최적화됨)
-      uploadData.files.forEach((file, index) => {
-        console.log(`📄 파일 추가 (${index + 1}): ${file.name}, ${file.size} bytes`);
-        formData.append('files', file);
-      });
+      for (let i = 0; i < uploadData.files.length; i += batchSize) {
+        const batch = uploadData.files.slice(i, i + batchSize);
+        const batchPromises = batch.map((file, batchIndex) => 
+          uploadSingleFileWithDualStorage(file, i + batchIndex)
+        );
 
-      console.log('🚀 API 요청 전송 시작...');
+        setUploads(prev => ({
+          ...prev,
+          [uploadId]: { 
+            ...prev[uploadId], 
+            status: `업로드 중... (${Math.min(i + batchSize, uploadData.files.length)}/${uploadData.files.length})` 
+          }
+        }));
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      console.log('📁 업로드 응답 상태:', response.status, response.statusText);
-
-      const result = await response.json();
-      console.log('📁 업로드 응답 데이터:', result);
+        const batchResults = await Promise.all(batchPromises);
+        allResults.push(...batchResults);
+      }
       
-      if (result.success) {
+      results.push(...allResults);
+
+      // 결과 분석
+      const successCount = results.filter(r => r.driveSuccess).length;
+      const r2SuccessCount = results.filter(r => r.r2Success).length;
+      
+      if (successCount === uploadData.files.length) {
         setUploads(prev => ({
           ...prev,
           [uploadId]: { 
             ...prev[uploadId], 
             uploading: false, 
-            status: `✅ ${result.message || '업로드 성공'}` 
+            status: `✅ 업로드 완료! (CDN: ${r2SuccessCount}/${uploadData.files.length}, Drive: ${successCount}/${uploadData.files.length})` 
           }
         }));
         
         // 성공 토스트 표시
         const toast = document.createElement('div');
         toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
-        toast.textContent = result.message || '업로드 성공!';
+        toast.textContent = `업로드 완료! CDN: ${r2SuccessCount}개, Drive: ${successCount}개`;
         document.body.appendChild(toast);
         
         setTimeout(() => {
           toast.remove();
-        }, 3000);
+        }, 4000);
       } else {
-        throw new Error(result.message || '업로드 실패');
+        throw new Error(`일부 파일 업로드 실패: ${successCount}/${uploadData.files.length} 성공`);
       }
+
     } catch (error) {
-      console.error('🚫 업로드 오류:', error);
+      console.error('🚫 이중 저장 업로드 오류:', error);
       
       const errorMessage = error instanceof Error ? error.message : '업로드 실패';
       
