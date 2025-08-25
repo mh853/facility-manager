@@ -6,6 +6,14 @@ export interface Facility {
   capacity: string;
   quantity: number;
   displayName: string;
+  // 배출시설 추가 데이터
+  dischargeCT?: string;
+  // 방지시설 추가 데이터
+  ph?: string;
+  pressure?: string; // 차압
+  temperature?: string; // 온도
+  pump?: string; // 펌프
+  fan?: string; // 송풍
 }
 
 export interface FacilitiesData {

@@ -57,22 +57,63 @@ export default function BusinessPage() {
   });
   const [showSystemTypeDropdown, setShowSystemTypeDropdown] = useState(false);
 
-  // 시설 상세정보 컬럼 토글 상태
-  const [visibleColumns, setVisibleColumns] = useState({
-    discharge: {
-      출수량: false
-    },
-    prevention: {
-      PH: false,
-      차압: false,
-      온도: false,
-      펌프: false,
-      송풍: false
-    }
-  });
+  // 시설 상세 데이터 상태 (각 시설별 추가 정보)
+  const [facilityDetails, setFacilityDetails] = useState<{[facilityId: string]: {[key: string]: string}}>({});
 
   // IoT 게이트웨이 정보 상태
   const [gatewayInfo, setGatewayInfo] = useState<{[outlet: number]: {gateway: string, vpn: '유선' | '무선'}}>({});
+
+  // 시설별 고유 ID 생성 함수
+  const getFacilityId = (facility: any) => `${facility.outlet}-${facility.number}-${facility.name}`;
+
+  // 시설 상세 데이터 업데이트 함수
+  const updateFacilityDetail = (facilityId: string, field: string, value: string) => {
+    setFacilityDetails(prev => ({
+      ...prev,
+      [facilityId]: {
+        ...prev[facilityId],
+        [field]: value
+      }
+    }));
+  };
+
+  // 데이터 저장 및 불러오기 함수
+  const saveFacilityData = useCallback(() => {
+    try {
+      const dataToSave = {
+        facilityDetails,
+        gatewayInfo,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem(`facility-data-${businessName}`, JSON.stringify(dataToSave));
+      alert('시설 상세 데이터가 저장되었습니다.');
+    } catch (error) {
+      console.error('데이터 저장 실패:', error);
+      alert('데이터 저장에 실패했습니다.');
+    }
+  }, [facilityDetails, gatewayInfo, businessName]);
+
+  const loadFacilityData = useCallback(() => {
+    try {
+      const savedData = localStorage.getItem(`facility-data-${businessName}`);
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        setFacilityDetails(parsedData.facilityDetails || {});
+        setGatewayInfo(parsedData.gatewayInfo || {});
+        alert('시설 상세 데이터가 불러오기되었습니다.');
+      } else {
+        alert('저장된 데이터가 없습니다.');
+      }
+    } catch (error) {
+      console.error('데이터 불러오기 실패:', error);
+      alert('데이터 불러오기에 실패했습니다.');
+    }
+  }, [businessName]);
+
+  // 컴포넌트 마운트 시 데이터 불러오기
+  useEffect(() => {
+    loadFacilityData();
+  }, [loadFacilityData]);
 
   // 구글시트에서 데이터 동기화 (최적화)
   const loadSyncData = useCallback(async (isInitialLoad = false) => {
@@ -446,27 +487,9 @@ export default function BusinessPage() {
               {/* 배출시설 상세 정보 */}
               {facilityStats.hasDischarge && (
                 <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
-                  <div className="flex items-center justify-between mb-4 md:mb-6">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
-                      <h3 className="text-lg md:text-xl font-bold text-gray-900">배출시설 상세 정보</h3>
-                    </div>
-                    {/* 컬럼 토글 버튼 */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setVisibleColumns(prev => ({
-                          ...prev,
-                          discharge: { ...prev.discharge, 출수량: !prev.discharge.출수량 }
-                        }))}
-                        className={`px-2 py-1 text-xs rounded transition-colors ${
-                          visibleColumns.discharge.출수량 
-                            ? 'bg-red-100 text-red-700 border border-red-300' 
-                            : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-                        }`}
-                      >
-                        배출CT
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-2 mb-4 md:mb-6">
+                    <Zap className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
+                    <h3 className="text-lg md:text-xl font-bold text-gray-900">배출시설 상세 정보</h3>
                   </div>
                   
                   <div className="overflow-x-auto">
@@ -477,23 +500,32 @@ export default function BusinessPage() {
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">시설명</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">용량</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">수량</th>
-                          {visibleColumns.discharge.출수량 && (
-                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">배출CT</th>
-                          )}
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">배출CT</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {facilities!.discharge.map((facility, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.outlet}</td>
-                            <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
-                            <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.capacity}</td>
-                            <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
-                            {visibleColumns.discharge.출수량 && (
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
-                            )}
-                          </tr>
-                        ))}
+                        {facilities!.discharge.map((facility, index) => {
+                          const facilityId = getFacilityId(facility);
+                          const currentDetails = facilityDetails[facilityId] || {};
+                          
+                          return (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.outlet}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.capacity}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
+                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={currentDetails.dischargeCT || ''}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'dischargeCT', e.target.value)}
+                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-red-300 focus:border-red-400"
+                                  placeholder="-"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -503,30 +535,9 @@ export default function BusinessPage() {
               {/* 방지시설 상세 정보 */}
               {facilityStats.hasPrevention && (
                 <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
-                  <div className="flex items-center justify-between mb-4 md:mb-6">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
-                      <h3 className="text-lg md:text-xl font-bold text-gray-900">방지시설 상세 정보</h3>
-                    </div>
-                    {/* 컬럼 토글 버튼 */}
-                    <div className="flex gap-1 flex-wrap">
-                      {['PH', '차압', '온도', '펌프', '송풍'].map(column => (
-                        <button
-                          key={column}
-                          onClick={() => setVisibleColumns(prev => ({
-                            ...prev,
-                            prevention: { ...prev.prevention, [column]: !prev.prevention[column as keyof typeof prev.prevention] }
-                          }))}
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
-                            visibleColumns.prevention[column as keyof typeof visibleColumns.prevention] 
-                              ? 'bg-green-100 text-green-700 border border-green-300' 
-                              : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-                          }`}
-                        >
-                          {column}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-2 mb-4 md:mb-6">
+                    <Shield className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
+                    <h3 className="text-lg md:text-xl font-bold text-gray-900">방지시설 상세 정보</h3>
                   </div>
                   
                   <div className="overflow-x-auto">
@@ -537,47 +548,72 @@ export default function BusinessPage() {
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">시설명</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">용량</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">수량</th>
-                          {visibleColumns.prevention.PH && (
-                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">PH</th>
-                          )}
-                          {visibleColumns.prevention.차압 && (
-                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">차압</th>
-                          )}
-                          {visibleColumns.prevention.온도 && (
-                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">온도</th>
-                          )}
-                          {visibleColumns.prevention.펌프 && (
-                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">펌프</th>
-                          )}
-                          {visibleColumns.prevention.송풍 && (
-                            <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">송풍</th>
-                          )}
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">PH</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">차압</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">온도</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">펌프</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">송풍</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {facilities!.prevention.map((facility, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.outlet}</td>
-                            <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
-                            <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.capacity}</td>
-                            <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
-                            {visibleColumns.prevention.PH && (
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
-                            )}
-                            {visibleColumns.prevention.차압 && (
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
-                            )}
-                            {visibleColumns.prevention.온도 && (
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
-                            )}
-                            {visibleColumns.prevention.펌프 && (
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
-                            )}
-                            {visibleColumns.prevention.송풍 && (
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">-</td>
-                            )}
-                          </tr>
-                        ))}
+                        {facilities!.prevention.map((facility, index) => {
+                          const facilityId = getFacilityId(facility);
+                          const currentDetails = facilityDetails[facilityId] || {};
+                          
+                          return (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.outlet}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.capacity}</td>
+                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.quantity}</td>
+                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={currentDetails.ph || ''}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'ph', e.target.value)}
+                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-300 focus:border-green-400"
+                                  placeholder="-"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={currentDetails.pressure || ''}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'pressure', e.target.value)}
+                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-300 focus:border-green-400"
+                                  placeholder="-"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={currentDetails.temperature || ''}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'temperature', e.target.value)}
+                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-300 focus:border-green-400"
+                                  placeholder="-"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={currentDetails.pump || ''}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'pump', e.target.value)}
+                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-300 focus:border-green-400"
+                                  placeholder="-"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 md:px-2 py-1">
+                                <input
+                                  type="text"
+                                  value={currentDetails.fan || ''}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'fan', e.target.value)}
+                                  className="w-full p-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-300 focus:border-green-400"
+                                  placeholder="-"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -669,6 +705,24 @@ export default function BusinessPage() {
                     </div>
                   );
                 })}
+              </div>
+              
+              {/* 데이터 저장/불러오기 버튼 */}
+              <div className="flex gap-2 mt-6 pt-4 border-t border-gray-200">
+                <button
+                  onClick={saveFacilityData}
+                  className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                >
+                  <Save className="w-4 h-4" />
+                  시설 데이터 저장
+                </button>
+                <button
+                  onClick={loadFacilityData}
+                  className="flex items-center gap-1 px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
+                >
+                  <FileText className="w-4 h-4" />
+                  데이터 불러오기
+                </button>
               </div>
             </div>
           )}
