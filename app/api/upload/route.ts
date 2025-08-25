@@ -26,15 +26,12 @@ export async function POST(request: NextRequest) {
     const facilityInfo = formData.get('facilityInfo') as string;
     const systemType = (formData.get('type') as 'completion' | 'presurvey') || 'presurvey';
     const files = formData.getAll('files') as File[];
-    const r2Url = formData.get('r2Url') as string;
-    const r2Key = formData.get('r2Key') as string;
 
     console.log('📋 [UPLOAD] 요청 정보:', {
       businessName,
       fileType,
       systemType,
-      fileCount: files.length,
-      hasR2: !!r2Url
+      fileCount: files.length
     });
 
     // 입력 검증
@@ -117,9 +114,7 @@ export async function POST(request: NextRequest) {
           fileType, 
           facilityInfo, 
           i + 1, 
-          businessName,
-          r2Url,
-          r2Key
+          businessName
         );
         
         if (result) {
@@ -297,9 +292,7 @@ async function uploadSingleFile(
   fileType: string,
   facilityInfo: string,
   fileNumber: number,
-  businessName: string,
-  r2Url?: string,
-  r2Key?: string
+  businessName: string
 ) {
   try {
     // 파일을 Buffer로 변환
@@ -358,9 +351,6 @@ async function uploadSingleFile(
       downloadUrl: `https://drive.google.com/uc?id=${response.data.id}`,
       thumbnailUrl: `https://drive.google.com/thumbnail?id=${response.data.id}&sz=w300-h300-c`,
       publicUrl: `https://lh3.googleusercontent.com/d/${response.data.id}`,
-      // CDN URL이 있으면 우선 사용
-      cdnUrl: r2Url || `https://lh3.googleusercontent.com/d/${response.data.id}`,
-      r2Key: r2Key,
       size: file.size,
       mimeType: file.type
     };
