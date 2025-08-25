@@ -23,7 +23,9 @@ const compressImage = async (file: File): Promise<File> => {
     maxSizeMB: 1, // 1MB로 압축
     maxWidthOrHeight: 1920, // 최대 해상도
     useWebWorker: true, // 웹워커 사용으로 성능 향상
-    fileType: 'image/webp' // WebP 포맷으로 변환
+    // WebP는 최고 압축률이지만 JPG는 범용성이 좋음
+    // 현재는 WebP 사용 (Google Drive 완벽 지원)
+    fileType: 'image/webp'
   };
 
   try {

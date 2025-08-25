@@ -383,26 +383,39 @@ function generateFileName(
     .replace(/[:.]/g, '-')
     .slice(0, -5);
   
-  // 압축된 파일의 올바른 확장자 처리
+  // 파일 MIME 타입 기반으로 정확한 확장자 결정
   let extension = 'jpg'; // 기본값
   
-  if (originalName && originalName.includes('.')) {
+  // 1순위: MIME 타입으로 확장자 결정 (가장 정확)
+  if (file.type) {
+    const mimeToExt: Record<string, string> = {
+      'image/webp': 'webp',
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg', 
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/heic': 'heic',
+      'image/heif': 'heif'
+    };
+    
+    if (mimeToExt[file.type.toLowerCase()]) {
+      extension = mimeToExt[file.type.toLowerCase()];
+    }
+  }
+  
+  // 2순위: 파일명에서 확장자 추출 (MIME 타입이 없는 경우)
+  if (extension === 'jpg' && originalName && originalName.includes('.')) {
     const extractedExt = originalName.split('.').pop()?.toLowerCase();
-    // WebP 압축 후 확장자 보정
-    if (extractedExt === 'webp' || file.type === 'image/webp') {
-      extension = 'webp';
-    } else if (['jpg', 'jpeg', 'png', 'gif'].includes(extractedExt || '')) {
-      // 원본이 일반 이미지 형식이면 WebP로 압축되었을 가능성이 높음
-      extension = file.type === 'image/webp' ? 'webp' : (extractedExt || 'jpg');
-    } else {
-      extension = 'jpg'; // 알 수 없는 형식은 jpg로
+    if (extractedExt && ['webp', 'jpg', 'jpeg', 'png', 'gif', 'heic', 'heif'].includes(extractedExt)) {
+      extension = extractedExt === 'jpeg' ? 'jpg' : extractedExt;
     }
   }
   
   console.log(`📷 [UPLOAD] 파일 확장자 처리:`, {
     originalName,
     mimeType: file.type,
-    determined: extension
+    determined: extension,
+    method: file.type ? 'MIME타입' : '파일명'
   });
   
   const typeMapping: Record<string, string> = {
@@ -461,7 +474,27 @@ async function getTargetFolder(drive: any, businessFolderId: string, fileType: s
       console.log(`✅ [UPLOAD] 하위 폴더 발견:`, { name: targetFolder.name, id: targetFolder.id });
       return targetFolder.id!;
     } else {
-      console.log(`⚠️ [UPLOAD] 하위 폴더 없음, 상위 폴더 사용: ${subFolderName}`);
+      console.log(`📂 [UPLOAD] 하위 폴더 없음, 새로 생성: ${subFolderName}`);
+      
+      // 하위 폴더 생성
+      try {
+        const createResponse = await drive.files.create({
+          requestBody: {
+            name: subFolderName,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [businessFolderId]
+          },
+          fields: 'id, name',
+          supportsAllDrives: true
+        });
+        
+        const newFolderId = createResponse.data.id!;
+        console.log(`✅ [UPLOAD] 하위 폴더 생성 완료:`, { name: subFolderName, id: newFolderId });
+        return newFolderId;
+      } catch (createError) {
+        console.error(`❌ [UPLOAD] 하위 폴더 생성 실패: ${subFolderName}`, createError);
+        console.log(`📁 [UPLOAD] 폴백: 상위 폴더 사용`);
+      }
     }
   } catch (error) {
     console.error(`❌ [UPLOAD] 하위 폴더 검색 실패: ${subFolderName}`, error);
