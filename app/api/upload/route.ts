@@ -25,12 +25,14 @@ export async function POST(request: NextRequest) {
     const fileType = formData.get('fileType') as string;
     const facilityInfo = formData.get('facilityInfo') as string;
     const systemType = (formData.get('type') as 'completion' | 'presurvey') || 'presurvey';
+    const uploadId = formData.get('uploadId') as string;
     const files = formData.getAll('files') as File[];
 
     console.log('📋 [UPLOAD] 요청 정보:', {
       businessName,
       fileType,
       systemType,
+      uploadId,
       fileCount: files.length
     });
 
@@ -114,7 +116,8 @@ export async function POST(request: NextRequest) {
           fileType, 
           facilityInfo, 
           i + 1, 
-          businessName
+          businessName,
+          uploadId
         );
         
         if (result) {
@@ -258,21 +261,35 @@ async function findOrCreateBusinessFolder(drive: any, businessName: string, pare
     const businessFolderId = folderResponse.data.id!;
     console.log(`✅ [UPLOAD] 폴더 생성 완료: ${businessFolderId}`);
 
-    // 하위 폴더 생성 (공유 드라이브 지원)
+    // 하위 폴더 생성 (중복 확인 포함)
     const subFolders = ['기본사진', '배출시설', '방지시설'];
     for (const subFolder of subFolders) {
       try {
-        await drive.files.create({
-          requestBody: {
-            name: subFolder,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [businessFolderId]
-          },
-          supportsAllDrives: true
+        // 기존 하위 폴더 검색
+        const subFolderSearch = await drive.files.list({
+          q: `name='${subFolder}' and parents in '${businessFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+          fields: 'files(id, name)',
+          pageSize: 1,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true
         });
-        console.log(`📁 [UPLOAD] 하위 폴더 생성: ${subFolder}`);
+
+        if (subFolderSearch.data.files?.length > 0) {
+          console.log(`✅ [UPLOAD] 기존 하위 폴더 사용: ${subFolder}`);
+        } else {
+          // 하위 폴더가 없으면 생성
+          await drive.files.create({
+            requestBody: {
+              name: subFolder,
+              mimeType: 'application/vnd.google-apps.folder',
+              parents: [businessFolderId]
+            },
+            supportsAllDrives: true
+          });
+          console.log(`📁 [UPLOAD] 새 하위 폴더 생성: ${subFolder}`);
+        }
       } catch (error) {
-        console.warn(`⚠️ [UPLOAD] 하위 폴더 생성 실패: ${subFolder}`);
+        console.warn(`⚠️ [UPLOAD] 하위 폴더 처리 실패: ${subFolder}`, error);
       }
     }
 
@@ -292,7 +309,8 @@ async function uploadSingleFile(
   fileType: string,
   facilityInfo: string,
   fileNumber: number,
-  businessName: string
+  businessName: string,
+  uploadId?: string
 ) {
   try {
     // 파일을 Buffer로 변환
@@ -308,13 +326,13 @@ async function uploadSingleFile(
     });
 
     // 파일명 생성
-    const fileName = generateFileName(businessName, fileType, facilityInfo, fileNumber, file.name, file);
+    const fileName = generateFileName(businessName, fileType, facilityInfo, fileNumber, file.name, file, uploadId);
     
     // 대상 폴더 확인
     const targetFolderId = await getTargetFolder(drive, businessFolderId, fileType);
 
-    // 중복 파일 체크 (같은 이름의 파일이 이미 있는지 확인)
-    const existingFileCheck = await drive.files.list({
+    // 1. 같은 이름의 파일 체크
+    const sameNameCheck = await drive.files.list({
       q: `name='${fileName.replace(/'/g, "\\'")}' and parents in '${targetFolderId}' and trashed=false`,
       fields: 'files(id, name, size)',
       pageSize: 1,
@@ -322,8 +340,34 @@ async function uploadSingleFile(
       includeItemsFromAllDrives: true
     });
 
-    if (existingFileCheck.data.files?.length > 0) {
-      const existingFile = existingFileCheck.data.files[0];
+    // 2. 같은 크기의 파일 체크 (중복 이미지 감지)
+    const sameSizeCheck = await drive.files.list({
+      q: `parents in '${targetFolderId}' and trashed=false and mimeType contains 'image/'`,
+      fields: 'files(id, name, size, modifiedTime)',
+      pageSize: 50, // 더 많은 파일을 확인
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+
+    // 같은 크기의 파일이 있는지 확인
+    const duplicateBySize = sameSizeCheck.data.files?.find(
+      (existingFile: any) => 
+        existingFile.size === file.size.toString() && 
+        existingFile.name !== fileName
+    );
+
+    if (duplicateBySize) {
+      console.warn(`🚫 [UPLOAD] 중복 이미지 감지 - 크기가 동일한 파일 발견:`, {
+        새파일: { name: fileName, size: file.size },
+        기존파일: { name: duplicateBySize.name, size: duplicateBySize.size, id: duplicateBySize.id },
+        업로드거부: true
+      });
+      
+      throw new Error(`중복 이미지가 감지되었습니다. 같은 크기(${file.size} bytes)의 파일이 이미 존재합니다: ${duplicateBySize.name}`);
+    }
+
+    if (sameNameCheck.data.files?.length > 0) {
+      const existingFile = sameNameCheck.data.files[0];
       console.log(`⚠️ [UPLOAD] 중복 파일 발견, 덮어쓰기:`, {
         fileName,
         existingId: existingFile.id,
@@ -415,7 +459,8 @@ function generateFileName(
   facilityInfo: string,
   fileNumber: number,
   originalName: string,
-  file: File
+  file: File,
+  uploadId?: string
 ): string {
   const timestamp = new Date().toLocaleString('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -528,14 +573,30 @@ function generateFileName(
     reason: file.type ? `MIME타입(${file.type})` : '파일명분석'
   });
   
-  const typeMapping: Record<string, string> = {
-    'basic': '기본사진',
-    'discharge': '배출시설',
-    'prevention': '방지시설'
-  };
+  // uploadId에서 시설 인덱스 추출 (예: "prevention-0" -> "방1", "discharge-2" -> "배3")
+  let typeFolder = '기본사진';
+  let facilityName = facilityInfo.split('-')[0] || facilityInfo;
   
-  const typeFolder = typeMapping[fileType] || '기본사진';
-  const facilityName = facilityInfo.split('-')[0] || facilityInfo;
+  if (uploadId && (uploadId.startsWith('prevention-') || uploadId.startsWith('discharge-'))) {
+    const parts = uploadId.split('-');
+    if (parts.length >= 2) {
+      const facilityIndex = parseInt(parts[1]) + 1; // 0-based를 1-based로 변경
+      
+      if (uploadId.startsWith('prevention-')) {
+        typeFolder = `방${facilityIndex}`;
+      } else if (uploadId.startsWith('discharge-')) {
+        typeFolder = `배${facilityIndex}`;
+      }
+    }
+  } else {
+    // 기본 매핑 사용
+    const typeMapping: Record<string, string> = {
+      'basic': '기본사진',
+      'discharge': '배출시설',
+      'prevention': '방지시설'
+    };
+    typeFolder = typeMapping[fileType] || '기본사진';
+  }
   
   const safeName = [
     businessName,

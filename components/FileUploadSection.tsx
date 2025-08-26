@@ -166,6 +166,32 @@ const UploadItem = memo(({
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files) return;
     
+    // 중복 파일 감지 (클라이언트 측)
+    const fileArray = Array.from(files);
+    const duplicates: string[] = [];
+    const sizeMap = new Map<number, string[]>();
+    
+    // 크기별로 파일 그룹화하여 중복 감지
+    fileArray.forEach((file, index) => {
+      const size = file.size;
+      if (!sizeMap.has(size)) {
+        sizeMap.set(size, []);
+      }
+      sizeMap.get(size)!.push(file.name);
+    });
+    
+    // 같은 크기의 파일들이 있는지 확인
+    sizeMap.forEach((names, size) => {
+      if (names.length > 1) {
+        duplicates.push(`크기 ${(size / 1024).toFixed(1)}KB: ${names.join(', ')}`);
+      }
+    });
+    
+    if (duplicates.length > 0) {
+      alert(`중복 파일이 감지되었습니다:\n${duplicates.join('\n')}\n\n중복된 파일들을 제거한 후 다시 업로드하세요.`);
+      return;
+    }
+    
     console.log(`파일 압축 시작: ${files.length}개 파일`);
     const startTime = Date.now();
     
@@ -333,6 +359,7 @@ function FileUploadSection({
         formData.append('fileType', fileType);
         formData.append('facilityInfo', facilityInfo);
         formData.append('type', systemType);
+        formData.append('uploadId', uploadId);
         formData.append('files', file);
         return formData;
       };

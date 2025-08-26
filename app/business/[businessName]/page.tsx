@@ -170,6 +170,9 @@ export default function BusinessPage() {
       assistCT: 0,
       pump: 0,
       fan: 0,
+      nonPowered: 0,
+      integratedPower: 0,
+      continuousProcess: 0,
       wired: 0,
       wireless: 0
     };
@@ -183,6 +186,9 @@ export default function BusinessPage() {
       if (details.assistCT === 'true') totals.assistCT++;
       if (details.pump === 'true') totals.pump++;
       if (details.fan === 'true') totals.fan++;
+      if (details.nonPowered === 'true') totals.nonPowered++;
+      if (details.integratedPower === 'true') totals.integratedPower++;
+      if (details.continuousProcess === 'true') totals.continuousProcess++;
     });
 
     // VPN 데이터 합계 (게이트웨이 번호 기준 중복 제거)
@@ -206,7 +212,7 @@ export default function BusinessPage() {
   }, [facilityDetails, gatewayInfo]);
 
   // 구글시트에 데이터 업데이트
-  const updateGoogleSheets = useCallback(async () => {
+  const updateGoogleSheets = useCallback(async (showAlert: boolean = true) => {
     try {
       const totals = calculateTotals();
       
@@ -225,13 +231,21 @@ export default function BusinessPage() {
       const result = await response.json();
       
       if (result.success) {
-        alert('구글시트에 데이터가 업데이트되었습니다!');
+        if (showAlert) {
+          alert('구글시트에 데이터가 업데이트되었습니다!');
+        }
       } else {
-        alert(`구글시트 업데이트 실패: ${result.message}`);
+        if (showAlert) {
+          alert(`구글시트 업데이트 실패: ${result.message}`);
+        }
+        throw new Error(result.message);
       }
     } catch (error) {
       console.error('구글시트 업데이트 실패:', error);
-      alert('구글시트 업데이트 중 오류가 발생했습니다.');
+      if (showAlert) {
+        alert('구글시트 업데이트 중 오류가 발생했습니다.');
+      }
+      throw error;
     }
   }, [businessName, calculateTotals]);
 
@@ -241,11 +255,11 @@ export default function BusinessPage() {
       // 구글시트에 상세정보 저장
       await saveFacilityDetailsToSheet(facilityDetails, gatewayInfo);
       
-      // 합계 데이터도 업데이트
-      await updateGoogleSheets();
+      // 합계 데이터도 업데이트 (알림 표시 안함)
+      await updateGoogleSheets(false);
       
       alert('시설 데이터가 구글시트에 저장되었습니다!');
-      console.log('시설 데이터 저장 완룮');
+      console.log('시설 데이터 저장 완료');
     } catch (error) {
       console.error('데이터 저장 실패:', error);
       alert('데이터 저장에 실패했습니다.');
@@ -731,6 +745,12 @@ export default function BusinessPage() {
                           <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">온도</th>
                           <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">펌프</th>
                           <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">송풍</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">무동력</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">통합전원</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">연속공정</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">유선</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">무선</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-10">동기화</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -782,6 +802,57 @@ export default function BusinessPage() {
                                   checked={currentDetails.fan === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'fan', e.target.checked ? 'true' : 'false')}
                                   className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
+                                <input
+                                  type="checkbox"
+                                  checked={currentDetails.nonPowered === 'true'}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'nonPowered', e.target.checked ? 'true' : 'false')}
+                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
+                                <input
+                                  type="checkbox"
+                                  checked={currentDetails.integratedPower === 'true'}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'integratedPower', e.target.checked ? 'true' : 'false')}
+                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
+                                <input
+                                  type="checkbox"
+                                  checked={currentDetails.continuousProcess === 'true'}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'continuousProcess', e.target.checked ? 'true' : 'false')}
+                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
+                                <input
+                                  type="text"
+                                  value={currentDetails.wiredData || ''}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'wiredData', e.target.value)}
+                                  className="w-full px-1 py-0.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-500"
+                                  placeholder="유선"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
+                                <input
+                                  type="text"
+                                  value={currentDetails.wirelessData || ''}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'wirelessData', e.target.value)}
+                                  className="w-full px-1 py-0.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-500"
+                                  placeholder="무선"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 py-1 text-center w-10">
+                                <input
+                                  type="text"
+                                  value={currentDetails.syncData || ''}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'syncData', e.target.value)}
+                                  className="w-full px-1 py-0.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-500"
+                                  placeholder="동기화"
                                 />
                               </td>
                             </tr>

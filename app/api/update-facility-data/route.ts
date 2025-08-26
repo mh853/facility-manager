@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     // 사업장 행 찾기
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Q`,
+      range: `${sheetName}!A:U`,
     });
 
     const values = response.data.values || [];
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. I~Q열 - 시설 데이터 업데이트
+    // 2. I~U열 - 시설 데이터 업데이트
     const updateValues = [
       [
         data.ph || 0,        // I열 (9번째)
@@ -86,15 +86,19 @@ export async function POST(request: NextRequest) {
         data.fan || 0,       // M열 (13번째) - 송풍
         data.pump || 0,      // N열 (14번째) - 펌프
         data.assistCT || 0,  // O열 (15번째) - 보조CT
-        data.wired || 0,     // P열 (16번째) - 유선
-        data.wireless || 0   // Q열 (17번째) - 무선
+        data.nonPowered || 0, // P열 (16번째) - 무동력
+        data.integratedPower || 0, // Q열 (17번째) - 통합전원
+        data.continuousProcess || 0, // R열 (18번째) - 연속공정
+        data.wired || 0,     // S열 (19번째) - 유선
+        data.wireless || 0,  // T열 (20번째) - 무선
+        data.syncData || ''  // U열 (21번째) - 동기화 데이터
       ]
     ];
 
     updates.push(
       sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `${sheetName}!I${targetRowIndex}:Q${targetRowIndex}`,
+        range: `${sheetName}!I${targetRowIndex}:U${targetRowIndex}`,
         valueInputOption: 'RAW',
         requestBody: {
           values: updateValues,
