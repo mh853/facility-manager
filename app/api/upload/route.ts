@@ -5,25 +5,35 @@ import { google } from 'googleapis';
 import { createOptimizedDriveClient } from '@/lib/google-client';
 import { withApiHandler, createSuccessResponse, createErrorResponse, sanitizeFileName, withTimeout } from '@/lib/api-utils';
 
-// 사업장 폴더 생성 락 관리 (중복 생성 방지)
+// 사업장 폴더 생성 락 관리 (동시성 제어 강화)
 interface FolderLock {
   promise: Promise<string>;
   timestamp: number;
+  lockId: string;
+  requestCount: number;
 }
 
+// 전역 락 관리
 const businessFolderCreationLock = new Map<string, FolderLock>();
+const uploadQueue = new Map<string, Array<{ resolve: Function; reject: Function; }>>();
 
-// 락 정리 함수 (10분 이상 된 락 제거)
+// 락 정리 함수 (5분 이상 된 락 제거)
 function cleanupOldLocks() {
   const now = Date.now();
-  const tenMinutes = 10 * 60 * 1000;
+  const fiveMinutes = 5 * 60 * 1000;
   
   for (const [key, lock] of businessFolderCreationLock.entries()) {
-    if (now - lock.timestamp > tenMinutes) {
-      console.log(`🧹 [CLEANUP] 오래된 락 정리: ${key}`);
+    if (now - lock.timestamp > fiveMinutes) {
+      console.log(`🧹 [CLEANUP] 오래된 락 정리: ${key} (요청 수: ${lock.requestCount})`);
       businessFolderCreationLock.delete(key);
+      uploadQueue.delete(key);
     }
   }
+}
+
+// 고유 락 ID 생성
+function generateLockId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 // 문자열 유사도 계산 함수
@@ -77,8 +87,9 @@ function getFileTypeDisplayName(fileType: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const requestId = generateLockId();
   try {
-    console.log('📤 [UPLOAD] 파일 업로드 시작');
+    console.log(`📤 [UPLOAD] 파일 업로드 시작 (Request ID: ${requestId})`);
 
     // 폼 데이터 파싱
     const formData = await request.formData();
@@ -89,12 +100,13 @@ export async function POST(request: NextRequest) {
     const uploadId = formData.get('uploadId') as string;
     const files = formData.getAll('files') as File[];
 
-    console.log('📋 [UPLOAD] 요청 정보:', {
+    console.log(`📋 [UPLOAD] 요청 정보 (${requestId}):`, {
       businessName,
       fileType,
       systemType,
       uploadId,
-      fileCount: files.length
+      fileCount: files.length,
+      timestamp: new Date().toISOString()
     });
 
     // 입력 검증
@@ -155,13 +167,15 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    console.log('📁 [UPLOAD] 대상 폴더 ID:', folderId);
+    console.log(`📁 [UPLOAD] 대상 폴더 ID (${requestId}):`, folderId);
 
     // Drive 클라이언트 생성
     const drive = await createOptimizedDriveClient();
 
-    // 사업장 폴더 생성/확인
+    // 사업장 폴더 생성/확인 (동시성 제어)
+    console.log(`🔐 [UPLOAD] 사업장 폴더 확인 시작 (${requestId}): ${businessName}`);
     const businessFolderId = await findOrCreateBusinessFolder(drive, businessName, folderId);
+    console.log(`✅ [UPLOAD] 사업장 폴더 확인 완료 (${requestId}): ${businessName} -> ${businessFolderId}`);
 
     // 파일 업로드
     const uploadResults = [];
@@ -348,22 +362,35 @@ async function ensureSubFolders(drive: any, businessFolderId: string): Promise<v
   }
 }
 
-// 사업장 폴더 생성/확인 (어제 버전 기반으로 단순화)
+// 사업장 폴더 생성/확인 (동시성 제어 강화)
 async function findOrCreateBusinessFolder(drive: any, businessName: string, parentFolderId: string): Promise<string> {
   // 오래된 락 정리
   cleanupOldLocks();
   
   // 사업장 폴더별 락 키
   const lockKey = `${parentFolderId}-${businessName}`;
+  const lockId = generateLockId();
   
-  // 이미 생성 중인 폴더가 있으면 기다리기
+  console.log(`🔐 [UPLOAD] 폴더 락 요청: ${businessName} (Lock ID: ${lockId})`);
+  
+  // 이미 생성 중인 폴더가 있으면 큐에 대기
   if (businessFolderCreationLock.has(lockKey)) {
     const existingLock = businessFolderCreationLock.get(lockKey)!;
-    console.log(`⏳ [UPLOAD] 사업장 폴더 생성 대기 중: ${businessName}`);
-    return await existingLock.promise;
+    existingLock.requestCount++;
+    console.log(`⏳ [UPLOAD] 사업장 폴더 생성 대기 중: ${businessName} (대기 요청 수: ${existingLock.requestCount})`);
+    
+    return new Promise((resolve, reject) => {
+      if (!uploadQueue.has(lockKey)) {
+        uploadQueue.set(lockKey, []);
+      }
+      uploadQueue.get(lockKey)!.push({ resolve, reject });
+      
+      // 기존 락이 완료되면 결과 반환
+      existingLock.promise.then(resolve).catch(reject);
+    });
   }
 
-  // 폴더 생성/확인 Promise를 락에 저장
+  // 새로운 폴더 생성/확인 Promise를 락에 저장
   const folderPromise = (async () => {
     try {
       console.log(`📁 [UPLOAD] 사업장 폴더 확인: ${businessName}`);
@@ -459,11 +486,38 @@ async function findOrCreateBusinessFolder(drive: any, businessName: string, pare
   // Promise를 타임스탬프와 함께 락에 저장
   const lock: FolderLock = {
     promise: folderPromise,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    lockId: lockId,
+    requestCount: 1
   };
   businessFolderCreationLock.set(lockKey, lock);
 
-  return await folderPromise;
+  try {
+    const result = await folderPromise;
+    console.log(`🔓 [UPLOAD] 폴더 락 해제: ${businessName} (Lock ID: ${lockId}, 요청 수: ${lock.requestCount})`);
+    
+    // 대기 중인 요청들에게 결과 전달
+    const waitingRequests = uploadQueue.get(lockKey) || [];
+    waitingRequests.forEach(({ resolve }) => resolve(result));
+    
+    // 락과 큐 정리
+    businessFolderCreationLock.delete(lockKey);
+    uploadQueue.delete(lockKey);
+    
+    return result;
+  } catch (error) {
+    console.error(`❌ [UPLOAD] 폴더 락 에러: ${businessName} (Lock ID: ${lockId})`, error);
+    
+    // 대기 중인 요청들에게 에러 전달
+    const waitingRequests = uploadQueue.get(lockKey) || [];
+    waitingRequests.forEach(({ reject }) => reject(error));
+    
+    // 락과 큐 정리
+    businessFolderCreationLock.delete(lockKey);
+    uploadQueue.delete(lockKey);
+    
+    throw error;
+  }
 }
 
 // 단일 파일 업로드 (공유 드라이브 지원)
