@@ -125,6 +125,8 @@ export async function POST(request: NextRequest) {
 
     // 파일 업로드
     const uploadResults = [];
+    const uploadErrors = [];
+    
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       console.log(`📄 [UPLOAD] 업로드 중 (${i + 1}/${files.length}): ${file.name}`);
@@ -145,8 +147,17 @@ export async function POST(request: NextRequest) {
           uploadResults.push(result);
           console.log(`✅ [UPLOAD] 성공: ${result.name}`);
         }
-      } catch (error) {
-        console.error(`❌ [UPLOAD] 실패: ${file.name}`, error);
+      } catch (error: any) {
+        const errorInfo = {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          error: error instanceof Error ? error.message : String(error),
+          code: error?.code,
+          status: error?.status
+        };
+        uploadErrors.push(errorInfo);
+        console.error(`❌ [UPLOAD] 실패: ${file.name}`, errorInfo);
       }
     }
 
@@ -227,15 +238,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 결과 메시지 생성
+    let message = `${uploadResults.length}장의 파일이 업로드되었습니다.`;
+    if (uploadErrors.length > 0) {
+      message += ` (${uploadErrors.length}장 실패)`;
+    }
+
     return NextResponse.json({
       success: uploadResults.length > 0,
-      message: `${uploadResults.length}장의 파일이 업로드되었습니다.`,
+      message,
       files: uploadResults,
       stats: {
         total: files.length,
         success: uploadResults.length,
-        failed: files.length - uploadResults.length
-      }
+        failed: uploadErrors.length
+      },
+      errors: uploadErrors.length > 0 ? uploadErrors : undefined
     });
 
   } catch (error) {
@@ -281,7 +299,7 @@ async function ensureSubFolders(drive: any, businessFolderId: string): Promise<v
   }
 }
 
-// 사업장 폴더 생성/확인 (공유 드라이브 지원)
+// 사업장 폴더 생성/확인 (어제 버전 기반으로 단순화)
 async function findOrCreateBusinessFolder(drive: any, businessName: string, parentFolderId: string): Promise<string> {
   // 오래된 락 정리
   cleanupOldLocks();
@@ -292,62 +310,27 @@ async function findOrCreateBusinessFolder(drive: any, businessName: string, pare
   // 이미 생성 중인 폴더가 있으면 기다리기
   if (businessFolderCreationLock.has(lockKey)) {
     const existingLock = businessFolderCreationLock.get(lockKey)!;
-    console.log(`⏳ [UPLOAD] 사업장 폴더 생성 대기 중: ${businessName} (${new Date(existingLock.timestamp).toISOString()})`);
+    console.log(`⏳ [UPLOAD] 사업장 폴더 생성 대기 중: ${businessName}`);
     return await existingLock.promise;
   }
 
   // 폴더 생성/확인 Promise를 락에 저장
   const folderPromise = (async () => {
     try {
-      console.log(`📁 [UPLOAD] 사업장 폴더 확인: ${businessName} (부모: ${parentFolderId})`);
+      console.log(`📁 [UPLOAD] 사업장 폴더 확인: ${businessName}`);
 
-      // 먼저 부모 폴더 내 모든 폴더 조회 (디버깅)
-      console.log(`🔍 [UPLOAD] 부모 폴더 내 모든 사업장 폴더 조회...`);
-      const allFoldersResponse = await drive.files.list({
-        q: `parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name, createdTime)',
-        pageSize: 100, // 더 많은 폴더 확인
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-        orderBy: 'name'
-      });
-
-      if (allFoldersResponse.data.files?.length > 0) {
-        console.log(`🔍 [UPLOAD] 발견된 모든 사업장 폴더들 (${allFoldersResponse.data.files.length}개):`, 
-          allFoldersResponse.data.files.map((f: any) => ({ 
-            id: f.id, 
-            name: f.name, 
-            createdTime: f.createdTime,
-            matches: f.name === businessName 
-          }))
-        );
-
-        // 정확히 일치하는 폴더 직접 검색
-        const exactMatch = allFoldersResponse.data.files.find((f: any) => f.name === businessName);
-        if (exactMatch) {
-          console.log(`✅ [UPLOAD] 정확히 일치하는 기존 폴더 발견: ${businessName} (${exactMatch.id})`);
-          
-          // 기존 폴더에서도 하위 폴더 확인/생성
-          await ensureSubFolders(drive, exactMatch.id);
-          
-          return exactMatch.id;
-        }
-      }
-
-      // API 검색도 시도
+      // 기존 폴더 검색 (공유 드라이브 지원)
       const searchResponse = await drive.files.list({
         q: `name='${businessName.replace(/'/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
         fields: 'files(id, name)',
-        pageSize: 10,
+        pageSize: 1,
         supportsAllDrives: true,
         includeItemsFromAllDrives: true
       });
 
-      console.log(`🔍 [UPLOAD] API 검색 결과: ${searchResponse.data.files?.length || 0}개 폴더`);
-
       if (searchResponse.data.files?.length > 0) {
         const existingFolderId = searchResponse.data.files[0].id!;
-        console.log(`✅ [UPLOAD] API 검색으로 기존 폴더 사용: ${businessName} (${existingFolderId})`);
+        console.log(`✅ [UPLOAD] 기존 폴더 사용: ${businessName}`);
         
         // 기존 폴더에서도 하위 폴더 확인/생성
         await ensureSubFolders(drive, existingFolderId);
