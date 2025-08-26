@@ -26,6 +26,46 @@ function cleanupOldLocks() {
   }
 }
 
+// 문자열 유사도 계산 함수
+function calculateSimilarity(str1: string, str2: string): number {
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+  
+  if (longer.length === 0) return 1.0;
+  
+  const editDistance = levenshteinDistance(longer, shorter);
+  return (longer.length - editDistance) / longer.length;
+}
+
+// 레벤슈타인 거리 계산
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix = [];
+  
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
+}
+
 // 파일 타입 표시명 매핑
 function getFileTypeDisplayName(fileType: string): string {
   const typeMap: Record<string, string> = {
@@ -154,10 +194,18 @@ export async function POST(request: NextRequest) {
           fileType: file.type,
           error: error instanceof Error ? error.message : String(error),
           code: error?.code,
-          status: error?.status
+          status: error?.status,
+          stack: error?.stack,
+          details: error?.response?.data || error?.details
         };
         uploadErrors.push(errorInfo);
-        console.error(`❌ [UPLOAD] 실패: ${file.name}`, errorInfo);
+        console.error(`❌ [UPLOAD] 파일 업로드 실패:`, {
+          파일명: file.name,
+          크기: `${(file.size / 1024).toFixed(1)}KB`,
+          타입: file.type,
+          에러: errorInfo.error,
+          상세정보: errorInfo
+        });
       }
     }
 
@@ -248,6 +296,7 @@ export async function POST(request: NextRequest) {
       success: uploadResults.length > 0,
       message,
       files: uploadResults,
+      totalUploaded: uploadResults.length, // 클라이언트에서 기대하는 필드 추가
       stats: {
         total: files.length,
         success: uploadResults.length,
@@ -416,7 +465,7 @@ async function uploadSingleFile(
       includeItemsFromAllDrives: true
     });
 
-    // 2. 같은 크기의 파일 체크 (중복 이미지 감지)
+    // 2. 같은 크기와 이름이 유사한 파일만 체크 (중복 감지 완화)
     const sameSizeCheck = await drive.files.list({
       q: `parents in '${targetFolderId}' and trashed=false and mimeType contains 'image/'`,
       fields: 'files(id, name, size, modifiedTime)',
@@ -425,21 +474,29 @@ async function uploadSingleFile(
       includeItemsFromAllDrives: true
     });
 
-    // 같은 크기의 파일이 있는지 확인
+    // 같은 크기이면서 파일명이 매우 유사한 경우만 중복으로 판단
     const duplicateBySize = sameSizeCheck.data.files?.find(
-      (existingFile: any) => 
-        existingFile.size === file.size.toString() && 
-        existingFile.name !== fileName
+      (existingFile: any) => {
+        if (existingFile.size !== file.size.toString()) return false;
+        if (existingFile.name === fileName) return false; // 같은 이름은 덮어쓰기로 처리
+        
+        // 파일명이 매우 유사한 경우만 중복으로 판단 (확장자 제외하고 90% 이상 일치)
+        const existingBase = existingFile.name.replace(/\.[^/.]+$/, "");
+        const newBase = fileName.replace(/\.[^/.]+$/, "");
+        const similarity = calculateSimilarity(existingBase, newBase);
+        
+        return similarity > 0.9; // 90% 이상 유사한 경우만 중복으로 판단
+      }
     );
 
     if (duplicateBySize) {
-      console.warn(`🚫 [UPLOAD] 중복 이미지 감지 - 크기가 동일한 파일 발견:`, {
+      console.warn(`🚫 [UPLOAD] 중복 이미지 감지 - 크기와 파일명이 매우 유사:`, {
         새파일: { name: fileName, size: file.size },
         기존파일: { name: duplicateBySize.name, size: duplicateBySize.size, id: duplicateBySize.id },
         업로드거부: true
       });
       
-      throw new Error(`중복 이미지가 감지되었습니다. 같은 크기(${file.size} bytes)의 파일이 이미 존재합니다: ${duplicateBySize.name}`);
+      throw new Error(`중복 이미지가 감지되었습니다. 유사한 파일이 이미 존재합니다: ${duplicateBySize.name}`);
     }
 
     if (sameNameCheck.data.files?.length > 0) {
@@ -701,6 +758,32 @@ async function getTargetFolder(drive: any, businessFolderId: string, fileType: s
   
   const subFolderName = subFolderMapping[fileType];
   console.log(`📁 [UPLOAD] 대상 폴더 확인:`, { fileType, subFolderName, businessFolderId });
+  
+  // 1. 먼저 모든 하위 폴더 확인
+  console.log(`🔍 [UPLOAD] 사업장 폴더 내 모든 하위 폴더 조회...`);
+  try {
+    const allSubFolders = await drive.files.list({
+      q: `parents in '${businessFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      fields: 'files(id, name)',
+      pageSize: 20,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+    
+    if (allSubFolders.data.files?.length > 0) {
+      console.log(`🔍 [UPLOAD] 발견된 모든 하위 폴더:`, 
+        allSubFolders.data.files.map((f: any) => ({ 
+          id: f.id, 
+          name: f.name, 
+          matches: f.name === subFolderName 
+        }))
+      );
+    } else {
+      console.log(`🔍 [UPLOAD] 하위 폴더 없음, 모두 생성 필요`);
+    }
+  } catch (error) {
+    console.warn(`⚠️ [UPLOAD] 하위 폴더 목록 조회 실패:`, error);
+  }
   
   if (!subFolderName) {
     console.log(`📁 [UPLOAD] 알 수 없는 파일 타입, 상위 폴더 사용: ${fileType}`);

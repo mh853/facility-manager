@@ -205,10 +205,15 @@ async function cacheFirstUpdate(request) {
   
   // 백그라운드에서 업데이트
   const updatePromise = fetch(request).then((response) => {
-    if (response.ok) {
-      const cache = caches.open(DYNAMIC_CACHE_NAME);
-      cache.then(c => c.put(request, response.clone()));
-      console.log('🔄 백그라운드 업데이트:', request.url);
+    if (response.ok && response.body) {
+      // Response body가 있고 아직 사용되지 않은 경우만 캐시
+      try {
+        const cache = caches.open(DYNAMIC_CACHE_NAME);
+        cache.then(c => c.put(request, response.clone()));
+        console.log('🔄 백그라운드 업데이트:', request.url);
+      } catch (error) {
+        console.warn('⚠️ 캐시 업데이트 실패 (Response 이미 사용됨):', request.url);
+      }
     }
     return response;
   }).catch(() => {
