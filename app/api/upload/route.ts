@@ -226,79 +226,108 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// 하위 폴더 확인/생성 함수
+async function ensureSubFolders(drive: any, businessFolderId: string): Promise<void> {
+  const subFolders = ['기본사진', '배출시설', '방지시설'];
+  for (const subFolder of subFolders) {
+    try {
+      // 기존 하위 폴더 검색
+      const subFolderSearch = await drive.files.list({
+        q: `name='${subFolder}' and parents in '${businessFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name)',
+        pageSize: 1,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      });
+
+      if (subFolderSearch.data.files?.length > 0) {
+        console.log(`✅ [UPLOAD] 기존 하위 폴더 사용: ${subFolder}`);
+      } else {
+        // 하위 폴더가 없으면 생성
+        await drive.files.create({
+          requestBody: {
+            name: subFolder,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [businessFolderId]
+          },
+          supportsAllDrives: true
+        });
+        console.log(`📁 [UPLOAD] 새 하위 폴더 생성: ${subFolder}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ [UPLOAD] 하위 폴더 처리 실패: ${subFolder}`, error);
+    }
+  }
+}
+
 // 사업장 폴더 생성/확인 (공유 드라이브 지원)
 async function findOrCreateBusinessFolder(drive: any, businessName: string, parentFolderId: string): Promise<string> {
-  try {
-    console.log(`📁 [UPLOAD] 사업장 폴더 확인: ${businessName}`);
-
-    // 기존 폴더 검색 (공유 드라이브 지원)
-    const searchResponse = await drive.files.list({
-      q: `name='${businessName.replace(/'/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id, name)',
-      pageSize: 1,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true
-    });
-
-    if (searchResponse.data.files?.length > 0) {
-      const existingFolderId = searchResponse.data.files[0].id!;
-      console.log(`✅ [UPLOAD] 기존 폴더 사용: ${businessName}`);
-      return existingFolderId;
-    }
-
-    // 새 폴더 생성 (공유 드라이브 지원)
-    console.log(`📂 [UPLOAD] 새 폴더 생성: ${businessName}`);
-    const folderResponse = await drive.files.create({
-      requestBody: {
-        name: businessName,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentFolderId]
-      },
-      fields: 'id, name',
-      supportsAllDrives: true
-    });
-
-    const businessFolderId = folderResponse.data.id!;
-    console.log(`✅ [UPLOAD] 폴더 생성 완료: ${businessFolderId}`);
-
-    // 하위 폴더 생성 (중복 확인 포함)
-    const subFolders = ['기본사진', '배출시설', '방지시설'];
-    for (const subFolder of subFolders) {
-      try {
-        // 기존 하위 폴더 검색
-        const subFolderSearch = await drive.files.list({
-          q: `name='${subFolder}' and parents in '${businessFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-          fields: 'files(id, name)',
-          pageSize: 1,
-          supportsAllDrives: true,
-          includeItemsFromAllDrives: true
-        });
-
-        if (subFolderSearch.data.files?.length > 0) {
-          console.log(`✅ [UPLOAD] 기존 하위 폴더 사용: ${subFolder}`);
-        } else {
-          // 하위 폴더가 없으면 생성
-          await drive.files.create({
-            requestBody: {
-              name: subFolder,
-              mimeType: 'application/vnd.google-apps.folder',
-              parents: [businessFolderId]
-            },
-            supportsAllDrives: true
-          });
-          console.log(`📁 [UPLOAD] 새 하위 폴더 생성: ${subFolder}`);
-        }
-      } catch (error) {
-        console.warn(`⚠️ [UPLOAD] 하위 폴더 처리 실패: ${subFolder}`, error);
-      }
-    }
-
-    return businessFolderId;
-
-  } catch (error: any) {
-    console.error('❌ [UPLOAD] 폴더 처리 실패:', error);
-    throw new Error(`폴더 처리 실패: ${error.message}`);
+  // 사업장 폴더별 락 키
+  const lockKey = `${parentFolderId}-${businessName}`;
+  
+  // 이미 생성 중인 폴더가 있으면 기다리기
+  if (businessFolderCreationLock.has(lockKey)) {
+    console.log(`⏳ [UPLOAD] 사업장 폴더 생성 대기 중: ${businessName}`);
+    return await businessFolderCreationLock.get(lockKey)!;
   }
+
+  // 폴더 생성/확인 Promise를 락에 저장
+  const folderPromise = (async () => {
+    try {
+      console.log(`📁 [UPLOAD] 사업장 폴더 확인: ${businessName}`);
+
+      // 기존 폴더 검색 (공유 드라이브 지원)
+      const searchResponse = await drive.files.list({
+        q: `name='${businessName.replace(/'/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name)',
+        pageSize: 1,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      });
+
+      if (searchResponse.data.files?.length > 0) {
+        const existingFolderId = searchResponse.data.files[0].id!;
+        console.log(`✅ [UPLOAD] 기존 폴더 사용: ${businessName}`);
+        
+        // 기존 폴더에서도 하위 폴더 확인/생성
+        await ensureSubFolders(drive, existingFolderId);
+        
+        return existingFolderId;
+      }
+
+      // 새 폴더 생성 (공유 드라이브 지원)
+      console.log(`📂 [UPLOAD] 새 폴더 생성: ${businessName}`);
+      const folderResponse = await drive.files.create({
+        requestBody: {
+          name: businessName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [parentFolderId]
+        },
+        fields: 'id, name',
+        supportsAllDrives: true
+      });
+
+      const businessFolderId = folderResponse.data.id!;
+      console.log(`✅ [UPLOAD] 폴더 생성 완료: ${businessFolderId}`);
+
+      // 하위 폴더 확인/생성
+      await ensureSubFolders(drive, businessFolderId);
+
+      return businessFolderId;
+
+    } catch (error: any) {
+      console.error('❌ [UPLOAD] 폴더 처리 실패:', error);
+      throw new Error(`폴더 처리 실패: ${error.message}`);
+    } finally {
+      // 락 정리
+      businessFolderCreationLock.delete(lockKey);
+    }
+  })();
+
+  // Promise를 락에 저장
+  businessFolderCreationLock.set(lockKey, folderPromise);
+
+  return await folderPromise;
 }
 
 // 단일 파일 업로드 (공유 드라이브 지원)
@@ -614,6 +643,9 @@ function generateFileName(
 
 // 폴더별 생성 중인 상태 추적 (중복 생성 방지)
 const folderCreationInProgress = new Map<string, Promise<string>>();
+
+// 사업장 폴더 생성 락 (전역)
+const businessFolderCreationLock = new Map<string, Promise<string>>();
 
 // 대상 폴더 확인 (중복 생성 방지 포함)
 async function getTargetFolder(drive: any, businessFolderId: string, fileType: string): Promise<string> {

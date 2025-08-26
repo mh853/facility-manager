@@ -253,6 +253,22 @@ async function findBusinessFolder(drive: any, businessName: string, parentFolder
       `name contains '${businessName.replace(/'/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
     ];
 
+    // 전체 폴더 목록 조회 (디버깅용)
+    console.log('📂 [FILES] 부모 폴더 내 전체 폴더 목록 조회...');
+    const allFoldersResponse = await drive.files.list({
+      q: `parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      fields: 'files(id, name, parents, createdTime)',
+      pageSize: 50,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+
+    if (allFoldersResponse.data.files?.length > 0) {
+      console.log('📂 [FILES] 발견된 모든 사업장 폴더들:', 
+        allFoldersResponse.data.files.map((f: any) => ({ id: f.id, name: f.name, createdTime: f.createdTime }))
+      );
+    }
+
     for (const query of queries) {
       console.log('📂 [FILES] 검색 쿼리:', query);
       
