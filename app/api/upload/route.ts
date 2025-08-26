@@ -201,7 +201,7 @@ function getFileTypeDisplayName(fileType: string): string {
   return typeMap[fileType] || fileType;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   const requestId = generateRequestId();
   
   try {
@@ -251,6 +251,7 @@ export async function POST(request: NextRequest) {
         }, { status: 500 })),
         timestamp: Date.now()
       });
+    });
   } catch (error) {
     console.error(`❌ [UPLOAD] 요청 처리 실패 (${requestId}):`, error);
     return NextResponse.json({
