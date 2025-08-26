@@ -240,57 +240,60 @@ async function recordDeletionHistory(fileName: string, fileId: string) {
   }
 }
 
-// 사업장 폴더 찾기 (개선된 버전)
+// 사업장 폴더 찾기 (업로드 API와 동일한 로직 사용)
 async function findBusinessFolder(drive: any, businessName: string, parentFolderId: string, forceRefresh: boolean = false): Promise<string | null> {
   try {
     console.log('📂 [FILES] 사업장 폴더 검색:', { businessName, parentFolderId, forceRefresh });
 
-    // 정확한 이름 매칭과 부분 매칭 모두 시도
-    const queries = [
-      // 정확한 이름 매칭
-      `name='${businessName.replace(/'/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      // 부분 매칭 (공백 문제 등을 위해)
-      `name contains '${businessName.replace(/'/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
-    ];
-
-    // 전체 폴더 목록 조회 (디버깅용)
-    console.log('📂 [FILES] 부모 폴더 내 전체 폴더 목록 조회...');
+    // 1. 먼저 부모 폴더의 모든 하위 폴더를 조회해서 정확한 매칭 (업로드 API와 동일)
+    console.log('📂 [FILES] 부모 폴더 내 모든 폴더 조회 (특수문자 대응)...');
     const allFoldersResponse = await drive.files.list({
       q: `parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id, name, parents, createdTime)',
-      pageSize: 50,
+      fields: 'files(id, name, createdTime)',
+      pageSize: 100,
       supportsAllDrives: true,
       includeItemsFromAllDrives: true,
+      orderBy: 'createdTime desc' // 최신 순으로 정렬
     });
 
+    console.log(`📂 [FILES] 조회된 폴더 수: ${allFoldersResponse.data.files?.length || 0}`);
+    
     if (allFoldersResponse.data.files?.length > 0) {
       console.log('📂 [FILES] 발견된 모든 사업장 폴더들:', 
-        allFoldersResponse.data.files.map((f: any) => ({ id: f.id, name: f.name, createdTime: f.createdTime }))
+        allFoldersResponse.data.files.map((f: any) => ({ 
+          id: f.id, 
+          name: f.name, 
+          createdTime: f.createdTime,
+          exactMatch: f.name === businessName 
+        }))
       );
+
+      // 정확히 일치하는 폴더 찾기
+      const exactMatch = allFoldersResponse.data.files.find((f: any) => f.name === businessName);
+      if (exactMatch) {
+        console.log(`📂 [FILES] 정확히 일치하는 기존 폴더 발견: ${businessName} (ID: ${exactMatch.id})`);
+        return exactMatch.id;
+      }
     }
 
-    for (const query of queries) {
-      console.log('📂 [FILES] 검색 쿼리:', query);
-      
+    // 2. 혹시 모르니까 기존 검색 방식도 한번 시도
+    console.log('📂 [FILES] 기존 검색 방식으로도 시도...');
+    try {
       const searchResponse = await drive.files.list({
-        q: query,
-        fields: 'files(id, name, parents)',
-        pageSize: 10,
+        q: `name='${businessName.replace(/['"]/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name)',
+        pageSize: 1,
         supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-        orderBy: 'name'
+        includeItemsFromAllDrives: true
       });
 
-      console.log('📂 [FILES] 검색 결과:', searchResponse.data.files?.length, '개 폴더 발견');
-
       if (searchResponse.data.files?.length > 0) {
-        // 정확히 일치하는 폴더 우선 선택
-        const exactMatch = searchResponse.data.files.find((file: any) => file.name === businessName);
-        const selectedFolder = exactMatch || searchResponse.data.files[0];
-        
-        console.log('📂 [FILES] 선택된 폴더:', selectedFolder.name, '(ID:', selectedFolder.id, ')');
-        return selectedFolder.id!;
+        const existingFolderId = searchResponse.data.files[0].id!;
+        console.log(`📂 [FILES] 기존 검색으로 발견한 폴더 사용: ${businessName} (ID: ${existingFolderId})`);
+        return existingFolderId;
       }
+    } catch (searchError) {
+      console.warn(`📂 [FILES] 기존 검색 방식 실패:`, searchError);
     }
 
     console.log('📂 [FILES] 사업장 폴더를 찾을 수 없음:', businessName);

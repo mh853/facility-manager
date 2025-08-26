@@ -368,23 +368,63 @@ async function findOrCreateBusinessFolder(drive: any, businessName: string, pare
     try {
       console.log(`📁 [UPLOAD] 사업장 폴더 확인: ${businessName}`);
 
-      // 기존 폴더 검색 (공유 드라이브 지원)
-      const searchResponse = await drive.files.list({
-        q: `name='${businessName.replace(/'/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name)',
-        pageSize: 1,
+      // 1. 먼저 부모 폴더의 모든 하위 폴더를 조회해서 정확한 매칭
+      console.log(`🔍 [UPLOAD] 부모 폴더 내 모든 폴더 조회 (특수문자 대응)...`);
+      const allFoldersResponse = await drive.files.list({
+        q: `parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name, createdTime)',
+        pageSize: 100,
         supportsAllDrives: true,
-        includeItemsFromAllDrives: true
+        includeItemsFromAllDrives: true,
+        orderBy: 'createdTime desc' // 최신 순으로 정렬
       });
 
-      if (searchResponse.data.files?.length > 0) {
-        const existingFolderId = searchResponse.data.files[0].id!;
-        console.log(`✅ [UPLOAD] 기존 폴더 사용: ${businessName}`);
-        
-        // 기존 폴더에서도 하위 폴더 확인/생성
-        await ensureSubFolders(drive, existingFolderId);
-        
-        return existingFolderId;
+      console.log(`🔍 [UPLOAD] 조회된 폴더 수: ${allFoldersResponse.data.files?.length || 0}`);
+      
+      if (allFoldersResponse.data.files?.length > 0) {
+        console.log(`🔍 [UPLOAD] 발견된 모든 사업장 폴더들:`, 
+          allFoldersResponse.data.files.map((f: any) => ({ 
+            id: f.id, 
+            name: f.name, 
+            createdTime: f.createdTime,
+            exactMatch: f.name === businessName 
+          }))
+        );
+
+        // 정확히 일치하는 폴더 찾기
+        const exactMatch = allFoldersResponse.data.files.find((f: any) => f.name === businessName);
+        if (exactMatch) {
+          console.log(`✅ [UPLOAD] 정확히 일치하는 기존 폴더 발견: ${businessName} (ID: ${exactMatch.id})`);
+          
+          // 기존 폴더에서도 하위 폴더 확인/생성
+          await ensureSubFolders(drive, exactMatch.id);
+          
+          return exactMatch.id;
+        }
+      }
+
+      // 2. 혹시 모르니까 기존 검색 방식도 한번 시도
+      console.log(`🔍 [UPLOAD] 기존 검색 방식으로도 시도...`);
+      try {
+        const searchResponse = await drive.files.list({
+          q: `name='${businessName.replace(/['"]/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+          fields: 'files(id, name)',
+          pageSize: 1,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true
+        });
+
+        if (searchResponse.data.files?.length > 0) {
+          const existingFolderId = searchResponse.data.files[0].id!;
+          console.log(`✅ [UPLOAD] 기존 검색으로 발견한 폴더 사용: ${businessName} (ID: ${existingFolderId})`);
+          
+          // 기존 폴더에서도 하위 폴더 확인/생성
+          await ensureSubFolders(drive, existingFolderId);
+          
+          return existingFolderId;
+        }
+      } catch (searchError) {
+        console.warn(`⚠️ [UPLOAD] 기존 검색 방식 실패:`, searchError);
       }
 
       // 새 폴더 생성 (공유 드라이브 지원)
