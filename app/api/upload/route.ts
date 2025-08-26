@@ -5,6 +5,27 @@ import { google } from 'googleapis';
 import { createOptimizedDriveClient } from '@/lib/google-client';
 import { withApiHandler, createSuccessResponse, createErrorResponse, sanitizeFileName, withTimeout } from '@/lib/api-utils';
 
+// 사업장 폴더 생성 락 관리 (중복 생성 방지)
+interface FolderLock {
+  promise: Promise<string>;
+  timestamp: number;
+}
+
+const businessFolderCreationLock = new Map<string, FolderLock>();
+
+// 락 정리 함수 (10분 이상 된 락 제거)
+function cleanupOldLocks() {
+  const now = Date.now();
+  const tenMinutes = 10 * 60 * 1000;
+  
+  for (const [key, lock] of businessFolderCreationLock.entries()) {
+    if (now - lock.timestamp > tenMinutes) {
+      console.log(`🧹 [CLEANUP] 오래된 락 정리: ${key}`);
+      businessFolderCreationLock.delete(key);
+    }
+  }
+}
+
 // 파일 타입 표시명 매핑
 function getFileTypeDisplayName(fileType: string): string {
   const typeMap: Record<string, string> = {
@@ -262,32 +283,71 @@ async function ensureSubFolders(drive: any, businessFolderId: string): Promise<v
 
 // 사업장 폴더 생성/확인 (공유 드라이브 지원)
 async function findOrCreateBusinessFolder(drive: any, businessName: string, parentFolderId: string): Promise<string> {
+  // 오래된 락 정리
+  cleanupOldLocks();
+  
   // 사업장 폴더별 락 키
   const lockKey = `${parentFolderId}-${businessName}`;
   
   // 이미 생성 중인 폴더가 있으면 기다리기
   if (businessFolderCreationLock.has(lockKey)) {
-    console.log(`⏳ [UPLOAD] 사업장 폴더 생성 대기 중: ${businessName}`);
-    return await businessFolderCreationLock.get(lockKey)!;
+    const existingLock = businessFolderCreationLock.get(lockKey)!;
+    console.log(`⏳ [UPLOAD] 사업장 폴더 생성 대기 중: ${businessName} (${new Date(existingLock.timestamp).toISOString()})`);
+    return await existingLock.promise;
   }
 
   // 폴더 생성/확인 Promise를 락에 저장
   const folderPromise = (async () => {
     try {
-      console.log(`📁 [UPLOAD] 사업장 폴더 확인: ${businessName}`);
+      console.log(`📁 [UPLOAD] 사업장 폴더 확인: ${businessName} (부모: ${parentFolderId})`);
 
-      // 기존 폴더 검색 (공유 드라이브 지원)
+      // 먼저 부모 폴더 내 모든 폴더 조회 (디버깅)
+      console.log(`🔍 [UPLOAD] 부모 폴더 내 모든 사업장 폴더 조회...`);
+      const allFoldersResponse = await drive.files.list({
+        q: `parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name, createdTime)',
+        pageSize: 100, // 더 많은 폴더 확인
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+        orderBy: 'name'
+      });
+
+      if (allFoldersResponse.data.files?.length > 0) {
+        console.log(`🔍 [UPLOAD] 발견된 모든 사업장 폴더들 (${allFoldersResponse.data.files.length}개):`, 
+          allFoldersResponse.data.files.map((f: any) => ({ 
+            id: f.id, 
+            name: f.name, 
+            createdTime: f.createdTime,
+            matches: f.name === businessName 
+          }))
+        );
+
+        // 정확히 일치하는 폴더 직접 검색
+        const exactMatch = allFoldersResponse.data.files.find((f: any) => f.name === businessName);
+        if (exactMatch) {
+          console.log(`✅ [UPLOAD] 정확히 일치하는 기존 폴더 발견: ${businessName} (${exactMatch.id})`);
+          
+          // 기존 폴더에서도 하위 폴더 확인/생성
+          await ensureSubFolders(drive, exactMatch.id);
+          
+          return exactMatch.id;
+        }
+      }
+
+      // API 검색도 시도
       const searchResponse = await drive.files.list({
         q: `name='${businessName.replace(/'/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
         fields: 'files(id, name)',
-        pageSize: 1,
+        pageSize: 10,
         supportsAllDrives: true,
         includeItemsFromAllDrives: true
       });
 
+      console.log(`🔍 [UPLOAD] API 검색 결과: ${searchResponse.data.files?.length || 0}개 폴더`);
+
       if (searchResponse.data.files?.length > 0) {
         const existingFolderId = searchResponse.data.files[0].id!;
-        console.log(`✅ [UPLOAD] 기존 폴더 사용: ${businessName}`);
+        console.log(`✅ [UPLOAD] API 검색으로 기존 폴더 사용: ${businessName} (${existingFolderId})`);
         
         // 기존 폴더에서도 하위 폴더 확인/생성
         await ensureSubFolders(drive, existingFolderId);
@@ -324,8 +384,12 @@ async function findOrCreateBusinessFolder(drive: any, businessName: string, pare
     }
   })();
 
-  // Promise를 락에 저장
-  businessFolderCreationLock.set(lockKey, folderPromise);
+  // Promise를 타임스탬프와 함께 락에 저장
+  const lock: FolderLock = {
+    promise: folderPromise,
+    timestamp: Date.now()
+  };
+  businessFolderCreationLock.set(lockKey, lock);
 
   return await folderPromise;
 }
@@ -643,9 +707,6 @@ function generateFileName(
 
 // 폴더별 생성 중인 상태 추적 (중복 생성 방지)
 const folderCreationInProgress = new Map<string, Promise<string>>();
-
-// 사업장 폴더 생성 락 (전역)
-const businessFolderCreationLock = new Map<string, Promise<string>>();
 
 // 대상 폴더 확인 (중복 생성 방지 포함)
 async function getTargetFolder(drive: any, businessFolderId: string, fileType: string): Promise<string> {
