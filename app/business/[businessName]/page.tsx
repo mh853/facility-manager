@@ -855,7 +855,7 @@ export default function BusinessPage() {
                                   : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
                               }`}
                             >
-                              <Wifi className="w-4 h-4" />
+                              <WifiOff className="w-4 h-4" />
                               유선
                             </button>
                             <button
@@ -866,7 +866,7 @@ export default function BusinessPage() {
                                   : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
                               }`}
                             >
-                              <WifiOff className="w-4 h-4" />
+                              <Wifi className="w-4 h-4" />
                               무선
                             </button>
                           </div>
