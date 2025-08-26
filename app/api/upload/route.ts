@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'stream';
 import { google } from 'googleapis';
+import { createHash } from 'crypto';
 import { createOptimizedDriveClient } from '@/lib/google-client';
 import { withApiHandler, createSuccessResponse, createErrorResponse, sanitizeFileName, withTimeout } from '@/lib/api-utils';
 
@@ -21,7 +22,18 @@ interface BusinessQueue {
   isProcessing: boolean;
   tasks: UploadTask[];
   currentFolderId?: string;
+  folderHash?: string; // 폴더의 해시값 (생성된 폴더 고유 식별)
+  fileHashCache: Set<string>; // 업로드된 파일들의 해시값 캐시
   lastActivity: number;
+}
+
+// 파일 해시 정보
+interface FileHashInfo {
+  hash: string;
+  fileName: string;
+  fileId: string;
+  size: number;
+  uploadDate: string;
 }
 
 // 전역 업로드 큐 관리 (사업장별 순차 처리)
@@ -45,6 +57,98 @@ function cleanupInactiveQueues() {
 function generateRequestId(): string {
   globalUploadCounter.count++;
   return `${Date.now()}-${globalUploadCounter.count.toString().padStart(3, '0')}-${Math.random().toString(36).substr(2, 6)}`;
+}
+
+// 파일 해시값 계산
+async function calculateFileHash(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const hash = createHash('sha256');
+  hash.update(buffer);
+  return hash.digest('hex');
+}
+
+// 사업장명과 시스템 타입으로 폴더 해시 생성
+function generateFolderHash(businessName: string, systemType: string): string {
+  const hash = createHash('sha256');
+  hash.update(`${businessName}-${systemType}-${Date.now()}`);
+  return hash.digest('hex').substring(0, 16); // 16자리로 축약
+}
+
+// 폴더의 기존 파일들 해시 캐시 구축
+async function buildFileHashCache(drive: any, folderId: string): Promise<Set<string>> {
+  const hashCache = new Set<string>();
+  
+  try {
+    console.log(`🔍 [HASH] 폴더 내 기존 파일 해시 캐시 구축 시작: ${folderId}`);
+    
+    // 폴더 내 모든 파일 조회 (재귀적으로 하위 폴더까지)
+    const allFiles = await getAllFilesRecursive(drive, folderId);
+    
+    for (const file of allFiles) {
+      // Google Drive에서 파일 메타데이터에 해시가 있으면 사용
+      if (file.md5Checksum) {
+        hashCache.add(file.md5Checksum);
+        console.log(`💾 [HASH] 캐시 추가 (MD5): ${file.name} -> ${file.md5Checksum.substring(0, 8)}...`);
+      }
+      
+      // 파일명에서 해시값 추출 시도 (우리가 저장한 파일인 경우)
+      const hashFromName = extractHashFromFileName(file.name);
+      if (hashFromName) {
+        hashCache.add(hashFromName);
+        console.log(`💾 [HASH] 캐시 추가 (이름): ${file.name} -> ${hashFromName.substring(0, 8)}...`);
+      }
+    }
+    
+    console.log(`✅ [HASH] 해시 캐시 구축 완료: ${hashCache.size}개 파일`);
+    return hashCache;
+    
+  } catch (error) {
+    console.error(`❌ [HASH] 해시 캐시 구축 실패:`, error);
+    return hashCache; // 빈 캐시 반환
+  }
+}
+
+// 폴더 내 모든 파일 재귀 조회
+async function getAllFilesRecursive(drive: any, folderId: string, allFiles: any[] = []): Promise<any[]> {
+  try {
+    const response = await drive.files.list({
+      q: `parents in '${folderId}' and trashed=false`,
+      fields: 'files(id, name, mimeType, md5Checksum, size)',
+      pageSize: 100,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+
+    const items = response.data.files || [];
+    
+    for (const item of items) {
+      if (item.mimeType === 'application/vnd.google-apps.folder') {
+        // 하위 폴더 재귀 탐색
+        await getAllFilesRecursive(drive, item.id, allFiles);
+      } else if (item.mimeType?.startsWith('image/')) {
+        // 이미지 파일만 추가
+        allFiles.push(item);
+      }
+    }
+    
+    return allFiles;
+  } catch (error) {
+    console.error(`❌ [HASH] 파일 조회 실패: ${folderId}`, error);
+    return allFiles;
+  }
+}
+
+// 파일명에서 해시값 추출 (파일명에 해시가 포함된 경우)
+function extractHashFromFileName(fileName: string): string | null {
+  // 파일명 패턴: businessName_typeFolder_facilityName_fileNumber_timestamp_HASH.extension
+  const parts = fileName.split('_');
+  if (parts.length >= 6) {
+    const hashPart = parts[parts.length - 1]; // 마지막 파트 (HASH.extension)
+    const hashMatch = hashPart.match(/^([a-f0-9]{8,64})\./i); // 8-64자리 hex
+    return hashMatch ? hashMatch[1] : null;
+  }
+  return null;
 }
 
 // 문자열 유사도 계산 함수
@@ -171,6 +275,7 @@ function addToUploadQueue(businessName: string, task: UploadTask) {
     businessUploadQueues.set(businessName, {
       isProcessing: false,
       tasks: [],
+      fileHashCache: new Set<string>(), // 파일 해시 캐시 초기화
       lastActivity: Date.now()
     });
   }
@@ -233,9 +338,14 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
   
   console.log(`⚡ [TASK] 업로드 작업 처리: ${requestId} (파일 ${files.length}개)`);
 
-  // 파일 검증
-  for (const file of files) {
-    console.log(`📱 [TASK] 파일 검증 (${requestId}):`, {
+  // 파일 해시 계산 및 중복 검사
+  const fileHashInfos: Array<{file: File, hash: string}> = [];
+  
+  console.log(`🔐 [HASH] 파일 해시값 계산 시작 (${requestId}): ${files.length}개 파일`);
+  
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    console.log(`📱 [TASK] 파일 검증 및 해시 계산 (${requestId}) ${i + 1}/${files.length}:`, {
       name: file.name,
       size: file.size,
       type: file.type,
@@ -256,7 +366,27 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
     if (!isValidImageType) {
       throw new Error(`지원하지 않는 파일 형식: ${file.name} (${file.type || '알 수 없음'})`);
     }
+    
+    // 파일 해시 계산
+    const fileHash = await calculateFileHash(file);
+    console.log(`🔐 [HASH] 파일 해시 계산 완료 (${requestId}): ${file.name} -> ${fileHash.substring(0, 12)}...`);
+    
+    // 캐시에서 중복 확인
+    if (queue.fileHashCache.has(fileHash)) {
+      console.warn(`🚫 [HASH] 중복 파일 감지 - 해시값 일치 (${requestId}):`, {
+        파일명: file.name,
+        해시: fileHash.substring(0, 12) + '...',
+        크기: file.size,
+        중복: true
+      });
+      throw new Error(`중복 파일이 감지되었습니다. 동일한 내용의 파일이 이미 업로드되었습니다: ${file.name}`);
+    }
+    
+    fileHashInfos.push({ file, hash: fileHash });
   }
+  
+  console.log(`✅ [HASH] 모든 파일 해시 계산 및 중복 검사 완료 (${requestId})`);
+  
 
   // 폴더 ID 확인
   const folderId = systemType === 'completion' 
@@ -279,40 +409,59 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
     console.log(`🔍 [TASK] 사업장 폴더 생성/확인 시작 (${requestId}): ${businessName}`);
     businessFolderId = await findOrCreateBusinessFolderSequential(drive, businessName, folderId);
     queue.currentFolderId = businessFolderId; // 캐시에 저장
+    
+    // 폴더 해시 생성 및 저장
+    if (!queue.folderHash) {
+      queue.folderHash = generateFolderHash(businessName, systemType);
+      console.log(`🔐 [HASH] 폴더 해시 생성 (${requestId}): ${queue.folderHash.substring(0, 8)}...`);
+    }
+    
+    // 기존 파일들의 해시 캐시 구축 (캐시가 비어있는 경우)
+    if (queue.fileHashCache.size === 0) {
+      console.log(`🔍 [HASH] 기존 파일 해시 캐시 구축 시작 (${requestId})`);
+      queue.fileHashCache = await buildFileHashCache(drive, businessFolderId);
+      console.log(`✅ [HASH] 해시 캐시 구축 완료 (${requestId}): ${queue.fileHashCache.size}개 파일`);
+    }
+    
     console.log(`✅ [TASK] 사업장 폴더 설정 완료 (${requestId}): ${businessName} -> ${businessFolderId}`);
   } else {
     console.log(`♻️ [TASK] 캐시된 폴더 ID 사용 (${requestId}): ${businessFolderId}`);
   }
 
-  // 파일 업로드
+  // 파일 업로드 (해시 정보 포함)
   const uploadResults = [];
   const uploadErrors = [];
   
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    console.log(`📄 [TASK] 파일 업로드 중 (${requestId}) ${i + 1}/${files.length}: ${file.name}`);
+  for (let i = 0; i < fileHashInfos.length; i++) {
+    const { file, hash } = fileHashInfos[i];
+    console.log(`📄 [TASK] 파일 업로드 중 (${requestId}) ${i + 1}/${fileHashInfos.length}: ${file.name}`);
     
     try {
-      const result = await uploadSingleFile(
+      const result = await uploadSingleFileWithHash(
         drive, 
         file, 
+        hash,
         businessFolderId, 
         fileType, 
         facilityInfo, 
         i + 1, 
         businessName,
-        uploadId
+        uploadId,
+        queue.folderHash || ''
       );
       
       if (result) {
         uploadResults.push(result);
-        console.log(`✅ [TASK] 파일 업로드 성공 (${requestId}): ${result.name}`);
+        // 업로드 성공 시 해시를 캐시에 추가
+        queue.fileHashCache.add(hash);
+        console.log(`✅ [TASK] 파일 업로드 성공 (${requestId}): ${result.name} (해시: ${hash.substring(0, 8)}...)`);
       }
     } catch (error: any) {
       const errorInfo = {
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
+        fileHash: hash.substring(0, 16) + '...',
         error: error instanceof Error ? error.message : String(error),
         requestId
       };
@@ -520,16 +669,18 @@ async function ensureSubFolders(drive: any, businessFolderId: string): Promise<v
 }
 
 
-// 단일 파일 업로드 (공유 드라이브 지원)
-async function uploadSingleFile(
+// 해시 기반 단일 파일 업로드 (공유 드라이브 지원)
+async function uploadSingleFileWithHash(
   drive: any,
   file: File,
+  fileHash: string,
   businessFolderId: string,
   fileType: string,
   facilityInfo: string,
   fileNumber: number,
   businessName: string,
-  uploadId?: string
+  uploadId?: string,
+  folderHash?: string
 ) {
   try {
     // 파일을 Buffer로 변환
@@ -544,91 +695,18 @@ async function uploadSingleFile(
       }
     });
 
-    // 파일명 생성
-    const fileName = generateFileName(businessName, fileType, facilityInfo, fileNumber, file.name, file, uploadId);
+    // 해시를 포함한 파일명 생성
+    const fileName = generateFileNameWithHash(businessName, fileType, facilityInfo, fileNumber, file.name, file, fileHash, uploadId, folderHash);
     
     // 대상 폴더 확인
     const targetFolderId = await getTargetFolder(drive, businessFolderId, fileType);
 
-    // 1. 같은 이름의 파일 체크
-    const sameNameCheck = await drive.files.list({
-      q: `name='${fileName.replace(/'/g, "\\'")}' and parents in '${targetFolderId}' and trashed=false`,
-      fields: 'files(id, name, size)',
-      pageSize: 1,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true
+    console.log(`🔐 [HASH] 해시 기반 업로드 시작:`, {
+      fileName,
+      fileHash: fileHash.substring(0, 12) + '...',
+      folderHash: folderHash?.substring(0, 8) + '...' || 'none',
+      targetFolderId: targetFolderId.substring(0, 20) + '...'
     });
-
-    // 2. 같은 크기와 이름이 유사한 파일만 체크 (중복 감지 완화)
-    const sameSizeCheck = await drive.files.list({
-      q: `parents in '${targetFolderId}' and trashed=false and mimeType contains 'image/'`,
-      fields: 'files(id, name, size, modifiedTime)',
-      pageSize: 50, // 더 많은 파일을 확인
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true
-    });
-
-    // 같은 크기이면서 파일명이 매우 유사한 경우만 중복으로 판단
-    const duplicateBySize = sameSizeCheck.data.files?.find(
-      (existingFile: any) => {
-        if (existingFile.size !== file.size.toString()) return false;
-        if (existingFile.name === fileName) return false; // 같은 이름은 덮어쓰기로 처리
-        
-        // 파일명이 매우 유사한 경우만 중복으로 판단 (확장자 제외하고 90% 이상 일치)
-        const existingBase = existingFile.name.replace(/\.[^/.]+$/, "");
-        const newBase = fileName.replace(/\.[^/.]+$/, "");
-        const similarity = calculateSimilarity(existingBase, newBase);
-        
-        return similarity > 0.9; // 90% 이상 유사한 경우만 중복으로 판단
-      }
-    );
-
-    if (duplicateBySize) {
-      console.warn(`🚫 [UPLOAD] 중복 이미지 감지 - 크기와 파일명이 매우 유사:`, {
-        새파일: { name: fileName, size: file.size },
-        기존파일: { name: duplicateBySize.name, size: duplicateBySize.size, id: duplicateBySize.id },
-        업로드거부: true
-      });
-      
-      throw new Error(`중복 이미지가 감지되었습니다. 유사한 파일이 이미 존재합니다: ${duplicateBySize.name}`);
-    }
-
-    if (sameNameCheck.data.files?.length > 0) {
-      const existingFile = sameNameCheck.data.files[0];
-      console.log(`⚠️ [UPLOAD] 중복 파일 발견, 덮어쓰기:`, {
-        fileName,
-        existingId: existingFile.id,
-        existingSize: existingFile.size,
-        newSize: file.size
-      });
-      
-      // 기존 파일 업데이트 (덮어쓰기)
-      const response = await drive.files.update({
-        fileId: existingFile.id!,
-        media: {
-          mimeType: file.type,
-          body: readableStream
-        },
-        fields: 'id, name, webViewLink',
-        supportsAllDrives: true
-      });
-
-      console.log(`✅ [UPLOAD] 파일 덮어쓰기 완료: ${fileName}`);
-      
-      const fileId = response.data.id;
-      
-      return {
-        id: response.data.id,
-        name: response.data.name,
-        url: `https://drive.google.com/file/d/${response.data.id}/view`,
-        downloadUrl: `https://drive.google.com/uc?id=${response.data.id}`,
-        thumbnailUrl: `https://drive.google.com/thumbnail?id=${response.data.id}&sz=w300-h300-c`,
-        publicUrl: `https://lh3.googleusercontent.com/d/${response.data.id}`,
-        size: file.size,
-        mimeType: file.type,
-        updated: true // 덮어쓰기 표시
-      };
-    }
 
     // 새 파일 업로드
     console.log(`📤 [UPLOAD] 새 파일 업로드: ${fileName}`);
@@ -662,6 +740,8 @@ async function uploadSingleFile(
       console.warn(`⚠️ [UPLOAD] 파일 공개 설정 실패: ${fileName}`, permError);
     }
 
+    console.log(`✅ [HASH] 해시 기반 파일 업로드 완료: ${fileName} (해시: ${fileHash.substring(0, 8)}...)`);
+    
     return {
       id: response.data.id,
       name: response.data.name,
@@ -670,7 +750,10 @@ async function uploadSingleFile(
       thumbnailUrl: `https://drive.google.com/thumbnail?id=${response.data.id}&sz=w300-h300-c`,
       publicUrl: `https://lh3.googleusercontent.com/d/${response.data.id}`,
       size: file.size,
-      mimeType: file.type
+      mimeType: file.type,
+      fileHash: fileHash, // 업로드된 파일의 해시값
+      folderHash: folderHash, // 폴더 해시값
+      hashBasedUpload: true // 해시 기반 업로드 표시
     };
 
   } catch (error: any) {
@@ -679,15 +762,17 @@ async function uploadSingleFile(
   }
 }
 
-// 파일명 생성
-function generateFileName(
+// 해시 기반 파일명 생성
+function generateFileNameWithHash(
   businessName: string,
   fileType: string,
   facilityInfo: string,
   fileNumber: number,
   originalName: string,
   file: File,
-  uploadId?: string
+  fileHash: string,
+  uploadId?: string,
+  folderHash?: string
 ): string {
   const timestamp = new Date().toLocaleString('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -825,16 +910,29 @@ function generateFileName(
     typeFolder = typeMapping[fileType] || '기본사진';
   }
   
+  // 해시값을 8자리로 축약 (고유성 보장하면서 파일명 단축)
+  const shortHash = fileHash.substring(0, 8);
+  const shortFolderHash = folderHash ? folderHash.substring(0, 4) : '';
+  
   const safeName = [
     businessName,
     typeFolder,
     facilityName,
     `${fileNumber}번째`,
-    timestamp
+    timestamp,
+    shortHash, // 파일 해시 (중복 검사용)
+    shortFolderHash // 폴더 해시 (폴더 식별용)
   ]
     .map(part => part.replace(/[\/\\:*?"<>|]/g, '_').trim())
     .filter(Boolean)
     .join('_');
+  
+  console.log(`📝 [HASH] 해시 포함 파일명 생성:`, {
+    original: originalName,
+    generated: `${safeName}.${extension}`,
+    fileHash: shortHash,
+    folderHash: shortFolderHash || 'none'
+  });
   
   return `${safeName}.${extension}`;
 }
