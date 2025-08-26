@@ -4,7 +4,7 @@ import { sheets } from '@/lib/google-client';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessName, data, gatewayInfo } = body;
+    const { businessName, data, gatewayInfo, facilityDetails } = body;
 
     if (!businessName || !data) {
       return NextResponse.json(
@@ -77,6 +77,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. I~U열 - 시설 데이터 업데이트
+    // JSON 데이터 생성 (U열용)
+    const facilityJsonData = {
+      facilityDetails: facilityDetails || {},
+      gatewayInfo: gatewayInfo || {},
+      lastUpdated: new Date().toISOString()
+    };
+
     const updateValues = [
       [
         data.ph || 0,        // I열 (9번째)
@@ -91,7 +98,7 @@ export async function POST(request: NextRequest) {
         data.continuousProcess || 0, // R열 (18번째) - 연속공정
         data.wired || 0,     // S열 (19번째) - 유선
         data.wireless || 0,  // T열 (20번째) - 무선
-        data.syncData || ''  // U열 (21번째) - 동기화 데이터
+        JSON.stringify(facilityJsonData)  // U열 (21번째) - JSON 데이터
       ]
     ];
 

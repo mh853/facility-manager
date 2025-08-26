@@ -66,6 +66,11 @@ export default function BusinessPage() {
   // 보조CT 열 표시 여부 상태
   const [showAssistCT, setShowAssistCT] = useState(false);
 
+  // 배출시설 추가 열 표시 여부 상태
+  const [showNonPowered, setShowNonPowered] = useState(false);
+  const [showIntegratedPower, setShowIntegratedPower] = useState(false);
+  const [showContinuousProcess, setShowContinuousProcess] = useState(false);
+
   // 업데이트 타이머 참조
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -177,19 +182,32 @@ export default function BusinessPage() {
       wireless: 0
     };
 
-    // 시설 데이터 합계
-    Object.values(facilityDetails).forEach(details => {
-      if (details.ph === 'true') totals.ph++;
-      if (details.pressure === 'true') totals.pressure++;
-      if (details.temperature === 'true') totals.temperature++;
-      if (details.dischargeCT === 'true') totals.dischargeCT++;
-      if (details.assistCT === 'true') totals.assistCT++;
-      if (details.pump === 'true') totals.pump++;
-      if (details.fan === 'true') totals.fan++;
-      if (details.nonPowered === 'true') totals.nonPowered++;
-      if (details.integratedPower === 'true') totals.integratedPower++;
-      if (details.continuousProcess === 'true') totals.continuousProcess++;
-    });
+    // 시설별로 데이터를 구분해서 계산
+    if (facilities) {
+      // 방지시설 데이터 합계
+      facilities.prevention.forEach((facility, index) => {
+        const facilityId = getFacilityId(facility);
+        const details = facilityDetails[facilityId] || {};
+        
+        if (details.ph === 'true') totals.ph++;
+        if (details.pressure === 'true') totals.pressure++;
+        if (details.temperature === 'true') totals.temperature++;
+        if (details.pump === 'true') totals.pump++;
+        if (details.fan === 'true') totals.fan++;
+      });
+
+      // 배출시설 데이터 합계
+      facilities.discharge.forEach((facility, index) => {
+        const facilityId = getFacilityId(facility);
+        const details = facilityDetails[facilityId] || {};
+        
+        if (details.dischargeCT === 'true') totals.dischargeCT++;
+        if (details.assistCT === 'true') totals.assistCT++;
+        if (details.nonPowered === 'true') totals.nonPowered++;
+        if (details.integratedPower === 'true') totals.integratedPower++;
+        if (details.continuousProcess === 'true') totals.continuousProcess++;
+      });
+    }
 
     // VPN 데이터 합계 (게이트웨이 번호 기준 중복 제거)
     const wiredGateways = new Set<string>();
@@ -209,7 +227,7 @@ export default function BusinessPage() {
     totals.wireless = wirelessGateways.size;
 
     return totals;
-  }, [facilityDetails, gatewayInfo]);
+  }, [facilityDetails, gatewayInfo, facilities]);
 
   // 구글시트에 데이터 업데이트
   const updateGoogleSheets = useCallback(async (showAlert: boolean = true) => {
@@ -224,7 +242,8 @@ export default function BusinessPage() {
         body: JSON.stringify({
           businessName,
           data: totals,
-          gatewayInfo
+          gatewayInfo,
+          facilityDetails
         }),
       });
 
@@ -660,16 +679,48 @@ export default function BusinessPage() {
                       <Zap className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
                       <h3 className="text-lg md:text-xl font-bold text-gray-900">배출시설 상세 정보</h3>
                     </div>
-                    <button
-                      onClick={() => setShowAssistCT(!showAssistCT)}
-                      className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                        showAssistCT
-                          ? 'bg-red-100 text-red-700 border border-red-300'
-                          : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-                      }`}
-                    >
-                      보조CT {showAssistCT ? '숨기기' : '보기'}
-                    </button>
+                    <div className="flex gap-1 flex-wrap">
+                      <button
+                        onClick={() => setShowAssistCT(!showAssistCT)}
+                        className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                          showAssistCT
+                            ? 'bg-red-100 text-red-700 border border-red-300'
+                            : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                        }`}
+                      >
+                        보조CT {showAssistCT ? '숨기기' : '보기'}
+                      </button>
+                      <button
+                        onClick={() => setShowNonPowered(!showNonPowered)}
+                        className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                          showNonPowered
+                            ? 'bg-red-100 text-red-700 border border-red-300'
+                            : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                        }`}
+                      >
+                        무동력 {showNonPowered ? '숨기기' : '보기'}
+                      </button>
+                      <button
+                        onClick={() => setShowIntegratedPower(!showIntegratedPower)}
+                        className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                          showIntegratedPower
+                            ? 'bg-red-100 text-red-700 border border-red-300'
+                            : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                        }`}
+                      >
+                        통합전원 {showIntegratedPower ? '숨기기' : '보기'}
+                      </button>
+                      <button
+                        onClick={() => setShowContinuousProcess(!showContinuousProcess)}
+                        className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                          showContinuousProcess
+                            ? 'bg-red-100 text-red-700 border border-red-300'
+                            : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                        }`}
+                      >
+                        연속공정 {showContinuousProcess ? '숨기기' : '보기'}
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="overflow-x-auto">
@@ -683,6 +734,15 @@ export default function BusinessPage() {
                           <th className="border border-gray-300 px-1 py-1 text-left text-xs w-10">배출CT</th>
                           {showAssistCT && (
                             <th className="border border-gray-300 px-1 py-1 text-left text-xs w-10">보조CT</th>
+                          )}
+                          {showNonPowered && (
+                            <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">무동력</th>
+                          )}
+                          {showIntegratedPower && (
+                            <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">통합전원</th>
+                          )}
+                          {showContinuousProcess && (
+                            <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">연속공정</th>
                           )}
                         </tr>
                       </thead>
@@ -711,6 +771,36 @@ export default function BusinessPage() {
                                     type="checkbox"
                                     checked={currentDetails.assistCT === 'true'}
                                     onChange={(e) => updateFacilityDetail(facilityId, 'assistCT', e.target.checked ? 'true' : 'false')}
+                                    className="w-3 h-3 text-red-600 focus:ring-red-500 rounded"
+                                  />
+                                </td>
+                              )}
+                              {showNonPowered && (
+                                <td className="border border-gray-300 px-1 py-1 text-center w-8">
+                                  <input
+                                    type="checkbox"
+                                    checked={currentDetails.nonPowered === 'true'}
+                                    onChange={(e) => updateFacilityDetail(facilityId, 'nonPowered', e.target.checked ? 'true' : 'false')}
+                                    className="w-3 h-3 text-red-600 focus:ring-red-500 rounded"
+                                  />
+                                </td>
+                              )}
+                              {showIntegratedPower && (
+                                <td className="border border-gray-300 px-1 py-1 text-center w-8">
+                                  <input
+                                    type="checkbox"
+                                    checked={currentDetails.integratedPower === 'true'}
+                                    onChange={(e) => updateFacilityDetail(facilityId, 'integratedPower', e.target.checked ? 'true' : 'false')}
+                                    className="w-3 h-3 text-red-600 focus:ring-red-500 rounded"
+                                  />
+                                </td>
+                              )}
+                              {showContinuousProcess && (
+                                <td className="border border-gray-300 px-1 py-1 text-center w-8">
+                                  <input
+                                    type="checkbox"
+                                    checked={currentDetails.continuousProcess === 'true'}
+                                    onChange={(e) => updateFacilityDetail(facilityId, 'continuousProcess', e.target.checked ? 'true' : 'false')}
                                     className="w-3 h-3 text-red-600 focus:ring-red-500 rounded"
                                   />
                                 </td>
@@ -745,12 +835,6 @@ export default function BusinessPage() {
                           <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">온도</th>
                           <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">펌프</th>
                           <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">송풍</th>
-                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">무동력</th>
-                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">통합전원</th>
-                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">연속공정</th>
-                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">유선</th>
-                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">무선</th>
-                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-10">동기화</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -802,57 +886,6 @@ export default function BusinessPage() {
                                   checked={currentDetails.fan === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'fan', e.target.checked ? 'true' : 'false')}
                                   className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
-                                />
-                              </td>
-                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
-                                <input
-                                  type="checkbox"
-                                  checked={currentDetails.nonPowered === 'true'}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'nonPowered', e.target.checked ? 'true' : 'false')}
-                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
-                                />
-                              </td>
-                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
-                                <input
-                                  type="checkbox"
-                                  checked={currentDetails.integratedPower === 'true'}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'integratedPower', e.target.checked ? 'true' : 'false')}
-                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
-                                />
-                              </td>
-                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
-                                <input
-                                  type="checkbox"
-                                  checked={currentDetails.continuousProcess === 'true'}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'continuousProcess', e.target.checked ? 'true' : 'false')}
-                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
-                                />
-                              </td>
-                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
-                                <input
-                                  type="text"
-                                  value={currentDetails.wiredData || ''}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'wiredData', e.target.value)}
-                                  className="w-full px-1 py-0.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-500"
-                                  placeholder="유선"
-                                />
-                              </td>
-                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
-                                <input
-                                  type="text"
-                                  value={currentDetails.wirelessData || ''}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'wirelessData', e.target.value)}
-                                  className="w-full px-1 py-0.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-500"
-                                  placeholder="무선"
-                                />
-                              </td>
-                              <td className="border border-gray-300 px-1 py-1 text-center w-10">
-                                <input
-                                  type="text"
-                                  value={currentDetails.syncData || ''}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'syncData', e.target.value)}
-                                  className="w-full px-1 py-0.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-green-500"
-                                  placeholder="동기화"
                                 />
                               </td>
                             </tr>
