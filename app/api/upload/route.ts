@@ -5,35 +5,46 @@ import { google } from 'googleapis';
 import { createOptimizedDriveClient } from '@/lib/google-client';
 import { withApiHandler, createSuccessResponse, createErrorResponse, sanitizeFileName, withTimeout } from '@/lib/api-utils';
 
-// 사업장 폴더 생성 락 관리 (동시성 제어 강화)
-interface FolderLock {
-  promise: Promise<string>;
+// 순차 업로드 처리 시스템 (완전한 순서 보장)
+interface UploadTask {
+  requestId: string;
+  businessName: string;
+  systemType: string;
+  files: File[];
+  formData: FormData;
+  resolve: (value: any) => void;
+  reject: (error: any) => void;
   timestamp: number;
-  lockId: string;
-  requestCount: number;
 }
 
-// 전역 락 관리
-const businessFolderCreationLock = new Map<string, FolderLock>();
-const uploadQueue = new Map<string, Array<{ resolve: Function; reject: Function; }>>();
+interface BusinessQueue {
+  isProcessing: boolean;
+  tasks: UploadTask[];
+  currentFolderId?: string;
+  lastActivity: number;
+}
 
-// 락 정리 함수 (5분 이상 된 락 제거)
-function cleanupOldLocks() {
+// 전역 업로드 큐 관리 (사업장별 순차 처리)
+const businessUploadQueues = new Map<string, BusinessQueue>();
+const globalUploadCounter = { count: 0 };
+
+// 큐 정리 함수 (10분 이상 비활성 큐 제거)
+function cleanupInactiveQueues() {
   const now = Date.now();
-  const fiveMinutes = 5 * 60 * 1000;
+  const tenMinutes = 10 * 60 * 1000;
   
-  for (const [key, lock] of businessFolderCreationLock.entries()) {
-    if (now - lock.timestamp > fiveMinutes) {
-      console.log(`🧹 [CLEANUP] 오래된 락 정리: ${key} (요청 수: ${lock.requestCount})`);
-      businessFolderCreationLock.delete(key);
-      uploadQueue.delete(key);
+  for (const [key, queue] of businessUploadQueues.entries()) {
+    if (!queue.isProcessing && now - queue.lastActivity > tenMinutes) {
+      console.log(`🧹 [CLEANUP] 비활성 큐 정리: ${key} (대기 작업: ${queue.tasks.length})`);
+      businessUploadQueues.delete(key);
     }
   }
 }
 
-// 고유 락 ID 생성
-function generateLockId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+// 고유 요청 ID 생성
+function generateRequestId(): string {
+  globalUploadCounter.count++;
+  return `${Date.now()}-${globalUploadCounter.count.toString().padStart(3, '0')}-${Math.random().toString(36).substr(2, 6)}`;
 }
 
 // 문자열 유사도 계산 함수
@@ -87,26 +98,23 @@ function getFileTypeDisplayName(fileType: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  const requestId = generateLockId();
+  const requestId = generateRequestId();
+  
   try {
-    console.log(`📤 [UPLOAD] 파일 업로드 시작 (Request ID: ${requestId})`);
+    console.log(`📤 [UPLOAD] 업로드 요청 수신 (Request ID: ${requestId})`);
 
     // 폼 데이터 파싱
     const formData = await request.formData();
     const businessName = formData.get('businessName') as string;
-    const fileType = formData.get('fileType') as string;
-    const facilityInfo = formData.get('facilityInfo') as string;
     const systemType = (formData.get('type') as 'completion' | 'presurvey') || 'presurvey';
-    const uploadId = formData.get('uploadId') as string;
     const files = formData.getAll('files') as File[];
 
-    console.log(`📋 [UPLOAD] 요청 정보 (${requestId}):`, {
+    console.log(`📋 [UPLOAD] 요청 파라미터 (${requestId}):`, {
       businessName,
-      fileType,
       systemType,
-      uploadId,
       fileCount: files.length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      queuePosition: await getQueuePosition(businessName)
     });
 
     // 입력 검증
@@ -124,108 +132,198 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 파일 검증 (향상된 로깅과 HEIC 지원)
-    for (const file of files) {
-      console.log('📱 [UPLOAD-API] 파일 검증:', {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        sizeInMB: (file.size / (1024 * 1024)).toFixed(2)
+    // 순차 처리를 위해 큐에 추가하고 Promise로 결과 대기
+    return new Promise((resolve, reject) => {
+      addToUploadQueue(businessName, {
+        requestId,
+        businessName,
+        systemType,
+        files,
+        formData,
+        resolve: (result) => resolve(NextResponse.json(result)),
+        reject: (error) => resolve(NextResponse.json({
+          success: false,
+          message: error.message || '업로드 실패'
+        }, { status: 500 })),
+        timestamp: Date.now()
       });
+  } catch (error) {
+    console.error(`❌ [UPLOAD] 요청 처리 실패 (${requestId}):`, error);
+    return NextResponse.json({
+      success: false,
+      message: error instanceof Error ? error.message : '요청 처리 실패'
+    }, { status: 500 });
+  }
+}
 
-      if (file.size > 100 * 1024 * 1024) { // 100MB로 증가
-        return NextResponse.json({
-          success: false,
-          message: `파일 크기 초과: ${file.name} (최대 100MB, 현재 ${(file.size / (1024 * 1024)).toFixed(1)}MB)`
-        }, { status: 400 });
-      }
+// 큐 위치 조회
+async function getQueuePosition(businessName: string): Promise<number> {
+  const queue = businessUploadQueues.get(businessName);
+  return queue ? queue.tasks.length + (queue.isProcessing ? 1 : 0) : 0;
+}
 
-      // HEIC/HEIF 포맷도 허용하도록 수정
-      const isValidImageType = file.type.startsWith('image/') || 
-                              file.type.includes('heic') || 
-                              file.type.includes('heif') ||
-                              file.name.toLowerCase().endsWith('.heic') ||
-                              file.name.toLowerCase().endsWith('.heif');
+// 업로드 큐에 작업 추가
+function addToUploadQueue(businessName: string, task: UploadTask) {
+  cleanupInactiveQueues();
+  
+  // 사업장별 큐 초기화
+  if (!businessUploadQueues.has(businessName)) {
+    businessUploadQueues.set(businessName, {
+      isProcessing: false,
+      tasks: [],
+      lastActivity: Date.now()
+    });
+  }
+  
+  const queue = businessUploadQueues.get(businessName)!;
+  queue.tasks.push(task);
+  queue.lastActivity = Date.now();
+  
+  console.log(`📝 [QUEUE] 작업 추가: ${businessName} (Request: ${task.requestId}, 큐 길이: ${queue.tasks.length})`);
+  
+  // 큐가 비어있으면 즉시 처리 시작
+  if (!queue.isProcessing) {
+    processUploadQueue(businessName);
+  }
+}
 
-      if (!isValidImageType) {
-        return NextResponse.json({
-          success: false,
-          message: `지원하지 않는 파일 형식: ${file.name} (${file.type || '알 수 없음'})`
-        }, { status: 400 });
-      }
-    }
-
-    // 폴더 ID 확인
-    const folderId = systemType === 'completion' 
-      ? process.env.COMPLETION_FOLDER_ID 
-      : process.env.PRESURVEY_FOLDER_ID;
-
-    if (!folderId) {
-      return NextResponse.json({
-        success: false,
-        message: '폴더 설정이 누락되었습니다.'
-      }, { status: 500 });
-    }
-
-    console.log(`📁 [UPLOAD] 대상 폴더 ID (${requestId}):`, folderId);
-
-    // Drive 클라이언트 생성
-    const drive = await createOptimizedDriveClient();
-
-    // 사업장 폴더 생성/확인 (동시성 제어)
-    console.log(`🔐 [UPLOAD] 사업장 폴더 확인 시작 (${requestId}): ${businessName}`);
-    const businessFolderId = await findOrCreateBusinessFolder(drive, businessName, folderId);
-    console.log(`✅ [UPLOAD] 사업장 폴더 확인 완료 (${requestId}): ${businessName} -> ${businessFolderId}`);
-
-    // 파일 업로드
-    const uploadResults = [];
-    const uploadErrors = [];
+// 업로드 큐 처리 (순차적)
+async function processUploadQueue(businessName: string) {
+  const queue = businessUploadQueues.get(businessName);
+  if (!queue || queue.tasks.length === 0) {
+    return;
+  }
+  
+  queue.isProcessing = true;
+  queue.lastActivity = Date.now();
+  
+  console.log(`🔄 [QUEUE] 큐 처리 시작: ${businessName} (대기 작업: ${queue.tasks.length})`);
+  
+  while (queue.tasks.length > 0) {
+    const task = queue.tasks.shift()!;
     
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      console.log(`📄 [UPLOAD] 업로드 중 (${i + 1}/${files.length}): ${file.name}`);
+    try {
+      console.log(`⚡ [QUEUE] 작업 처리 시작: ${task.requestId} (남은 작업: ${queue.tasks.length})`);
       
-      try {
-        const result = await uploadSingleFile(
-          drive, 
-          file, 
-          businessFolderId, 
-          fileType, 
-          facilityInfo, 
-          i + 1, 
-          businessName,
-          uploadId
-        );
-        
-        if (result) {
-          uploadResults.push(result);
-          console.log(`✅ [UPLOAD] 성공: ${result.name}`);
-        }
-      } catch (error: any) {
-        const errorInfo = {
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-          error: error instanceof Error ? error.message : String(error),
-          code: error?.code,
-          status: error?.status,
-          stack: error?.stack,
-          details: error?.response?.data || error?.details
-        };
-        uploadErrors.push(errorInfo);
-        console.error(`❌ [UPLOAD] 파일 업로드 실패:`, {
-          파일명: file.name,
-          크기: `${(file.size / 1024).toFixed(1)}KB`,
-          타입: file.type,
-          에러: errorInfo.error,
-          상세정보: errorInfo
-        });
-      }
+      const result = await processUploadTask(task, queue);
+      task.resolve(result);
+      
+      console.log(`✅ [QUEUE] 작업 완료: ${task.requestId}`);
+      
+    } catch (error) {
+      console.error(`❌ [QUEUE] 작업 실패: ${task.requestId}`, error);
+      task.reject(error);
+    }
+    
+    queue.lastActivity = Date.now();
+  }
+  
+  queue.isProcessing = false;
+  console.log(`🏁 [QUEUE] 큐 처리 완료: ${businessName}`);
+}
+
+// 실제 업로드 작업 처리
+async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promise<any> {
+  const { requestId, businessName, systemType, files, formData } = task;
+  
+  // FormData에서 필요한 정보 추출
+  const fileType = formData.get('fileType') as string;
+  const facilityInfo = formData.get('facilityInfo') as string;
+  const uploadId = formData.get('uploadId') as string;
+  
+  console.log(`⚡ [TASK] 업로드 작업 처리: ${requestId} (파일 ${files.length}개)`);
+
+  // 파일 검증
+  for (const file of files) {
+    console.log(`📱 [TASK] 파일 검증 (${requestId}):`, {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      sizeInMB: (file.size / (1024 * 1024)).toFixed(2)
+    });
+
+    if (file.size > 100 * 1024 * 1024) {
+      throw new Error(`파일 크기 초과: ${file.name} (최대 100MB, 현재 ${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
     }
 
-    console.log(`🎉 [UPLOAD] 완료: ${uploadResults.length}/${files.length} 성공`);
+    // HEIC/HEIF 포맷도 허용
+    const isValidImageType = file.type.startsWith('image/') || 
+                            file.type.includes('heic') || 
+                            file.type.includes('heif') ||
+                            file.name.toLowerCase().endsWith('.heic') ||
+                            file.name.toLowerCase().endsWith('.heif');
 
-    // 업로드 성공 시 구글시트 상태 컬럼에 로그 추가
+    if (!isValidImageType) {
+      throw new Error(`지원하지 않는 파일 형식: ${file.name} (${file.type || '알 수 없음'})`);
+    }
+  }
+
+  // 폴더 ID 확인
+  const folderId = systemType === 'completion' 
+    ? process.env.COMPLETION_FOLDER_ID 
+    : process.env.PRESURVEY_FOLDER_ID;
+
+  if (!folderId) {
+    throw new Error('폴더 설정이 누락되었습니다.');
+  }
+
+  console.log(`📁 [TASK] 대상 폴더 ID (${requestId}): ${folderId}`);
+
+  // Drive 클라이언트 생성
+  const drive = await createOptimizedDriveClient();
+
+  // 사업장 폴더 확인/생성 (큐에서 캐시된 폴더 ID 사용 가능)
+  let businessFolderId = queue.currentFolderId;
+  
+  if (!businessFolderId) {
+    console.log(`🔍 [TASK] 사업장 폴더 생성/확인 시작 (${requestId}): ${businessName}`);
+    businessFolderId = await findOrCreateBusinessFolderSequential(drive, businessName, folderId);
+    queue.currentFolderId = businessFolderId; // 캐시에 저장
+    console.log(`✅ [TASK] 사업장 폴더 설정 완료 (${requestId}): ${businessName} -> ${businessFolderId}`);
+  } else {
+    console.log(`♻️ [TASK] 캐시된 폴더 ID 사용 (${requestId}): ${businessFolderId}`);
+  }
+
+  // 파일 업로드
+  const uploadResults = [];
+  const uploadErrors = [];
+  
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    console.log(`📄 [TASK] 파일 업로드 중 (${requestId}) ${i + 1}/${files.length}: ${file.name}`);
+    
+    try {
+      const result = await uploadSingleFile(
+        drive, 
+        file, 
+        businessFolderId, 
+        fileType, 
+        facilityInfo, 
+        i + 1, 
+        businessName,
+        uploadId
+      );
+      
+      if (result) {
+        uploadResults.push(result);
+        console.log(`✅ [TASK] 파일 업로드 성공 (${requestId}): ${result.name}`);
+      }
+    } catch (error: any) {
+      const errorInfo = {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        error: error instanceof Error ? error.message : String(error),
+        requestId
+      };
+      uploadErrors.push(errorInfo);
+      console.error(`❌ [TASK] 파일 업로드 실패 (${requestId}):`, errorInfo);
+    }
+  }
+
+  console.log(`🎉 [TASK] 업로드 완료 (${requestId}): ${uploadResults.length}/${files.length} 성공`);
+
+  // 업로드 성공 시 구글시트 상태 컬럼에 로그 추가
     if (uploadResults.length > 0) {
       try {
         // 시설 정보를 포함한 더 상세한 로그 생성
@@ -306,7 +404,7 @@ export async function POST(request: NextRequest) {
       message += ` (${uploadErrors.length}장 실패)`;
     }
 
-    return NextResponse.json({
+    return {
       success: uploadResults.length > 0,
       message,
       files: uploadResults,
@@ -317,14 +415,73 @@ export async function POST(request: NextRequest) {
         failed: uploadErrors.length
       },
       errors: uploadErrors.length > 0 ? uploadErrors : undefined
+    };
+
+}
+
+// 순차 처리용 사업장 폴더 확인/생성 (중복 방지 강화)
+async function findOrCreateBusinessFolderSequential(drive: any, businessName: string, parentFolderId: string): Promise<string> {
+  try {
+    console.log(`📂 [SEQUENTIAL] 사업장 폴더 확인: ${businessName}`);
+
+    // 1. 먼저 부모 폴더의 모든 하위 폴더를 조회해서 정확한 매칭
+    console.log(`🔍 [SEQUENTIAL] 부모 폴더 내 모든 폴더 조회 (특수문자 대응)...`);
+    const allFoldersResponse = await drive.files.list({
+      q: `parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      fields: 'files(id, name, createdTime)',
+      pageSize: 100,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      orderBy: 'createdTime desc' // 최신 순으로 정렬
     });
 
-  } catch (error) {
-    console.error('❌ [UPLOAD] 전체 실패:', error);
-    return NextResponse.json({
-      success: false,
-      message: error instanceof Error ? error.message : '업로드 실패'
-    }, { status: 500 });
+    console.log(`🔍 [SEQUENTIAL] 조회된 폴더 수: ${allFoldersResponse.data.files?.length || 0}`);
+    
+    if (allFoldersResponse.data.files?.length > 0) {
+      console.log(`🔍 [SEQUENTIAL] 발견된 모든 사업장 폴더들:`, 
+        allFoldersResponse.data.files.map((f: any) => ({ 
+          id: f.id, 
+          name: f.name, 
+          createdTime: f.createdTime,
+          exactMatch: f.name === businessName 
+        }))
+      );
+
+      // 정확히 일치하는 폴더 찾기
+      const exactMatch = allFoldersResponse.data.files.find((f: any) => f.name === businessName);
+      if (exactMatch) {
+        console.log(`✅ [SEQUENTIAL] 정확히 일치하는 기존 폴더 발견: ${businessName} (ID: ${exactMatch.id})`);
+        
+        // 기존 폴더에서도 하위 폴더 확인/생성
+        await ensureSubFolders(drive, exactMatch.id);
+        
+        return exactMatch.id;
+      }
+    }
+
+    // 새 폴더 생성 (공유 드라이브 지원)
+    console.log(`📂 [SEQUENTIAL] 새 폴더 생성: ${businessName}`);
+    const folderResponse = await drive.files.create({
+      requestBody: {
+        name: businessName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentFolderId]
+      },
+      fields: 'id, name',
+      supportsAllDrives: true
+    });
+
+    const businessFolderId = folderResponse.data.id!;
+    console.log(`✅ [SEQUENTIAL] 폴더 생성 완료: ${businessFolderId}`);
+
+    // 하위 폴더 확인/생성
+    await ensureSubFolders(drive, businessFolderId);
+
+    return businessFolderId;
+
+  } catch (error: any) {
+    console.error('❌ [SEQUENTIAL] 폴더 처리 실패:', error);
+    throw new Error(`순차 폴더 처리 실패: ${error.message}`);
   }
 }
 
@@ -362,163 +519,6 @@ async function ensureSubFolders(drive: any, businessFolderId: string): Promise<v
   }
 }
 
-// 사업장 폴더 생성/확인 (동시성 제어 강화)
-async function findOrCreateBusinessFolder(drive: any, businessName: string, parentFolderId: string): Promise<string> {
-  // 오래된 락 정리
-  cleanupOldLocks();
-  
-  // 사업장 폴더별 락 키
-  const lockKey = `${parentFolderId}-${businessName}`;
-  const lockId = generateLockId();
-  
-  console.log(`🔐 [UPLOAD] 폴더 락 요청: ${businessName} (Lock ID: ${lockId})`);
-  
-  // 이미 생성 중인 폴더가 있으면 큐에 대기
-  if (businessFolderCreationLock.has(lockKey)) {
-    const existingLock = businessFolderCreationLock.get(lockKey)!;
-    existingLock.requestCount++;
-    console.log(`⏳ [UPLOAD] 사업장 폴더 생성 대기 중: ${businessName} (대기 요청 수: ${existingLock.requestCount})`);
-    
-    return new Promise((resolve, reject) => {
-      if (!uploadQueue.has(lockKey)) {
-        uploadQueue.set(lockKey, []);
-      }
-      uploadQueue.get(lockKey)!.push({ resolve, reject });
-      
-      // 기존 락이 완료되면 결과 반환
-      existingLock.promise.then(resolve).catch(reject);
-    });
-  }
-
-  // 새로운 폴더 생성/확인 Promise를 락에 저장
-  const folderPromise = (async () => {
-    try {
-      console.log(`📁 [UPLOAD] 사업장 폴더 확인: ${businessName}`);
-
-      // 1. 먼저 부모 폴더의 모든 하위 폴더를 조회해서 정확한 매칭
-      console.log(`🔍 [UPLOAD] 부모 폴더 내 모든 폴더 조회 (특수문자 대응)...`);
-      const allFoldersResponse = await drive.files.list({
-        q: `parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name, createdTime)',
-        pageSize: 100,
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-        orderBy: 'createdTime desc' // 최신 순으로 정렬
-      });
-
-      console.log(`🔍 [UPLOAD] 조회된 폴더 수: ${allFoldersResponse.data.files?.length || 0}`);
-      
-      if (allFoldersResponse.data.files?.length > 0) {
-        console.log(`🔍 [UPLOAD] 발견된 모든 사업장 폴더들:`, 
-          allFoldersResponse.data.files.map((f: any) => ({ 
-            id: f.id, 
-            name: f.name, 
-            createdTime: f.createdTime,
-            exactMatch: f.name === businessName 
-          }))
-        );
-
-        // 정확히 일치하는 폴더 찾기
-        const exactMatch = allFoldersResponse.data.files.find((f: any) => f.name === businessName);
-        if (exactMatch) {
-          console.log(`✅ [UPLOAD] 정확히 일치하는 기존 폴더 발견: ${businessName} (ID: ${exactMatch.id})`);
-          
-          // 기존 폴더에서도 하위 폴더 확인/생성
-          await ensureSubFolders(drive, exactMatch.id);
-          
-          return exactMatch.id;
-        }
-      }
-
-      // 2. 혹시 모르니까 기존 검색 방식도 한번 시도
-      console.log(`🔍 [UPLOAD] 기존 검색 방식으로도 시도...`);
-      try {
-        const searchResponse = await drive.files.list({
-          q: `name='${businessName.replace(/['"]/g, "\\'")}' and parents in '${parentFolderId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-          fields: 'files(id, name)',
-          pageSize: 1,
-          supportsAllDrives: true,
-          includeItemsFromAllDrives: true
-        });
-
-        if (searchResponse.data.files?.length > 0) {
-          const existingFolderId = searchResponse.data.files[0].id!;
-          console.log(`✅ [UPLOAD] 기존 검색으로 발견한 폴더 사용: ${businessName} (ID: ${existingFolderId})`);
-          
-          // 기존 폴더에서도 하위 폴더 확인/생성
-          await ensureSubFolders(drive, existingFolderId);
-          
-          return existingFolderId;
-        }
-      } catch (searchError) {
-        console.warn(`⚠️ [UPLOAD] 기존 검색 방식 실패:`, searchError);
-      }
-
-      // 새 폴더 생성 (공유 드라이브 지원)
-      console.log(`📂 [UPLOAD] 새 폴더 생성: ${businessName}`);
-      const folderResponse = await drive.files.create({
-        requestBody: {
-          name: businessName,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [parentFolderId]
-        },
-        fields: 'id, name',
-        supportsAllDrives: true
-      });
-
-      const businessFolderId = folderResponse.data.id!;
-      console.log(`✅ [UPLOAD] 폴더 생성 완료: ${businessFolderId}`);
-
-      // 하위 폴더 확인/생성
-      await ensureSubFolders(drive, businessFolderId);
-
-      return businessFolderId;
-
-    } catch (error: any) {
-      console.error('❌ [UPLOAD] 폴더 처리 실패:', error);
-      throw new Error(`폴더 처리 실패: ${error.message}`);
-    } finally {
-      // 락 정리
-      businessFolderCreationLock.delete(lockKey);
-    }
-  })();
-
-  // Promise를 타임스탬프와 함께 락에 저장
-  const lock: FolderLock = {
-    promise: folderPromise,
-    timestamp: Date.now(),
-    lockId: lockId,
-    requestCount: 1
-  };
-  businessFolderCreationLock.set(lockKey, lock);
-
-  try {
-    const result = await folderPromise;
-    console.log(`🔓 [UPLOAD] 폴더 락 해제: ${businessName} (Lock ID: ${lockId}, 요청 수: ${lock.requestCount})`);
-    
-    // 대기 중인 요청들에게 결과 전달
-    const waitingRequests = uploadQueue.get(lockKey) || [];
-    waitingRequests.forEach(({ resolve }) => resolve(result));
-    
-    // 락과 큐 정리
-    businessFolderCreationLock.delete(lockKey);
-    uploadQueue.delete(lockKey);
-    
-    return result;
-  } catch (error) {
-    console.error(`❌ [UPLOAD] 폴더 락 에러: ${businessName} (Lock ID: ${lockId})`, error);
-    
-    // 대기 중인 요청들에게 에러 전달
-    const waitingRequests = uploadQueue.get(lockKey) || [];
-    waitingRequests.forEach(({ reject }) => reject(error));
-    
-    // 락과 큐 정리
-    businessFolderCreationLock.delete(lockKey);
-    uploadQueue.delete(lockKey);
-    
-    throw error;
-  }
-}
 
 // 단일 파일 업로드 (공유 드라이브 지원)
 async function uploadSingleFile(
