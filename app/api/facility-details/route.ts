@@ -57,10 +57,10 @@ export async function POST(request: NextRequest) {
       lastUpdated: new Date().toISOString()
     });
 
-    // Q열에 상세정보 저장
+    // R열에 상세정보 저장
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `${sheetName}!Q${targetRowIndex}`,
+      range: `${sheetName}!R${targetRowIndex}`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [[detailsData]],
@@ -153,8 +153,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Q열에서 상세정보 가져오기 (17번째 컬럼)
-    const detailsRaw = values[targetRowIndex][16]; // 0-based index for Q column
+    // R열에서 상세정보 가져오기 (18번째 컬럼)
+    const detailsRaw = values[targetRowIndex][17]; // 0-based index for R column
 
     let facilityDetails = {};
     let gatewayInfo = {};

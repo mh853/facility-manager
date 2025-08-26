@@ -164,6 +164,7 @@ export default function BusinessPage() {
       pressure: 0,
       temperature: 0,
       dischargeCT: 0,
+      assistCT: 0,
       pump: 0,
       fan: 0,
       wired: 0,
@@ -176,6 +177,7 @@ export default function BusinessPage() {
       if (details.pressure === 'true') totals.pressure++;
       if (details.temperature === 'true') totals.temperature++;
       if (details.dischargeCT === 'true') totals.dischargeCT++;
+      if (details.assistCT === 'true') totals.assistCT++;
       if (details.pump === 'true') totals.pump++;
       if (details.fan === 'true') totals.fan++;
     });
@@ -649,7 +651,8 @@ export default function BusinessPage() {
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">시설명</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-24">용량</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">수량</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">배출CT</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">배출CT</th>
+                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">보조CT</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -663,12 +666,20 @@ export default function BusinessPage() {
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm w-24">{facility.capacity}</td>
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm text-center w-12">{facility.quantity}</td>
-                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
+                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.dischargeCT === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'dischargeCT', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-red-600 focus:ring-red-500 rounded"
+                                  className="w-3 h-3 text-red-600 focus:ring-red-500 rounded"
+                                />
+                              </td>
+                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
+                                <input
+                                  type="checkbox"
+                                  checked={currentDetails.assistCT === 'true'}
+                                  onChange={(e) => updateFacilityDetail(facilityId, 'assistCT', e.target.checked ? 'true' : 'false')}
+                                  className="w-3 h-3 text-red-600 focus:ring-red-500 rounded"
                                 />
                               </td>
                             </tr>
@@ -696,11 +707,11 @@ export default function BusinessPage() {
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">시설명</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-24">용량</th>
                           <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">수량</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">PH</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">차압</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">온도</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">펌프</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-16">송풍</th>
+                          <th className="border border-gray-300 px-1 md:px-2 py-2 text-left text-xs md:text-sm w-12">PH</th>
+                          <th className="border border-gray-300 px-1 md:px-2 py-2 text-left text-xs md:text-sm w-12">차압</th>
+                          <th className="border border-gray-300 px-1 md:px-2 py-2 text-left text-xs md:text-sm w-12">온도</th>
+                          <th className="border border-gray-300 px-1 md:px-2 py-2 text-left text-xs md:text-sm w-12">펌프</th>
+                          <th className="border border-gray-300 px-1 md:px-2 py-2 text-left text-xs md:text-sm w-12">송풍</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -714,44 +725,44 @@ export default function BusinessPage() {
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm w-24">{facility.capacity}</td>
                               <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm text-center w-12">{facility.quantity}</td>
-                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
+                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.ph === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'ph', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
+                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
+                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.pressure === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'pressure', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
+                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
+                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.temperature === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'temperature', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
+                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
+                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.pump === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'pump', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
+                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-2 py-2 text-center w-16">
+                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.fan === 'true'}
                                   onChange={(e) => updateFacilityDetail(facilityId, 'fan', e.target.checked ? 'true' : 'false')}
-                                  className="w-4 h-4 text-green-600 focus:ring-green-500 rounded"
+                                  className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
                             </tr>
@@ -798,10 +809,16 @@ export default function BusinessPage() {
                           </label>
                           <input
                             type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={currentGateway.gateway}
-                            onChange={(e) => updateGatewayInfo(outletNum, 'gateway', e.target.value)}
+                            onChange={(e) => {
+                              // 숫자만 허용
+                              const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                              updateGatewayInfo(outletNum, 'gateway', numericValue);
+                            }}
                             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                            placeholder="게이트웨이 번호 입력"
+                            placeholder="게이트웨이 번호 입력 (숫자만)"
                           />
                         </div>
                         
