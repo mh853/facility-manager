@@ -2,27 +2,15 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import { FacilitiesData, BusinessInfo, SystemType } from '@/types';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { AlertTriangle, Building2, User, FileText, Zap, Shield, Camera, Save, ChevronDown, Router, Wifi, WifiOff } from 'lucide-react';
 import UploadedFilesManager from '@/components/UploadedFilesManager'; // 일반 import로 변경
 
-// Dynamic imports for better chunk loading
-const BusinessInfoCard = dynamic(() => import('@/components/BusinessInfoCard'), {
-  loading: () => <div className="bg-white rounded-xl shadow-lg p-6 animate-pulse"><div className="h-32 bg-gray-200 rounded"></div></div>,
-  ssr: false
-});
-
-const FacilityStats = dynamic(() => import('@/components/FacilityStats'), {
-  loading: () => <div className="bg-white rounded-xl shadow-lg p-6 animate-pulse"><div className="h-32 bg-gray-200 rounded"></div></div>,
-  ssr: false
-});
-
-const FileUploadSection = dynamic(() => import('@/components/FileUploadSection'), {
-  loading: () => <div className="bg-white rounded-xl shadow-lg p-6 animate-pulse"><div className="h-40 bg-gray-200 rounded"></div></div>,
-  ssr: false
-});
+// Regular imports to fix webpack dynamic loading issues
+import BusinessInfoCard from '@/components/BusinessInfoCard';
+import FacilityStats from '@/components/FacilityStats';
+import FileUploadSection from '@/components/FileUploadSection';
 
 export default function BusinessPage() {
   const params = useParams();

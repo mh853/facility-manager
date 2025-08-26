@@ -334,19 +334,17 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
   
   // FormData에서 필요한 정보 추출
   const fileType = formData.get('fileType') as string;
-  const facilityInfo = formData.get('facilityInfo') as string;
+  const facilityInfo = formData.get('facilityInfo') as string | null;
   const uploadId = formData.get('uploadId') as string;
   
   console.log(`⚡ [TASK] 업로드 작업 처리: ${requestId} (파일 ${files.length}개)`);
 
-  // 파일 해시 계산 및 중복 검사
-  const fileHashInfos: Array<{file: File, hash: string}> = [];
+  // 파일 해시 계산 및 중복 검사 (병렬 처리로 최적화)
+  console.log(`🔐 [HASH] 파일 해시값 계산 시작 (${requestId}): ${files.length}개 파일 (병렬 처리)`);
   
-  console.log(`🔐 [HASH] 파일 해시값 계산 시작 (${requestId}): ${files.length}개 파일`);
-  
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    console.log(`📱 [TASK] 파일 검증 및 해시 계산 (${requestId}) ${i + 1}/${files.length}:`, {
+  // 파일 검증 및 해시 계산을 병렬로 처리
+  const fileValidationAndHashPromises = files.map(async (file, index) => {
+    console.log(`📱 [TASK] 파일 검증 및 해시 계산 (${requestId}) ${index + 1}/${files.length}:`, {
       name: file.name,
       size: file.size,
       type: file.type,
@@ -368,22 +366,27 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
       throw new Error(`지원하지 않는 파일 형식: ${file.name} (${file.type || '알 수 없음'})`);
     }
     
-    // 파일 해시 계산
+    // 파일 해시 계산 (병렬)
     const fileHash = await calculateFileHash(file);
     console.log(`🔐 [HASH] 파일 해시 계산 완료 (${requestId}): ${file.name} -> ${fileHash.substring(0, 12)}...`);
     
-    // 캐시에서 중복 확인
-    if (queue.fileHashCache.has(fileHash)) {
+    return { file, hash: fileHash };
+  });
+
+  // 모든 파일의 해시 계산을 병렬로 대기
+  const fileHashInfos = await Promise.all(fileValidationAndHashPromises);
+  
+  // 중복 검사 (해시 계산 완료 후 일괄 처리)
+  for (const { file, hash } of fileHashInfos) {
+    if (queue.fileHashCache.has(hash)) {
       console.warn(`🚫 [HASH] 중복 파일 감지 - 해시값 일치 (${requestId}):`, {
         파일명: file.name,
-        해시: fileHash.substring(0, 12) + '...',
+        해시: hash.substring(0, 12) + '...',
         크기: file.size,
         중복: true
       });
       throw new Error(`중복 파일이 감지되었습니다. 동일한 내용의 파일이 이미 업로드되었습니다: ${file.name}`);
     }
-    
-    fileHashInfos.push({ file, hash: fileHash });
   }
   
   console.log(`✅ [HASH] 모든 파일 해시 계산 및 중복 검사 완료 (${requestId})`);
@@ -429,57 +432,89 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
     console.log(`♻️ [TASK] 캐시된 폴더 ID 사용 (${requestId}): ${businessFolderId}`);
   }
 
-  // 파일 업로드 (해시 정보 포함)
+  // 파일 업로드 (병렬 처리 + 동시 업로드 수 제한)
+  console.log(`📤 [UPLOAD] 파일 업로드 시작 (${requestId}): ${fileHashInfos.length}개 파일 (병렬 처리)`);
+  
   const uploadResults = [];
   const uploadErrors = [];
   
-  for (let i = 0; i < fileHashInfos.length; i++) {
-    const { file, hash } = fileHashInfos[i];
-    console.log(`📄 [TASK] 파일 업로드 중 (${requestId}) ${i + 1}/${fileHashInfos.length}: ${file.name}`);
+  // Google Drive API 제한을 고려한 동시 업로드 수 제한 (최대 3개씩 배치 처리)
+  const BATCH_SIZE = 3;
+  const batches = [];
+  
+  for (let i = 0; i < fileHashInfos.length; i += BATCH_SIZE) {
+    batches.push(fileHashInfos.slice(i, i + BATCH_SIZE));
+  }
+  
+  console.log(`📦 [UPLOAD] 배치 처리 (${requestId}): ${batches.length}개 배치, 배치당 최대 ${BATCH_SIZE}개 파일`);
+  
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
+    console.log(`📦 [BATCH] 배치 ${batchIndex + 1}/${batches.length} 처리 중 (${requestId}): ${batch.length}개 파일`);
     
-    try {
-      const result = await uploadSingleFileWithHash(
-        drive, 
-        file, 
-        hash,
-        businessFolderId, 
-        fileType, 
-        facilityInfo, 
-        i + 1, 
-        businessName,
-        uploadId,
-        queue.folderHash || ''
-      );
+    const batchPromises = batch.map(async ({ file, hash }, index) => {
+      const globalIndex = batchIndex * BATCH_SIZE + index + 1;
+      console.log(`📄 [TASK] 파일 업로드 중 (${requestId}) ${globalIndex}/${fileHashInfos.length}: ${file.name}`);
       
-      if (result) {
-        uploadResults.push(result);
-        // 업로드 성공 시 해시를 캐시에 추가
-        queue.fileHashCache.add(hash);
-        console.log(`✅ [TASK] 파일 업로드 성공 (${requestId}): ${result.name} (해시: ${hash.substring(0, 8)}...)`);
+      try {
+        const result = await uploadSingleFileWithHash(
+          drive, 
+          file, 
+          hash,
+          businessFolderId, 
+          fileType, 
+          facilityInfo, 
+          globalIndex, 
+          businessName,
+          uploadId,
+          queue.folderHash || ''
+        );
+        
+        if (result) {
+          // 업로드 성공 시 해시를 캐시에 추가
+          queue.fileHashCache.add(hash);
+          console.log(`✅ [TASK] 파일 업로드 성공 (${requestId}): ${result.name} (해시: ${hash.substring(0, 8)}...)`);
+          return { success: true, result };
+        }
+        return { success: false, error: '업로드 결과가 없습니다' };
+      } catch (error: any) {
+        const errorInfo = {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          fileHash: hash.substring(0, 16) + '...',
+          error: error instanceof Error ? error.message : String(error),
+          requestId
+        };
+        console.error(`❌ [TASK] 파일 업로드 실패 (${requestId}):`, errorInfo);
+        return { success: false, error: errorInfo };
       }
-    } catch (error: any) {
-      const errorInfo = {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
-        fileHash: hash.substring(0, 16) + '...',
-        error: error instanceof Error ? error.message : String(error),
-        requestId
-      };
-      uploadErrors.push(errorInfo);
-      console.error(`❌ [TASK] 파일 업로드 실패 (${requestId}):`, errorInfo);
+    });
+    
+    // 배치 내 파일들을 병렬 처리
+    const batchResults = await Promise.all(batchPromises);
+    
+    // 결과 분류
+    for (const batchResult of batchResults) {
+      if (batchResult.success && batchResult.result) {
+        uploadResults.push(batchResult.result);
+      } else if (!batchResult.success) {
+        uploadErrors.push(batchResult.error);
+      }
     }
+    
+    console.log(`✅ [BATCH] 배치 ${batchIndex + 1} 완료 (${requestId}): ${batchResults.filter(r => r.success).length}/${batch.length} 성공`);
   }
 
-  console.log(`🎉 [TASK] 업로드 완료 (${requestId}): ${uploadResults.length}/${files.length} 성공`);
+  console.log(`🎉 [TASK] 병렬 업로드 완료 (${requestId}): ${uploadResults.length}/${files.length} 성공, ${uploadErrors.length}개 오류`);
 
   // 업로드 성공 시 구글시트 상태 컬럼에 로그 추가
     if (uploadResults.length > 0) {
       try {
         // 시설 정보를 포함한 더 상세한 로그 생성
-        const facilityDetails = facilityInfo.includes('-') ? 
+        const facilityDetails = (facilityInfo && facilityInfo.includes('-')) ? 
           facilityInfo.split('-').map(part => part.trim()).join(' - ') : 
-          facilityInfo;
+          (facilityInfo || '기본사진');
         
         const uploadLog = `파일 ${uploadResults.length}개 업로드 완료 [${getFileTypeDisplayName(fileType)}] - ${facilityDetails}`;
         
@@ -677,7 +712,7 @@ async function uploadSingleFileWithHash(
   fileHash: string,
   businessFolderId: string,
   fileType: string,
-  facilityInfo: string,
+  facilityInfo: string | null,
   fileNumber: number,
   businessName: string,
   uploadId?: string,
@@ -767,7 +802,7 @@ async function uploadSingleFileWithHash(
 function generateFileNameWithHash(
   businessName: string,
   fileType: string,
-  facilityInfo: string,
+  facilityInfo: string | null,
   fileNumber: number,
   originalName: string,
   file: File,
@@ -888,7 +923,7 @@ function generateFileNameWithHash(
   
   // uploadId에서 시설 인덱스 추출 (예: "prevention-0" -> "방1", "discharge-2" -> "배3")
   let typeFolder = '기본사진';
-  let facilityName = facilityInfo.split('-')[0] || facilityInfo;
+  let facilityName = facilityInfo ? (facilityInfo.split('-')[0] || facilityInfo) : '기본사진';
   
   if (uploadId && (uploadId.startsWith('prevention-') || uploadId.startsWith('discharge-'))) {
     const parts = uploadId.split('-');
