@@ -63,6 +63,9 @@ export default function BusinessPage() {
   // IoT 게이트웨이 정보 상태
   const [gatewayInfo, setGatewayInfo] = useState<{[outlet: number]: {gateway: string, vpn: '유선' | '무선'}}>({});
 
+  // 보조CT 열 표시 여부 상태
+  const [showAssistCT, setShowAssistCT] = useState(false);
+
   // 업데이트 타이머 참조
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -638,21 +641,35 @@ export default function BusinessPage() {
               {/* 배출시설 상세 정보 */}
               {facilityStats.hasDischarge && (
                 <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
-                  <div className="flex items-center gap-2 mb-4 md:mb-6">
-                    <Zap className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
-                    <h3 className="text-lg md:text-xl font-bold text-gray-900">배출시설 상세 정보</h3>
+                  <div className="flex items-center justify-between mb-4 md:mb-6">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
+                      <h3 className="text-lg md:text-xl font-bold text-gray-900">배출시설 상세 정보</h3>
+                    </div>
+                    <button
+                      onClick={() => setShowAssistCT(!showAssistCT)}
+                      className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                        showAssistCT
+                          ? 'bg-red-100 text-red-700 border border-red-300'
+                          : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      보조CT {showAssistCT ? '숨기기' : '보기'}
+                    </button>
                   </div>
                   
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse border border-gray-300">
                       <thead>
                         <tr className="bg-red-50">
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">배출구</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">시설명</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-24">용량</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">수량</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">배출CT</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">보조CT</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-10">배출구</th>
+                          <th className="border border-gray-300 px-2 py-1 text-left text-xs">시설명</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-16">용량</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-10">수량</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-10">배출CT</th>
+                          {showAssistCT && (
+                            <th className="border border-gray-300 px-1 py-1 text-left text-xs w-10">보조CT</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -662,11 +679,11 @@ export default function BusinessPage() {
                           
                           return (
                             <tr key={index} className="hover:bg-gray-50">
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm text-center w-12">{facility.outlet}</td>
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm w-24">{facility.capacity}</td>
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm text-center w-12">{facility.quantity}</td>
-                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
+                              <td className="border border-gray-300 px-1 py-1 text-xs text-center w-10">{facility.outlet}</td>
+                              <td className="border border-gray-300 px-2 py-1 text-xs">{facility.name}</td>
+                              <td className="border border-gray-300 px-1 py-1 text-xs w-16">{facility.capacity}</td>
+                              <td className="border border-gray-300 px-1 py-1 text-xs text-center w-10">{facility.quantity}</td>
+                              <td className="border border-gray-300 px-1 py-1 text-center w-10">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.dischargeCT === 'true'}
@@ -674,14 +691,16 @@ export default function BusinessPage() {
                                   className="w-3 h-3 text-red-600 focus:ring-red-500 rounded"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
-                                <input
-                                  type="checkbox"
-                                  checked={currentDetails.assistCT === 'true'}
-                                  onChange={(e) => updateFacilityDetail(facilityId, 'assistCT', e.target.checked ? 'true' : 'false')}
-                                  className="w-3 h-3 text-red-600 focus:ring-red-500 rounded"
-                                />
-                              </td>
+                              {showAssistCT && (
+                                <td className="border border-gray-300 px-1 py-1 text-center w-10">
+                                  <input
+                                    type="checkbox"
+                                    checked={currentDetails.assistCT === 'true'}
+                                    onChange={(e) => updateFacilityDetail(facilityId, 'assistCT', e.target.checked ? 'true' : 'false')}
+                                    className="w-3 h-3 text-red-600 focus:ring-red-500 rounded"
+                                  />
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
@@ -703,15 +722,15 @@ export default function BusinessPage() {
                     <table className="w-full border-collapse border border-gray-300">
                       <thead>
                         <tr className="bg-green-50">
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">배출구</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm">시설명</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-24">용량</th>
-                          <th className="border border-gray-300 px-2 md:px-3 py-2 text-left text-xs md:text-sm w-12">수량</th>
-                          <th className="border border-gray-300 px-1 md:px-2 py-2 text-left text-xs md:text-sm w-12">PH</th>
-                          <th className="border border-gray-300 px-1 md:px-2 py-2 text-left text-xs md:text-sm w-12">차압</th>
-                          <th className="border border-gray-300 px-1 md:px-2 py-2 text-left text-xs md:text-sm w-12">온도</th>
-                          <th className="border border-gray-300 px-1 md:px-2 py-2 text-left text-xs md:text-sm w-12">펌프</th>
-                          <th className="border border-gray-300 px-1 md:px-2 py-2 text-left text-xs md:text-sm w-12">송풍</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-10">배출구</th>
+                          <th className="border border-gray-300 px-2 py-1 text-left text-xs">시설명</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-16">용량</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-10">수량</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">PH</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">차압</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">온도</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">펌프</th>
+                          <th className="border border-gray-300 px-1 py-1 text-left text-xs w-8">송풍</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -721,11 +740,11 @@ export default function BusinessPage() {
                           
                           return (
                             <tr key={index} className="hover:bg-gray-50">
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm text-center w-12">{facility.outlet}</td>
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm">{facility.name}</td>
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm w-24">{facility.capacity}</td>
-                              <td className="border border-gray-300 px-2 md:px-3 py-2 text-xs md:text-sm text-center w-12">{facility.quantity}</td>
-                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
+                              <td className="border border-gray-300 px-1 py-1 text-xs text-center w-10">{facility.outlet}</td>
+                              <td className="border border-gray-300 px-2 py-1 text-xs">{facility.name}</td>
+                              <td className="border border-gray-300 px-1 py-1 text-xs w-16">{facility.capacity}</td>
+                              <td className="border border-gray-300 px-1 py-1 text-xs text-center w-10">{facility.quantity}</td>
+                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.ph === 'true'}
@@ -733,7 +752,7 @@ export default function BusinessPage() {
                                   className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
+                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.pressure === 'true'}
@@ -741,7 +760,7 @@ export default function BusinessPage() {
                                   className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
+                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.temperature === 'true'}
@@ -749,7 +768,7 @@ export default function BusinessPage() {
                                   className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
+                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.pump === 'true'}
@@ -757,7 +776,7 @@ export default function BusinessPage() {
                                   className="w-3 h-3 text-green-600 focus:ring-green-500 rounded"
                                 />
                               </td>
-                              <td className="border border-gray-300 px-1 py-2 text-center w-12">
+                              <td className="border border-gray-300 px-1 py-1 text-center w-8">
                                 <input
                                   type="checkbox"
                                   checked={currentDetails.fan === 'true'}
