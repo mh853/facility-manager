@@ -181,6 +181,19 @@ const UploadItem = memo(({
     });
   }, [uploadedFiles.length, uploadId, facilityInfo]);
 
+  // 시설별 파일 고유 식별자 생성 (컴포넌트 내부 함수)
+  const generateFacilityId = useCallback((facilityInfo: string, fileType: string) => {
+    const facilityName = facilityInfo.split('(')[0].trim();
+    const outletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
+    const outletNumber = outletMatch ? outletMatch[1] : '0';
+    
+    if (fileType === 'discharge' || fileType === 'prevention') {
+      return `outlet_${outletNumber}_${fileType.substring(0, 4)}_${facilityName}`;
+    } else {
+      return facilityName;
+    }
+  }, []);
+
   // 필터링된 파일들을 메모화하여 안정성 확보
   const filteredUploadedFiles = useMemo(() => {
     if (!uploadedFiles || uploadedFiles.length === 0) return [];
@@ -757,18 +770,6 @@ function FileUploadSection({
     }
   }, [removeFile]);
 
-  // 시설별 파일 고유 식별자 생성 (UploadItem 컴포넌트에서 사용)
-  const generateFacilityId = useCallback((facilityInfo: string, fileType: string) => {
-    const facilityName = facilityInfo.split('(')[0].trim();
-    const outletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
-    const outletNumber = outletMatch ? outletMatch[1] : '0';
-    
-    if (fileType === 'discharge' || fileType === 'prevention') {
-      return `outlet_${outletNumber}_${fileType.substring(0, 4)}_${facilityName}`;
-    } else {
-      return facilityName;
-    }
-  }, []);
 
   // 메모화된 섹션들
   const preventionSection = useMemo(() => {
