@@ -502,6 +502,7 @@ function FileUploadSection({
           });
 
           const result = await response.json();
+          console.log(`📋 [UPLOAD] 파일 ${index + 1} API 응답:`, result);
           
           if (!result.success) {
             throw new Error(result.message || '업로드 실패');
@@ -544,8 +545,20 @@ function FileUploadSection({
           }
         }));
         
-        // 파일 목록 실시간 업데이트 
-        await refreshFiles();
+        // 업로드된 파일들을 즉시 FileContext에 추가
+        const newFiles = successResults
+          .filter(result => result.data?.files)
+          .flatMap(result => result.data.files);
+        
+        if (newFiles.length > 0) {
+          console.log(`➕ [UPLOAD] 즉시 파일 목록에 추가: ${newFiles.length}개 파일`);
+          addFiles(newFiles);
+        }
+        
+        // 파일 목록 실시간 업데이트 (백업용)
+        setTimeout(async () => {
+          await refreshFiles();
+        }, 500);
         
         // 성공 토스트 표시
         const toast = document.createElement('div');
@@ -567,8 +580,20 @@ function FileUploadSection({
           }
         }));
         
-        // 파일 목록 실시간 업데이트 
-        await refreshFiles();
+        // 성공한 파일들을 즉시 FileContext에 추가
+        const newFiles = successResults
+          .filter(result => result.data?.files)
+          .flatMap(result => result.data.files);
+        
+        if (newFiles.length > 0) {
+          console.log(`➕ [UPLOAD] 일부 성공한 파일을 즉시 추가: ${newFiles.length}개 파일`);
+          addFiles(newFiles);
+        }
+        
+        // 파일 목록 실시간 업데이트 (백업용)
+        setTimeout(async () => {
+          await refreshFiles();
+        }, 500);
         
         // 경고 토스트 표시
         const toast = document.createElement('div');
@@ -614,6 +639,8 @@ function FileUploadSection({
   const handleDeleteFile = useCallback(async (fileId: string, fileName: string) => {
     if (!confirm(`'${fileName}' 파일을 삭제하시겠습니까?`)) return;
     
+    console.log(`🗑️ [UI] 파일 삭제 시작: ${fileId} (${fileName})`);
+    
     try {
       const response = await fetch('/api/uploaded-files-supabase', {
         method: 'DELETE',
@@ -622,9 +649,11 @@ function FileUploadSection({
       });
       
       const result = await response.json();
+      console.log(`🗑️ [UI] 삭제 API 응답:`, result);
       
       if (result.success) {
-        // FileContext에서 파일 삭제
+        // FileContext에서 파일 삭제 (즉시 UI 업데이트)
+        console.log(`🗑️ [UI] FileContext에서 파일 제거: ${fileId}`);
         removeFile(fileId);
         
         // 성공 토스트
@@ -633,6 +662,9 @@ function FileUploadSection({
         toast.textContent = `파일이 삭제되었습니다: ${fileName}`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
+        
+        // 실시간 이벤트가 다른 클라이언트에 전파되는지 확인하기 위한 로그
+        console.log(`🗑️ [UI] 실시간 DELETE 이벤트가 다른 클라이언트에 전파되기를 기대함: ${fileId}`);
       } else {
         throw new Error(result.message);
       }

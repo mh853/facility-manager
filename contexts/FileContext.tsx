@@ -95,7 +95,7 @@ export function FileProvider({ children }: FileProviderProps) {
   }, []);
 
   // Realtime 구독 설정
-  const setupRealtimeSubscription = useCallback(() => {
+  const setupRealtimeSubscription = useCallback(async () => {
     if (!businessName) return;
 
     // 기존 구독 해제
@@ -105,15 +105,31 @@ export function FileProvider({ children }: FileProviderProps) {
 
     console.log(`🔥 [REALTIME] 구독 시작: ${businessName}`);
 
+    // 사업장 ID 조회
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('name', businessName)
+      .single();
+
+    if (!business) {
+      console.warn(`🔥 [REALTIME] 사업장을 찾을 수 없음: ${businessName}`);
+      return;
+    }
+
+    const businessId = business.id;
+    console.log(`🔥 [REALTIME] 사업장 ID 확인: ${businessId}`);
+
     // 새 채널 생성 및 구독
     const channel = supabase
-      .channel('uploaded_files_changes')
+      .channel(`uploaded_files_${businessId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'uploaded_files'
+          table: 'uploaded_files',
+          filter: `business_id=eq.${businessId}` // 사업장별 필터링 추가
         },
         (payload) => {
           console.log('🔥 [REALTIME] 변경 감지:', payload);
@@ -121,7 +137,7 @@ export function FileProvider({ children }: FileProviderProps) {
           if (payload.eventType === 'INSERT') {
             // 새 파일 추가
             const newFile = payload.new as any;
-            if (newFile.business_id) {
+            if (newFile.business_id === businessId) {
               // 파일을 UploadedFile 형식으로 변환
               const formattedFile: UploadedFile = {
                 id: newFile.id,
@@ -159,25 +175,70 @@ export function FileProvider({ children }: FileProviderProps) {
           else if (payload.eventType === 'DELETE') {
             // 파일 삭제
             const deletedFile = payload.old as any;
+            console.log(`🗑️ [REALTIME] DELETE 이벤트 수신:`, deletedFile);
+            
             setUploadedFiles(prev => {
+              const beforeCount = prev.length;
               const filtered = prev.filter(f => f.id !== deletedFile.id);
-              if (filtered.length !== prev.length) {
-                console.log(`🗑️ [REALTIME] 파일 삭제: ${deletedFile.id}`);
+              const afterCount = filtered.length;
+              
+              if (beforeCount !== afterCount) {
+                console.log(`🗑️ [REALTIME] 파일 삭제 적용: ${deletedFile.id}, 삭제전:${beforeCount}, 삭제후:${afterCount}`);
                 
                 // 토스트 알림
                 const toast = document.createElement('div');
                 toast.className = 'fixed top-4 right-4 bg-orange-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
-                toast.textContent = `🗑️ 파일이 삭제되었습니다`;
+                toast.textContent = `🗑️ 파일이 삭제되었습니다: ${deletedFile.original_filename || deletedFile.filename}`;
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 3000);
+              } else {
+                console.warn(`🗑️ [REALTIME] 삭제할 파일을 찾지 못함: ${deletedFile.id}`);
               }
+              
               return filtered;
+            });
+          }
+          else if (payload.eventType === 'UPDATE') {
+            // 파일 업데이트
+            const updatedFile = payload.new as any;
+            console.log(`✏️ [REALTIME] UPDATE 이벤트 수신:`, updatedFile);
+            
+            setUploadedFiles(prev => {
+              return prev.map(file => {
+                if (file.id === updatedFile.id) {
+                  return {
+                    ...file,
+                    uploadStatus: updatedFile.upload_status,
+                    facilityInfo: updatedFile.facility_info
+                  };
+                }
+                return file;
+              });
             });
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         console.log(`🔥 [REALTIME] 구독 상태: ${status}`);
+        if (err) {
+          console.error(`🔥 [REALTIME] 구독 에러:`, err);
+        }
+        
+        // 구독 상태별 로그
+        switch (status) {
+          case 'SUBSCRIBED':
+            console.log(`✅ [REALTIME] 성공적으로 구독됨: uploaded_files_${businessId}`);
+            break;
+          case 'CHANNEL_ERROR':
+            console.error(`❌ [REALTIME] 채널 에러: uploaded_files_${businessId}`);
+            break;
+          case 'TIMED_OUT':
+            console.warn(`⏰ [REALTIME] 구독 타임아웃: uploaded_files_${businessId}`);
+            break;
+          case 'CLOSED':
+            console.log(`🔒 [REALTIME] 연결 종료: uploaded_files_${businessId}`);
+            break;
+        }
       });
 
     channelRef.current = channel;

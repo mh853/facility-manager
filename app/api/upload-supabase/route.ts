@@ -251,17 +251,23 @@ export async function POST(request: NextRequest) {
           .from('facility-files')
           .getPublicUrl(uploadData.path);
 
+        // FileContext에서 기대하는 UploadedFile 형식으로 반환
+        const folderName = filePath.includes('/discharge/') ? '배출시설' : 
+                          filePath.includes('/prevention/') ? '방지시설' : '기본사진';
+        
         return {
           id: fileRecord.id,
           name: fileRecord.filename,
           originalName: file.name,
-          url: publicUrl.publicUrl,
+          mimeType: file.type,
+          size: file.size,
+          createdTime: fileRecord.created_at,
+          webViewLink: publicUrl.publicUrl,
           downloadUrl: publicUrl.publicUrl,
           thumbnailUrl: publicUrl.publicUrl,
-          size: file.size,
-          mimeType: file.type,
+          folderName,
           uploadStatus: 'uploaded',
-          hash: hash.substring(0, 12) + '...'
+          facilityInfo: facilityInfo
         };
 
       } catch (error) {
