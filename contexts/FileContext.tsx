@@ -295,50 +295,27 @@ export function FileProvider({ children }: FileProviderProps) {
     let pollingInterval: NodeJS.Timeout | null = null;
     
     if (businessName) {
-      console.log('🔥 [REALTIME] 구독 시도 시작');
+      console.log('🔄 [POLLING] WebSocket 대신 폴링 모드로 직접 시작');
       
-      // 먼저 Realtime 시도
-      setupRealtimeSubscription()
-        .then(() => {
-          console.log('✅ [REALTIME] 구독 성공');
-        })
-        .catch(error => {
-          console.error('🔥 [REALTIME] 구독 설정 완전 실패:', error);
-          
-          // Realtime 실패 시 폴링 방식으로 대체
-          console.log('🔄 [FALLBACK] Realtime 실패로 폴링 모드로 전환');
-          pollingInterval = setInterval(async () => {
-            try {
-              await refreshFiles();
-              console.log('🔄 [FALLBACK] 폴링으로 파일 목록 업데이트');
-            } catch (error) {
-              console.error('🔄 [FALLBACK] 폴링 실패:', error);
-            }
-          }, 5000); // 5초마다 폴링 (더 빠르게)
-        });
-      
-      // WebSocket 연결 상태 모니터링을 위한 추가 폴백
-      const fallbackTimeout = setTimeout(() => {
-        if (!channelRef.current || channelRef.current.state !== 'joined') {
-          console.warn('⏰ [FALLBACK] Realtime 연결 타임아웃, 폴링 시작');
-          if (!pollingInterval) {
-            pollingInterval = setInterval(async () => {
-              try {
-                await refreshFiles();
-                console.log('🔄 [FALLBACK-TIMEOUT] 폴링으로 파일 목록 업데이트');
-              } catch (error) {
-                console.error('🔄 [FALLBACK-TIMEOUT] 폴링 실패:', error);
-              }
-            }, 5000);
-          }
+      // WebSocket 연결 문제로 인해 바로 폴링 모드 시작
+      pollingInterval = setInterval(async () => {
+        try {
+          await refreshFiles();
+          console.log('🔄 [POLLING] 정기 파일 목록 업데이트');
+        } catch (error) {
+          console.error('🔄 [POLLING] 폴링 실패:', error);
         }
-      }, 10000); // 10초 후 타임아웃 체크
+      }, 2000); // 2초마다 폴링 (빠른 동기화)
+      
+      // 초기 로드
+      setTimeout(() => {
+        refreshFiles();
+      }, 100);
       
       return () => {
-        clearTimeout(fallbackTimeout);
         if (pollingInterval) {
           clearInterval(pollingInterval);
-          console.log('🔄 [FALLBACK] 폴링 정리 완료');
+          console.log('🔄 [POLLING] 폴링 정리 완료');
         }
       };
     }

@@ -194,9 +194,16 @@ const UploadItem = memo(({
     }
   }, []);
 
-  // 필터링된 파일들을 메모화하여 안정성 확보 (엄격한 매칭 + 신규 업로드 우선)
+  // 필터링된 파일들을 메모화하여 안정성 확보 (최강 엄격한 매칭)
   const filteredUploadedFiles = useMemo(() => {
     if (!uploadedFiles || uploadedFiles.length === 0) return [];
+    
+    console.log(`🎯 [${uploadId}] 필터링 시작 - 현재 시설:`, {
+      uploadId,
+      currentFacilityInfo: facilityInfo,
+      fileType,
+      totalFiles: uploadedFiles.length
+    });
     
     const filtered = uploadedFiles.filter(file => {
       // 기본적인 폴더 타입 매치 (상세 로깅)
@@ -204,7 +211,7 @@ const UploadItem = memo(({
                                 fileType === 'prevention' ? '방지시설' : '기본사진';
       const folderMatch = file.folderName === expectedFolderName;
       
-      console.log(`🔍 [${uploadId}] 폴더 매치 검사: ${file.originalName}`, {
+      console.log(`🔍 [${uploadId}] 1단계 폴더 검사: ${file.originalName}`, {
         파일폴더명: file.folderName,
         예상폴더명: expectedFolderName,
         파일타입: fileType,
@@ -212,119 +219,45 @@ const UploadItem = memo(({
       });
       
       if (!folderMatch) {
-        console.log(`❌ [${uploadId}] 폴더 매치 실패: ${file.originalName} - ${file.folderName} !== ${expectedFolderName}`);
+        console.log(`❌ [${uploadId}] 1단계 실패 - 폴더 불일치: ${file.originalName}`);
         return false;
       }
-      
-      // 0차 우선순위: 최근 업로드된 파일 (10분 이내) - 즉시 표시용
-      const now = new Date().getTime();
-      const fileTime = new Date(file.createdTime).getTime();
-      const isRecentUpload = now - fileTime < 10 * 60 * 1000; // 10분으로 확장
-      
-      console.log(`🔍 [${uploadId}] 파일 분석: ${file.originalName}`, {
-        파일명: file.originalName,
-        현재시간: new Date(now).toLocaleString(),
-        파일생성시간: new Date(fileTime).toLocaleString(),
-        시간차이_초: Math.round((now - fileTime) / 1000),
-        최근업로드여부: isRecentUpload,
-        파일정보: file.facilityInfo,
-        현재시설정보: facilityInfo,
-        파일타입: fileType,
-        폴더명: file.folderName,
-        파일경로: file.filePath,
-        파일ID: file.id
-      });
-      
-      if (isRecentUpload && file.facilityInfo && fileType !== 'basic') {
-        // 최근 파일도 정확한 시설명+배출구 매칭 필요 (배출/방지시설)
-        const currentFacilityName = facilityInfo.split('(')[0].trim();
-        const currentOutletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
-        const currentOutletNumber = currentOutletMatch ? currentOutletMatch[1] : null;
-        
-        const fileFacilityName = file.facilityInfo.split('(')[0].trim();
-        const fileOutletMatch = file.facilityInfo.match(/배출구:\s*(\d+)번/);
-        const fileOutletNumber = fileOutletMatch ? fileOutletMatch[1] : null;
-        
-        console.log(`🔍 [${uploadId}] 최근 파일 정확 매칭:`, {
-          현재시설명: currentFacilityName,
-          현재배출구: currentOutletNumber,
-          파일시설명: fileFacilityName,
-          파일배출구: fileOutletNumber,
-          시설매치: currentFacilityName === fileFacilityName,
-          배출구매치: currentOutletNumber === fileOutletNumber
-        });
-        
-        // 시설명과 배출구 번호가 모두 일치해야 함
-        if (currentFacilityName === fileFacilityName && 
-            currentOutletNumber === fileOutletNumber && 
-            currentOutletNumber && fileOutletNumber) {
-          console.log(`🚀 [${uploadId}] 최근 업로드 파일 정확 매치: ${file.originalName} (${Math.round((now - fileTime) / 1000)}초 전)`);
-          return true;
-        }
-      } else if (isRecentUpload && file.facilityInfo && fileType === 'basic') {
-        // 기본 시설은 시설명만 매칭
-        const currentFacilityName = facilityInfo.split('(')[0].trim();
-        const fileFacilityName = file.facilityInfo.split('(')[0].trim();
-        
-        if (currentFacilityName === fileFacilityName) {
-          console.log(`🚀 [${uploadId}] 최근 업로드 기본 시설 매치: ${file.originalName}`);
-          return true;
-        }
-      }
-      
-      // 1차 우선순위: 정확한 시설 정보 매칭 (가장 신뢰성 높음)
-      const exactMatch = file.facilityInfo === facilityInfo;
-      if (exactMatch) {
-        console.log(`✅ [${uploadId}] 정확 매치: ${file.originalName}`);
-        return true;
-      }
-      
-      // ⚠️ 잘못된 매칭 방지를 위한 추가 검증
-      console.log(`❌ [${uploadId}] 정확 매치 실패: ${file.originalName}`, {
-        파일시설정보: file.facilityInfo,
-        현재시설정보: facilityInfo,
-        완전일치여부: exactMatch
-      });
-      
-      // 2차 우선순위: 경로 기반 매치 (새로운 구조용) - 가장 정확한 방법
-      if (file.filePath && fileType !== 'basic') {
-        const targetFacilityId = generateFacilityId(facilityInfo, fileType);
-        const pathMatch = file.filePath.includes(`${fileType}/${targetFacilityId}/`);
-        if (pathMatch) {
-          console.log(`✅ [${uploadId}] 경로 매치: ${file.originalName}, 경로: ${file.filePath}`);
-          return true;
-        }
-      }
-      
-      // ❌ 3차 우선순위 부분 매치 제거: 배출/방지시설은 정확한 매치만 허용
-      if (file.facilityInfo && fileType !== 'basic') {
-        console.log(`🔒 [${uploadId}] 배출/방지시설 부분 매치 차단: ${file.originalName}`, {
-          사유: '정확한 매치와 경로 매치만 허용하여 잘못된 표시 방지',
+
+      // 🚨 배출/방지시설의 경우 추가 엄격 검증 (완전 차단)
+      if (fileType === 'discharge' || fileType === 'prevention') {
+        console.log(`🔒 [${uploadId}] 2단계 엄격 검증: ${file.originalName}`, {
           파일시설정보: file.facilityInfo,
           현재시설정보: facilityInfo,
-          파일원본명: file.originalName
+          완전일치여부: file.facilityInfo === facilityInfo
         });
         
-        // ⚠️ 배전함 파일의 잘못된 매칭 추적
-        if (file.originalName?.includes('배전함')) {
-          console.warn(`🚨 [${uploadId}] 배전함 파일 차단됨: ${file.originalName}`, {
-            차단사유: '부분 매치로 인한 잘못된 표시 방지',
-            파일시설정보: file.facilityInfo,
-            현재조회시설: facilityInfo
-          });
+        // 완전히 일치하지 않으면 무조건 차단
+        if (file.facilityInfo !== facilityInfo) {
+          console.warn(`🚨 [${uploadId}] 2단계 실패 - 시설정보 불일치로 차단: ${file.originalName}`);
+          return false;
         }
+        
+        console.log(`✅ [${uploadId}] 2단계 통과 - 완전 일치: ${file.originalName}`);
+        return true;
       }
       
       // 기본 시설은 시설명만으로 매칭
       if (fileType === 'basic') {
         const facilityName = facilityInfo.split('(')[0].trim();
         const basicMatch = file.facilityInfo && file.facilityInfo.includes(facilityName);
+        
+        console.log(`🔍 [${uploadId}] 3단계 기본시설 검사: ${file.originalName}`, {
+          시설명: facilityName,
+          매치여부: basicMatch
+        });
+        
         if (basicMatch) {
-          console.log(`✅ [${uploadId}] 기본 시설 매치: ${file.originalName}`);
+          console.log(`✅ [${uploadId}] 3단계 통과 - 기본시설 매치: ${file.originalName}`);
           return true;
         }
       }
       
+      console.log(`❌ [${uploadId}] 최종 거부: ${file.originalName}`);
       return false;
     });
     
@@ -707,20 +640,24 @@ function FileUploadSection({
           // 1. 즉시 추가 (실시간 동기화 대신)
           addFiles(newFiles);
           
-          // 2. 다중 재시도로 확실하게 추가
-          const retryTimes = [50, 100, 200, 500, 1000];
+          // 2. 즉시 강제 리렌더링 트리거
+          setTimeout(() => {
+            const event = new CustomEvent('forceFileListUpdate', { 
+              detail: { files: newFiles, uploadId } 
+            });
+            window.dispatchEvent(event);
+            console.log(`🔄 [UPLOAD] 강제 리렌더링 트리거`);
+          }, 100);
+          
+          // 3. 다중 재시도로 확실하게 추가
+          const retryTimes = [200, 500, 1000, 2000];
           retryTimes.forEach(delay => {
             setTimeout(() => {
               console.log(`🔄 [UPLOAD] ${delay}ms 재시도`);
               addFiles(newFiles);
+              refreshFiles();
             }, delay);
           });
-          
-          // 3. 강제 새로고침 (실시간 동기화 실패 대비)
-          setTimeout(async () => {
-            console.log(`🔄 [UPLOAD] 강제 새로고침 실행 (2초 후)`);
-            await refreshFiles();
-          }, 2000);
         }
         
         // 성공 토스트 표시
