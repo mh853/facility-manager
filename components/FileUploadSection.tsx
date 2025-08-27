@@ -186,6 +186,15 @@ const UploadItem = memo(({
   onDeleteFile: (fileId: string, fileName: string) => void;
   onRefreshFiles: () => void;
 }) => {
+  // 업로드된 파일 수 변경 감지를 위한 디버깅
+  useEffect(() => {
+    console.log(`📋 [${uploadId}] 업로드된 파일 수 변경:`, {
+      uploadId,
+      facilityInfo,
+      fileCount: uploadedFiles.length,
+      files: uploadedFiles.map(f => ({ id: f.id, name: f.originalName, facilityInfo: f.facilityInfo }))
+    });
+  }, [uploadedFiles.length, uploadId, facilityInfo, uploadedFiles]);
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files) return;
     
@@ -722,30 +731,52 @@ function FileUploadSection({
     }
   }, [removeFile]);
 
-  // 특정 시설의 파일들만 필터링하는 함수
+  // 특정 시설의 파일들만 필터링하는 함수 (개선된 로직)
   const getFilesForFacility = useCallback((facilityInfo: string, fileType: string) => {
-    return uploadedFiles.filter(file => {
+    console.log('🔍 [FILTER] 필터링 시작:', {
+      totalFiles: uploadedFiles.length,
+      targetFacilityInfo: facilityInfo,
+      fileType
+    });
+    
+    const filteredFiles = uploadedFiles.filter(file => {
       // 폴더 타입 매치 확인
       const folderMatch = file.folderName === (
         fileType === 'discharge' ? '배출시설' :
         fileType === 'prevention' ? '방지시설' : '기본사진'
       );
       
-      // 시설 정보로 정확한 매칭
-      const facilityMatch = file.facilityInfo === facilityInfo;
+      // 시설 정보 매칭 - 정확한 매치와 부분 매치 모두 확인
+      const exactMatch = file.facilityInfo === facilityInfo;
       
-      console.log('🔍 [FILTER] 파일 필터링:', {
+      // 부분 매치 (시설명 기반)
+      const facilityName = facilityInfo.split('(')[0].trim();
+      const fileContainsFacility = file.facilityInfo && file.facilityInfo.includes(facilityName);
+      
+      const facilityMatch = exactMatch || fileContainsFacility;
+      
+      console.log('🔍 [FILTER] 파일 검사:', {
         fileName: file.originalName,
         fileFacilityInfo: file.facilityInfo,
         targetFacilityInfo: facilityInfo,
+        facilityName,
         fileType,
         folderMatch,
+        exactMatch,
+        fileContainsFacility,
         facilityMatch,
         finalMatch: folderMatch && facilityMatch
       });
       
       return folderMatch && facilityMatch;
     });
+    
+    console.log('🔍 [FILTER] 필터링 결과:', {
+      filteredCount: filteredFiles.length,
+      facilityInfo
+    });
+    
+    return filteredFiles;
   }, [uploadedFiles]);
 
   // 메모화된 섹션들
