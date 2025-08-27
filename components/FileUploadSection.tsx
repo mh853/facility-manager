@@ -259,20 +259,64 @@ const UploadItem = memo(({
         return false;
       }
 
-      // 🚨 모든 시설: facilityInfo 완전 일치로 단순하게 필터링
+      // 🚨 시설정보 기반 필터링 (최근 업로드 파일은 항상 표시)
+      const now = new Date().getTime();
+      const fileTime = new Date(file.createdTime).getTime();
+      const isVeryRecentUpload = now - fileTime < 3 * 60 * 1000; // 3분 이내
+      
       console.log(`🔒 [${uploadId}] 2단계 시설정보 검증: ${file.originalName}`, {
         파일시설정보: file.facilityInfo,
         현재시설정보: facilityInfo,
-        완전일치여부: file.facilityInfo === facilityInfo
+        완전일치여부: file.facilityInfo === facilityInfo,
+        최근업로드: isVeryRecentUpload,
+        시간차이초: Math.round((now - fileTime) / 1000)
       });
       
-      // facilityInfo 완전 일치하는 경우만 표시
+      // 완전 일치하는 경우
       if (file.facilityInfo === facilityInfo) {
-        console.log(`✅ [${uploadId}] 2단계 통과 - 시설정보 일치: ${file.originalName}`);
+        console.log(`✅ [${uploadId}] 2단계 통과 - 완전 일치: ${file.originalName}`);
         return true;
       }
       
-      console.warn(`🚨 [${uploadId}] 2단계 실패 - 시설정보 불일치: ${file.originalName}`);
+      // ⭐ 최근 업로드 파일은 무조건 표시 (사라지지 않게)
+      if (isVeryRecentUpload) {
+        console.log(`⭐ [${uploadId}] 최근 업로드 파일 - 무조건 표시: ${file.originalName}`);
+        return true;
+      }
+      
+      // 📁 폴더 경로 기반 시설명 검증 (더 명확한 구분)
+      if (fileType === 'discharge' || fileType === 'prevention') {
+        const currentFacilityName = facilityInfo.split('(')[0].trim();
+        
+        if (currentFacilityName && file.filePath) {
+          // 시설명에서 ASCII만 추출 (Supabase Storage 호환)
+          const sanitizedFacilityName = currentFacilityName
+            .replace(/[가-힣]/g, '')          // 한글 제거
+            .replace(/[^\w\-]/g, '_')         // 영문, 숫자, 하이픈, 언더스코어만 허용
+            .replace(/\s+/g, '_')             // 공백을 언더스코어로
+            .replace(/_+/g, '_')              // 연속 언더스코어를 하나로
+            .replace(/^_|_$/g, '')            // 앞뒤 언더스코어 제거
+            || 'facility';
+            
+          const expectedPathPattern = `facility_${sanitizedFacilityName}`;
+          const pathMatch = file.filePath.includes(expectedPathPattern);
+          
+          console.log(`📁 [${uploadId}] 시설명 기반 폴더 검증: ${file.originalName}`, {
+            현재시설명: currentFacilityName,
+            정리된시설명: sanitizedFacilityName,
+            예상경로패턴: expectedPathPattern,
+            실제파일경로: file.filePath,
+            경로매치: pathMatch
+          });
+          
+          if (pathMatch) {
+            console.log(`✅ [${uploadId}] 시설명 폴더 매치 성공: ${file.originalName}`);
+            return true;
+          }
+        }
+      }
+      
+      console.warn(`🚨 [${uploadId}] 2단계 실패 - 오래된 파일로 시설정보 불일치: ${file.originalName}`);
       return false;
     });
     

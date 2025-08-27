@@ -107,17 +107,27 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   if (fileType === 'discharge') baseFolder = 'discharge';
   if (fileType === 'prevention') baseFolder = 'prevention';
   
-  // 단순한 시설 타입별 폴더 구조
-  // 예: business/discharge/, business/prevention/, business/basic/
-  // 세부 구분은 파일명과 메타데이터로 관리
+  // 시설 기준 세분화된 폴더 구조 (더 명확한 구분)
+  // 예: business/discharge/facility_인쇄시설/, business/prevention/facility_흡착에의한시설/
+  let facilityFolder = '';
   
-  const path = `${sanitizedBusiness}/${baseFolder}/${timestamp}_${sanitizedFilename}`;
+  if (fileType === 'discharge' || fileType === 'prevention') {
+    // 배출/방지시설: 시설명 기반 폴더
+    facilityFolder = `facility_${sanitizedFacilityName}`;
+  } else {
+    // 기본시설: 시설 인덱스와 이름 기반 폴더  
+    const facilityIndex = getFacilityIndex(facilityInfo);
+    facilityFolder = `facility_${facilityIndex}_${sanitizedFacilityName}`;
+  }
   
-  console.log('🔧 [PATH] 단순 시설타입 경로 생성:', {
+  const path = `${sanitizedBusiness}/${baseFolder}/${facilityFolder}/${timestamp}_${sanitizedFilename}`;
+  
+  console.log('🔧 [PATH] 시설 기준 세분화 경로 생성:', {
     원본: { businessName, fileType, facilityInfo, filename },
-    정리후: { sanitizedBusiness, baseFolder, sanitizedFilename },
+    추출됨: { facilityName, outletNumber },
+    정리후: { sanitizedBusiness, baseFolder, facilityFolder, sanitizedFilename },
     최종경로: path,
-    구조: '단순 시설타입별 폴더 구조'
+    구조: '시설명 기반 세분화 폴더 구조'
   });
 
   return path;
