@@ -272,12 +272,19 @@ const UploadItem = memo(({
         }
       }
       
-      // 1차 우선순위: 정확한 시설 정보 매칭
+      // 1차 우선순위: 정확한 시설 정보 매칭 (가장 신뢰성 높음)
       const exactMatch = file.facilityInfo === facilityInfo;
       if (exactMatch) {
         console.log(`✅ [${uploadId}] 정확 매치: ${file.originalName}`);
         return true;
       }
+      
+      // ⚠️ 잘못된 매칭 방지를 위한 추가 검증
+      console.log(`❌ [${uploadId}] 정확 매치 실패: ${file.originalName}`, {
+        파일시설정보: file.facilityInfo,
+        현재시설정보: facilityInfo,
+        완전일치여부: exactMatch
+      });
       
       // 2차 우선순위: 경로 기반 매치 (새로운 구조용) - 가장 정확한 방법
       if (file.filePath && fileType !== 'basic') {
@@ -289,36 +296,23 @@ const UploadItem = memo(({
         }
       }
       
-      // 3차 우선순위: 엄격한 시설명+배출구 매칭 (부분 매치 개선)
+      // ❌ 3차 우선순위 부분 매치 제거: 배출/방지시설은 정확한 매치만 허용
       if (file.facilityInfo && fileType !== 'basic') {
-        // 현재 시설의 배출구 번호와 시설명 추출
-        const currentFacilityName = facilityInfo.split('(')[0].trim();
-        const currentOutletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
-        const currentOutletNumber = currentOutletMatch ? currentOutletMatch[1] : null;
-        
-        // 파일의 시설명과 배출구 번호 추출
-        const fileFacilityName = file.facilityInfo.split('(')[0].trim();
-        const fileOutletMatch = file.facilityInfo.match(/배출구:\s*(\d+)번/);
-        const fileOutletNumber = fileOutletMatch ? fileOutletMatch[1] : null;
-        
-        // 시설명과 배출구 번호가 모두 일치해야 함
-        const facilityNameMatch = currentFacilityName === fileFacilityName;
-        const outletNumberMatch = currentOutletNumber === fileOutletNumber;
-        
-        if (facilityNameMatch && outletNumberMatch && currentOutletNumber && fileOutletNumber) {
-          console.log(`✅ [${uploadId}] 엄격 매치: ${file.originalName}, 시설명: ${fileFacilityName}, 배출구: ${fileOutletNumber}`);
-          return true;
-        }
-        
-        console.log(`❌ [${uploadId}] 매치 실패: ${file.originalName}`, {
-          파일시설명: fileFacilityName,
-          현재시설명: currentFacilityName,
-          파일배출구: fileOutletNumber,
-          현재배출구: currentOutletNumber,
-          시설명매치: facilityNameMatch,
-          배출구매치: outletNumberMatch,
-          최근업로드: isRecentUpload
+        console.log(`🔒 [${uploadId}] 배출/방지시설 부분 매치 차단: ${file.originalName}`, {
+          사유: '정확한 매치와 경로 매치만 허용하여 잘못된 표시 방지',
+          파일시설정보: file.facilityInfo,
+          현재시설정보: facilityInfo,
+          파일원본명: file.originalName
         });
+        
+        // ⚠️ 배전함 파일의 잘못된 매칭 추적
+        if (file.originalName?.includes('배전함')) {
+          console.warn(`🚨 [${uploadId}] 배전함 파일 차단됨: ${file.originalName}`, {
+            차단사유: '부분 매치로 인한 잘못된 표시 방지',
+            파일시설정보: file.facilityInfo,
+            현재조회시설: facilityInfo
+          });
+        }
       }
       
       // 기본 시설은 시설명만으로 매칭
