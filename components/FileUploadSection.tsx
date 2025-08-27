@@ -633,6 +633,7 @@ function FileUploadSection({
         formData.append('businessName', businessName);
         formData.append('fileType', fileType);
         formData.append('facilityInfo', facilityInfo);
+        formData.append('displayName', label); // 배출시설1, 배출시설2 등의 표시명 추가
         formData.append('type', systemType);
         formData.append('uploadId', uploadId);
         formData.append('files', file);

@@ -65,7 +65,7 @@ async function getOrCreateBusiness(businessName: string): Promise<string> {
 }
 
 // 시설별 세분화된 폴더 경로 생성 (Supabase Storage 호환 - ASCII만 사용)
-function getFilePath(businessName: string, fileType: string, facilityInfo: string, filename: string): string {
+function getFilePath(businessName: string, fileType: string, facilityInfo: string, filename: string, displayName?: string): string {
   // Supabase Storage는 ASCII 문자만 허용하므로 한글 제거
   const sanitizedBusiness = businessName
     .replace(/[가-힣]/g, '')          // 한글 완전 제거
@@ -112,8 +112,8 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   let facilityFolder = '';
   
   if (fileType === 'discharge' || fileType === 'prevention') {
-    // 배출/방지시설: 시설명에서 숫자 추출 후 타입_숫자 형태
-    const facilityNumber = facilityName.match(/(\d+)/)?.[1] || '0';
+    // 배출/방지시설: displayName에서 숫자 추출 (배출시설1, 방지시설2 등)
+    const facilityNumber = displayName ? displayName.match(/(\d+)/)?.[1] : outletNumber;
     const shortType = fileType === 'discharge' ? 'discharge' : 'prevention';
     facilityFolder = `facility_${shortType}${facilityNumber}`;
   } else {
@@ -125,11 +125,11 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   const path = `${sanitizedBusiness}/${baseFolder}/${facilityFolder}/${timestamp}_${sanitizedFilename}`;
   
   console.log('🔧 [PATH] 시설명 기반 안정적 경로 생성:', {
-    원본: { businessName, fileType, facilityInfo, filename },
-    추출됨: { facilityName, outletNumber, facilityNumber: facilityName.match(/(\d+)/)?.[1] || '0' },
+    원본: { businessName, fileType, facilityInfo, filename, displayName },
+    추출됨: { facilityName, outletNumber, displayFacilityNumber: displayName ? displayName.match(/(\d+)/)?.[1] : null },
     정리후: { sanitizedBusiness, baseFolder, facilityFolder, sanitizedFilename },
     최종경로: path,
-    구조: '시설명 기반 ASCII 호환 구조'
+    구조: 'displayName 기반 ASCII 호환 구조'
   });
 
   return path;
@@ -210,6 +210,7 @@ export async function POST(request: NextRequest) {
     const businessName = formData.get('businessName') as string;
     const fileType = formData.get('fileType') as string;
     const facilityInfo = formData.get('facilityInfo') as string | null;
+    const displayName = formData.get('displayName') as string | null; // 배출시설1, 배출시설2 등
     const systemType = formData.get('type') as string || 'completion';
 
     if (!files.length) {
@@ -281,7 +282,7 @@ export async function POST(request: NextRequest) {
     // 4. Supabase Storage에 업로드 (병렬)
     const uploadPromises = validFiles.map(async ({ file, hash }, index) => {
       try {
-        const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', file.name);
+        const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', file.name, displayName || undefined);
         
         // Storage에 업로드
         const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
