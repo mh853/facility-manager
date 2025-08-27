@@ -259,53 +259,18 @@ const UploadItem = memo(({
         return false;
       }
 
-      // 🚨 배출/방지시설의 경우 추가 엄격 검증 (최근 업로드 파일 예외 허용)
+      // 🚨 배출/방지시설의 경우 완전 일치만 허용 (엄격한 검증)
       if (fileType === 'discharge' || fileType === 'prevention') {
-        // 최근 업로드 파일 확인 (5분 내)
-        const now = new Date().getTime();
-        const fileTime = new Date(file.createdTime).getTime();
-        const isVeryRecentUpload = now - fileTime < 5 * 60 * 1000; // 5분 이내
-        
         console.log(`🔒 [${uploadId}] 2단계 엄격 검증: ${file.originalName}`, {
           파일시설정보: file.facilityInfo,
           현재시설정보: facilityInfo,
-          완전일치여부: file.facilityInfo === facilityInfo,
-          최근업로드: isVeryRecentUpload,
-          시간차이분: Math.round((now - fileTime) / 60000)
+          완전일치여부: file.facilityInfo === facilityInfo
         });
         
-        // 완전 일치하는 경우
+        // 완전 일치하는 경우만 허용 (완화 검증 제거)
         if (file.facilityInfo === facilityInfo) {
           console.log(`✅ [${uploadId}] 2단계 통과 - 완전 일치: ${file.originalName}`);
           return true;
-        }
-        
-        // 최근 업로드 파일의 경우 시설명+배출구 매칭으로 완화
-        if (isVeryRecentUpload && file.facilityInfo) {
-          const currentFacilityName = facilityInfo.split('(')[0].trim();
-          const currentOutletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
-          const currentOutletNumber = currentOutletMatch ? currentOutletMatch[1] : null;
-          
-          const fileFacilityName = file.facilityInfo.split('(')[0].trim();
-          const fileOutletMatch = file.facilityInfo.match(/배출구:\s*(\d+)번/);
-          const fileOutletNumber = fileOutletMatch ? fileOutletMatch[1] : null;
-          
-          const facilityNameMatch = currentFacilityName === fileFacilityName;
-          const outletNumberMatch = currentOutletNumber === fileOutletNumber;
-          
-          console.log(`🕒 [${uploadId}] 최근 업로드 완화 검증:`, {
-            현재시설명: currentFacilityName,
-            파일시설명: fileFacilityName,
-            현재배출구: currentOutletNumber,
-            파일배출구: fileOutletNumber,
-            시설명매치: facilityNameMatch,
-            배출구매치: outletNumberMatch
-          });
-          
-          if (facilityNameMatch && outletNumberMatch && currentOutletNumber && fileOutletNumber) {
-            console.log(`🚀 [${uploadId}] 최근 업로드 완화 매치 성공: ${file.originalName}`);
-            return true;
-          }
         }
         
         console.warn(`🚨 [${uploadId}] 2단계 실패 - 시설정보 불일치로 차단: ${file.originalName}`);
@@ -700,35 +665,34 @@ function FileUploadSection({
           }
         }));
         
-        // 업로드된 파일들을 즉시 FileContext에 추가 (강화된 버전)
+        // 업로드된 파일들을 즉시 FileContext에 추가 (초고속 반응형)
         const newFiles = successResults
           .filter(result => result.data?.files)
           .flatMap(result => result.data.files);
         
         if (newFiles.length > 0) {
-          console.log(`➕ [UPLOAD] 즉시 파일 목록에 추가: ${newFiles.length}개 파일`, newFiles);
+          console.log(`⚡ [UPLOAD] 초고속 파일 추가: ${newFiles.length}개 파일`, newFiles);
           
-          // 1. 즉시 추가 (실시간 동기화 대신)
+          // 1. 즉시 추가 (지연 없음)
           addFiles(newFiles);
           
-          // 2. 즉시 강제 리렌더링 트리거
-          setTimeout(() => {
-            const event = new CustomEvent('forceFileListUpdate', { 
-              detail: { files: newFiles, uploadId } 
-            });
-            window.dispatchEvent(event);
-            console.log(`🔄 [UPLOAD] 강제 리렌더링 트리거`);
-          }, 100);
+          // 2. 즉시 강제 상태 업데이트 (컴포넌트 리렌더링)
+          setUploads(prev => ({ ...prev })); // 강제 리렌더링 트리거
           
-          // 3. 다중 재시도로 확실하게 추가
-          const retryTimes = [200, 500, 1000, 2000];
-          retryTimes.forEach(delay => {
-            setTimeout(() => {
-              console.log(`🔄 [UPLOAD] ${delay}ms 재시도`);
-              addFiles(newFiles);
-              refreshFiles();
-            }, delay);
-          });
+          // 3. DOM 즉시 업데이트
+          if (typeof window !== 'undefined') {
+            requestAnimationFrame(() => {
+              window.dispatchEvent(new CustomEvent('fileListUpdated', { 
+                detail: { files: newFiles, uploadId, immediate: true } 
+              }));
+            });
+          }
+          
+          // 4. 백업용 단일 재시도 (100ms 후)
+          setTimeout(() => {
+            console.log(`🔄 [UPLOAD] 백업 추가`);
+            addFiles(newFiles);
+          }, 100);
         }
         
         // 성공 토스트 표시
