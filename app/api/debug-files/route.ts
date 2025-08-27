@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 파일명에 "배전함" 또는 "배출시설"이 포함된 파일들만 필터링
-    const relevantFiles = files?.filter(file => 
+    const relevantFiles = files?.filter((file: any) => 
       file.original_filename?.includes('배전함') || 
       file.original_filename?.includes('배출') ||
       file.facility_info?.includes('배출시설')
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         businessName,
         businessId: business.id,
         totalFiles: files?.length || 0,
-        relevantFiles: relevantFiles.map(file => ({
+        relevantFiles: relevantFiles.map((file: any) => ({
           id: file.id,
           originalName: file.original_filename,
           fileName: file.filename,
