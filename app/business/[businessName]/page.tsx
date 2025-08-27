@@ -10,6 +10,7 @@ import { AlertTriangle, Building2, User, FileText, Zap, Shield, Camera, Save, Ch
 import BusinessInfoCard from '@/components/BusinessInfoCard';
 import FacilityStats from '@/components/FacilityStats';
 import FileUploadSection from '@/components/FileUploadSection';
+import { FileProvider, useFileContext } from '@/contexts/FileContext';
 
 export default function BusinessPage() {
   const params = useParams();
@@ -585,7 +586,8 @@ export default function BusinessPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800">
+    <FileProvider>
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800">
       {/* 고정 헤더 */}
       <div className="sticky top-0 z-50 bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg">
         <div className="container mx-auto px-4 py-4">
@@ -1151,6 +1153,7 @@ export default function BusinessPage() {
           animation: fade-in 0.3s ease-out;
         }
       `}</style>
-    </div>
+      </div>
+    </FileProvider>
   );
 }

@@ -5,6 +5,7 @@ import { FacilitiesData, SystemType, Facility } from '@/types';
 import { Upload, Zap, Shield, Radio, Wind, Camera, Building, Wrench, Cpu, Power, Settings, Home, Clock, CheckCircle2, RefreshCw, Eye, Download, Trash2 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import Image from 'next/image';
+import { useFileContext } from '@/contexts/FileContext';
 
 interface FileUploadSectionProps {
   businessName: string;
@@ -426,32 +427,18 @@ function FileUploadSection({
   facilities 
 }: FileUploadSectionProps) {
   const [uploads, setUploads] = useState<Record<string, { files: File[]; status: string; uploading: boolean }>>({});
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [loadingFiles, setLoadingFiles] = useState(false);
+  const { uploadedFiles, refreshFiles, removeFile, addFiles, setBusinessInfo, loading: loadingFiles } = useFileContext();
 
-  // 업로드된 파일 목록 로드
-  const loadUploadedFiles = useCallback(async () => {
-    if (!businessName) return;
-    
-    setLoadingFiles(true);
-    try {
-      const response = await fetch(`/api/uploaded-files-supabase?businessName=${encodeURIComponent(businessName)}&systemType=${systemType}&refresh=true`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setUploadedFiles(result.data.files || []);
-      }
-    } catch (error) {
-      console.error('파일 목록 로드 실패:', error);
-    } finally {
-      setLoadingFiles(false);
-    }
-  }, [businessName, systemType]);
-
-  // 컴포넌트 마운트 시 파일 목록 로드
+  // FileContext에 사업장 정보 설정
   useEffect(() => {
-    loadUploadedFiles();
-  }, [loadUploadedFiles]);
+    if (businessName && systemType) {
+      setBusinessInfo(businessName, systemType);
+      refreshFiles();
+    }
+  }, [businessName, systemType, setBusinessInfo, refreshFiles]);
+
+  // loadUploadedFiles를 refreshFiles로 대체
+  const loadUploadedFiles = refreshFiles;
 
   // 파일 선택 핸들러 (이벤트 기반으로 최적화)
   useState(() => {
@@ -557,8 +544,8 @@ function FileUploadSection({
           }
         }));
         
-        // 파일 목록 실시간 업데이트
-        await loadUploadedFiles();
+        // 파일 목록 실시간 업데이트 
+        await refreshFiles();
         
         // 성공 토스트 표시
         const toast = document.createElement('div');
@@ -580,8 +567,8 @@ function FileUploadSection({
           }
         }));
         
-        // 파일 목록 실시간 업데이트
-        await loadUploadedFiles();
+        // 파일 목록 실시간 업데이트 
+        await refreshFiles();
         
         // 경고 토스트 표시
         const toast = document.createElement('div');
@@ -637,8 +624,8 @@ function FileUploadSection({
       const result = await response.json();
       
       if (result.success) {
-        // 실시간 업데이트
-        await loadUploadedFiles();
+        // FileContext에서 파일 삭제
+        removeFile(fileId);
         
         // 성공 토스트
         const toast = document.createElement('div');
@@ -657,7 +644,7 @@ function FileUploadSection({
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 3000);
     }
-  }, [loadUploadedFiles]);
+  }, [removeFile]);
 
   // 특정 시설의 파일들만 필터링하는 함수
   const getFilesForFacility = useCallback((facilityInfo: string, fileType: string) => {

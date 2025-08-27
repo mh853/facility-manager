@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Trash2, Download, Eye, RefreshCw, FolderOpen, Image, X, ZoomIn, AlertTriangle } from 'lucide-react';
+import { useFileContext } from '@/contexts/FileContext';
 
 interface UploadedFile {
   id: string;
@@ -51,78 +52,24 @@ function UploadedFilesManager({
   systemType,
   onFileDeleted 
 }: UploadedFilesManagerProps) {
-  const [files, setFiles] = useState<UploadedFile[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { uploadedFiles, refreshFiles, removeFile, setBusinessInfo, loading } = useFileContext();
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<UploadedFile | null>(null);
   const [deleteStates, setDeleteStates] = useState<{ [key: string]: boolean }>({});
-
-  // 파일 목록 로드 (강제 새로고침 옵션 포함)
-  const loadFiles = useCallback(async (forceRefresh: boolean = false) => {
-    if (!businessName) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      console.log('📂 파일 목록 로드 시작:', { businessName, systemType, forceRefresh });
-
-      // 캐시 무효화를 위한 타임스탬프 추가
-      const timestamp = forceRefresh ? `&_t=${Date.now()}` : '';
-      const refreshParam = forceRefresh ? '&refresh=true' : '';
-      
-      // 1. Supabase API 시도
-      const supabaseResponse = await fetch(
-        `/api/uploaded-files-supabase?businessName=${encodeURIComponent(businessName)}&systemType=${systemType}${refreshParam}${timestamp}`,
-        {
-          cache: forceRefresh ? 'no-cache' : 'default',
-          headers: forceRefresh ? { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } : {}
-        }
-      );
-      
-      const supabaseResult = await supabaseResponse.json();
-      console.log('📂 Supabase API 응답:', supabaseResult);
-
-      // Supabase에서 파일을 찾은 경우
-      if (supabaseResult.success && supabaseResult.data.files?.length > 0) {
-        setFiles(supabaseResult.data.files);
-        console.log('📂 Supabase에서 로드된 파일 수:', supabaseResult.data.files.length);
-        return;
-      }
-
-      // 2. Supabase에서 파일을 못 찾은 경우, 기존 Google Drive API 시도 (호환성 유지)
-      console.log('📂 Supabase에서 파일 없음, Google Drive API 시도...');
-      const googleResponse = await fetch(
-        `/api/uploaded-files?businessName=${encodeURIComponent(businessName)}&systemType=${systemType}${refreshParam}${timestamp}`,
-        {
-          cache: forceRefresh ? 'no-cache' : 'default',
-          headers: forceRefresh ? { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } : {}
-        }
-      );
-      
-      const googleResult = await googleResponse.json();
-      console.log('📂 Google Drive API 응답:', googleResult);
-
-      if (googleResult.success) {
-        setFiles(googleResult.data.files || []);
-        console.log('📂 Google Drive에서 로드된 파일 수:', googleResult.data.files?.length || 0);
-      } else {
-        setError(`Supabase와 Google Drive 모두에서 파일을 찾을 수 없습니다: ${googleResult.message}`);
-        setFiles([]);
-        console.warn('📂 Google Drive 파일 로드 실패:', googleResult.message);
-      }
-    } catch (error) {
-      console.error('📂 파일 목록 로드 오류:', error);
-      setError(error instanceof Error ? error.message : '파일 로드 실패');
-      setFiles([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [businessName, systemType]);
-
+  
+  // FileContext에 사업장 정보 설정
   useEffect(() => {
-    loadFiles();
-  }, [loadFiles]);
+    if (businessName && systemType) {
+      setBusinessInfo(businessName, systemType);
+      refreshFiles();
+    }
+  }, [businessName, systemType, setBusinessInfo, refreshFiles]);
+
+  // uploadedFiles를 files로 사용
+  const files = uploadedFiles;
+
+  // refreshFiles를 loadFiles의 alias로 사용
+  const loadFiles = refreshFiles;
 
   // 파일 삭제
   const deleteFile = useCallback(async (file: UploadedFile) => {
@@ -151,7 +98,7 @@ function UploadedFilesManager({
       console.log('🗑️ [CLIENT] 서버 응답:', result);
 
       if (result.success) {
-        setFiles(prev => prev.filter(f => f.id !== file.id));
+        removeFile(file.id);
         onFileDeleted?.();
         
         // 성공 토스트
@@ -176,7 +123,7 @@ function UploadedFilesManager({
     } finally {
       setDeleteStates(prev => ({ ...prev, [file.id]: false }));
     }
-  }, [onFileDeleted]);
+  }, [removeFile, onFileDeleted]);
 
   // 파일 크기 포맷팅
   const formatFileSize = (bytes: number) => {
