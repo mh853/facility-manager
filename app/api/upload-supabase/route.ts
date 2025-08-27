@@ -166,24 +166,47 @@ function extractOutletNumber(facilityInfo: string): string {
   return match ? match[1] : '0';
 }
 
-// 기본시설의 고유 인덱스 생성 (시설명 기반)
+// 기본시설의 고유 인덱스 생성 (시설명 및 시설번호 기반)
 function getFacilityIndex(facilityInfo: string): string {
-  // 시설명에 따른 고유 인덱스 생성
+  console.log('🔢 [FACILITY-INDEX] 기본시설 인덱스 추출:', {
+    facilityInfo,
+  });
+  
+  // 먼저 시설번호가 명시되어 있는지 확인 (새로운 형식)
+  const facilityNumberMatch = facilityInfo.match(/시설번호:\s*(\d+)번/);
+  if (facilityNumberMatch) {
+    const number = facilityNumberMatch[1];
+    console.log('✅ [FACILITY-INDEX] 시설번호 직접 추출:', number);
+    return number;
+  }
+  
+  // 기존 방식: 시설명에 따른 고유 인덱스 생성
   const facilityName = facilityInfo.toLowerCase();
   
-  if (facilityName.includes('게이트웨이') || facilityName.includes('gateway')) return '1';
-  if (facilityName.includes('제어반') || facilityName.includes('배전함') || facilityName.includes('control')) return '2';  
-  if (facilityName.includes('송풍기') || facilityName.includes('blower') || facilityName.includes('풍')) return '3';
-  if (facilityName.includes('기타') || facilityName.includes('other')) return '4';
-  
-  // 기본값: 시설명의 해시값을 이용한 인덱스
-  let hash = 0;
-  for (let i = 0; i < facilityInfo.length; i++) {
-    const char = facilityInfo.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // 32bit로 변환
+  let index = '0';
+  if (facilityName.includes('게이트웨이') || facilityName.includes('gateway')) index = '1';
+  else if (facilityName.includes('제어반') || facilityName.includes('배전함') || facilityName.includes('control')) index = '2';  
+  else if (facilityName.includes('송풍기') || facilityName.includes('blower') || facilityName.includes('풍')) index = '3';
+  else if (facilityName.includes('기타') || facilityName.includes('other')) index = '4';
+  else {
+    // 시설명에서 숫자 추출 시도
+    const numberMatch = facilityName.match(/(\d+)/);
+    if (numberMatch) {
+      index = numberMatch[1];
+    } else {
+      // 기본값: 시설명의 해시값을 이용한 인덱스
+      let hash = 0;
+      for (let i = 0; i < facilityInfo.length; i++) {
+        const char = facilityInfo.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      index = Math.abs(hash % 100).toString();
+    }
   }
-  return Math.abs(hash % 100).toString();
+  
+  console.log('✅ [FACILITY-INDEX] 시설명 기반 인덱스:', index);
+  return index;
 }
 
 export async function POST(request: NextRequest) {

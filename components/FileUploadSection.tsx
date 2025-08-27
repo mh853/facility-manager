@@ -905,6 +905,16 @@ function FileUploadSection({
   const dischargeSection = useMemo(() => {
     if (!facilities || facilities.discharge.length === 0) return null;
 
+    // 배출시설 데이터 디버깅
+    console.log('🏭 [DISCHARGE-SECTION] 배출시설 데이터:', facilities.discharge.map((f, i) => ({
+      index: i,
+      name: f.name,
+      displayName: f.displayName,
+      outlet: f.outlet,
+      capacity: f.capacity,
+      quantity: f.quantity
+    })));
+
     return (
       <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
         <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6 flex items-center gap-2">
@@ -914,7 +924,14 @@ function FileUploadSection({
         </h3>
         
         <div className="grid gap-4 md:gap-6">
-          {facilities.discharge.map((facility, index) => (
+          {facilities.discharge.map((facility, index) => {
+            const facilityInfo = `${facility.name} (${facility.capacity}, 수량: ${facility.quantity}개, 배출구: ${facility.outlet}번)`;
+            console.log(`🔧 [DISCHARGE-${index}] 시설 정보 생성:`, {
+              facility,
+              facilityInfo
+            });
+            
+            return (
             <UploadItem
               key={`discharge-${index}`}
               uploadId={`discharge-${index}`}
@@ -952,7 +969,7 @@ function FileUploadSection({
               uploadId="gateway"
               label="게이트웨이"
               fileType="basic"
-              facilityInfo="게이트웨이"
+              facilityInfo="게이트웨이 (IoT 통신장비, 수량: 1개, 시설번호: 1번)"
               IconComponent={Radio}
               onUpload={uploadFiles}
               uploadState={uploads.gateway || { files: [], status: '', uploading: false }}
@@ -964,7 +981,7 @@ function FileUploadSection({
               uploadId="control-panel"
               label="제어반/전기시설(배전함, 차단기)"
               fileType="basic"
-              facilityInfo="제어반-배전함"
+              facilityInfo="제어반 (배전함/차단기, 수량: 1개, 시설번호: 2번)"
               IconComponent={Cpu}
               onUpload={uploadFiles}
               uploadState={uploads['control-panel'] || { files: [], status: '', uploading: false }}
@@ -983,7 +1000,7 @@ function FileUploadSection({
               uploadId="blower"
               label="송풍기"
               fileType="basic"
-              facilityInfo="송풍기"
+              facilityInfo="송풍기 (공기순환장비, 수량: 1개, 시설번호: 3번)"
               IconComponent={Wind}
               onUpload={uploadFiles}
               uploadState={uploads.blower || { files: [], status: '', uploading: false }}
@@ -1002,7 +1019,7 @@ function FileUploadSection({
               uploadId="other"
               label="기타 시설"
               fileType="basic"
-              facilityInfo="기타"
+              facilityInfo="기타시설 (기타장비, 수량: 1개, 시설번호: 4번)"
               IconComponent={Camera}
               onUpload={uploadFiles}
               uploadState={uploads.other || { files: [], status: '', uploading: false }}
