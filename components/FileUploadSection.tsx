@@ -13,21 +13,6 @@ interface FileUploadSectionProps {
   facilities: FacilitiesData | null;
 }
 
-interface UploadedFile {
-  id: string;
-  name: string;
-  originalName: string;
-  mimeType: string;
-  size: number;
-  createdTime: string;
-  webViewLink: string;
-  downloadUrl: string;
-  thumbnailUrl: string;
-  folderName: string;
-  uploadStatus: string;
-  facilityInfo?: string;
-}
-
 // 고성능 이미지 압축 함수 (모바일 파일명 보정 강화)
 const compressImage = async (file: File): Promise<File> => {
   console.log('🔍 [COMPRESS] 압축 전 파일 분석:', {
