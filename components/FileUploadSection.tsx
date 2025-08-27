@@ -731,13 +731,28 @@ function FileUploadSection({
     }
   }, [removeFile]);
 
-  // 특정 시설의 파일들만 필터링하는 함수 (개선된 로직)
+  // 시설별 파일 고유 식별자 생성
+  const generateFacilityId = useCallback((facilityInfo: string, fileType: string) => {
+    const facilityName = facilityInfo.split('(')[0].trim();
+    const outletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
+    const outletNumber = outletMatch ? outletMatch[1] : '0';
+    
+    if (fileType === 'discharge' || fileType === 'prevention') {
+      return `outlet_${outletNumber}_${fileType.substring(0, 4)}_${facilityName}`;
+    } else {
+      return facilityName;
+    }
+  }, []);
+
+  // 특정 시설의 파일들만 필터링하는 함수 (시설별 고유 ID 기반)
   const getFilesForFacility = useCallback((facilityInfo: string, fileType: string) => {
-    console.log('🔍 [FILTER] 필터링 시작:', {
+    console.log('🔍 [FILTER] 시설별 필터링 시작:', {
       totalFiles: uploadedFiles.length,
       targetFacilityInfo: facilityInfo,
       fileType
     });
+    
+    const targetFacilityId = generateFacilityId(facilityInfo, fileType);
     
     const filteredFiles = uploadedFiles.filter(file => {
       // 폴더 타입 매치 확인
@@ -746,23 +761,29 @@ function FileUploadSection({
         fileType === 'prevention' ? '방지시설' : '기본사진'
       );
       
-      // 시설 정보 매칭 - 정확한 매치와 부분 매치 모두 확인
+      // 정확한 시설 정보 매칭
       const exactMatch = file.facilityInfo === facilityInfo;
       
-      // 부분 매치 (시설명 기반)
+      // 시설 ID 기반 매칭 (새로운 구조용)
+      const fileFacilityId = generateFacilityId(file.facilityInfo || '', fileType);
+      const facilityIdMatch = fileFacilityId === targetFacilityId;
+      
+      // 부분 매치 (기존 파일 호환용)
       const facilityName = facilityInfo.split('(')[0].trim();
       const fileContainsFacility = file.facilityInfo && file.facilityInfo.includes(facilityName);
       
-      const facilityMatch = exactMatch || fileContainsFacility;
+      const facilityMatch = exactMatch || facilityIdMatch || fileContainsFacility;
       
       console.log('🔍 [FILTER] 파일 검사:', {
         fileName: file.originalName,
         fileFacilityInfo: file.facilityInfo,
         targetFacilityInfo: facilityInfo,
-        facilityName,
+        targetFacilityId,
+        fileFacilityId,
         fileType,
         folderMatch,
         exactMatch,
+        facilityIdMatch,
         fileContainsFacility,
         facilityMatch,
         finalMatch: folderMatch && facilityMatch
@@ -771,13 +792,14 @@ function FileUploadSection({
       return folderMatch && facilityMatch;
     });
     
-    console.log('🔍 [FILTER] 필터링 결과:', {
+    console.log('🔍 [FILTER] 시설별 필터링 결과:', {
       filteredCount: filteredFiles.length,
+      targetFacilityId,
       facilityInfo
     });
     
     return filteredFiles;
-  }, [uploadedFiles]);
+  }, [uploadedFiles, generateFacilityId]);
 
   // 메모화된 섹션들
   const preventionSection = useMemo(() => {

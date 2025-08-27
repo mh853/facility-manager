@@ -64,7 +64,7 @@ async function getOrCreateBusiness(businessName: string): Promise<string> {
   return newBusiness.id;
 }
 
-// 파일 타입에 따른 폴더 경로 생성 (Supabase Storage 호환 - ASCII만 사용)
+// 시설별 세분화된 폴더 경로 생성 (Supabase Storage 호환 - ASCII만 사용)
 function getFilePath(businessName: string, fileType: string, facilityInfo: string, filename: string): string {
   // Supabase Storage는 ASCII 문자만 허용하므로 한글 제거
   const sanitizedBusiness = businessName
@@ -75,7 +75,11 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
     .replace(/^_|_$/g, '')            // 앞뒤 언더스코어 제거
     || 'business';                    // 빈 문자열인 경우 기본값
     
-  const sanitizedFacility = facilityInfo
+  // 시설 정보에서 배출구 번호와 시설명 추출
+  const facilityName = extractFacilityName(facilityInfo);
+  const outletNumber = extractOutletNumber(facilityInfo);
+  
+  const sanitizedFacilityName = facilityName
     .replace(/[가-힣]/g, '')
     .replace(/[^\w\-]/g, '_')
     .replace(/\s+/g, '_')
@@ -93,19 +97,45 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
   
-  let folder = 'basic';
-  if (fileType === 'discharge') folder = 'discharge';
-  if (fileType === 'prevention') folder = 'prevention';
-
-  const path = `${sanitizedBusiness}/${folder}/${timestamp}_${sanitizedFilename}`;
+  // 기본 폴더 타입
+  let baseFolder = 'basic';
+  if (fileType === 'discharge') baseFolder = 'discharge';
+  if (fileType === 'prevention') baseFolder = 'prevention';
   
-  console.log('🔧 [PATH] Storage 경로 생성 (ASCII만):', {
+  // 시설별 세분화된 폴더 구조
+  // 예: business/prevention/outlet_1_prevention_1/ 또는 business/discharge/outlet_2_discharge_3/
+  let facilityFolder = '';
+  if (fileType === 'discharge' || fileType === 'prevention') {
+    facilityFolder = `outlet_${outletNumber}_${baseFolder.substring(0, 4)}_${sanitizedFacilityName}`;
+  } else {
+    // 기본 시설의 경우 시설명만 사용
+    facilityFolder = sanitizedFacilityName;
+  }
+
+  const path = `${sanitizedBusiness}/${baseFolder}/${facilityFolder}/${timestamp}_${sanitizedFilename}`;
+  
+  console.log('🔧 [PATH] 시설별 경로 생성:', {
     원본: { businessName, fileType, facilityInfo, filename },
-    정리후: { sanitizedBusiness, folder, sanitizedFilename },
+    추출됨: { facilityName, outletNumber },
+    정리후: { sanitizedBusiness, baseFolder, facilityFolder, sanitizedFilename },
     최종경로: path
   });
 
   return path;
+}
+
+// 시설 정보에서 시설명 추출
+function extractFacilityName(facilityInfo: string): string {
+  // "방지시설1 (용량정보, 수량: N개, 배출구: N번)" 형식에서 시설명만 추출
+  const match = facilityInfo.match(/^([^(]+)/);
+  return match ? match[1].trim() : 'facility';
+}
+
+// 시설 정보에서 배출구 번호 추출
+function extractOutletNumber(facilityInfo: string): string {
+  // "배출구: N번" 형식에서 번호 추출
+  const match = facilityInfo.match(/배출구:\s*(\d+)번/);
+  return match ? match[1] : '0';
 }
 
 export async function POST(request: NextRequest) {
