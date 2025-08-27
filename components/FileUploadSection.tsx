@@ -259,18 +259,53 @@ const UploadItem = memo(({
         return false;
       }
 
-      // 🚨 배출/방지시설의 경우 완전 일치만 허용 (엄격한 검증)
+      // 🚨 배출/방지시설의 경우 엄격한 검증 (단, 최근 업로드 파일은 완화)
       if (fileType === 'discharge' || fileType === 'prevention') {
+        // 최근 업로드 파일 확인 (2분 내)
+        const now = new Date().getTime();
+        const fileTime = new Date(file.createdTime).getTime();
+        const isVeryRecentUpload = now - fileTime < 2 * 60 * 1000; // 2분 이내
+        
         console.log(`🔒 [${uploadId}] 2단계 엄격 검증: ${file.originalName}`, {
           파일시설정보: file.facilityInfo,
           현재시설정보: facilityInfo,
-          완전일치여부: file.facilityInfo === facilityInfo
+          완전일치여부: file.facilityInfo === facilityInfo,
+          최근업로드: isVeryRecentUpload,
+          시간차이초: Math.round((now - fileTime) / 1000)
         });
         
-        // 완전 일치하는 경우만 허용 (완화 검증 제거)
+        // 완전 일치하는 경우
         if (file.facilityInfo === facilityInfo) {
           console.log(`✅ [${uploadId}] 2단계 통과 - 완전 일치: ${file.originalName}`);
           return true;
+        }
+        
+        // 최근 업로드 파일의 경우 시설명+배출구 번호로 완화된 검증
+        if (isVeryRecentUpload && file.facilityInfo) {
+          const currentFacilityName = facilityInfo.split('(')[0].trim();
+          const currentOutletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
+          const currentOutletNumber = currentOutletMatch ? currentOutletMatch[1] : null;
+          
+          const fileFacilityName = file.facilityInfo.split('(')[0].trim();
+          const fileOutletMatch = file.facilityInfo.match(/배출구:\s*(\d+)번/);
+          const fileOutletNumber = fileOutletMatch ? fileOutletMatch[1] : null;
+          
+          const facilityNameMatch = currentFacilityName === fileFacilityName;
+          const outletNumberMatch = currentOutletNumber === fileOutletNumber;
+          
+          console.log(`🕒 [${uploadId}] 최근 업로드 완화 검증:`, {
+            현재시설명: currentFacilityName,
+            파일시설명: fileFacilityName,
+            현재배출구: currentOutletNumber,
+            파일배출구: fileOutletNumber,
+            시설명매치: facilityNameMatch,
+            배출구매치: outletNumberMatch
+          });
+          
+          if (facilityNameMatch && outletNumberMatch && currentOutletNumber && fileOutletNumber) {
+            console.log(`🚀 [${uploadId}] 최근 업로드 완화 매치 성공: ${file.originalName}`);
+            return true;
+          }
         }
         
         console.warn(`🚨 [${uploadId}] 2단계 실패 - 시설정보 불일치로 차단: ${file.originalName}`);
