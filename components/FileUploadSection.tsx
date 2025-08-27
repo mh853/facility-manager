@@ -221,6 +221,30 @@ const UploadItem = memo(({
     }
   }, [getFacilityIndex]);
 
+  // 파일이 현재 시설에 속하는지 검증하는 함수
+  const checkIfFileBelongsToFacility = useCallback((file: UploadedFile, fileType: string, label: string, facilityInfo: string) => {
+    if (fileType === 'discharge' || fileType === 'prevention') {
+      // label에서 마지막 숫자 추출 (배출구1-배출시설1 → 1, 배출구2-방지시설2 → 2)
+      const labelFacilityNumber = label ? label.match(/(\d+)$/)?.[1] || '0' : '0';
+      const shortType = fileType === 'discharge' ? 'discharge' : 'prevention';
+      
+      if (labelFacilityNumber !== '0' && file.filePath) {
+        const expectedPathPattern = `facility_${shortType}${labelFacilityNumber}`;
+        return file.filePath.includes(expectedPathPattern);
+      }
+    } else if (fileType === 'basic') {
+      // 기본시설도 숫자 ID 기반 검증
+      const facilityName = facilityInfo.split('(')[0].trim();
+      const facilityIndex = getFacilityIndex(facilityName);
+      
+      if (file.filePath) {
+        const expectedPathPattern = `facility_${facilityIndex}`;
+        return file.filePath.includes(expectedPathPattern);
+      }
+    }
+    return false;
+  }, [getFacilityIndex]);
+
   // 필터링된 파일들을 메모화하여 안정성 확보 (최강 엄격한 매칭)
   const filteredUploadedFiles = useMemo(() => {
     if (!uploadedFiles || uploadedFiles.length === 0) return [];
@@ -263,67 +287,41 @@ const UploadItem = memo(({
         시간차이초: Math.round((now - fileTime) / 1000)
       });
       
-      // 완전 일치하는 경우
+      // 완전 일치하는 경우도 시설별 폴더 검증 추가 (정확성 보장)
       if (file.facilityInfo === facilityInfo) {
-        console.log(`✅ [${uploadId}] 2단계 통과 - 완전 일치: ${file.originalName}`);
-        return true;
+        console.log(`🔍 [${uploadId}] 완전 일치 - 추가 폴더 검증: ${file.originalName}`);
+        const belongsToFacility = checkIfFileBelongsToFacility(file, fileType, label, facilityInfo);
+        if (belongsToFacility) {
+          console.log(`✅ [${uploadId}] 완전 일치 + 폴더 매치 성공: ${file.originalName}`);
+          return true;
+        } else {
+          console.warn(`⚠️ [${uploadId}] 완전 일치하지만 폴더 불일치: ${file.originalName}`);
+          return false;
+        }
       }
       
-      // ⭐ 최근 업로드 파일은 무조건 표시 (사라지지 않게)
+      // ⭐ 최근 업로드 파일도 시설 매칭 검증 후 표시 (다른 시설 파일은 제외)
       if (isVeryRecentUpload || file.justUploaded) {
-        console.log(`⭐ [${uploadId}] 최근 업로드 파일 - 무조건 표시: ${file.originalName}`, {
+        console.log(`⭐ [${uploadId}] 최근 업로드 파일 - 시설 매칭 검증 필요: ${file.originalName}`, {
           시간기반최근: isVeryRecentUpload,
           업로드플래그: file.justUploaded
         });
-        return true;
+        // 최근 업로드 파일이라도 해당 시설에 속하는지 검증
+        const belongsToCurrentFacility = checkIfFileBelongsToFacility(file, fileType, label, facilityInfo);
+        if (belongsToCurrentFacility) {
+          console.log(`✅ [${uploadId}] 최근 업로드 + 시설 매치 성공: ${file.originalName}`);
+          return true;
+        } else {
+          console.log(`❌ [${uploadId}] 최근 업로드지만 다른 시설 파일: ${file.originalName}`);
+          return false;
+        }
       }
       
-      // 📁 label(displayName) 기반 폴더 검증
-      if (fileType === 'discharge' || fileType === 'prevention') {
-        // label에서 마지막 숫자 추출 (배출구1-배출시설1 → 1, 배출구2-방지시설2 → 2)
-        const labelFacilityNumber = label ? label.match(/(\d+)$/)?.[1] || '0' : '0';
-        const shortType = fileType === 'discharge' ? 'discharge' : 'prevention';
-        
-        if (labelFacilityNumber !== '0' && file.filePath) {
-          const expectedPathPattern = `facility_${shortType}${labelFacilityNumber}`;
-          const pathMatch = file.filePath.includes(expectedPathPattern);
-          
-          console.log(`📁 [${uploadId}] label 기반 폴더 검증: ${file.originalName}`, {
-            현재라벨: label,
-            추출된숫자: labelFacilityNumber,
-            시설타입: shortType,
-            예상경로패턴: expectedPathPattern,
-            실제파일경로: file.filePath,
-            경로매치: pathMatch
-          });
-          
-          if (pathMatch) {
-            console.log(`✅ [${uploadId}] label 폴더 매치 성공: ${file.originalName}`);
-            return true;
-          }
-        }
-      } else if (fileType === 'basic') {
-        // 기본시설도 숫자 ID 기반 검증
-        const facilityName = facilityInfo.split('(')[0].trim();
-        const facilityIndex = getFacilityIndex(facilityName);
-        
-        if (file.filePath) {
-          const expectedPathPattern = `facility_${facilityIndex}`;
-          const pathMatch = file.filePath.includes(expectedPathPattern);
-          
-          console.log(`📁 [${uploadId}] 기본시설 숫자 ID 검증: ${file.originalName}`, {
-            시설명: facilityName,
-            시설인덱스: facilityIndex,
-            예상경로패턴: expectedPathPattern,
-            실제파일경로: file.filePath,
-            경로매치: pathMatch
-          });
-          
-          if (pathMatch) {
-            console.log(`✅ [${uploadId}] 기본시설 숫자 ID 매치 성공: ${file.originalName}`);
-            return true;
-          }
-        }
+      // 📁 시설별 폴더 검증 (공통 함수 사용)
+      const belongsToFacility = checkIfFileBelongsToFacility(file, fileType, label, facilityInfo);
+      if (belongsToFacility) {
+        console.log(`✅ [${uploadId}] 시설별 폴더 매치 성공: ${file.originalName}`);
+        return true;
       }
       
       console.warn(`🚨 [${uploadId}] 2단계 실패 - 오래된 파일로 시설정보 불일치: ${file.originalName}`);
