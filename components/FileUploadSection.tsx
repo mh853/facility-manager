@@ -275,24 +275,27 @@ const UploadItem = memo(({
         return true;
       }
       
-      // 📁 숫자 ID 기반 안정적 폴더 검증
+      // 📁 시설명 기반 폴더 검증
       if (fileType === 'discharge' || fileType === 'prevention') {
-        const currentOutletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
-        const currentOutletNumber = currentOutletMatch ? currentOutletMatch[1] : null;
+        const currentFacilityName = facilityInfo.split('(')[0].trim();
+        const currentFacilityNumber = currentFacilityName.match(/(\d+)/)?.[1] || '0';
+        const shortType = fileType === 'discharge' ? 'discharge' : 'prevention';
         
-        if (currentOutletNumber && file.filePath) {
-          const expectedPathPattern = `facility_${currentOutletNumber}`;
+        if (currentFacilityNumber && file.filePath) {
+          const expectedPathPattern = `facility_${shortType}${currentFacilityNumber}`;
           const pathMatch = file.filePath.includes(expectedPathPattern);
           
-          console.log(`📁 [${uploadId}] 숫자 ID 기반 폴더 검증: ${file.originalName}`, {
-            현재배출구번호: currentOutletNumber,
+          console.log(`📁 [${uploadId}] 시설명 기반 폴더 검증: ${file.originalName}`, {
+            현재시설명: currentFacilityName,
+            시설번호: currentFacilityNumber,
+            시설타입: shortType,
             예상경로패턴: expectedPathPattern,
             실제파일경로: file.filePath,
             경로매치: pathMatch
           });
           
           if (pathMatch) {
-            console.log(`✅ [${uploadId}] 숫자 ID 폴더 매치 성공: ${file.originalName}`);
+            console.log(`✅ [${uploadId}] 시설명 폴더 매치 성공: ${file.originalName}`);
             return true;
           }
         }

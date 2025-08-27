@@ -107,13 +107,15 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   if (fileType === 'discharge') baseFolder = 'discharge';
   if (fileType === 'prevention') baseFolder = 'prevention';
   
-  // ASCII 호환 숫자 ID 기반 폴더 구조 (안정적인 구분)
-  // 예: business/discharge/facility_1/, business/discharge/facility_2/
+  // 시설명 기반 ASCII 호환 폴더 구조 (각 시설별 구분)
+  // 예: business/discharge/facility_discharge1/, business/discharge/facility_discharge2/
   let facilityFolder = '';
   
   if (fileType === 'discharge' || fileType === 'prevention') {
-    // 배출/방지시설: 배출구 번호 기반 숫자 폴더
-    facilityFolder = `facility_${outletNumber}`;
+    // 배출/방지시설: 시설명에서 숫자 추출 후 타입_숫자 형태
+    const facilityNumber = facilityName.match(/(\d+)/)?.[1] || '0';
+    const shortType = fileType === 'discharge' ? 'discharge' : 'prevention';
+    facilityFolder = `facility_${shortType}${facilityNumber}`;
   } else {
     // 기본시설: 시설 인덱스 기반 숫자 폴더
     const facilityIndex = getFacilityIndex(facilityInfo);
@@ -122,12 +124,12 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   
   const path = `${sanitizedBusiness}/${baseFolder}/${facilityFolder}/${timestamp}_${sanitizedFilename}`;
   
-  console.log('🔧 [PATH] 숫자 ID 기반 안정적 경로 생성:', {
+  console.log('🔧 [PATH] 시설명 기반 안정적 경로 생성:', {
     원본: { businessName, fileType, facilityInfo, filename },
-    추출됨: { facilityName, outletNumber },
+    추출됨: { facilityName, outletNumber, facilityNumber: facilityName.match(/(\d+)/)?.[1] || '0' },
     정리후: { sanitizedBusiness, baseFolder, facilityFolder, sanitizedFilename },
     최종경로: path,
-    구조: '숫자 ID 기반 ASCII 호환 구조'
+    구조: '시설명 기반 ASCII 호환 구조'
   });
 
   return path;
