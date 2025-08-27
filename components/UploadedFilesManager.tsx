@@ -8,16 +8,16 @@ import { useFileContext } from '@/contexts/FileContext';
 interface UploadedFile {
   id: string;
   name: string;
+  originalName: string;
   mimeType: string;
   size: number;
   createdTime: string;
-  modifiedTime: string;
   webViewLink: string;
   downloadUrl: string;
   thumbnailUrl: string;
-  publicUrl?: string;
-  directUrl?: string;
   folderName: string;
+  uploadStatus: string;
+  facilityInfo?: string;
 }
 
 interface UploadedFilesManagerProps {
@@ -158,7 +158,7 @@ function UploadedFilesManager({
             </h3>
           </div>
           <button
-            onClick={() => loadFiles(true)} // 강제 새로고침
+            onClick={() => loadFiles()} // 새로고침
             disabled={loading}
             className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400 transition-colors text-sm"
           >
@@ -188,7 +188,7 @@ function UploadedFilesManager({
             <p>업로드된 파일이 없습니다.</p>
             <p className="text-sm mt-2">파일을 업로드하면 여기에 표시됩니다.</p>
             <button 
-              onClick={() => loadFiles(true)}
+              onClick={() => loadFiles()}
               className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               다시 시도
@@ -302,7 +302,7 @@ function UploadedFilesManager({
             
             <div className="p-4">
               <img
-                src={selectedFile.directUrl || selectedFile.thumbnailUrl}
+                src={selectedFile.thumbnailUrl}
                 alt={selectedFile.name}
                 className="max-w-full max-h-[60vh] mx-auto"
                 onError={(e) => {
