@@ -221,7 +221,8 @@ const UploadItem = memo(({
       const fileTime = new Date(file.createdTime).getTime();
       const isRecentUpload = now - fileTime < 10 * 60 * 1000; // 10분으로 확장
       
-      console.log(`🔍 [${uploadId}] 파일 시간 분석: ${file.originalName}`, {
+      console.log(`🔍 [${uploadId}] 파일 분석: ${file.originalName}`, {
+        파일명: file.originalName,
         현재시간: new Date(now).toLocaleString(),
         파일생성시간: new Date(fileTime).toLocaleString(),
         시간차이_초: Math.round((now - fileTime) / 1000),
@@ -229,7 +230,9 @@ const UploadItem = memo(({
         파일정보: file.facilityInfo,
         현재시설정보: facilityInfo,
         파일타입: fileType,
-        폴더명: file.folderName
+        폴더명: file.folderName,
+        파일경로: file.filePath,
+        파일ID: file.id
       });
       
       if (isRecentUpload && file.facilityInfo && fileType !== 'basic') {

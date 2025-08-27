@@ -292,28 +292,55 @@ export function FileProvider({ children }: FileProviderProps) {
 
   // 사업장 변경 시 Realtime 구독 재설정 (에러 대비 fallback 추가)
   useEffect(() => {
+    let pollingInterval: NodeJS.Timeout | null = null;
+    
     if (businessName) {
       console.log('🔥 [REALTIME] 구독 시도 시작');
-      setupRealtimeSubscription().catch(error => {
-        console.error('🔥 [REALTIME] 구독 설정 완전 실패:', error);
-        
-        // Realtime 실패 시 폴링 방식으로 대체
-        console.log('🔄 [FALLBACK] Realtime 실패로 폴링 모드로 전환');
-        const intervalId = setInterval(async () => {
-          try {
-            await refreshFiles();
-            console.log('🔄 [FALLBACK] 폴링으로 파일 목록 업데이트');
-          } catch (error) {
-            console.error('🔄 [FALLBACK] 폴링 실패:', error);
+      
+      // 먼저 Realtime 시도
+      setupRealtimeSubscription()
+        .then(() => {
+          console.log('✅ [REALTIME] 구독 성공');
+        })
+        .catch(error => {
+          console.error('🔥 [REALTIME] 구독 설정 완전 실패:', error);
+          
+          // Realtime 실패 시 폴링 방식으로 대체
+          console.log('🔄 [FALLBACK] Realtime 실패로 폴링 모드로 전환');
+          pollingInterval = setInterval(async () => {
+            try {
+              await refreshFiles();
+              console.log('🔄 [FALLBACK] 폴링으로 파일 목록 업데이트');
+            } catch (error) {
+              console.error('🔄 [FALLBACK] 폴링 실패:', error);
+            }
+          }, 5000); // 5초마다 폴링 (더 빠르게)
+        });
+      
+      // WebSocket 연결 상태 모니터링을 위한 추가 폴백
+      const fallbackTimeout = setTimeout(() => {
+        if (!channelRef.current || channelRef.current.state !== 'joined') {
+          console.warn('⏰ [FALLBACK] Realtime 연결 타임아웃, 폴링 시작');
+          if (!pollingInterval) {
+            pollingInterval = setInterval(async () => {
+              try {
+                await refreshFiles();
+                console.log('🔄 [FALLBACK-TIMEOUT] 폴링으로 파일 목록 업데이트');
+              } catch (error) {
+                console.error('🔄 [FALLBACK-TIMEOUT] 폴링 실패:', error);
+              }
+            }, 5000);
           }
-        }, 10000); // 10초마다 폴링
-        
-        // 컴포넌트 언마운트 시 폴링 정리
-        return () => {
-          clearInterval(intervalId);
+        }
+      }, 10000); // 10초 후 타임아웃 체크
+      
+      return () => {
+        clearTimeout(fallbackTimeout);
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
           console.log('🔄 [FALLBACK] 폴링 정리 완료');
-        };
-      });
+        }
+      };
     }
     
     return () => {
@@ -321,8 +348,11 @@ export function FileProvider({ children }: FileProviderProps) {
         console.log('🔥 [REALTIME] 구독 해제');
         channelRef.current.unsubscribe();
       }
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
     };
-  }, [businessName, setupRealtimeSubscription]);
+  }, [businessName, setupRealtimeSubscription, refreshFiles]);
 
   return (
     <FileContext.Provider
