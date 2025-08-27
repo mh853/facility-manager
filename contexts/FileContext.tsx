@@ -220,11 +220,13 @@ export function FileProvider({ children }: FileProviderProps) {
                 console.log(`🗑️ [REALTIME] 파일 삭제 적용: ${deletedFile.id}, 삭제전:${beforeCount}, 삭제후:${afterCount}`);
                 
                 // 토스트 알림
-                const toast = document.createElement('div');
-                toast.className = 'fixed top-4 right-4 bg-orange-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
-                toast.textContent = `🗑️ 파일이 삭제되었습니다: ${deletedFile.original_filename || deletedFile.filename}`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
+                if (typeof window !== 'undefined') {
+                  const toast = document.createElement('div');
+                  toast.className = 'fixed top-4 right-4 bg-orange-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
+                  toast.textContent = `🗑️ 파일이 삭제되었습니다: ${deletedFile.original_filename || deletedFile.filename}`;
+                  document.body.appendChild(toast);
+                  setTimeout(() => toast.remove(), 3000);
+                }
               } else {
                 console.warn(`🗑️ [REALTIME] 삭제할 파일을 찾지 못함: ${deletedFile.id}`);
               }

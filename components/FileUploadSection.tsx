@@ -232,19 +232,39 @@ const UploadItem = memo(({
         폴더명: file.folderName
       });
       
-      if (isRecentUpload && file.facilityInfo) {
-        // 최근 파일은 시설명만 매치해도 임시 표시 (더 관대한 매칭)
+      if (isRecentUpload && file.facilityInfo && fileType !== 'basic') {
+        // 최근 파일도 정확한 시설명+배출구 매칭 필요 (배출/방지시설)
+        const currentFacilityName = facilityInfo.split('(')[0].trim();
+        const currentOutletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
+        const currentOutletNumber = currentOutletMatch ? currentOutletMatch[1] : null;
+        
+        const fileFacilityName = file.facilityInfo.split('(')[0].trim();
+        const fileOutletMatch = file.facilityInfo.match(/배출구:\s*(\d+)번/);
+        const fileOutletNumber = fileOutletMatch ? fileOutletMatch[1] : null;
+        
+        console.log(`🔍 [${uploadId}] 최근 파일 정확 매칭:`, {
+          현재시설명: currentFacilityName,
+          현재배출구: currentOutletNumber,
+          파일시설명: fileFacilityName,
+          파일배출구: fileOutletNumber,
+          시설매치: currentFacilityName === fileFacilityName,
+          배출구매치: currentOutletNumber === fileOutletNumber
+        });
+        
+        // 시설명과 배출구 번호가 모두 일치해야 함
+        if (currentFacilityName === fileFacilityName && 
+            currentOutletNumber === fileOutletNumber && 
+            currentOutletNumber && fileOutletNumber) {
+          console.log(`🚀 [${uploadId}] 최근 업로드 파일 정확 매치: ${file.originalName} (${Math.round((now - fileTime) / 1000)}초 전)`);
+          return true;
+        }
+      } else if (isRecentUpload && file.facilityInfo && fileType === 'basic') {
+        // 기본 시설은 시설명만 매칭
         const currentFacilityName = facilityInfo.split('(')[0].trim();
         const fileFacilityName = file.facilityInfo.split('(')[0].trim();
         
-        console.log(`🔍 [${uploadId}] 최근 파일 시설명 비교:`, {
-          현재시설명: currentFacilityName,
-          파일시설명: fileFacilityName,
-          매치여부: currentFacilityName === fileFacilityName
-        });
-        
         if (currentFacilityName === fileFacilityName) {
-          console.log(`🚀 [${uploadId}] 최근 업로드 파일 매치: ${file.originalName} (${Math.round((now - fileTime) / 1000)}초 전)`);
+          console.log(`🚀 [${uploadId}] 최근 업로드 기본 시설 매치: ${file.originalName}`);
           return true;
         }
       }
