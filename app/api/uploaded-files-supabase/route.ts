@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 파일 URL 생성
-    const filesWithUrls = files?.map(file => {
+    const filesWithUrls = files?.map((file: any) => {
       const { data: publicUrl } = supabaseAdmin.storage
         .from('facility-files')
         .getPublicUrl(file.file_path);

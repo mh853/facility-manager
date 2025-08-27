@@ -71,7 +71,28 @@ function UploadedFilesManager({
       const timestamp = forceRefresh ? `&_t=${Date.now()}` : '';
       const refreshParam = forceRefresh ? '&refresh=true' : '';
       
-      const response = await fetch(
+      // 1. Supabase API 시도
+      const supabaseResponse = await fetch(
+        `/api/uploaded-files-supabase?businessName=${encodeURIComponent(businessName)}&systemType=${systemType}${refreshParam}${timestamp}`,
+        {
+          cache: forceRefresh ? 'no-cache' : 'default',
+          headers: forceRefresh ? { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } : {}
+        }
+      );
+      
+      const supabaseResult = await supabaseResponse.json();
+      console.log('📂 Supabase API 응답:', supabaseResult);
+
+      // Supabase에서 파일을 찾은 경우
+      if (supabaseResult.success && supabaseResult.data.files?.length > 0) {
+        setFiles(supabaseResult.data.files);
+        console.log('📂 Supabase에서 로드된 파일 수:', supabaseResult.data.files.length);
+        return;
+      }
+
+      // 2. Supabase에서 파일을 못 찾은 경우, 기존 Google Drive API 시도 (호환성 유지)
+      console.log('📂 Supabase에서 파일 없음, Google Drive API 시도...');
+      const googleResponse = await fetch(
         `/api/uploaded-files?businessName=${encodeURIComponent(businessName)}&systemType=${systemType}${refreshParam}${timestamp}`,
         {
           cache: forceRefresh ? 'no-cache' : 'default',
@@ -79,16 +100,16 @@ function UploadedFilesManager({
         }
       );
       
-      const result = await response.json();
-      console.log('📂 API 응답:', result);
+      const googleResult = await googleResponse.json();
+      console.log('📂 Google Drive API 응답:', googleResult);
 
-      if (result.success) {
-        setFiles(result.data.files || []);
-        console.log('📂 로드된 파일 수:', result.data.files?.length || 0);
+      if (googleResult.success) {
+        setFiles(googleResult.data.files || []);
+        console.log('📂 Google Drive에서 로드된 파일 수:', googleResult.data.files?.length || 0);
       } else {
-        setError(result.message);
+        setError(`Supabase와 Google Drive 모두에서 파일을 찾을 수 없습니다: ${googleResult.message}`);
         setFiles([]);
-        console.warn('📂 파일 로드 실패:', result.message);
+        console.warn('📂 Google Drive 파일 로드 실패:', googleResult.message);
       }
     } catch (error) {
       console.error('📂 파일 목록 로드 오류:', error);
@@ -117,7 +138,7 @@ function UploadedFilesManager({
         size: file.size 
       });
 
-      const response = await fetch('/api/uploaded-files', {
+      const response = await fetch('/api/uploaded-files-supabase', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -166,13 +187,18 @@ function UploadedFilesManager({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // 폴더별 파일 그룹화
+  // 폴더별 파일 그룹화 및 파일명 기준 오름차순 정렬
   const filesByFolder = files.reduce((acc, file) => {
     const folderName = getFolderDisplayName(file.folderName);
     if (!acc[folderName]) acc[folderName] = [];
     acc[folderName].push(file);
     return acc;
   }, {} as { [key: string]: UploadedFile[] });
+
+  // 각 폴더 내 파일들을 파일명 기준으로 오름차순 정렬
+  Object.keys(filesByFolder).forEach(folderName => {
+    filesByFolder[folderName].sort((a, b) => a.name.localeCompare(b.name, 'ko-KR', { numeric: true }));
+  });
 
   return (
     <>
@@ -227,7 +253,9 @@ function UploadedFilesManager({
               <p className="font-medium text-blue-800">📁 총 {files.length}개의 파일이 업로드되었습니다</p>
             </div>
             
-            {Object.entries(filesByFolder).map(([folderName, folderFiles]) => {
+            {Object.entries(filesByFolder)
+              .sort(([a], [b]) => a.localeCompare(b, 'ko-KR'))
+              .map(([folderName, folderFiles]) => {
               const theme = getFolderTheme(folderName);
               
               return (

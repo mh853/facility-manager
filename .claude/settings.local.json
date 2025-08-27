@@ -18,6 +18,9 @@
       "Bash(npx kill-port:*)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "C:\\"
+    ]
   }
 }
