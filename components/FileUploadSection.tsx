@@ -932,20 +932,21 @@ function FileUploadSection({
             });
             
             return (
-            <UploadItem
-              key={`discharge-${index}`}
-              uploadId={`discharge-${index}`}
-              label={facility.displayName}
-              fileType="discharge"
-              facilityInfo={`${facility.name} (${facility.capacity}, 수량: ${facility.quantity}개, 배출구: ${facility.outlet}번)`}
-              IconComponent={Zap}
-              facility={facility}
-              onUpload={uploadFiles}
-              uploadState={uploads[`discharge-${index}`] || { files: [], status: '', uploading: false }}
-              uploadedFiles={uploadedFiles}
-              onDeleteFile={handleDeleteFile}
-              onRefreshFiles={loadUploadedFiles}
-            />
+              <UploadItem
+                key={`discharge-${index}`}
+                uploadId={`discharge-${index}`}
+                label={facility.displayName}
+                fileType="discharge"
+                facilityInfo={facilityInfo}
+                IconComponent={Zap}
+                facility={facility}
+                onUpload={uploadFiles}
+                uploadState={uploads[`discharge-${index}`] || { files: [], status: '', uploading: false }}
+                uploadedFiles={uploadedFiles}
+                onDeleteFile={handleDeleteFile}
+                onRefreshFiles={loadUploadedFiles}
+              />
+            );
           ))}
         </div>
       </div>
