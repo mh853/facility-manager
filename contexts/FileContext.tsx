@@ -288,10 +288,30 @@ export function FileProvider({ children }: FileProviderProps) {
     setSystemTypeState(type);
   }, []);
 
-  // 사업장 변경 시 Realtime 구독 재설정
+  // 사업장 변경 시 Realtime 구독 재설정 (에러 대비 fallback 추가)
   useEffect(() => {
     if (businessName) {
-      setupRealtimeSubscription();
+      console.log('🔥 [REALTIME] 구독 시도 시작');
+      setupRealtimeSubscription().catch(error => {
+        console.error('🔥 [REALTIME] 구독 설정 완전 실패:', error);
+        
+        // Realtime 실패 시 폴링 방식으로 대체
+        console.log('🔄 [FALLBACK] Realtime 실패로 폴링 모드로 전환');
+        const intervalId = setInterval(async () => {
+          try {
+            await refreshFiles();
+            console.log('🔄 [FALLBACK] 폴링으로 파일 목록 업데이트');
+          } catch (error) {
+            console.error('🔄 [FALLBACK] 폴링 실패:', error);
+          }
+        }, 10000); // 10초마다 폴링
+        
+        // 컴포넌트 언마운트 시 폴링 정리
+        return () => {
+          clearInterval(intervalId);
+          console.log('🔄 [FALLBACK] 폴링 정리 완료');
+        };
+      });
     }
     
     return () => {

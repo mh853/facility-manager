@@ -679,7 +679,7 @@ function FileUploadSection({
           }
         }));
         
-        // 업로드된 파일들을 즉시 FileContext에 추가
+        // 업로드된 파일들을 즉시 FileContext에 추가 (강화된 버전)
         const newFiles = successResults
           .filter(result => result.data?.files)
           .flatMap(result => result.data.files);
@@ -687,36 +687,24 @@ function FileUploadSection({
         if (newFiles.length > 0) {
           console.log(`➕ [UPLOAD] 즉시 파일 목록에 추가: ${newFiles.length}개 파일`, newFiles);
           
-          // 즉시 추가 - 모바일을 위한 다중 시도
+          // 1. 즉시 추가 (실시간 동기화 대신)
           addFiles(newFiles);
           
-          // 모바일 호환성을 위한 적극적 재시도 (여러 시점에서)
-          setTimeout(() => {
-            console.log(`🔄 [UPLOAD] 50ms 재시도`);
-            addFiles(newFiles);
-          }, 50);
+          // 2. 다중 재시도로 확실하게 추가
+          const retryTimes = [50, 100, 200, 500, 1000];
+          retryTimes.forEach(delay => {
+            setTimeout(() => {
+              console.log(`🔄 [UPLOAD] ${delay}ms 재시도`);
+              addFiles(newFiles);
+            }, delay);
+          });
           
-          setTimeout(() => {
-            console.log(`🔄 [UPLOAD] 150ms 재시도`);
-            addFiles(newFiles);
-          }, 150);
-          
-          setTimeout(() => {
-            console.log(`🔄 [UPLOAD] 300ms 재시도`);
-            addFiles(newFiles);
-          }, 300);
+          // 3. 강제 새로고침 (실시간 동기화 실패 대비)
+          setTimeout(async () => {
+            console.log(`🔄 [UPLOAD] 강제 새로고침 실행 (2초 후)`);
+            await refreshFiles();
+          }, 2000);
         }
-        
-        // 강제 새로고침 (모바일에서 더 적극적)
-        setTimeout(async () => {
-          console.log(`🔄 [UPLOAD] 강제 새로고침 실행 (500ms)`);
-          await refreshFiles();
-        }, 500);
-        
-        setTimeout(async () => {
-          console.log(`🔄 [UPLOAD] 백업 새로고침 실행 (1000ms)`);
-          await refreshFiles();
-        }, 1000);
         
         // 성공 토스트 표시
         const toast = document.createElement('div');
@@ -746,25 +734,23 @@ function FileUploadSection({
         if (newFiles.length > 0) {
           console.log(`➕ [UPLOAD] 일부 성공한 파일을 즉시 추가: ${newFiles.length}개 파일`, newFiles);
           
-          // 즉시 추가 - 모바일을 위한 다중 시도
+          // 1. 즉시 추가
           addFiles(newFiles);
           
-          // 모바일 호환성을 위한 적극적 재시도
-          setTimeout(() => {
-            console.log(`🔄 [UPLOAD] 일부 성공 50ms 재시도`);
-            addFiles(newFiles);
-          }, 50);
+          // 2. 다중 재시도
+          const retryTimes = [50, 100, 200, 500, 1000];
+          retryTimes.forEach(delay => {
+            setTimeout(() => {
+              console.log(`🔄 [UPLOAD] 일부 성공 ${delay}ms 재시도`);
+              addFiles(newFiles);
+            }, delay);
+          });
           
-          setTimeout(() => {
-            console.log(`🔄 [UPLOAD] 일부 성공 150ms 재시도`);
-            addFiles(newFiles);
-          }, 150);
-          
-          // 강제 새로고침도 추가
+          // 3. 강제 새로고침
           setTimeout(async () => {
-            console.log(`🔄 [UPLOAD] 일부 성공 강제 새로고침 (500ms)`);
+            console.log(`🔄 [UPLOAD] 일부 성공 강제 새로고침 (2초 후)`);
             await refreshFiles();
-          }, 500);
+          }, 2000);
         }
         
         // 파일 목록 실시간 업데이트 (백업용)
