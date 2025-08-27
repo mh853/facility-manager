@@ -551,14 +551,23 @@ function FileUploadSection({
           .flatMap(result => result.data.files);
         
         if (newFiles.length > 0) {
-          console.log(`➕ [UPLOAD] 즉시 파일 목록에 추가: ${newFiles.length}개 파일`);
+          console.log(`➕ [UPLOAD] 즉시 파일 목록에 추가: ${newFiles.length}개 파일`, newFiles);
+          
+          // 즉시 추가
           addFiles(newFiles);
+          
+          // 추가 검증 (모바일 호환성)
+          setTimeout(() => {
+            console.log(`🔄 [UPLOAD] 파일 목록 재검증`);
+            addFiles(newFiles); // 한번 더 추가 (중복 방지는 addFiles에서 처리)
+          }, 100);
         }
         
         // 파일 목록 실시간 업데이트 (백업용)
         setTimeout(async () => {
+          console.log(`🔄 [UPLOAD] 백업 새로고침 실행`);
           await refreshFiles();
-        }, 500);
+        }, 1000); // 1초로 늘림
         
         // 성공 토스트 표시
         const toast = document.createElement('div');
@@ -586,14 +595,23 @@ function FileUploadSection({
           .flatMap(result => result.data.files);
         
         if (newFiles.length > 0) {
-          console.log(`➕ [UPLOAD] 일부 성공한 파일을 즉시 추가: ${newFiles.length}개 파일`);
+          console.log(`➕ [UPLOAD] 일부 성공한 파일을 즉시 추가: ${newFiles.length}개 파일`, newFiles);
+          
+          // 즉시 추가
           addFiles(newFiles);
+          
+          // 추가 검증 (모바일 호환성)
+          setTimeout(() => {
+            console.log(`🔄 [UPLOAD] 일부 성공 파일 재검증`);
+            addFiles(newFiles);
+          }, 100);
         }
         
         // 파일 목록 실시간 업데이트 (백업용)
         setTimeout(async () => {
+          console.log(`🔄 [UPLOAD] 일부 성공 백업 새로고침 실행`);
           await refreshFiles();
-        }, 500);
+        }, 1000);
         
         // 경고 토스트 표시
         const toast = document.createElement('div');

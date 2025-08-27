@@ -72,13 +72,24 @@ export function FileProvider({ children }: FileProviderProps) {
 
   // 파일 추가
   const addFiles = useCallback((newFiles: UploadedFile[]) => {
+    if (!newFiles || newFiles.length === 0) {
+      console.warn(`➕ [FileContext] 추가할 파일이 없습니다`);
+      return;
+    }
+
+    console.log(`➕ [FileContext] 파일 추가 시작: ${newFiles.length}개`, newFiles);
+    
     setUploadedFiles(prev => {
       const existingIds = new Set(prev.map(f => f.id));
-      const uniqueNewFiles = newFiles.filter(f => !existingIds.has(f.id));
+      const uniqueNewFiles = newFiles.filter(f => f.id && !existingIds.has(f.id));
       
       if (uniqueNewFiles.length > 0) {
-        console.log(`➕ [FileContext] 새 파일 추가: ${uniqueNewFiles.length}개`);
-        return [...prev, ...uniqueNewFiles];
+        console.log(`➕ [FileContext] 고유 파일 추가: ${uniqueNewFiles.length}개`);
+        const updated = [...prev, ...uniqueNewFiles];
+        console.log(`➕ [FileContext] 업데이트된 총 파일 수: ${updated.length}개`);
+        return updated;
+      } else {
+        console.log(`➕ [FileContext] 모든 파일이 이미 존재함`);
       }
       
       return prev;
@@ -105,66 +116,73 @@ export function FileProvider({ children }: FileProviderProps) {
 
     console.log(`🔥 [REALTIME] 구독 시작: ${businessName}`);
 
-    // 사업장 ID 조회
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('name', businessName)
-      .single();
+    try {
+      // 사업장 ID 조회 (Admin 클라이언트 사용)
+      const response = await fetch('/api/business-id', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessName })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success || !result.businessId) {
+        console.warn(`🔥 [REALTIME] 사업장 ID 조회 실패: ${businessName}`);
+        return;
+      }
 
-    if (!business) {
-      console.warn(`🔥 [REALTIME] 사업장을 찾을 수 없음: ${businessName}`);
-      return;
-    }
+      const businessId = result.businessId;
+      console.log(`🔥 [REALTIME] 사업장 ID 확인: ${businessId}`);
 
-    const businessId = business.id;
-    console.log(`🔥 [REALTIME] 사업장 ID 확인: ${businessId}`);
-
-    // 새 채널 생성 및 구독
-    const channel = supabase
-      .channel(`uploaded_files_${businessId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'uploaded_files',
-          filter: `business_id=eq.${businessId}` // 사업장별 필터링 추가
-        },
+      // 새 채널 생성 및 구독 (더 간단한 채널명 사용)
+      const channel = supabase
+        .channel(`files_${businessName.replace(/\s+/g, '_')}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'uploaded_files',
+            filter: `business_id=eq.${businessId}`
+          },
         (payload) => {
           console.log('🔥 [REALTIME] 변경 감지:', payload);
           
           if (payload.eventType === 'INSERT') {
             // 새 파일 추가
             const newFile = payload.new as any;
-            if (newFile.business_id === businessId) {
-              // 파일을 UploadedFile 형식으로 변환
-              const formattedFile: UploadedFile = {
-                id: newFile.id,
-                name: newFile.filename,
-                originalName: newFile.original_filename,
-                mimeType: newFile.mime_type,
-                size: newFile.file_size,
-                createdTime: newFile.created_at,
-                webViewLink: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
-                downloadUrl: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
-                thumbnailUrl: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
-                folderName: newFile.file_path.includes('/discharge/') ? '배출시설' : 
-                           newFile.file_path.includes('/prevention/') ? '방지시설' : '기본사진',
-                uploadStatus: newFile.upload_status,
-                facilityInfo: newFile.facility_info
-              };
+            console.log(`➕ [REALTIME] INSERT 이벤트:`, newFile);
+            
+            // businessId는 이미 필터링되어 있으므로 조건 체크 불필요
+            // 파일을 UploadedFile 형식으로 변환
+            const formattedFile: UploadedFile = {
+              id: newFile.id,
+              name: newFile.filename,
+              originalName: newFile.original_filename,
+              mimeType: newFile.mime_type,
+              size: newFile.file_size,
+              createdTime: newFile.created_at,
+              webViewLink: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
+              downloadUrl: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
+              thumbnailUrl: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
+              folderName: newFile.file_path.includes('/discharge/') ? '배출시설' : 
+                         newFile.file_path.includes('/prevention/') ? '방지시설' : '기본사진',
+              uploadStatus: newFile.upload_status,
+              facilityInfo: newFile.facility_info
+            };
 
-              setUploadedFiles(prev => {
-                // 중복 방지
-                if (prev.some(f => f.id === formattedFile.id)) {
-                  return prev;
-                }
-                console.log(`➕ [REALTIME] 새 파일 추가: ${formattedFile.originalName}`);
-                return [...prev, formattedFile];
-              });
+            setUploadedFiles(prev => {
+              // 중복 방지
+              if (prev.some(f => f.id === formattedFile.id)) {
+                console.log(`➕ [REALTIME] 중복 파일 무시: ${formattedFile.originalName}`);
+                return prev;
+              }
+              console.log(`➕ [REALTIME] 새 파일 추가: ${formattedFile.originalName}`);
+              return [...prev, formattedFile];
+            });
 
-              // 토스트 알림
+            // 토스트 알림
+            if (typeof window !== 'undefined') {
               const toast = document.createElement('div');
               toast.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
               toast.textContent = `📁 새 파일이 업로드되었습니다: ${formattedFile.originalName}`;
@@ -242,6 +260,10 @@ export function FileProvider({ children }: FileProviderProps) {
       });
 
     channelRef.current = channel;
+    
+    } catch (error) {
+      console.error(`🔥 [REALTIME] 구독 설정 실패:`, error);
+    }
   }, [businessName]);
 
   // 사업장 정보 설정
