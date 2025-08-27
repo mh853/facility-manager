@@ -15,7 +15,8 @@
       "Bash(curl:*)",
       "Bash(tasklist:*)",
       "Bash(taskkill:*)",
-      "Bash(npx kill-port:*)"
+      "Bash(npx kill-port:*)",
+      "Bash(rd:*)"
     ],
     "deny": [],
     "ask": [],

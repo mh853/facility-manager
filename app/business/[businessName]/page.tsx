@@ -12,10 +12,22 @@ import FacilityStats from '@/components/FacilityStats';
 import FileUploadSection from '@/components/FileUploadSection';
 import { FileProvider, useFileContext } from '@/contexts/FileContext';
 
+// Hydration-safe hook
+function useIsHydrated() {
+  const [isHydrated, setIsHydrated] = useState(false);
+  
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+  
+  return isHydrated;
+}
+
 export default function BusinessPage() {
   const params = useParams();
   const businessName = useMemo(() => decodeURIComponent(params.businessName as string), [params.businessName]);
   const [systemType, setSystemType] = useState<SystemType>('presurvey'); // 기본값을 presurvey로 변경
+  const isHydrated = useIsHydrated();
   
   const [facilities, setFacilities] = useState<FacilitiesData | null>(null);
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
@@ -26,13 +38,27 @@ export default function BusinessPage() {
   const [inspectorInfo, setInspectorInfo] = useState(() => ({
     name: '',
     contact: '',
-    date: new Date().toLocaleDateString('ko-KR', {
-      timeZone: 'Asia/Seoul',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1)
+    date: '' // Initialize empty to prevent hydration mismatch
   }));
+  
+  // Set default date after hydration
+  useEffect(() => {
+    if (isHydrated && typeof window !== 'undefined') {
+      setInspectorInfo(prev => {
+        if (!prev.date) {
+          const defaultDate = new Date().toLocaleDateString('ko-KR', {
+            timeZone: 'Asia/Seoul',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1);
+          
+          return { ...prev, date: defaultDate };
+        }
+        return prev;
+      });
+    }
+  }, [isHydrated]);
 
   const [specialNotes, setSpecialNotes] = useState('');
   const [syncData, setSyncData] = useState<any>(null); // 구글시트 동기화 데이터
@@ -315,10 +341,12 @@ export default function BusinessPage() {
         console.log('🔄 동기화 데이터 로드 성공:', result.data);
         
         setSyncData(result.data);
-        setLastSyncTime(new Date().toLocaleTimeString('ko-KR', {
-          timeZone: 'Asia/Seoul',
-          hour12: false
-        }));
+        if (typeof window !== 'undefined') {
+          setLastSyncTime(new Date().toLocaleTimeString('ko-KR', {
+            timeZone: 'Asia/Seoul',
+            hour12: false
+          }));
+        }
         
         // 폼에 데이터 미리 채우기 (최초 로드 시에만)
         if (isInitialLoad) {
@@ -326,12 +354,12 @@ export default function BusinessPage() {
             ...prev,
             name: prev.name || result.data.설치담당자 || '',
             contact: prev.contact || result.data.연락처 || '',
-            date: prev.date || result.data.설치일 || new Date().toLocaleDateString('ko-KR', {
+            date: prev.date || result.data.설치일 || (typeof window !== 'undefined' ? new Date().toLocaleDateString('ko-KR', {
               timeZone: 'Asia/Seoul',
               year: 'numeric',
               month: '2-digit',
               day: '2-digit'
-            }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1)
+            }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1) : '')
           }));
           
           setSpecialNotes(prev => prev || result.data.특이사항 || '');
@@ -563,7 +591,8 @@ export default function BusinessPage() {
     return { hasDischarge, hasPrevention, hasFacilities };
   }, [facilities]);
 
-  if (loading) {
+  // Wait for hydration to prevent SSR mismatch
+  if (!isHydrated || loading) {
     return <LoadingSpinner message="시설 정보를 불러오는 중입니다..." />;
   }
 
