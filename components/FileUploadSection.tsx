@@ -181,17 +181,53 @@ const UploadItem = memo(({
     });
   }, [uploadedFiles.length, uploadId, facilityInfo]);
 
-  // 시설별 파일 고유 식별자 생성 (컴포넌트 내부 함수)
+  // 시설별 파일 고유 식별자 생성 (업로드 API와 일관된 구조)
   const generateFacilityId = useCallback((facilityInfo: string, fileType: string) => {
     const facilityName = facilityInfo.split('(')[0].trim();
     const outletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
     const outletNumber = outletMatch ? outletMatch[1] : '0';
     
     if (fileType === 'discharge' || fileType === 'prevention') {
-      return `outlet_${outletNumber}_${fileType.substring(0, 4)}_${facilityName}`;
+      // 배출/방지시설: outlet_X_disc/prev_facilityName
+      const sanitizedFacilityName = facilityName
+        .replace(/[가-힣]/g, '')
+        .replace(/[^\w\-]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+        || 'facility';
+      return `outlet_${outletNumber}_${fileType.substring(0, 4)}_${sanitizedFacilityName}`;
     } else {
-      return facilityName;
+      // 기본시설: facility_X_basic_facilityName
+      const facilityIndex = getFacilityIndex(facilityInfo);
+      const sanitizedFacilityName = facilityName
+        .replace(/[가-힣]/g, '')
+        .replace(/[^\w\-]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+        || 'facility';
+      return `facility_${facilityIndex}_basic_${sanitizedFacilityName}`;
     }
+  }, []);
+
+  // 기본시설 인덱스 생성 함수 (업로드 API와 동일)
+  const getFacilityIndex = useCallback((facilityInfo: string): string => {
+    const facilityName = facilityInfo.toLowerCase();
+    
+    if (facilityName.includes('게이트웨이') || facilityName.includes('gateway')) return '1';
+    if (facilityName.includes('제어반') || facilityName.includes('배전함') || facilityName.includes('control')) return '2';  
+    if (facilityName.includes('송풍기') || facilityName.includes('blower') || facilityName.includes('풍')) return '3';
+    if (facilityName.includes('기타') || facilityName.includes('other')) return '4';
+    
+    // 기본값: 시설명의 해시값을 이용한 인덱스
+    let hash = 0;
+    for (let i = 0; i < facilityInfo.length; i++) {
+      const char = facilityInfo.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash % 100).toString();
   }, []);
 
   // 필터링된 파일들을 메모화하여 안정성 확보 (최강 엄격한 매칭)

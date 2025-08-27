@@ -102,14 +102,18 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   if (fileType === 'discharge') baseFolder = 'discharge';
   if (fileType === 'prevention') baseFolder = 'prevention';
   
-  // 시설별 세분화된 폴더 구조
-  // 예: business/prevention/outlet_1_prevention_1/ 또는 business/discharge/outlet_2_discharge_3/
+  // 시설별 세분화된 폴더 구조 (모든 시설 타입 통일)
+  // 예: business/discharge/outlet_1_disc_facility1/, business/basic/outlet_1_basic_gateway/
   let facilityFolder = '';
+  
+  // 모든 시설 타입에 대해 일관된 구조 적용
   if (fileType === 'discharge' || fileType === 'prevention') {
     facilityFolder = `outlet_${outletNumber}_${baseFolder.substring(0, 4)}_${sanitizedFacilityName}`;
   } else {
-    // 기본 시설의 경우 시설명만 사용
-    facilityFolder = sanitizedFacilityName;
+    // 기본 시설도 배출구별로 구분하여 일관된 구조 사용
+    // 기본시설의 경우 배출구 번호가 없으므로 시설 인덱스 사용
+    const facilityIndex = getFacilityIndex(facilityInfo);
+    facilityFolder = `facility_${facilityIndex}_basic_${sanitizedFacilityName}`;
   }
 
   const path = `${sanitizedBusiness}/${baseFolder}/${facilityFolder}/${timestamp}_${sanitizedFilename}`;
@@ -136,6 +140,26 @@ function extractOutletNumber(facilityInfo: string): string {
   // "배출구: N번" 형식에서 번호 추출
   const match = facilityInfo.match(/배출구:\s*(\d+)번/);
   return match ? match[1] : '0';
+}
+
+// 기본시설의 고유 인덱스 생성 (시설명 기반)
+function getFacilityIndex(facilityInfo: string): string {
+  // 시설명에 따른 고유 인덱스 생성
+  const facilityName = facilityInfo.toLowerCase();
+  
+  if (facilityName.includes('게이트웨이') || facilityName.includes('gateway')) return '1';
+  if (facilityName.includes('제어반') || facilityName.includes('배전함') || facilityName.includes('control')) return '2';  
+  if (facilityName.includes('송풍기') || facilityName.includes('blower') || facilityName.includes('풍')) return '3';
+  if (facilityName.includes('기타') || facilityName.includes('other')) return '4';
+  
+  // 기본값: 시설명의 해시값을 이용한 인덱스
+  let hash = 0;
+  for (let i = 0; i < facilityInfo.length; i++) {
+    const char = facilityInfo.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // 32bit로 변환
+  }
+  return Math.abs(hash % 100).toString();
 }
 
 export async function POST(request: NextRequest) {
