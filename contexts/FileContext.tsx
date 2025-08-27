@@ -31,7 +31,7 @@ export function FileProvider({ children }: FileProviderProps) {
   const loadingRef = useRef(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // 파일 목록 새로고침
+  // 파일 목록 새로고침 (스마트 머지 방식)
   const refreshFiles = useCallback(async () => {
     if (!businessName || loadingRef.current) return;
     
@@ -43,8 +43,41 @@ export function FileProvider({ children }: FileProviderProps) {
       const result = await response.json();
       
       if (result.success) {
-        setUploadedFiles(result.data.files || []);
-        console.log(`🔄 [FileContext] 파일 목록 새로고침 완료: ${result.data.files?.length || 0}개 파일`);
+        const newFiles = result.data.files || [];
+        
+        // 스마트 머지: 기존 파일과 새 파일을 합쳐서 중복 제거
+        setUploadedFiles(prevFiles => {
+          const existingIds = new Set(prevFiles.map(f => f.id));
+          const serverFiles = newFiles.filter((f: any) => f.id && !existingIds.has(f.id));
+          
+          // 최근 3분 이내 업로드된 파일은 유지 (깜빡임 방지)
+          const now = new Date().getTime();
+          const recentFiles = prevFiles.filter(f => {
+            const fileTime = new Date(f.createdTime).getTime();
+            const isTimeRecent = now - fileTime < 3 * 60 * 1000; // 3분 이내
+            const hasUploadFlag = f.justUploaded || (f.uploadedAt && now - f.uploadedAt < 5000); // 업로드 플래그 또는 5초 이내
+            return isTimeRecent || hasUploadFlag;
+          });
+          
+          // 오래된 파일은 서버에서 가져온 것으로 교체
+          const olderServerFiles = newFiles.filter((serverFile: any) => {
+            const serverFileTime = new Date(serverFile.createdTime).getTime();
+            return now - serverFileTime >= 3 * 60 * 1000; // 3분 이상 된 파일
+          });
+          
+          const mergedFiles = [...recentFiles, ...serverFiles, ...olderServerFiles];
+          
+          console.log(`🔄 [FileContext] 스마트 새로고침 완료:`, {
+            기존파일: prevFiles.length,
+            서버파일: newFiles.length,
+            최근파일유지: recentFiles.length,
+            새로운파일: serverFiles.length,
+            오래된파일: olderServerFiles.length,
+            최종파일: mergedFiles.length
+          });
+          
+          return mergedFiles;
+        });
       } else {
         console.warn('🔄 [FileContext] 파일 목록 새로고침 실패:', result.message);
       }
@@ -56,7 +89,7 @@ export function FileProvider({ children }: FileProviderProps) {
     }
   }, [businessName, systemType]);
 
-  // 파일 추가 (모바일 호환성 강화)
+  // 파일 추가 (모바일 호환성 강화 + 업로드 직후 안정성 보장)
   const addFiles = useCallback((newFiles: UploadedFile[]) => {
     if (!newFiles || newFiles.length === 0) {
       console.warn(`➕ [FileContext] 추가할 파일이 없습니다`);
@@ -79,8 +112,27 @@ export function FileProvider({ children }: FileProviderProps) {
       
       if (uniqueNewFiles.length > 0) {
         console.log(`➕ [FileContext] 고유 파일 추가: ${uniqueNewFiles.length}개`);
-        const updated = [...prev, ...uniqueNewFiles];
+        
+        // 새로 추가되는 파일들에 업로드 직후 마커 추가 (깜빡임 방지)
+        const markedNewFiles = uniqueNewFiles.map(file => ({
+          ...file,
+          justUploaded: true, // 업로드 직후임을 표시하는 플래그
+          uploadedAt: Date.now() // 추가 시점 기록
+        }));
+        
+        const updated = [...prev, ...markedNewFiles];
         console.log(`➕ [FileContext] 업데이트된 총 파일 수: ${updated.length}개`);
+        
+        // 5초 후 justUploaded 플래그 제거
+        setTimeout(() => {
+          setUploadedFiles(current => 
+            current.map(f => ({
+              ...f,
+              justUploaded: undefined,
+              uploadedAt: undefined
+            }))
+          );
+        }, 5000);
         
         // 모바일에서 상태 업데이트를 강제하기 위한 트릭
         if (typeof window !== 'undefined') {
@@ -313,7 +365,7 @@ export function FileProvider({ children }: FileProviderProps) {
         } catch (error) {
           console.error('🔄 [POLLING] 폴링 실패:', error);
         }
-      }, 2000); // 2초마다 폴링 (빠른 동기화)
+      }, 5000); // 5초마다 폴링 (깜빡임 방지)
       
       // 초기 로드
       setTimeout(() => {

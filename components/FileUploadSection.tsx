@@ -270,24 +270,27 @@ const UploadItem = memo(({
       }
       
       // ⭐ 최근 업로드 파일은 무조건 표시 (사라지지 않게)
-      if (isVeryRecentUpload) {
-        console.log(`⭐ [${uploadId}] 최근 업로드 파일 - 무조건 표시: ${file.originalName}`);
+      if (isVeryRecentUpload || file.justUploaded) {
+        console.log(`⭐ [${uploadId}] 최근 업로드 파일 - 무조건 표시: ${file.originalName}`, {
+          시간기반최근: isVeryRecentUpload,
+          업로드플래그: file.justUploaded
+        });
         return true;
       }
       
-      // 📁 시설명 기반 폴더 검증
+      // 📁 label(displayName) 기반 폴더 검증
       if (fileType === 'discharge' || fileType === 'prevention') {
-        const currentFacilityName = facilityInfo.split('(')[0].trim();
-        const currentFacilityNumber = currentFacilityName.match(/(\d+)/)?.[1] || '0';
+        // label에서 마지막 숫자 추출 (배출구1-배출시설1 → 1, 배출구2-방지시설2 → 2)
+        const labelFacilityNumber = label ? label.match(/(\d+)$/)?.[1] || '0' : '0';
         const shortType = fileType === 'discharge' ? 'discharge' : 'prevention';
         
-        if (currentFacilityNumber && file.filePath) {
-          const expectedPathPattern = `facility_${shortType}${currentFacilityNumber}`;
+        if (labelFacilityNumber !== '0' && file.filePath) {
+          const expectedPathPattern = `facility_${shortType}${labelFacilityNumber}`;
           const pathMatch = file.filePath.includes(expectedPathPattern);
           
-          console.log(`📁 [${uploadId}] 시설명 기반 폴더 검증: ${file.originalName}`, {
-            현재시설명: currentFacilityName,
-            시설번호: currentFacilityNumber,
+          console.log(`📁 [${uploadId}] label 기반 폴더 검증: ${file.originalName}`, {
+            현재라벨: label,
+            추출된숫자: labelFacilityNumber,
             시설타입: shortType,
             예상경로패턴: expectedPathPattern,
             실제파일경로: file.filePath,
@@ -295,7 +298,7 @@ const UploadItem = memo(({
           });
           
           if (pathMatch) {
-            console.log(`✅ [${uploadId}] 시설명 폴더 매치 성공: ${file.originalName}`);
+            console.log(`✅ [${uploadId}] label 폴더 매치 성공: ${file.originalName}`);
             return true;
           }
         }

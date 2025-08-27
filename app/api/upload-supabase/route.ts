@@ -112,8 +112,8 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   let facilityFolder = '';
   
   if (fileType === 'discharge' || fileType === 'prevention') {
-    // 배출/방지시설: displayName에서 숫자 추출 (배출시설1, 방지시설2 등)
-    const facilityNumber = displayName ? displayName.match(/(\d+)/)?.[1] : outletNumber;
+    // 배출/방지시설: displayName에서 마지막 숫자 추출 (배출구1-배출시설1 → 1, 배출구2-방지시설2 → 2)
+    const facilityNumber = displayName ? displayName.match(/(\d+)$/)?.[1] : outletNumber;
     const shortType = fileType === 'discharge' ? 'discharge' : 'prevention';
     facilityFolder = `facility_${shortType}${facilityNumber}`;
   } else {
@@ -212,6 +212,15 @@ export async function POST(request: NextRequest) {
     const facilityInfo = formData.get('facilityInfo') as string | null;
     const displayName = formData.get('displayName') as string | null; // 배출시설1, 배출시설2 등
     const systemType = formData.get('type') as string || 'completion';
+
+    console.log('🔍 [UPLOAD-DEBUG] 받은 데이터:', {
+      businessName,
+      fileType,
+      facilityInfo,
+      displayName,
+      systemType,
+      파일수: files.length
+    });
 
     if (!files.length) {
       return NextResponse.json({
