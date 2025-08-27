@@ -79,13 +79,18 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   const facilityName = extractFacilityName(facilityInfo);
   const outletNumber = extractOutletNumber(facilityInfo);
   
-  const sanitizedFacilityName = facilityName
-    .replace(/[가-힣]/g, '')
-    .replace(/[^\w\-]/g, '_')
-    .replace(/\s+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '')
-    || 'facility';
+  // 시설명에서 숫자와 영문만 추출 (배출시설1 → discharge1, 방지시설2 → prevention2)
+  const facilityNumber = facilityName.match(/(\d+)/)?.[1] || '0';
+  const facilityType = fileType === 'discharge' ? 'discharge' : 
+                      fileType === 'prevention' ? 'prevention' : 'facility';
+  const sanitizedFacilityName = `${facilityType}${facilityNumber}`;
+  
+  console.log('🔢 [FACILITY-SANITIZE] 시설명 정리:', {
+    원본시설명: facilityName,
+    추출숫자: facilityNumber,
+    시설타입: facilityType,
+    정리후: sanitizedFacilityName
+  });
     
   const sanitizedFilename = filename
     .replace(/[가-힣]/g, '')
@@ -124,15 +129,34 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
     정리후: { sanitizedBusiness, baseFolder, facilityFolder, sanitizedFilename },
     최종경로: path
   });
+  
+  // 배출시설별 구분이 제대로 되는지 특별 검증
+  if (fileType === 'discharge') {
+    console.log('🚨 [DISCHARGE-CHECK] 배출시설 구분 검증:', {
+      원본시설정보: facilityInfo,
+      추출된시설명: facilityName,
+      배출구번호: outletNumber,
+      생성된폴더: facilityFolder,
+      구분여부: facilityFolder.includes(facilityName) ? '✅ 시설명 포함됨' : '❌ 시설명 누락'
+    });
+  }
 
   return path;
 }
 
-// 시설 정보에서 시설명 추출
+// 시설 정보에서 시설명 추출 (숫자 포함)
 function extractFacilityName(facilityInfo: string): string {
-  // "방지시설1 (용량정보, 수량: N개, 배출구: N번)" 형식에서 시설명만 추출
+  // "배출시설1 (용량정보, 수량: N개, 배출구: N번)" 형식에서 시설명+숫자 추출
   const match = facilityInfo.match(/^([^(]+)/);
-  return match ? match[1].trim() : 'facility';
+  const fullName = match ? match[1].trim() : 'facility';
+  
+  // 숫자가 포함된 전체 시설명 반환 (예: "배출시설1", "배출시설2")
+  console.log('🏷️ [FACILITY-NAME] 시설명 추출:', {
+    원본: facilityInfo,
+    추출된시설명: fullName
+  });
+  
+  return fullName;
 }
 
 // 시설 정보에서 배출구 번호 추출
