@@ -182,6 +182,16 @@ const UploadItem = memo(({
   }, [uploadedFiles.length, uploadId, facilityInfo]);
 
   // 시설별 파일 고유 식별자 생성 (업로드 API와 일관된 구조)
+  // 기본시설 인덱스 매핑 함수
+  const getFacilityIndex = useCallback((facilityName: string) => {
+    const name = facilityName.toLowerCase();
+    if (name.includes('게이트웨이') || name.includes('gateway')) return '1';
+    if (name.includes('제어반') || name.includes('배전함') || name.includes('control')) return '2';
+    if (name.includes('송풍기') || name.includes('blower')) return '3';
+    if (name.includes('기타') || name.includes('other')) return '4';
+    return '0'; // 기본값
+  }, []);
+
   const generateFacilityId = useCallback((facilityInfo: string, fileType: string) => {
     const facilityName = facilityInfo.split('(')[0].trim();
     const outletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
@@ -209,26 +219,7 @@ const UploadItem = memo(({
         || 'facility';
       return `facility_${facilityIndex}_basic_${sanitizedFacilityName}`;
     }
-  }, []);
-
-  // 기본시설 인덱스 생성 함수 (업로드 API와 동일)
-  const getFacilityIndex = useCallback((facilityInfo: string): string => {
-    const facilityName = facilityInfo.toLowerCase();
-    
-    if (facilityName.includes('게이트웨이') || facilityName.includes('gateway')) return '1';
-    if (facilityName.includes('제어반') || facilityName.includes('배전함') || facilityName.includes('control')) return '2';  
-    if (facilityName.includes('송풍기') || facilityName.includes('blower') || facilityName.includes('풍')) return '3';
-    if (facilityName.includes('기타') || facilityName.includes('other')) return '4';
-    
-    // 기본값: 시설명의 해시값을 이용한 인덱스
-    let hash = 0;
-    for (let i = 0; i < facilityInfo.length; i++) {
-      const char = facilityInfo.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash % 100).toString();
-  }, []);
+  }, [getFacilityIndex]);
 
   // 필터링된 파일들을 메모화하여 안정성 확보 (최강 엄격한 매칭)
   const filteredUploadedFiles = useMemo(() => {
@@ -284,33 +275,46 @@ const UploadItem = memo(({
         return true;
       }
       
-      // 📁 폴더 경로 기반 시설명 검증 (더 명확한 구분)
+      // 📁 숫자 ID 기반 안정적 폴더 검증
       if (fileType === 'discharge' || fileType === 'prevention') {
-        const currentFacilityName = facilityInfo.split('(')[0].trim();
+        const currentOutletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
+        const currentOutletNumber = currentOutletMatch ? currentOutletMatch[1] : null;
         
-        if (currentFacilityName && file.filePath) {
-          // 시설명에서 ASCII만 추출 (Supabase Storage 호환)
-          const sanitizedFacilityName = currentFacilityName
-            .replace(/[가-힣]/g, '')          // 한글 제거
-            .replace(/[^\w\-]/g, '_')         // 영문, 숫자, 하이픈, 언더스코어만 허용
-            .replace(/\s+/g, '_')             // 공백을 언더스코어로
-            .replace(/_+/g, '_')              // 연속 언더스코어를 하나로
-            .replace(/^_|_$/g, '')            // 앞뒤 언더스코어 제거
-            || 'facility';
-            
-          const expectedPathPattern = `facility_${sanitizedFacilityName}`;
+        if (currentOutletNumber && file.filePath) {
+          const expectedPathPattern = `facility_${currentOutletNumber}`;
           const pathMatch = file.filePath.includes(expectedPathPattern);
           
-          console.log(`📁 [${uploadId}] 시설명 기반 폴더 검증: ${file.originalName}`, {
-            현재시설명: currentFacilityName,
-            정리된시설명: sanitizedFacilityName,
+          console.log(`📁 [${uploadId}] 숫자 ID 기반 폴더 검증: ${file.originalName}`, {
+            현재배출구번호: currentOutletNumber,
             예상경로패턴: expectedPathPattern,
             실제파일경로: file.filePath,
             경로매치: pathMatch
           });
           
           if (pathMatch) {
-            console.log(`✅ [${uploadId}] 시설명 폴더 매치 성공: ${file.originalName}`);
+            console.log(`✅ [${uploadId}] 숫자 ID 폴더 매치 성공: ${file.originalName}`);
+            return true;
+          }
+        }
+      } else if (fileType === 'basic') {
+        // 기본시설도 숫자 ID 기반 검증
+        const facilityName = facilityInfo.split('(')[0].trim();
+        const facilityIndex = getFacilityIndex(facilityName);
+        
+        if (file.filePath) {
+          const expectedPathPattern = `facility_${facilityIndex}`;
+          const pathMatch = file.filePath.includes(expectedPathPattern);
+          
+          console.log(`📁 [${uploadId}] 기본시설 숫자 ID 검증: ${file.originalName}`, {
+            시설명: facilityName,
+            시설인덱스: facilityIndex,
+            예상경로패턴: expectedPathPattern,
+            실제파일경로: file.filePath,
+            경로매치: pathMatch
+          });
+          
+          if (pathMatch) {
+            console.log(`✅ [${uploadId}] 기본시설 숫자 ID 매치 성공: ${file.originalName}`);
             return true;
           }
         }
