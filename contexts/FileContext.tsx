@@ -63,7 +63,15 @@ export function FileProvider({ children }: FileProviderProps) {
       return;
     }
 
-    console.log(`➕ [FileContext] 파일 추가 시작: ${newFiles.length}개`, newFiles);
+    console.log(`➕ [FileContext] 파일 추가 시작: ${newFiles.length}개`, {
+      files: newFiles.map(f => ({
+        id: f.id,
+        name: f.originalName,
+        facilityInfo: f.facilityInfo,
+        folderName: f.folderName,
+        createdTime: f.createdTime
+      }))
+    });
     
     setUploadedFiles(prev => {
       const existingIds = new Set(prev.map(f => f.id));
