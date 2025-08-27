@@ -165,7 +165,7 @@ const UploadItem = memo(({
   facilityInfo: string;
   IconComponent: any;
   facility?: Facility;
-  onUpload: (uploadId: string, fileType: string, facilityInfo: string) => void;
+  onUpload: (uploadId: string, fileType: string, facilityInfo: string, displayLabel?: string) => void;
   uploadState: { files: File[]; status: string; uploading: boolean; progress?: number };
   uploadedFiles: UploadedFile[];
   onDeleteFile: (fileId: string, fileName: string) => void;
@@ -393,8 +393,8 @@ const UploadItem = memo(({
   }, [uploadId]);
 
   const handleUpload = useCallback(() => {
-    onUpload(uploadId, fileType, facilityInfo);
-  }, [uploadId, fileType, facilityInfo, onUpload]);
+    onUpload(uploadId, fileType, facilityInfo, label);
+  }, [uploadId, fileType, facilityInfo, label, onUpload]);
 
   return (
     <div className="bg-gray-50 rounded-xl p-4 md:p-6 border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors">
@@ -612,7 +612,7 @@ function FileUploadSection({
   });
 
   // 최적화된 Google Drive 병렬 업로드 함수
-  const uploadFiles = useCallback(async (uploadId: string, fileType: string, facilityInfo: string) => {
+  const uploadFiles = useCallback(async (uploadId: string, fileType: string, facilityInfo: string, displayLabel?: string) => {
     const uploadData = uploads[uploadId];
     if (!uploadData || !uploadData.files.length) {
       console.warn('📁 업로드 데이터 없음:', { uploadId, uploadData });
@@ -633,7 +633,7 @@ function FileUploadSection({
         formData.append('businessName', businessName);
         formData.append('fileType', fileType);
         formData.append('facilityInfo', facilityInfo);
-        formData.append('displayName', label); // 배출시설1, 배출시설2 등의 표시명 추가
+        formData.append('displayName', displayLabel || ''); // 배출시설1, 배출시설2 등의 표시명 추가
         formData.append('type', systemType);
         formData.append('uploadId', uploadId);
         formData.append('files', file);

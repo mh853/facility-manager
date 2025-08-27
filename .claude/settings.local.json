@@ -16,7 +16,9 @@
       "Bash(tasklist:*)",
       "Bash(taskkill:*)",
       "Bash(npx kill-port:*)",
-      "Bash(rd:*)"
+      "Bash(rd:*)",
+      "Bash(git checkout:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": [],
