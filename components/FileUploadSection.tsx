@@ -199,26 +199,52 @@ const UploadItem = memo(({
     if (!uploadedFiles || uploadedFiles.length === 0) return [];
     
     const filtered = uploadedFiles.filter(file => {
-      // 기본적인 폴더 타입 매치
-      const folderMatch = file.folderName === (
-        fileType === 'discharge' ? '배출시설' :
-        fileType === 'prevention' ? '방지시설' : '기본사진'
-      );
+      // 기본적인 폴더 타입 매치 (상세 로깅)
+      const expectedFolderName = fileType === 'discharge' ? '배출시설' :
+                                fileType === 'prevention' ? '방지시설' : '기본사진';
+      const folderMatch = file.folderName === expectedFolderName;
       
-      if (!folderMatch) return false;
+      console.log(`🔍 [${uploadId}] 폴더 매치 검사: ${file.originalName}`, {
+        파일폴더명: file.folderName,
+        예상폴더명: expectedFolderName,
+        파일타입: fileType,
+        매치여부: folderMatch
+      });
       
-      // 0차 우선순위: 최근 업로드된 파일 (5분 이내) - 즉시 표시용
+      if (!folderMatch) {
+        console.log(`❌ [${uploadId}] 폴더 매치 실패: ${file.originalName} - ${file.folderName} !== ${expectedFolderName}`);
+        return false;
+      }
+      
+      // 0차 우선순위: 최근 업로드된 파일 (10분 이내) - 즉시 표시용
       const now = new Date().getTime();
       const fileTime = new Date(file.createdTime).getTime();
-      const isRecentUpload = now - fileTime < 5 * 60 * 1000; // 5분
+      const isRecentUpload = now - fileTime < 10 * 60 * 1000; // 10분으로 확장
+      
+      console.log(`🔍 [${uploadId}] 파일 시간 분석: ${file.originalName}`, {
+        현재시간: new Date(now).toLocaleString(),
+        파일생성시간: new Date(fileTime).toLocaleString(),
+        시간차이_초: Math.round((now - fileTime) / 1000),
+        최근업로드여부: isRecentUpload,
+        파일정보: file.facilityInfo,
+        현재시설정보: facilityInfo,
+        파일타입: fileType,
+        폴더명: file.folderName
+      });
       
       if (isRecentUpload && file.facilityInfo) {
         // 최근 파일은 시설명만 매치해도 임시 표시 (더 관대한 매칭)
         const currentFacilityName = facilityInfo.split('(')[0].trim();
         const fileFacilityName = file.facilityInfo.split('(')[0].trim();
         
+        console.log(`🔍 [${uploadId}] 최근 파일 시설명 비교:`, {
+          현재시설명: currentFacilityName,
+          파일시설명: fileFacilityName,
+          매치여부: currentFacilityName === fileFacilityName
+        });
+        
         if (currentFacilityName === fileFacilityName) {
-          console.log(`🚀 [${uploadId}] 최근 업로드 파일: ${file.originalName} (${Math.round((now - fileTime) / 1000)}초 전)`);
+          console.log(`🚀 [${uploadId}] 최근 업로드 파일 매치: ${file.originalName} (${Math.round((now - fileTime) / 1000)}초 전)`);
           return true;
         }
       }
