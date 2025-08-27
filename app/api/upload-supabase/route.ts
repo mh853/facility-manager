@@ -107,39 +107,18 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   if (fileType === 'discharge') baseFolder = 'discharge';
   if (fileType === 'prevention') baseFolder = 'prevention';
   
-  // 시설별 세분화된 폴더 구조 (모든 시설 타입 통일)
-  // 예: business/discharge/outlet_1_disc_facility1/, business/basic/outlet_1_basic_gateway/
-  let facilityFolder = '';
+  // 단순한 시설 타입별 폴더 구조
+  // 예: business/discharge/, business/prevention/, business/basic/
+  // 세부 구분은 파일명과 메타데이터로 관리
   
-  // 모든 시설 타입에 대해 일관된 구조 적용
-  if (fileType === 'discharge' || fileType === 'prevention') {
-    facilityFolder = `outlet_${outletNumber}_${baseFolder.substring(0, 4)}_${sanitizedFacilityName}`;
-  } else {
-    // 기본 시설도 배출구별로 구분하여 일관된 구조 사용
-    // 기본시설의 경우 배출구 번호가 없으므로 시설 인덱스 사용
-    const facilityIndex = getFacilityIndex(facilityInfo);
-    facilityFolder = `facility_${facilityIndex}_basic_${sanitizedFacilityName}`;
-  }
-
-  const path = `${sanitizedBusiness}/${baseFolder}/${facilityFolder}/${timestamp}_${sanitizedFilename}`;
+  const path = `${sanitizedBusiness}/${baseFolder}/${timestamp}_${sanitizedFilename}`;
   
-  console.log('🔧 [PATH] 시설별 경로 생성:', {
+  console.log('🔧 [PATH] 단순 시설타입 경로 생성:', {
     원본: { businessName, fileType, facilityInfo, filename },
-    추출됨: { facilityName, outletNumber },
-    정리후: { sanitizedBusiness, baseFolder, facilityFolder, sanitizedFilename },
-    최종경로: path
+    정리후: { sanitizedBusiness, baseFolder, sanitizedFilename },
+    최종경로: path,
+    구조: '단순 시설타입별 폴더 구조'
   });
-  
-  // 배출시설별 구분이 제대로 되는지 특별 검증
-  if (fileType === 'discharge') {
-    console.log('🚨 [DISCHARGE-CHECK] 배출시설 구분 검증:', {
-      원본시설정보: facilityInfo,
-      추출된시설명: facilityName,
-      배출구번호: outletNumber,
-      생성된폴더: facilityFolder,
-      구분여부: facilityFolder.includes(facilityName) ? '✅ 시설명 포함됨' : '❌ 시설명 누락'
-    });
-  }
 
   return path;
 }
