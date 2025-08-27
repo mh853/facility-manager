@@ -194,7 +194,7 @@ const UploadItem = memo(({
     }
   }, []);
 
-  // 필터링된 파일들을 메모화하여 안정성 확보 (엄격한 매칭)
+  // 필터링된 파일들을 메모화하여 안정성 확보 (엄격한 매칭 + 신규 업로드 우선)
   const filteredUploadedFiles = useMemo(() => {
     if (!uploadedFiles || uploadedFiles.length === 0) return [];
     
@@ -206,6 +206,22 @@ const UploadItem = memo(({
       );
       
       if (!folderMatch) return false;
+      
+      // 0차 우선순위: 최근 업로드된 파일 (5분 이내) - 즉시 표시용
+      const now = new Date().getTime();
+      const fileTime = new Date(file.createdTime).getTime();
+      const isRecentUpload = now - fileTime < 5 * 60 * 1000; // 5분
+      
+      if (isRecentUpload && file.facilityInfo) {
+        // 최근 파일은 시설명만 매치해도 임시 표시 (더 관대한 매칭)
+        const currentFacilityName = facilityInfo.split('(')[0].trim();
+        const fileFacilityName = file.facilityInfo.split('(')[0].trim();
+        
+        if (currentFacilityName === fileFacilityName) {
+          console.log(`🚀 [${uploadId}] 최근 업로드 파일: ${file.originalName} (${Math.round((now - fileTime) / 1000)}초 전)`);
+          return true;
+        }
+      }
       
       // 1차 우선순위: 정확한 시설 정보 매칭
       const exactMatch = file.facilityInfo === facilityInfo;
@@ -251,7 +267,8 @@ const UploadItem = memo(({
           파일배출구: fileOutletNumber,
           현재배출구: currentOutletNumber,
           시설명매치: facilityNameMatch,
-          배출구매치: outletNumberMatch
+          배출구매치: outletNumberMatch,
+          최근업로드: isRecentUpload
         });
       }
       
@@ -268,7 +285,7 @@ const UploadItem = memo(({
       return false;
     });
     
-    console.log(`📋 [${uploadId}] 엄격한 필터링 결과:`, {
+    console.log(`📋 [${uploadId}] 엄격한 필터링 결과 (최근 업로드 우선):`, {
       total: uploadedFiles.length,
       filtered: filtered.length,
       facilityInfo,
