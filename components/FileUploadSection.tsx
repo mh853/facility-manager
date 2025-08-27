@@ -186,7 +186,7 @@ const UploadItem = memo(({
   onDeleteFile: (fileId: string, fileName: string) => void;
   onRefreshFiles: () => void;
 }) => {
-  // 업로드된 파일 수 변경 감지를 위한 디버깅
+  // 업로드된 파일 수 변경 감지를 위한 디버깅 (안정화)
   useEffect(() => {
     console.log(`📋 [${uploadId}] 업로드된 파일 수 변경:`, {
       uploadId,
@@ -194,7 +194,48 @@ const UploadItem = memo(({
       fileCount: uploadedFiles.length,
       files: uploadedFiles.map(f => ({ id: f.id, name: f.originalName, facilityInfo: f.facilityInfo }))
     });
-  }, [uploadedFiles.length, uploadId, facilityInfo, uploadedFiles]);
+  }, [uploadedFiles.length, uploadId, facilityInfo]);
+
+  // 필터링된 파일들을 메모화하여 안정성 확보
+  const filteredUploadedFiles = useMemo(() => {
+    if (!uploadedFiles || uploadedFiles.length === 0) return [];
+    
+    const filtered = uploadedFiles.filter(file => {
+      // 기본적인 폴더 타입 매치
+      const folderMatch = file.folderName === (
+        fileType === 'discharge' ? '배출시설' :
+        fileType === 'prevention' ? '방지시설' : '기본사진'
+      );
+      
+      if (!folderMatch) return false;
+      
+      // 시설 정보 매칭 (여러 방법 시도)
+      const exactMatch = file.facilityInfo === facilityInfo;
+      if (exactMatch) return true;
+      
+      // 시설명 기반 부분 매치
+      const facilityName = facilityInfo.split('(')[0].trim();
+      const fileContainsFacility = file.facilityInfo && file.facilityInfo.includes(facilityName);
+      if (fileContainsFacility) return true;
+      
+      // 경로 기반 매치 (새로운 구조)
+      if (file.filePath && fileType !== 'basic') {
+        const targetFacilityId = generateFacilityId(facilityInfo, fileType);
+        const pathMatch = file.filePath.includes(`${fileType}/${targetFacilityId}`);
+        if (pathMatch) return true;
+      }
+      
+      return false;
+    });
+    
+    console.log(`📋 [${uploadId}] 필터링된 파일:`, {
+      total: uploadedFiles.length,
+      filtered: filtered.length,
+      facilityInfo
+    });
+    
+    return filtered;
+  }, [uploadedFiles, facilityInfo, fileType, uploadId, generateFacilityId]);
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files) return;
     
@@ -335,13 +376,13 @@ const UploadItem = memo(({
         )}
       </button>
       
-      {/* 해당 시설의 업로드된 파일들 */}
-      {uploadedFiles.length > 0 && (
+      {/* 해당 시설의 업로드된 파일들 (안정화된 버전) */}
+      {filteredUploadedFiles.length > 0 && (
         <div className="mt-4 border-t border-gray-200 pt-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
               <Eye className="w-4 h-4" />
-              업로드된 파일 ({uploadedFiles.length}개)
+              업로드된 파일 ({filteredUploadedFiles.length}개)
             </h4>
             <button
               onClick={onRefreshFiles}
@@ -353,7 +394,7 @@ const UploadItem = memo(({
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {uploadedFiles.map((file) => (
+            {filteredUploadedFiles.map((file) => (
               <div key={file.id} className="border border-gray-200 rounded-lg p-2 hover:shadow-sm transition-shadow">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
@@ -365,13 +406,13 @@ const UploadItem = memo(({
                           const facilityName = facility.name.replace(/[^\w가-힣]/g, '').slice(0, 8);
                           // 용량에서 단위 포함하여 정리 (㎥, /, 분 등 단위 보존)
                           const capacity = facility.capacity.replace(/[^\w가-힣㎥\/분시]/g, '').slice(0, 12);
-                          const fileIndex = uploadedFiles.findIndex(f => f.id === file.id) + 1;
+                          const fileIndex = filteredUploadedFiles.findIndex(f => f.id === file.id) + 1;
                           return `${facilityName}_${capacity}_${fileIndex}`;
                         }
                         
                         // facility 정보가 없는 경우 기본 형식
                         const facilityName = facilityInfo.split('(')[0].trim().replace(/[^\w가-힣]/g, '').slice(0, 8);
-                        const fileIndex = uploadedFiles.findIndex(f => f.id === file.id) + 1;
+                        const fileIndex = filteredUploadedFiles.findIndex(f => f.id === file.id) + 1;
                         return `${facilityName}_${fileIndex}`;
                       })()}
                     </h5>
@@ -731,7 +772,7 @@ function FileUploadSection({
     }
   }, [removeFile]);
 
-  // 시설별 파일 고유 식별자 생성
+  // 시설별 파일 고유 식별자 생성 (UploadItem 컴포넌트에서 사용)
   const generateFacilityId = useCallback((facilityInfo: string, fileType: string) => {
     const facilityName = facilityInfo.split('(')[0].trim();
     const outletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
@@ -743,73 +784,6 @@ function FileUploadSection({
       return facilityName;
     }
   }, []);
-
-  // 특정 시설의 파일들만 필터링하는 함수 (시설별 경로 기반 + 정보 매칭)
-  const getFilesForFacility = useCallback((facilityInfo: string, fileType: string) => {
-    console.log('🔍 [FILTER] 시설별 필터링 시작:', {
-      totalFiles: uploadedFiles.length,
-      targetFacilityInfo: facilityInfo,
-      fileType
-    });
-    
-    const targetFacilityId = generateFacilityId(facilityInfo, fileType);
-    
-    const filteredFiles = uploadedFiles.filter(file => {
-      // 폴더 타입 매치 확인
-      const folderMatch = file.folderName === (
-        fileType === 'discharge' ? '배출시설' :
-        fileType === 'prevention' ? '방지시설' : '기본사진'
-      );
-      
-      // 1. 정확한 시설 정보 매칭
-      const exactMatch = file.facilityInfo === facilityInfo;
-      
-      // 2. 시설 ID 기반 매칭 (새로운 구조용)
-      const fileFacilityId = generateFacilityId(file.facilityInfo || '', fileType);
-      const facilityIdMatch = fileFacilityId === targetFacilityId;
-      
-      // 3. 파일 경로 기반 매칭 (가장 정확한 방법)
-      let pathMatch = false;
-      if (file.filePath && fileType !== 'basic') {
-        const expectedPathSegment = `${fileType}/${targetFacilityId}`;
-        pathMatch = file.filePath.includes(expectedPathSegment);
-      }
-      
-      // 4. 부분 매치 (기존 파일 호환용)
-      const facilityName = facilityInfo.split('(')[0].trim();
-      const fileContainsFacility = file.facilityInfo && file.facilityInfo.includes(facilityName);
-      
-      // 우선순위: 경로 매치 > 정확한 매치 > 시설 ID 매치 > 부분 매치
-      const facilityMatch = pathMatch || exactMatch || facilityIdMatch || fileContainsFacility;
-      
-      console.log('🔍 [FILTER] 파일 검사:', {
-        fileName: file.originalName,
-        fileFacilityInfo: file.facilityInfo,
-        filePath: file.filePath,
-        targetFacilityInfo: facilityInfo,
-        targetFacilityId,
-        fileFacilityId,
-        fileType,
-        folderMatch,
-        exactMatch,
-        facilityIdMatch,
-        pathMatch,
-        fileContainsFacility,
-        facilityMatch,
-        finalMatch: folderMatch && facilityMatch
-      });
-      
-      return folderMatch && facilityMatch;
-    });
-    
-    console.log('🔍 [FILTER] 시설별 필터링 결과:', {
-      filteredCount: filteredFiles.length,
-      targetFacilityId,
-      facilityInfo
-    });
-    
-    return filteredFiles;
-  }, [uploadedFiles, generateFacilityId]);
 
   // 메모화된 섹션들
   const preventionSection = useMemo(() => {
@@ -835,7 +809,7 @@ function FileUploadSection({
               facility={facility}
               onUpload={uploadFiles}
               uploadState={uploads[`prevention-${index}`] || { files: [], status: '', uploading: false }}
-              uploadedFiles={getFilesForFacility(`${facility.name} (${facility.capacity}, 수량: ${facility.quantity}개, 배출구: ${facility.outlet}번)`, 'prevention')}
+              uploadedFiles={uploadedFiles}
               onDeleteFile={handleDeleteFile}
               onRefreshFiles={loadUploadedFiles}
             />
@@ -843,7 +817,7 @@ function FileUploadSection({
         </div>
       </div>
     );
-  }, [facilities?.prevention, uploads, uploadFiles, getFilesForFacility, handleDeleteFile, loadUploadedFiles]);
+  }, [facilities?.prevention, uploads, uploadFiles, uploadedFiles, handleDeleteFile, loadUploadedFiles]);
 
   const dischargeSection = useMemo(() => {
     if (!facilities || facilities.discharge.length === 0) return null;
@@ -868,7 +842,7 @@ function FileUploadSection({
               facility={facility}
               onUpload={uploadFiles}
               uploadState={uploads[`discharge-${index}`] || { files: [], status: '', uploading: false }}
-              uploadedFiles={getFilesForFacility(`${facility.name} (${facility.capacity}, 수량: ${facility.quantity}개, 배출구: ${facility.outlet}번)`, 'discharge')}
+              uploadedFiles={uploadedFiles}
               onDeleteFile={handleDeleteFile}
               onRefreshFiles={loadUploadedFiles}
             />
@@ -876,7 +850,7 @@ function FileUploadSection({
         </div>
       </div>
     );
-  }, [facilities?.discharge, uploads, uploadFiles, getFilesForFacility, handleDeleteFile, loadUploadedFiles]);
+  }, [facilities?.discharge, uploads, uploadFiles, uploadedFiles, handleDeleteFile, loadUploadedFiles]);
 
   const basicSection = useMemo(() => (
     <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
@@ -899,7 +873,7 @@ function FileUploadSection({
               IconComponent={Radio}
               onUpload={uploadFiles}
               uploadState={uploads.gateway || { files: [], status: '', uploading: false }}
-              uploadedFiles={getFilesForFacility("게이트웨이", 'basic')}
+              uploadedFiles={uploadedFiles}
               onDeleteFile={handleDeleteFile}
               onRefreshFiles={loadUploadedFiles}
             />
@@ -911,7 +885,7 @@ function FileUploadSection({
               IconComponent={Cpu}
               onUpload={uploadFiles}
               uploadState={uploads['control-panel'] || { files: [], status: '', uploading: false }}
-              uploadedFiles={getFilesForFacility("제어반-배전함", 'basic')}
+              uploadedFiles={uploadedFiles}
               onDeleteFile={handleDeleteFile}
               onRefreshFiles={loadUploadedFiles}
             />
@@ -930,7 +904,7 @@ function FileUploadSection({
               IconComponent={Wind}
               onUpload={uploadFiles}
               uploadState={uploads.blower || { files: [], status: '', uploading: false }}
-              uploadedFiles={getFilesForFacility("송풍기", 'basic')}
+              uploadedFiles={uploadedFiles}
               onDeleteFile={handleDeleteFile}
               onRefreshFiles={loadUploadedFiles}
             />
@@ -949,7 +923,7 @@ function FileUploadSection({
               IconComponent={Camera}
               onUpload={uploadFiles}
               uploadState={uploads.other || { files: [], status: '', uploading: false }}
-              uploadedFiles={getFilesForFacility("기타", 'basic')}
+              uploadedFiles={uploadedFiles}
               onDeleteFile={handleDeleteFile}
               onRefreshFiles={loadUploadedFiles}
             />
@@ -957,7 +931,7 @@ function FileUploadSection({
         </div>
       </div>
     </div>
-  ), [uploads, uploadFiles, getFilesForFacility, handleDeleteFile, loadUploadedFiles]);
+  ), [uploads, uploadFiles, uploadedFiles, handleDeleteFile, loadUploadedFiles]);
 
 
   return (
