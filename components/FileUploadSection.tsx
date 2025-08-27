@@ -553,21 +553,36 @@ function FileUploadSection({
         if (newFiles.length > 0) {
           console.log(`➕ [UPLOAD] 즉시 파일 목록에 추가: ${newFiles.length}개 파일`, newFiles);
           
-          // 즉시 추가
+          // 즉시 추가 - 모바일을 위한 다중 시도
           addFiles(newFiles);
           
-          // 추가 검증 (모바일 호환성)
+          // 모바일 호환성을 위한 적극적 재시도 (여러 시점에서)
           setTimeout(() => {
-            console.log(`🔄 [UPLOAD] 파일 목록 재검증`);
-            addFiles(newFiles); // 한번 더 추가 (중복 방지는 addFiles에서 처리)
-          }, 100);
+            console.log(`🔄 [UPLOAD] 50ms 재시도`);
+            addFiles(newFiles);
+          }, 50);
+          
+          setTimeout(() => {
+            console.log(`🔄 [UPLOAD] 150ms 재시도`);
+            addFiles(newFiles);
+          }, 150);
+          
+          setTimeout(() => {
+            console.log(`🔄 [UPLOAD] 300ms 재시도`);
+            addFiles(newFiles);
+          }, 300);
         }
         
-        // 파일 목록 실시간 업데이트 (백업용)
+        // 강제 새로고침 (모바일에서 더 적극적)
         setTimeout(async () => {
-          console.log(`🔄 [UPLOAD] 백업 새로고침 실행`);
+          console.log(`🔄 [UPLOAD] 강제 새로고침 실행 (500ms)`);
           await refreshFiles();
-        }, 1000); // 1초로 늘림
+        }, 500);
+        
+        setTimeout(async () => {
+          console.log(`🔄 [UPLOAD] 백업 새로고침 실행 (1000ms)`);
+          await refreshFiles();
+        }, 1000);
         
         // 성공 토스트 표시
         const toast = document.createElement('div');
@@ -597,14 +612,25 @@ function FileUploadSection({
         if (newFiles.length > 0) {
           console.log(`➕ [UPLOAD] 일부 성공한 파일을 즉시 추가: ${newFiles.length}개 파일`, newFiles);
           
-          // 즉시 추가
+          // 즉시 추가 - 모바일을 위한 다중 시도
           addFiles(newFiles);
           
-          // 추가 검증 (모바일 호환성)
+          // 모바일 호환성을 위한 적극적 재시도
           setTimeout(() => {
-            console.log(`🔄 [UPLOAD] 일부 성공 파일 재검증`);
+            console.log(`🔄 [UPLOAD] 일부 성공 50ms 재시도`);
             addFiles(newFiles);
-          }, 100);
+          }, 50);
+          
+          setTimeout(() => {
+            console.log(`🔄 [UPLOAD] 일부 성공 150ms 재시도`);
+            addFiles(newFiles);
+          }, 150);
+          
+          // 강제 새로고침도 추가
+          setTimeout(async () => {
+            console.log(`🔄 [UPLOAD] 일부 성공 강제 새로고침 (500ms)`);
+            await refreshFiles();
+          }, 500);
         }
         
         // 파일 목록 실시간 업데이트 (백업용)

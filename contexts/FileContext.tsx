@@ -70,7 +70,7 @@ export function FileProvider({ children }: FileProviderProps) {
     }
   }, [businessName, systemType]);
 
-  // 파일 추가
+  // 파일 추가 (모바일 호환성 강화)
   const addFiles = useCallback((newFiles: UploadedFile[]) => {
     if (!newFiles || newFiles.length === 0) {
       console.warn(`➕ [FileContext] 추가할 파일이 없습니다`);
@@ -87,6 +87,15 @@ export function FileProvider({ children }: FileProviderProps) {
         console.log(`➕ [FileContext] 고유 파일 추가: ${uniqueNewFiles.length}개`);
         const updated = [...prev, ...uniqueNewFiles];
         console.log(`➕ [FileContext] 업데이트된 총 파일 수: ${updated.length}개`);
+        
+        // 모바일에서 상태 업데이트를 강제하기 위한 트릭
+        if (typeof window !== 'undefined') {
+          // DOM 강제 업데이트 트리거
+          window.dispatchEvent(new CustomEvent('fileListUpdated', { 
+            detail: { files: updated, newCount: uniqueNewFiles.length } 
+          }));
+        }
+        
         return updated;
       } else {
         console.log(`➕ [FileContext] 모든 파일이 이미 존재함`);
