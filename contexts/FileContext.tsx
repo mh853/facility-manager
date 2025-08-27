@@ -3,22 +3,7 @@
 import { createContext, useContext, useState, useCallback, useRef, ReactNode, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-
-interface UploadedFile {
-  id: string;
-  name: string;
-  originalName: string;
-  mimeType: string;
-  size: number;
-  createdTime: string;
-  webViewLink: string;
-  downloadUrl: string;
-  thumbnailUrl: string;
-  folderName: string;
-  uploadStatus: string;
-  facilityInfo?: string;
-  filePath?: string; // 시설별 스토리지 경로
-}
+import { UploadedFile } from '@/types';
 
 interface FileContextType {
   uploadedFiles: UploadedFile[];

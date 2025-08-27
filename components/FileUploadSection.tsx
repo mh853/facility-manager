@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, memo, useEffect } from 'react';
-import { FacilitiesData, SystemType, Facility } from '@/types';
+import { FacilitiesData, SystemType, Facility, UploadedFile } from '@/types';
 import { Upload, Zap, Shield, Radio, Wind, Camera, Building, Wrench, Cpu, Power, Settings, Home, Clock, CheckCircle2, RefreshCw, Eye, Download, Trash2 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import Image from 'next/image';

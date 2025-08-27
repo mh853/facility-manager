@@ -44,6 +44,23 @@ export interface FileInfo {
   mimeType: string;
 }
 
+// Supabase 기반 업로드된 파일 정보
+export interface UploadedFile {
+  id: string;
+  name: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  createdTime: string;
+  webViewLink: string;
+  downloadUrl: string;
+  thumbnailUrl: string;
+  folderName: string;
+  uploadStatus: string;
+  facilityInfo?: string;
+  filePath?: string; // 시설별 스토리지 경로
+}
+
 export interface UploadedFiles {
   basic: FileInfo[];
   discharge: FileInfo[];
