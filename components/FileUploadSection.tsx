@@ -744,7 +744,7 @@ function FileUploadSection({
     }
   }, []);
 
-  // 특정 시설의 파일들만 필터링하는 함수 (시설별 고유 ID 기반)
+  // 특정 시설의 파일들만 필터링하는 함수 (시설별 경로 기반 + 정보 매칭)
   const getFilesForFacility = useCallback((facilityInfo: string, fileType: string) => {
     console.log('🔍 [FILTER] 시설별 필터링 시작:', {
       totalFiles: uploadedFiles.length,
@@ -761,22 +761,31 @@ function FileUploadSection({
         fileType === 'prevention' ? '방지시설' : '기본사진'
       );
       
-      // 정확한 시설 정보 매칭
+      // 1. 정확한 시설 정보 매칭
       const exactMatch = file.facilityInfo === facilityInfo;
       
-      // 시설 ID 기반 매칭 (새로운 구조용)
+      // 2. 시설 ID 기반 매칭 (새로운 구조용)
       const fileFacilityId = generateFacilityId(file.facilityInfo || '', fileType);
       const facilityIdMatch = fileFacilityId === targetFacilityId;
       
-      // 부분 매치 (기존 파일 호환용)
+      // 3. 파일 경로 기반 매칭 (가장 정확한 방법)
+      let pathMatch = false;
+      if (file.filePath && fileType !== 'basic') {
+        const expectedPathSegment = `${fileType}/${targetFacilityId}`;
+        pathMatch = file.filePath.includes(expectedPathSegment);
+      }
+      
+      // 4. 부분 매치 (기존 파일 호환용)
       const facilityName = facilityInfo.split('(')[0].trim();
       const fileContainsFacility = file.facilityInfo && file.facilityInfo.includes(facilityName);
       
-      const facilityMatch = exactMatch || facilityIdMatch || fileContainsFacility;
+      // 우선순위: 경로 매치 > 정확한 매치 > 시설 ID 매치 > 부분 매치
+      const facilityMatch = pathMatch || exactMatch || facilityIdMatch || fileContainsFacility;
       
       console.log('🔍 [FILTER] 파일 검사:', {
         fileName: file.originalName,
         fileFacilityInfo: file.facilityInfo,
+        filePath: file.filePath,
         targetFacilityInfo: facilityInfo,
         targetFacilityId,
         fileFacilityId,
@@ -784,6 +793,7 @@ function FileUploadSection({
         folderMatch,
         exactMatch,
         facilityIdMatch,
+        pathMatch,
         fileContainsFacility,
         facilityMatch,
         finalMatch: folderMatch && facilityMatch

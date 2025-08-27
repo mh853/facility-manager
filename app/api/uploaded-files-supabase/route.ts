@@ -58,23 +58,42 @@ export async function GET(request: NextRequest) {
       throw filesError;
     }
 
-    // 파일 URL 생성
-    const filesWithUrls = files?.map((file: any) => {
+    // 파일 URL 생성 및 실제 스토리지 파일 존재 여부 검증
+    const filesWithUrls = [];
+    const filesToCleanup = []; // DB에는 있지만 스토리지에 없는 파일들
+    
+    for (const file of files || []) {
+      // 스토리지에서 파일 존재 여부 확인
+      const { data: fileExists, error: checkError } = await supabaseAdmin.storage
+        .from('facility-files')
+        .list(file.file_path.split('/').slice(0, -1).join('/'), {
+          search: file.file_path.split('/').pop()
+        });
+
+      const actualFileExists = fileExists && fileExists.length > 0;
+
+      if (!actualFileExists && !checkError) {
+        console.warn(`⚠️ [SYNC-CHECK] DB에는 있지만 스토리지에 없는 파일: ${file.file_path}`);
+        filesToCleanup.push(file.id);
+        continue; // 존재하지 않는 파일은 목록에서 제외
+      }
+
       const { data: publicUrl } = supabaseAdmin.storage
         .from('facility-files')
         .getPublicUrl(file.file_path);
 
-      // 폴더명 추출 (file_path에서)
+      // 폴더명 추출 (새로운 시설별 구조 반영)
       const pathParts = file.file_path.split('/');
-      let folderName = 'basic';
+      let folderName = '기본사진';
+      
       if (pathParts.length > 1) {
         const folderPart = pathParts[1];
         if (folderPart === 'discharge') folderName = '배출시설';
         else if (folderPart === 'prevention') folderName = '방지시설';
-        else folderName = '기본사진';
+        else if (folderPart === 'basic') folderName = '기본사진';
       }
 
-      return {
+      filesWithUrls.push({
         id: file.id,
         name: file.filename,
         originalName: file.original_filename,
@@ -91,9 +110,26 @@ export async function GET(request: NextRequest) {
         uploadStatus: file.upload_status,
         syncedAt: file.synced_at,
         googleFileId: file.google_file_id,
-        facilityInfo: file.facility_info
-      };
-    }) || [];
+        facilityInfo: file.facility_info,
+        filePath: file.file_path // 시설별 경로 정보 추가
+      });
+    }
+
+    // DB 정리: 스토리지에 없는 파일 레코드들 삭제
+    if (filesToCleanup.length > 0) {
+      console.log(`🧹 [CLEANUP] DB 정리: ${filesToCleanup.length}개 파일 레코드 삭제`);
+      
+      const { error: cleanupError } = await supabaseAdmin
+        .from('uploaded_files')
+        .delete()
+        .in('id', filesToCleanup);
+
+      if (cleanupError) {
+        console.error('🧹 [CLEANUP] DB 정리 실패:', cleanupError);
+      } else {
+        console.log('🧹 [CLEANUP] DB 정리 완료');
+      }
+    }
 
     console.log(`✅ [FILES-SUPABASE] 조회 완료: ${filesWithUrls.length}개 파일`);
 

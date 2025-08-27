@@ -17,6 +17,7 @@ interface UploadedFile {
   folderName: string;
   uploadStatus: string;
   facilityInfo?: string;
+  filePath?: string; // 시설별 스토리지 경로
 }
 
 interface FileContextType {
@@ -163,7 +164,28 @@ export function FileProvider({ children }: FileProviderProps) {
             console.log(`➕ [REALTIME] INSERT 이벤트:`, newFile);
             
             // businessId는 이미 필터링되어 있으므로 조건 체크 불필요
-            // 파일을 UploadedFile 형식으로 변환
+            // 시설별 폴더 구조에 맞는 파일 정보 변환
+            const pathParts = newFile.file_path.split('/');
+            let folderName = '기본사진';
+            let facilitySpecificPath = '';
+            
+            // 새로운 시설별 구조 인식
+            if (pathParts.length > 2) {
+              const folderType = pathParts[1]; // discharge, prevention, basic
+              const facilityFolder = pathParts[2]; // outlet_1_prev_facility1 등
+              
+              if (folderType === 'discharge') folderName = '배출시설';
+              else if (folderType === 'prevention') folderName = '방지시설';
+              else folderName = '기본사진';
+              
+              facilitySpecificPath = `${folderType}/${facilityFolder}`;
+            } else {
+              // 기존 구조 호환
+              if (newFile.file_path.includes('/discharge/')) folderName = '배출시설';
+              else if (newFile.file_path.includes('/prevention/')) folderName = '방지시설';
+              else folderName = '기본사진';
+            }
+
             const formattedFile: UploadedFile = {
               id: newFile.id,
               name: newFile.filename,
@@ -174,10 +196,10 @@ export function FileProvider({ children }: FileProviderProps) {
               webViewLink: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
               downloadUrl: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
               thumbnailUrl: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
-              folderName: newFile.file_path.includes('/discharge/') ? '배출시설' : 
-                         newFile.file_path.includes('/prevention/') ? '방지시설' : '기본사진',
+              folderName,
               uploadStatus: newFile.upload_status,
-              facilityInfo: newFile.facility_info
+              facilityInfo: newFile.facility_info,
+              filePath: newFile.file_path // 시설별 경로 추가
             };
 
             setUploadedFiles(prev => {

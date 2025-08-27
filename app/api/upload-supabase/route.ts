@@ -297,7 +297,8 @@ export async function POST(request: NextRequest) {
           thumbnailUrl: publicUrl.publicUrl,
           folderName,
           uploadStatus: 'uploaded',
-          facilityInfo: facilityInfo
+          facilityInfo: facilityInfo,
+          filePath: uploadData.path // 시설별 스토리지 경로 추가
         };
 
       } catch (error) {
