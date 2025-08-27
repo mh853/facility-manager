@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation';
 import { FacilitiesData, BusinessInfo, SystemType } from '@/types';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { AlertTriangle, Building2, User, FileText, Zap, Shield, Camera, Save, ChevronDown, Router, Wifi, WifiOff } from 'lucide-react';
-import UploadedFilesManager from '@/components/UploadedFilesManager'; // 일반 import로 변경
 
 // Regular imports to fix webpack dynamic loading issues
 import BusinessInfoCard from '@/components/BusinessInfoCard';
@@ -890,9 +889,26 @@ export default function BusinessPage() {
           {/* IoT 게이트웨이 정보 */}
           {facilityStats.hasFacilities && (
             <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
-              <div className="flex items-center gap-2 mb-4 md:mb-6">
-                <Router className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
-                <h3 className="text-lg md:text-xl font-bold text-gray-900">IoT 게이트웨이 정보</h3>
+              <div className="flex items-center justify-between mb-4 md:mb-6">
+                <div className="flex items-center gap-2">
+                  <Router className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                  <h3 className="text-lg md:text-xl font-bold text-gray-900">IoT 게이트웨이 정보</h3>
+                </div>
+                
+                {/* VPN 연결 현황 요약 */}
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-600">VPN 연결:</span>
+                  <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-md">
+                      <WifiOff className="w-3 h-3" />
+                      <span>유선 {calculateTotals().wired}개</span>
+                    </div>
+                    <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-md">
+                      <Wifi className="w-3 h-3" />
+                      <span>무선 {calculateTotals().wireless}개</span>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               <div className="grid gap-4">
@@ -1088,95 +1104,6 @@ export default function BusinessPage() {
 
 
 
-          {/* 업로드된 파일 관리 */}
-          <UploadedFilesManager 
-            businessName={businessName}
-            systemType={systemType}
-            onFileDeleted={() => {
-              // 파일 삭제 후 동기화 데이터 새로고침 (초기 로드 아님)
-              loadSyncData(false);
-            }}
-          />
-
-          {/* 동기화 상태 표시 */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 md:p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-blue-900">
-                🔄 구글시트 동기화 상태 ({systemType === 'completion' ? '설치 후 사진' : '설치 전 실사'})
-              </h3>
-              <button
-                onClick={() => loadSyncData(false)} // 수동 새로고침은 초기 로드 아님
-                disabled={syncLoading}
-                className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
-              >
-                {syncLoading ? (
-                  <>
-                    <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin inline-block mr-1" />
-                    로딩중
-                  </>
-                ) : (
-                  '새로고침'
-                )}
-              </button>
-            </div>
-            
-            {syncLoading ? (
-              <div className="text-center py-4 text-blue-700">
-                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-sm">동기화 데이터를 불러오는 중...</p>
-              </div>
-            ) : syncError ? (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <div className="flex items-center gap-2 text-red-800">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm font-medium">동기화 오류</span>
-                </div>
-                <p className="text-sm text-red-700 mt-1">{syncError}</p>
-                <p className="text-xs text-red-600 mt-2">• 구글시트에서 해당 사업장을 찾을 수 없거나 권한이 없을 수 있습니다.</p>
-              </div>
-            ) : syncData ? (
-              <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-blue-800">
-                  <div>
-                    <span className="font-medium">상태:</span> {syncData.상태 || '미설정'}
-                  </div>
-                  <div>
-                    <span className="font-medium">담당자:</span> {syncData.설치담당자 || '미설정'}
-                  </div>
-                  <div>
-                    <span className="font-medium">연락처:</span> {syncData.연락처 || '미설정'}
-                  </div>
-                  <div>
-                    <span className="font-medium">마지막 동기화:</span> {lastSyncTime || '없음'}
-                  </div>
-                </div>
-                {syncData.특이사항 && (
-                  <div className="mt-2 text-xs text-blue-700">
-                    <span className="font-medium">특이사항:</span> {syncData.특이사항}
-                  </div>
-                )}
-                {syncData.URL && (
-                  <div className="mt-2">
-                    <a 
-                      href="/admin" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:text-blue-800 underline"
-                    >
-                      구글시트에서 보기 →
-                    </a>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-4 text-gray-600">
-                <p className="text-sm">동기화 데이터가 아직 로드되지 않았습니다.</p>
-                <p className="text-xs text-gray-500 mt-1">시스템이 처음 로드되거나 동기화가 필요할 수 있습니다.</p>
-              </div>
-            )}
-          </div>
 
           {/* 특이사항 */}
           <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">

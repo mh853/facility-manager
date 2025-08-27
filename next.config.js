@@ -21,9 +21,17 @@ const nextConfig = {
         hostname: 'lh3.googleusercontent.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+        pathname: '/**',
+      },
     ],
     formats: ['image/webp', 'image/avif'],
     minimumCacheTTL: 60 * 60 * 24 * 7, // 7일 캐시
+    // Jest worker 오류 방지
+    loader: 'default',
+    dangerouslyAllowSVG: true,
   },
   
   // 성능 헤더

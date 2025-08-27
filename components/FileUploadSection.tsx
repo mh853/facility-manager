@@ -1,14 +1,30 @@
 'use client';
 
-import { useState, useCallback, useMemo, memo } from 'react';
+import { useState, useCallback, useMemo, memo, useEffect } from 'react';
 import { FacilitiesData, SystemType, Facility } from '@/types';
-import { Upload, Zap, Shield, Radio, Wind, Camera, Building, Wrench, Cpu, Power, Settings, Home, Clock, CheckCircle2 } from 'lucide-react';
+import { Upload, Zap, Shield, Radio, Wind, Camera, Building, Wrench, Cpu, Power, Settings, Home, Clock, CheckCircle2, RefreshCw, Eye, Download, Trash2 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
+import Image from 'next/image';
 
 interface FileUploadSectionProps {
   businessName: string;
   systemType: SystemType;
   facilities: FacilitiesData | null;
+}
+
+interface UploadedFile {
+  id: string;
+  name: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  createdTime: string;
+  webViewLink: string;
+  downloadUrl: string;
+  thumbnailUrl: string;
+  folderName: string;
+  uploadStatus: string;
+  facilityInfo?: string;
 }
 
 // 고성능 이미지 압축 함수 (모바일 파일명 보정 강화)
@@ -152,7 +168,10 @@ const UploadItem = memo(({
   IconComponent,
   facility,
   onUpload,
-  uploadState
+  uploadState,
+  uploadedFiles,
+  onDeleteFile,
+  onRefreshFiles
 }: {
   uploadId: string;
   label: string;
@@ -162,6 +181,9 @@ const UploadItem = memo(({
   facility?: Facility;
   onUpload: (uploadId: string, fileType: string, facilityInfo: string) => void;
   uploadState: { files: File[]; status: string; uploading: boolean; progress?: number };
+  uploadedFiles: UploadedFile[];
+  onDeleteFile: (fileId: string, fileName: string) => void;
+  onRefreshFiles: () => void;
 }) => {
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files) return;
@@ -302,6 +324,96 @@ const UploadItem = memo(({
           </>
         )}
       </button>
+      
+      {/* 해당 시설의 업로드된 파일들 */}
+      {uploadedFiles.length > 0 && (
+        <div className="mt-4 border-t border-gray-200 pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Eye className="w-4 h-4" />
+              업로드된 파일 ({uploadedFiles.length}개)
+            </h4>
+            <button
+              onClick={onRefreshFiles}
+              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+            >
+              <RefreshCw className="w-3 h-3" />
+              새로고침
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {uploadedFiles.map((file) => (
+              <div key={file.id} className="border border-gray-200 rounded-lg p-2 hover:shadow-sm transition-shadow">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    <h5 className="text-xs font-medium text-gray-900 truncate" title={`원본: ${file.originalName}`}>
+                      {/* 시설명_용량_순서 형식으로 표시 */}
+                      {(() => {
+                        // facility 정보에서 시설명과 용량 추출
+                        if (facility) {
+                          const facilityName = facility.name.replace(/[^\w가-힣]/g, '').slice(0, 8);
+                          // 용량에서 단위 포함하여 정리 (㎥, /, 분 등 단위 보존)
+                          const capacity = facility.capacity.replace(/[^\w가-힣㎥\/분시]/g, '').slice(0, 12);
+                          const fileIndex = uploadedFiles.findIndex(f => f.id === file.id) + 1;
+                          return `${facilityName}_${capacity}_${fileIndex}`;
+                        }
+                        
+                        // facility 정보가 없는 경우 기본 형식
+                        const facilityName = facilityInfo.split('(')[0].trim().replace(/[^\w가-힣]/g, '').slice(0, 8);
+                        const fileIndex = uploadedFiles.findIndex(f => f.id === file.id) + 1;
+                        return `${facilityName}_${fileIndex}`;
+                      })()}
+                    </h5>
+                    <p className="text-xs text-gray-500">
+                      {(file.size / 1024).toFixed(1)}KB • {file.originalName}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => onDeleteFile(file.id, file.originalName)}
+                    className="text-red-500 hover:text-red-700 p-1"
+                    title="파일 삭제"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+                
+                {file.mimeType?.startsWith('image/') && (
+                  <div className="mb-2 relative aspect-video bg-gray-100 rounded overflow-hidden">
+                    <Image
+                      src={file.thumbnailUrl}
+                      alt={file.originalName}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 100vw, 50vw"
+                    />
+                  </div>
+                )}
+                
+                <div className="flex gap-1">
+                  <a
+                    href={file.webViewLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+                  >
+                    <Eye className="w-3 h-3" />
+                    보기
+                  </a>
+                  <a
+                    href={file.downloadUrl}
+                    download={file.originalName}
+                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs bg-green-100 text-green-600 rounded hover:bg-green-200"
+                  >
+                    <Download className="w-3 h-3" />
+                    다운로드
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 });
@@ -314,6 +426,32 @@ function FileUploadSection({
   facilities 
 }: FileUploadSectionProps) {
   const [uploads, setUploads] = useState<Record<string, { files: File[]; status: string; uploading: boolean }>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+
+  // 업로드된 파일 목록 로드
+  const loadUploadedFiles = useCallback(async () => {
+    if (!businessName) return;
+    
+    setLoadingFiles(true);
+    try {
+      const response = await fetch(`/api/uploaded-files-supabase?businessName=${encodeURIComponent(businessName)}&systemType=${systemType}&refresh=true`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setUploadedFiles(result.data.files || []);
+      }
+    } catch (error) {
+      console.error('파일 목록 로드 실패:', error);
+    } finally {
+      setLoadingFiles(false);
+    }
+  }, [businessName, systemType]);
+
+  // 컴포넌트 마운트 시 파일 목록 로드
+  useEffect(() => {
+    loadUploadedFiles();
+  }, [loadUploadedFiles]);
 
   // 파일 선택 핸들러 (이벤트 기반으로 최적화)
   useState(() => {
@@ -371,7 +509,7 @@ function FileUploadSection({
         console.log(`📄 파일 ${index + 1} 업로드 시작: ${file.name}`);
         
         try {
-          const response = await fetch('/api/upload', {
+          const response = await fetch('/api/upload-supabase', {
             method: 'POST',
             body: createFormData(file)
           });
@@ -419,6 +557,9 @@ function FileUploadSection({
           }
         }));
         
+        // 파일 목록 실시간 업데이트
+        await loadUploadedFiles();
+        
         // 성공 토스트 표시
         const toast = document.createElement('div');
         toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
@@ -438,6 +579,9 @@ function FileUploadSection({
             status: `⚠️ 일부 업로드 완료 (${successResults.length}/${uploadData.files.length})` 
           }
         }));
+        
+        // 파일 목록 실시간 업데이트
+        await loadUploadedFiles();
         
         // 경고 토스트 표시
         const toast = document.createElement('div');
@@ -477,7 +621,69 @@ function FileUploadSection({
         toast.remove();
       }, 5000);
     }
-  }, [uploads, businessName, systemType]);
+  }, [uploads, businessName, systemType, loadUploadedFiles]);
+
+  // 파일 삭제 핸들러
+  const handleDeleteFile = useCallback(async (fileId: string, fileName: string) => {
+    if (!confirm(`'${fileName}' 파일을 삭제하시겠습니까?`)) return;
+    
+    try {
+      const response = await fetch('/api/uploaded-files-supabase', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId, fileName })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // 실시간 업데이트
+        await loadUploadedFiles();
+        
+        // 성공 토스트
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50';
+        toast.textContent = `파일이 삭제되었습니다: ${fileName}`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error('파일 삭제 실패:', error);
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg z-50';
+      toast.textContent = '파일 삭제 실패';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+  }, [loadUploadedFiles]);
+
+  // 특정 시설의 파일들만 필터링하는 함수
+  const getFilesForFacility = useCallback((facilityInfo: string, fileType: string) => {
+    return uploadedFiles.filter(file => {
+      // 폴더 타입 매치 확인
+      const folderMatch = file.folderName === (
+        fileType === 'discharge' ? '배출시설' :
+        fileType === 'prevention' ? '방지시설' : '기본사진'
+      );
+      
+      // 시설 정보로 정확한 매칭
+      const facilityMatch = file.facilityInfo === facilityInfo;
+      
+      console.log('🔍 [FILTER] 파일 필터링:', {
+        fileName: file.originalName,
+        fileFacilityInfo: file.facilityInfo,
+        targetFacilityInfo: facilityInfo,
+        fileType,
+        folderMatch,
+        facilityMatch,
+        finalMatch: folderMatch && facilityMatch
+      });
+      
+      return folderMatch && facilityMatch;
+    });
+  }, [uploadedFiles]);
 
   // 메모화된 섹션들
   const preventionSection = useMemo(() => {
@@ -503,12 +709,15 @@ function FileUploadSection({
               facility={facility}
               onUpload={uploadFiles}
               uploadState={uploads[`prevention-${index}`] || { files: [], status: '', uploading: false }}
+              uploadedFiles={getFilesForFacility(`${facility.name} (${facility.capacity}, 수량: ${facility.quantity}개, 배출구: ${facility.outlet}번)`, 'prevention')}
+              onDeleteFile={handleDeleteFile}
+              onRefreshFiles={loadUploadedFiles}
             />
           ))}
         </div>
       </div>
     );
-  }, [facilities?.prevention, uploads, uploadFiles]);
+  }, [facilities?.prevention, uploads, uploadFiles, getFilesForFacility, handleDeleteFile, loadUploadedFiles]);
 
   const dischargeSection = useMemo(() => {
     if (!facilities || facilities.discharge.length === 0) return null;
@@ -533,12 +742,15 @@ function FileUploadSection({
               facility={facility}
               onUpload={uploadFiles}
               uploadState={uploads[`discharge-${index}`] || { files: [], status: '', uploading: false }}
+              uploadedFiles={getFilesForFacility(`${facility.name} (${facility.capacity}, 수량: ${facility.quantity}개, 배출구: ${facility.outlet}번)`, 'discharge')}
+              onDeleteFile={handleDeleteFile}
+              onRefreshFiles={loadUploadedFiles}
             />
           ))}
         </div>
       </div>
     );
-  }, [facilities?.discharge, uploads, uploadFiles]);
+  }, [facilities?.discharge, uploads, uploadFiles, getFilesForFacility, handleDeleteFile, loadUploadedFiles]);
 
   const basicSection = useMemo(() => (
     <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
@@ -561,6 +773,9 @@ function FileUploadSection({
               IconComponent={Radio}
               onUpload={uploadFiles}
               uploadState={uploads.gateway || { files: [], status: '', uploading: false }}
+              uploadedFiles={getFilesForFacility("게이트웨이", 'basic')}
+              onDeleteFile={handleDeleteFile}
+              onRefreshFiles={loadUploadedFiles}
             />
             <UploadItem
               uploadId="control-panel"
@@ -570,6 +785,9 @@ function FileUploadSection({
               IconComponent={Cpu}
               onUpload={uploadFiles}
               uploadState={uploads['control-panel'] || { files: [], status: '', uploading: false }}
+              uploadedFiles={getFilesForFacility("제어반-배전함", 'basic')}
+              onDeleteFile={handleDeleteFile}
+              onRefreshFiles={loadUploadedFiles}
             />
           </div>
         </div>
@@ -586,6 +804,9 @@ function FileUploadSection({
               IconComponent={Wind}
               onUpload={uploadFiles}
               uploadState={uploads.blower || { files: [], status: '', uploading: false }}
+              uploadedFiles={getFilesForFacility("송풍기", 'basic')}
+              onDeleteFile={handleDeleteFile}
+              onRefreshFiles={loadUploadedFiles}
             />
           </div>
         </div>
@@ -602,12 +823,16 @@ function FileUploadSection({
               IconComponent={Camera}
               onUpload={uploadFiles}
               uploadState={uploads.other || { files: [], status: '', uploading: false }}
+              uploadedFiles={getFilesForFacility("기타", 'basic')}
+              onDeleteFile={handleDeleteFile}
+              onRefreshFiles={loadUploadedFiles}
             />
           </div>
         </div>
       </div>
     </div>
-  ), [uploads, uploadFiles]);
+  ), [uploads, uploadFiles, getFilesForFacility, handleDeleteFile, loadUploadedFiles]);
+
 
   return (
     <div className="space-y-4 md:space-y-6">
