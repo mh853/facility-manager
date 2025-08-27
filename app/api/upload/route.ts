@@ -376,7 +376,10 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
   // 모든 파일의 해시 계산을 병렬로 대기
   const fileHashInfos = await Promise.all(fileValidationAndHashPromises);
   
-  // 중복 검사 (해시 계산 완료 후 일괄 처리)
+  // 중복 검사 및 필터링 (해시 계산 완료 후 일괄 처리)
+  const validFileHashInfos = [];
+  const duplicateFiles = [];
+  
   for (const { file, hash } of fileHashInfos) {
     if (queue.fileHashCache.has(hash)) {
       console.warn(`🚫 [HASH] 중복 파일 감지 - 해시값 일치 (${requestId}):`, {
@@ -385,11 +388,17 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
         크기: file.size,
         중복: true
       });
-      throw new Error(`중복 파일이 감지되었습니다. 동일한 내용의 파일이 이미 업로드되었습니다: ${file.name}`);
+      duplicateFiles.push({
+        name: file.name,
+        hash: hash.substring(0, 12) + '...',
+        size: file.size
+      });
+    } else {
+      validFileHashInfos.push({ file, hash });
     }
   }
   
-  console.log(`✅ [HASH] 모든 파일 해시 계산 및 중복 검사 완료 (${requestId})`);
+  console.log(`✅ [HASH] 중복 검사 완료 (${requestId}): 업로드 대상 ${validFileHashInfos.length}개, 중복 제외 ${duplicateFiles.length}개`);
   
 
   // 폴더 ID 확인
@@ -432,8 +441,24 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
     console.log(`♻️ [TASK] 캐시된 폴더 ID 사용 (${requestId}): ${businessFolderId}`);
   }
 
+  // 업로드할 파일이 없는 경우 처리
+  if (validFileHashInfos.length === 0) {
+    const message = duplicateFiles.length > 0 
+      ? `모든 파일이 중복입니다. ${duplicateFiles.length}개 파일이 이미 업로드되어 있습니다: ${duplicateFiles.map(f => f.name).join(', ')}`
+      : '업로드할 파일이 없습니다.';
+    
+    return NextResponse.json({
+      success: false,
+      message,
+      duplicateFiles,
+      totalFiles: files.length,
+      uploadedFiles: 0,
+      duplicatedFiles: duplicateFiles.length
+    });
+  }
+
   // 파일 업로드 (병렬 처리 + 동시 업로드 수 제한)
-  console.log(`📤 [UPLOAD] 파일 업로드 시작 (${requestId}): ${fileHashInfos.length}개 파일 (병렬 처리)`);
+  console.log(`📤 [UPLOAD] 파일 업로드 시작 (${requestId}): ${validFileHashInfos.length}개 파일 (병렬 처리)`);
   
   const uploadResults = [];
   const uploadErrors = [];
@@ -442,8 +467,8 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
   const BATCH_SIZE = 3;
   const batches = [];
   
-  for (let i = 0; i < fileHashInfos.length; i += BATCH_SIZE) {
-    batches.push(fileHashInfos.slice(i, i + BATCH_SIZE));
+  for (let i = 0; i < validFileHashInfos.length; i += BATCH_SIZE) {
+    batches.push(validFileHashInfos.slice(i, i + BATCH_SIZE));
   }
   
   console.log(`📦 [UPLOAD] 배치 처리 (${requestId}): ${batches.length}개 배치, 배치당 최대 ${BATCH_SIZE}개 파일`);
@@ -454,7 +479,7 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
     
     const batchPromises = batch.map(async ({ file, hash }, index) => {
       const globalIndex = batchIndex * BATCH_SIZE + index + 1;
-      console.log(`📄 [TASK] 파일 업로드 중 (${requestId}) ${globalIndex}/${fileHashInfos.length}: ${file.name}`);
+      console.log(`📄 [TASK] 파일 업로드 중 (${requestId}) ${globalIndex}/${validFileHashInfos.length}: ${file.name}`);
       
       try {
         const result = await uploadSingleFileWithHash(
@@ -585,6 +610,13 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
 
     // 결과 메시지 생성
     let message = `${uploadResults.length}장의 파일이 업로드되었습니다.`;
+    
+    // 중복 파일 정보 추가
+    if (duplicateFiles.length > 0) {
+      message += ` (${duplicateFiles.length}장 중복으로 제외됨: ${duplicateFiles.map(f => f.name).join(', ')})`;
+    }
+    
+    // 업로드 실패 정보 추가
     if (uploadErrors.length > 0) {
       message += ` (${uploadErrors.length}장 실패)`;
     }
@@ -593,11 +625,13 @@ async function processUploadTask(task: UploadTask, queue: BusinessQueue): Promis
       success: uploadResults.length > 0,
       message,
       files: uploadResults,
-      totalUploaded: uploadResults.length, // 클라이언트에서 기대하는 필드 추가
+      totalUploaded: uploadResults.length,
+      duplicateFiles: duplicateFiles, // 중복 파일 정보 추가
       stats: {
         total: files.length,
         success: uploadResults.length,
-        failed: uploadErrors.length
+        failed: uploadErrors.length,
+        duplicated: duplicateFiles.length // 중복 파일 통계 추가
       },
       errors: uploadErrors.length > 0 ? uploadErrors : undefined
     };

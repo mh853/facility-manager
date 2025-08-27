@@ -152,9 +152,16 @@ function FileUpload({
       if (result.success) {
         setUploadedFiles(prev => [...prev, ...result.files]);
         setSelectedFiles([]);
+        
+        // 중복 파일 정보가 있는 경우 메시지에 포함
+        let successMessage = `✅ ${result.totalUploaded}개 파일이 성공적으로 업로드되었습니다.`;
+        if (result.duplicateFiles && result.duplicateFiles.length > 0) {
+          successMessage += `\n⚠️ ${result.duplicateFiles.length}개 파일은 중복으로 제외되었습니다: ${result.duplicateFiles.map((f: any) => f.name).join(', ')}`;
+        }
+        
         setStatus({
           type: 'success',
-          message: `✅ ${result.totalUploaded}개 파일이 성공적으로 업로드되었습니다.`
+          message: successMessage
         });
         
         if (fileInputRef.current) {
@@ -163,7 +170,11 @@ function FileUpload({
 
         onUploadComplete?.(result.files);
       } else {
-        throw new Error(result.message || '업로드 실패');
+        // 완전히 실패한 경우 (모든 파일이 중복인 경우 등)
+        setStatus({
+          type: 'error',
+          message: `⚠️ ${result.message || '업로드 실패'}`
+        });
       }
     } catch (error) {
       console.error('업로드 실패:', error);
