@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Edit, Save, X, ExternalLink } from 'lucide-react';
+import { RefreshCw, Edit, Save, X, ExternalLink, Users, FileText, Database, History } from 'lucide-react';
+import Link from 'next/link';
 
 interface BusinessData {
   rowIndex: number;
@@ -26,16 +27,23 @@ export default function AdminPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/sync', { method: 'PUT' });
+      // admin 페이지에서는 기본적으로 presurvey 시스템을 사용
+      const response = await fetch('/api/sync?systemType=presurvey', { method: 'PUT' });
       const result = await response.json();
       
       if (result.success) {
         setBusinesses(result.data);
         setLastSync(new Date().toLocaleString());
       } else {
-        alert('데이터 로드 실패: ' + result.message);
+        console.error('API 응답 오류:', result);
+        let errorMsg = result.message;
+        if (result.details) {
+          errorMsg += `\n\n상세 정보:\n- 스프레드시트 ID: ${result.details.spreadsheetId}\n- 시트명: ${result.details.sheetName}`;
+        }
+        alert('데이터 로드 실패:\n' + errorMsg);
       }
     } catch (error) {
+      console.error('네트워크 오류:', error);
       alert('데이터 로드 오류: ' + error);
     }
     setLoading(false);
@@ -75,6 +83,7 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           businessName: editData.사업장명,
+          systemType: 'presurvey', // admin 페이지에서는 presurvey 시스템 사용
           updateData: {
             상태: editData.상태,
             URL: editData.URL,
@@ -117,6 +126,47 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-7xl mx-auto">
+        {/* 네비게이션 메뉴 */}
+        <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/"
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              실사관리
+            </Link>
+            <Link
+              href="/admin/business"
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Users className="w-4 h-4" />
+              사업장 관리
+            </Link>
+            <Link
+              href="/admin/air-permit"
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <FileText className="w-4 h-4" />
+              대기필증 관리
+            </Link>
+            <Link
+              href="/admin/data-history"
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+            >
+              <History className="w-4 h-4" />
+              데이터 이력
+            </Link>
+            <Link
+              href="/admin/document-automation"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              <FileText className="w-4 h-4" />
+              문서 자동화
+            </Link>
+          </div>
+        </div>
+
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">구글시트 관리자 페이지</h1>
