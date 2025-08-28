@@ -310,11 +310,43 @@ export async function PUT(request: NextRequest) {
 
   } catch (error) {
     console.error('🔄 [SYNC] ❌ 전체 동기화 조회 오류:', error);
+    
+    // Google API 에러인 경우 더 자세한 정보 제공
+    let errorMessage = '전체 동기화 데이터 조회 중 오류가 발생했습니다.';
+    let errorDetails = error instanceof Error ? error.message : '알 수 없는 오류';
+    
+    if (error instanceof Error && error.message) {
+      // Google Sheets API 권한 오류
+      if (error.message.includes('403') || error.message.includes('Forbidden')) {
+        errorMessage = 'Google Sheets 접근 권한이 없습니다. 서비스 계정 권한을 확인해주세요.';
+      }
+      // Google Sheets 스프레드시트 없음
+      else if (error.message.includes('404') || error.message.includes('not found')) {
+        errorMessage = '지정된 Google Sheets를 찾을 수 없습니다. SPREADSHEET_ID를 확인해주세요.';
+      }
+      // Google Sheets 시트 탭 없음
+      else if (error.message.includes('Unable to parse range')) {
+        errorMessage = '지정된 시트 탭(설치 전 실사)을 찾을 수 없습니다. 시트 이름을 확인해주세요.';
+      }
+    }
+    
+    console.error('🔄 [SYNC] ❌ 상세 에러:', {
+      message: errorMessage,
+      details: errorDetails,
+      spreadsheetId: process.env.DATA_COLLECTION_SPREADSHEET_ID,
+      sheetName: '설치 전 실사'
+    });
+    
     return NextResponse.json(
       { 
         success: false, 
-        message: '전체 동기화 데이터 조회 중 오류가 발생했습니다.',
-        error: error instanceof Error ? error.message : '알 수 없는 오류'
+        message: errorMessage,
+        error: errorDetails,
+        details: {
+          spreadsheetId: process.env.DATA_COLLECTION_SPREADSHEET_ID,
+          sheetName: '설치 전 실사',
+          systemType: 'presurvey'
+        }
       },
       { status: 500 }
     );

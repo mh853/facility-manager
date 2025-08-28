@@ -87,6 +87,17 @@ export interface AirPermitInfo {
   additional_info: Record<string, any>
   is_active: boolean
   is_deleted: boolean
+  
+  // UI에서 사용하는 추가 필드들 (optional)
+  category?: string | null
+  business_name?: string | null
+  pollutants?: (string | { type: string; amount: number | null })[]
+  outlets?: (DischargeOutlet | { 
+    outlet_number: number; 
+    outlet_name: string; 
+    discharge_facilities: any[]; 
+    prevention_facilities: any[]; 
+  })[]
 }
 
 export interface DischargeOutlet {

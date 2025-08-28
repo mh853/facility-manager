@@ -207,7 +207,8 @@ export default function BusinessManagementPage() {
       }
 
       // 중복 체크 실행
-      await checkDuplicate(formData.business_name, editingBusiness?.id)
+      const businessId = editingBusiness ? (editingBusiness as BusinessInfo).id : undefined
+      await checkDuplicate(formData.business_name, businessId)
       
       // 중복 확인 후 결과 체크
       if (duplicateCheck?.isDuplicate) {
@@ -216,7 +217,7 @@ export default function BusinessManagementPage() {
       }
 
       // 유사한 사업장이 있을 때 확인 요청
-      if (duplicateCheck?.similarMatches.length > 0) {
+      if (duplicateCheck?.similarMatches && duplicateCheck.similarMatches.length > 0) {
         const confirmed = confirm(
           `유사한 사업장명이 ${duplicateCheck.similarMatches.length}개 발견되었습니다:\n\n` +
           duplicateCheck.similarMatches.slice(0, 3).map(b => 
@@ -579,7 +580,7 @@ export default function BusinessManagementPage() {
                       if (newValue.trim()) {
                         setTimeout(() => {
                           if (formData.business_name === newValue) {
-                            checkDuplicate(newValue, editingBusiness?.id)
+                            checkDuplicate(newValue, editingBusiness?.id || undefined)
                           }
                         }, 500)
                       } else {
@@ -590,7 +591,7 @@ export default function BusinessManagementPage() {
                     className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 ${
                       duplicateCheck?.isDuplicate 
                         ? 'border-red-300 bg-red-50' 
-                        : duplicateCheck?.similarMatches.length > 0 
+                        : (duplicateCheck?.similarMatches && duplicateCheck.similarMatches.length > 0) 
                         ? 'border-yellow-300 bg-yellow-50' 
                         : 'border-gray-300'
                     }`}
