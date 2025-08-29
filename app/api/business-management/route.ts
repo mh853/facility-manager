@@ -41,11 +41,16 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: 새 사업장 생성
+// POST: 새 사업장 생성 또는 구글시트 가져오기
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     console.log('🔍 받은 데이터:', body)
+    
+    // 구글시트 가져오기 action 처리
+    if (body.action === 'import_from_sheet') {
+      return await importFromGoogleSheet(body)
+    }
     
     // 필수 필드 검증
     if (!body.business_name) {
@@ -260,6 +265,10 @@ export async function PATCH(request: NextRequest) {
     // 환경변수에서 기본 스프레드시트 ID 사용 (제공되지 않은 경우)
     const targetSpreadsheetId = spreadsheetId || process.env.DATA_COLLECTION_SPREADSHEET_ID
     
+    console.log('📋 입력된 스프레드시트 ID:', spreadsheetId)
+    console.log('📋 환경변수 기본 ID:', process.env.DATA_COLLECTION_SPREADSHEET_ID)
+    console.log('📋 최종 사용할 ID:', targetSpreadsheetId)
+    
     if (!targetSpreadsheetId) {
       return NextResponse.json(
         { error: '스프레드시트 ID가 제공되지 않았습니다' },
@@ -325,6 +334,29 @@ export async function PATCH(request: NextRequest) {
           representative_name: null,
           representative_birth_date: null,
           business_registration_number: null,
+          manufacturer: null,
+          vpn: null,
+          greenlink_id: null,
+          greenlink_pw: null,
+          business_management_code: null,
+          sales_office: null,
+          // 측정기기 필드들
+          ph_sensor: null,
+          differential_pressure_meter: null,
+          temperature_meter: null,
+          discharge_current_meter: null,
+          fan_current_meter: null,
+          pump_current_meter: null,
+          gateway: null,
+          vpn_wired: null,
+          vpn_wireless: null,
+          explosion_proof_differential_pressure_meter_domestic: null,
+          explosion_proof_temperature_meter_domestic: null,
+          expansion_device: null,
+          relay_8ch: null,
+          relay_16ch: null,
+          main_board_replacement: null,
+          multiple_stack: null,
           additional_info: {}
         }
 
@@ -336,6 +368,12 @@ export async function PATCH(request: NextRequest) {
           // 디버깅을 위한 로그 (첫 번째 몇 행)
           if (i < startRow + 2 && value.trim()) {
             console.log(`📊 행${i+1} 헤더[${index}]: "${header}" → normalized: "${normalizedHeader}" → value: "${value}"`)
+          }
+
+          // 20자 제한 필드를 위한 헬퍼 함수
+          const truncateField = (text: string, maxLength: number = 20): string => {
+            const cleanText = text.replace(/\n/g, ' ').trim()
+            return cleanText.length > maxLength ? cleanText.substring(0, maxLength) : cleanText
           }
 
           switch (normalizedHeader) {
@@ -368,17 +406,25 @@ export async function PATCH(request: NextRequest) {
             case '담당자전화':
             case '연락처':
             case 'manager_contact':
-              businessData.manager_contact = value.trim() || null
+              businessData.manager_contact = truncateField(value) || null
+              // 원본 데이터가 20자를 초과하면 additional_info에 저장
+              if (value.trim().length > 20) {
+                businessData.additional_info.manager_contact_full = value.trim()
+              }
               break
             case '사업장연락처':
             case '사업장전화':
             case 'business_contact':
-              businessData.business_contact = value.trim() || null
+              businessData.business_contact = truncateField(value) || null
+              // 원본 데이터가 20자를 초과하면 additional_info에 저장
+              if (value.trim().length > 20) {
+                businessData.additional_info.business_contact_full = value.trim()
+              }
               break
             case '팩스번호':
             case '팩스':
             case 'fax_number':
-              businessData.additional_info.fax_number = value.trim() || ''
+              businessData.additional_info.fax_number = truncateField(value) || ''
               break
             case '이메일':
             case 'email':
@@ -395,14 +441,42 @@ export async function PATCH(request: NextRequest) {
               break
             case '사업자등록번호':
             case 'business_registration_number':
-              businessData.business_registration_number = value.trim() || null
+              businessData.business_registration_number = truncateField(value) || null
+              // 원본 데이터가 20자를 초과하면 additional_info에 저장
+              if (value.trim().length > 20) {
+                businessData.additional_info.business_registration_number_full = value.trim()
+              }
               break
             case '제조사':
             case 'manufacturer':
-              businessData.additional_info.manufacturer = value.trim() || ''
+              const manufacturerValue = value.trim().toLowerCase()
+              businessData.manufacturer = 
+                manufacturerValue.includes('에코센스') || manufacturerValue.includes('ecosense') ? 'ecosense' :
+                manufacturerValue.includes('클린어스') || manufacturerValue.includes('cleanearth') ? 'cleanearth' :
+                manufacturerValue.includes('가이아씨앤에스') || manufacturerValue.includes('gaia') ? 'gaia_cns' :
+                manufacturerValue.includes('이브이에스') || manufacturerValue.includes('evs') ? 'evs' : null
               break
             case 'vpn':
-              businessData.additional_info.vpn = value.trim() || ''
+              const vpnValue = value.trim().toLowerCase()
+              businessData.vpn = 
+                vpnValue.includes('유선') || vpnValue.includes('wired') ? 'wired' :
+                vpnValue.includes('무선') || vpnValue.includes('wireless') ? 'wireless' : null
+              break
+            case '그린링크id':
+            case '그린링크 id':
+              businessData.greenlink_id = value.trim() || null
+              break
+            case '그린링크pw':
+            case '그린링크 pw':
+              businessData.greenlink_pw = value.trim() || null
+              break
+            case '사업장관리코드':
+            case 'business_management_code':
+              businessData.business_management_code = parseInt(value) || null
+              break
+            case '영업점':
+            case 'sales_office':
+              businessData.sales_office = value.trim() || null
               break
             case '진행구분':
               businessData.additional_info.progress_status = value.trim() || ''
@@ -440,6 +514,72 @@ export async function PATCH(request: NextRequest) {
               break
             case '가동개시일':
               businessData.additional_info.operation_start_date = value.trim() || ''
+              break
+            // 측정기기 수량 관련 필드들
+            case 'ph센서':
+            case 'ph':
+              businessData.ph_sensor = parseInt(value) || null
+              break
+            case '차압계':
+            case '차압':
+              businessData.differential_pressure_meter = parseInt(value) || null
+              break
+            case '온도계':
+            case '온도':
+              businessData.temperature_meter = parseInt(value) || null
+              break
+            case '배출전류계':
+            case '배출전류':
+              businessData.discharge_current_meter = parseInt(value) || null
+              break
+            case '송풍전류계':
+            case '송풍전류':
+              businessData.fan_current_meter = parseInt(value) || null
+              break
+            case '펌프전류계':
+            case '펌프전류':
+              businessData.pump_current_meter = parseInt(value) || null
+              break
+            case '게이트웨이':
+            case 'gateway':
+              businessData.gateway = parseInt(value) || null
+              break
+            case 'vpn(유선)':
+            case 'vpn유선':
+              businessData.vpn_wired = parseInt(value) || null
+              break
+            case 'vpn(무선)':
+            case 'vpn무선':
+              businessData.vpn_wireless = parseInt(value) || null
+              break
+            case '방폭차압계(국산)':
+            case '방폭차압계':
+              businessData.explosion_proof_differential_pressure_meter_domestic = parseInt(value) || null
+              break
+            case '방폭온도계(국산)':
+            case '방폭온도계':
+              businessData.explosion_proof_temperature_meter_domestic = parseInt(value) || null
+              break
+            case '확장디바이스':
+            case '확장장치':
+              businessData.expansion_device = parseInt(value) || null
+              break
+            case '중계기(8채널)':
+            case '중계기8ch':
+            case '중계기8':
+              businessData.relay_8ch = parseInt(value) || null
+              break
+            case '중계기(16채널)':
+            case '중계기16ch':
+            case '중계기16':
+              businessData.relay_16ch = parseInt(value) || null
+              break
+            case '메인보드교체':
+            case '메인보드':
+              businessData.main_board_replacement = parseInt(value) || null
+              break
+            case '복수굴뚝':
+              businessData.multiple_stack = parseInt(value) || null
               break
             default:
               // 기타 필드는 additional_info에 저장
