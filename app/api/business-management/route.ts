@@ -49,7 +49,10 @@ export async function POST(request: NextRequest) {
     
     // 구글시트 가져오기 action 처리
     if (body.action === 'import_from_sheet') {
-      return await importFromGoogleSheet(body)
+      return NextResponse.json(
+        { error: 'Google Sheets 가져오기 기능은 PATCH 메서드를 사용해주세요' },
+        { status: 400 }
+      )
     }
     
     // 필수 필드 검증
@@ -60,7 +63,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 사업장 생성 데이터 준비 - 안전하게 기본 필드들만 사용
+    // 사업장 생성 데이터 준비 - BusinessInfo 인터페이스에 맞춰 모든 필드 포함
     const businessData = {
       business_name: body.business_name,
       local_government: body.local_government || null,
@@ -69,31 +72,40 @@ export async function POST(request: NextRequest) {
       manager_position: body.manager_position || null,
       manager_contact: body.manager_contact || null,
       business_contact: body.business_contact || null,
+      fax_number: body.fax_number || null,
       email: body.email || null,
       representative_name: body.representative_name || null,
-      representative_birth_date: body.representative_birth_date || null,
       business_registration_number: body.business_registration_number || null,
       
-      // 모든 추가 데이터는 additional_info에 저장
-      additional_info: {
-        ...body.additional_info || {},
-        // 측정기기 정보
-        ph_meter: body.ph_meter || 0,
-        differential_pressure_meter: body.differential_pressure_meter || 0,
-        temperature_meter: body.temperature_meter || 0,
-        // CT 정보
-        discharge_ct: body.discharge_ct || '',
-        fan_ct: body.fan_ct || 0,
-        pump_ct: body.pump_ct || 0,
-        gateway: body.gateway || '',
-        // 네트워크 설정
-        vpn_wired: body.vpn_wired || 0,
-        vpn_wireless: body.vpn_wireless || 0,
-        multiple_stack: body.multiple_stack || 0,
-        // 기타 정보
-        fax_number: body.fax_number || '',
-        manufacturer: body.manufacturer || ''
-      },
+      // 새로운 필드들
+      manufacturer: (body.manufacturer || null) as 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null,
+      vpn: (body.vpn || null) as 'wired' | 'wireless' | null,
+      greenlink_id: body.greenlink_id || null,
+      greenlink_pw: body.greenlink_pw || null,
+      business_management_code: body.business_management_code || null,
+      
+      // 센서/장비 수량 필드들
+      ph_sensor: body.ph_sensor || null,
+      differential_pressure_meter: body.differential_pressure_meter || null,
+      temperature_meter: body.temperature_meter || null,
+      discharge_current_meter: body.discharge_current_meter || null,
+      fan_current_meter: body.fan_current_meter || null,
+      pump_current_meter: body.pump_current_meter || null,
+      gateway: body.gateway || null,
+      vpn_wired: body.vpn_wired || null,
+      vpn_wireless: body.vpn_wireless || null,
+      explosion_proof_differential_pressure_meter_domestic: body.explosion_proof_differential_pressure_meter_domestic || null,
+      explosion_proof_temperature_meter_domestic: body.explosion_proof_temperature_meter_domestic || null,
+      expansion_device: body.expansion_device || null,
+      relay_8ch: body.relay_8ch || null,
+      relay_16ch: body.relay_16ch || null,
+      main_board_replacement: body.main_board_replacement || null,
+      multiple_stack: body.multiple_stack || null,
+      
+      // 영업점
+      sales_office: body.sales_office || null,
+      
+      additional_info: body.additional_info || {},
       
       is_active: true,
       is_deleted: false

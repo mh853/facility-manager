@@ -52,27 +52,42 @@ export interface BusinessInfo {
   manager_position: string | null
   manager_contact: string | null
   business_contact: string | null
+  fax_number: string | null
   email: string | null
   representative_name: string | null
-  representative_birth_date: string | null
   business_registration_number: string | null
+  
+  // 새로운 필드들
+  manufacturer: 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null
+  vpn: 'wired' | 'wireless' | null
+  greenlink_id: string | null
+  greenlink_pw: string | null
+  business_management_code: number | null
+  
+  // 센서/장비 수량 필드들
+  ph_sensor: number | null
+  differential_pressure_meter: number | null
+  temperature_meter: number | null
+  discharge_current_meter: number | null
+  fan_current_meter: number | null
+  pump_current_meter: number | null
+  gateway: number | null
+  vpn_wired: number | null
+  vpn_wireless: number | null
+  explosion_proof_differential_pressure_meter_domestic: number | null
+  explosion_proof_temperature_meter_domestic: number | null
+  expansion_device: number | null
+  relay_8ch: number | null
+  relay_16ch: number | null
+  main_board_replacement: number | null
+  multiple_stack: number | null
+  
+  // 영업점
+  sales_office: string | null
+  
   additional_info: Record<string, any>
   is_active: boolean
   is_deleted: boolean
-  
-  // 이 필드들은 additional_info에서 관리되지만 UI에서 사용하기 위해 optional로 유지
-  fax_number?: string | null
-  manufacturer?: string | null
-  ph_meter?: number
-  differential_pressure_meter?: number
-  temperature_meter?: number
-  discharge_ct?: string | null
-  fan_ct?: number
-  pump_ct?: number
-  gateway?: string | null
-  vpn_wired?: number
-  vpn_wireless?: number
-  multiple_stack?: number
 }
 
 export interface AirPermitInfo {
@@ -151,6 +166,10 @@ export interface OutletWithFacilities extends DischargeOutlet {
 
 export interface AirPermitWithOutlets extends AirPermitInfo {
   outlets: OutletWithFacilities[]
+  business?: {
+    business_name: string
+    local_government: string | null
+  }
 }
 
 export interface BusinessWithPermits extends BusinessInfo {
@@ -345,10 +364,16 @@ export class DatabaseService {
    * 대기필증 정보 조회 (배출구 및 시설 정보 포함)
    */
   static async getAirPermitWithDetails(permitId: string): Promise<AirPermitWithOutlets | null> {
-    // 기본 허가 정보 조회
+    // 기본 허가 정보 조회 (사업장 정보 포함)
     const { data: permit, error: permitError } = await supabase
       .from('air_permit_info')
-      .select('*')
+      .select(`
+        *,
+        business:business_info!business_id (
+          business_name,
+          local_government
+        )
+      `)
       .eq('id', permitId)
       .eq('is_active', true)
       .eq('is_deleted', false)
@@ -380,6 +405,158 @@ export class DatabaseService {
 
     if (error) throw new Error(`대기필증 생성 실패: ${error.message}`)
     return data
+  }
+
+  /**
+   * 배출구별 시설을 포함한 완전한 대기필증 생성
+   */
+  static async createAirPermitWithOutlets(permitData: Omit<AirPermitInfo, 'id' | 'created_at' | 'updated_at'>, outlets: any[]): Promise<AirPermitWithOutlets> {
+    // 1. 기본 대기필증 생성
+    const permit = await this.createAirPermit(permitData)
+    
+    // 2. 각 배출구와 시설 생성
+    const createdOutlets: OutletWithFacilities[] = []
+    
+    for (const outlet of outlets) {
+      // 배출구 생성
+      const outletData = {
+        air_permit_id: permit.id,
+        outlet_number: outlet.outlet_number || 1,
+        outlet_name: outlet.outlet_name || null,
+        additional_info: {}
+      }
+      
+      const createdOutlet = await this.createDischargeOutlet(outletData)
+      
+      // 배출시설 생성
+      const dischargeFacilities: DischargeFacility[] = []
+      if (outlet.discharge_facilities && Array.isArray(outlet.discharge_facilities)) {
+        for (const facility of outlet.discharge_facilities) {
+          const facilityData = {
+            outlet_id: createdOutlet.id,
+            facility_name: facility.name || '',
+            capacity: facility.capacity || null,
+            quantity: facility.quantity || 1,
+            additional_info: {}
+          }
+          const createdFacility = await this.createDischargeFacility(facilityData)
+          dischargeFacilities.push(createdFacility)
+        }
+      }
+      
+      // 방지시설 생성
+      const preventionFacilities: PreventionFacility[] = []
+      if (outlet.prevention_facilities && Array.isArray(outlet.prevention_facilities)) {
+        for (const facility of outlet.prevention_facilities) {
+          const facilityData = {
+            outlet_id: createdOutlet.id,
+            facility_name: facility.name || '',
+            capacity: facility.capacity || null,
+            quantity: facility.quantity || 1,
+            additional_info: {}
+          }
+          const createdFacility = await this.createPreventionFacility(facilityData)
+          preventionFacilities.push(createdFacility)
+        }
+      }
+      
+      createdOutlets.push({
+        ...createdOutlet,
+        discharge_facilities: dischargeFacilities,
+        prevention_facilities: preventionFacilities
+      })
+    }
+    
+    return {
+      ...permit,
+      outlets: createdOutlets
+    }
+  }
+
+  /**
+   * 배출구별 시설을 포함한 완전한 대기필증 업데이트
+   */
+  static async updateAirPermitWithOutlets(permitId: string, permitData: Partial<AirPermitInfo>, outlets?: any[]): Promise<AirPermitWithOutlets> {
+    // 1. 기본 대기필증 정보 업데이트
+    const updatedPermit = await this.updateAirPermit(permitId, permitData)
+    
+    // 2. 배출구와 시설 정보가 제공된 경우 업데이트
+    if (outlets && Array.isArray(outlets)) {
+      // 기존 배출구 삭제 (시설도 함께 삭제됨 - CASCADE)
+      await supabase
+        .from('discharge_outlets')
+        .delete()
+        .eq('air_permit_id', permitId)
+      
+      // 새로운 배출구와 시설 생성
+      const updatedOutlets: OutletWithFacilities[] = []
+      
+      for (const outlet of outlets) {
+        // 배출구 생성
+        const outletData = {
+          air_permit_id: permitId,
+          outlet_number: outlet.outlet_number || 1,
+          outlet_name: outlet.outlet_name || null,
+          additional_info: {}
+        }
+        
+        const createdOutlet = await this.createDischargeOutlet(outletData)
+        
+        // 배출시설 생성
+        const dischargeFacilities: DischargeFacility[] = []
+        if (outlet.discharge_facilities && Array.isArray(outlet.discharge_facilities)) {
+          for (const facility of outlet.discharge_facilities) {
+            if (facility.name && facility.name.trim()) { // 빈 시설명은 제외
+              const facilityData = {
+                outlet_id: createdOutlet.id,
+                facility_name: facility.name,
+                capacity: facility.capacity || null,
+                quantity: facility.quantity || 1,
+                additional_info: {}
+              }
+              const createdFacility = await this.createDischargeFacility(facilityData)
+              dischargeFacilities.push(createdFacility)
+            }
+          }
+        }
+        
+        // 방지시설 생성
+        const preventionFacilities: PreventionFacility[] = []
+        if (outlet.prevention_facilities && Array.isArray(outlet.prevention_facilities)) {
+          for (const facility of outlet.prevention_facilities) {
+            if (facility.name && facility.name.trim()) { // 빈 시설명은 제외
+              const facilityData = {
+                outlet_id: createdOutlet.id,
+                facility_name: facility.name,
+                capacity: facility.capacity || null,
+                quantity: facility.quantity || 1,
+                additional_info: {}
+              }
+              const createdFacility = await this.createPreventionFacility(facilityData)
+              preventionFacilities.push(createdFacility)
+            }
+          }
+        }
+        
+        updatedOutlets.push({
+          ...createdOutlet,
+          discharge_facilities: dischargeFacilities,
+          prevention_facilities: preventionFacilities
+        })
+      }
+      
+      return {
+        ...updatedPermit,
+        outlets: updatedOutlets
+      }
+    }
+    
+    // 배출구 정보가 없으면 기존 배출구 정보 로드하여 반환
+    const existingOutlets = await this.getDischargeOutlets(permitId)
+    return {
+      ...updatedPermit,
+      outlets: existingOutlets
+    }
   }
 
   /**
@@ -632,6 +809,72 @@ export class DatabaseService {
     } catch (e) {
       return false
     }
+  }
+
+  /**
+   * 배출구 정보 업데이트
+   */
+  static async updateDischargeOutlet(id: string, outletData: Partial<DischargeOutlet>): Promise<DischargeOutlet> {
+    const { data, error } = await supabase
+      .from('discharge_outlets')
+      .update({ ...outletData, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw new Error(`배출구 업데이트 실패: ${error.message}`)
+    return data
+  }
+
+  /**
+   * 배출시설 정보 업데이트
+   */
+  static async updateDischargeFacility(id: string, facilityData: Partial<DischargeFacility>): Promise<DischargeFacility> {
+    const { data, error } = await supabase
+      .from('discharge_facilities')
+      .update({ ...facilityData, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw new Error(`배출시설 업데이트 실패: ${error.message}`)
+    return data
+  }
+
+  /**
+   * 방지시설 정보 업데이트
+   */
+  static async updatePreventionFacility(id: string, facilityData: Partial<PreventionFacility>): Promise<PreventionFacility> {
+    const { data, error } = await supabase
+      .from('prevention_facilities')
+      .update({ ...facilityData, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw new Error(`방지시설 업데이트 실패: ${error.message}`)
+    return data
+  }
+
+  /**
+   * 전체 대기필증 목록 조회
+   */
+  static async getAllAirPermits(): Promise<AirPermitInfo[]> {
+    const { data, error } = await supabase
+      .from('air_permit_info')
+      .select(`
+        *,
+        business:business_info!business_id (
+          business_name,
+          local_government
+        )
+      `)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+
+    if (error) throw new Error(`전체 대기필증 조회 실패: ${error.message}`)
+    return data || []
   }
 }
 

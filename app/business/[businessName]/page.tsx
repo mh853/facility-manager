@@ -1052,6 +1052,8 @@ export default function BusinessPage() {
                 </label>
                 <input
                   type="text"
+                  lang="ko"
+                  inputMode="text"
                   value={inspectorInfo.name}
                   onChange={(e) => handleInspectorInfoChange('name', e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"

@@ -67,22 +67,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 배출구별 시설을 평면화하여 기존 데이터베이스 구조에 맞춤
-    const allDischargeFacilities: Array<{name: string, capacity: string, quantity: number}> = []
-    const allPreventionFacilities: Array<{name: string, capacity: string, quantity: number}> = []
-    
-    if (body.outlets && Array.isArray(body.outlets)) {
-      for (const outlet of body.outlets) {
-        if (outlet.discharge_facilities) {
-          allDischargeFacilities.push(...outlet.discharge_facilities)
-        }
-        if (outlet.prevention_facilities) {
-          allPreventionFacilities.push(...outlet.prevention_facilities)
-        }
-      }
-    }
-
-    // 대기필증 생성 데이터 준비 - 스키마에 정의된 실제 필드 사용
+    // 대기필증 생성 데이터 준비 - 배출구별 시설 관계 유지
     const permitData: Omit<AirPermitInfo, 'id' | 'created_at' | 'updated_at'> = {
       business_id: body.business_id,
       business_type: body.business_type || null,
@@ -94,16 +79,15 @@ export async function POST(request: NextRequest) {
         ...body.additional_info || {},
         category: body.category || null,
         business_name: body.business_name || null,
-        pollutants: body.pollutants || [],
-        outlets: body.outlets || [],
-        discharge_facilities: allDischargeFacilities,
-        prevention_facilities: allPreventionFacilities
+        pollutants: body.pollutants || []
       },
       is_active: true,
       is_deleted: false
     }
 
-    const newPermit = await DatabaseService.createAirPermit(permitData)
+    // 배출구별 시설을 포함한 완전한 대기필증 생성
+    const outlets = body.outlets || []
+    const newPermit = await DatabaseService.createAirPermitWithOutlets(permitData, outlets)
     
     return NextResponse.json(
       { 
@@ -153,32 +137,16 @@ export async function PUT(request: NextRequest) {
     }
     console.log('✅ ID 검증 통과:', id)
 
-    // Step 3: 배출구별 시설 평면화
-    let allDischargeFacilities: Array<{name: string, capacity: string, quantity: number}> = []
-    let allPreventionFacilities: Array<{name: string, capacity: string, quantity: number}> = []
-    
-    try {
-      if (rawUpdateData.outlets && Array.isArray(rawUpdateData.outlets)) {
-        for (const outlet of rawUpdateData.outlets) {
-          if (outlet.discharge_facilities) {
-            allDischargeFacilities.push(...outlet.discharge_facilities)
-          }
-          if (outlet.prevention_facilities) {
-            allPreventionFacilities.push(...outlet.prevention_facilities)
-          }
-        }
-      }
-      console.log('✅ 시설 평면화 완료:', {
-        discharge: allDischargeFacilities.length,
-        prevention: allPreventionFacilities.length
-      })
-    } catch (facilitiesError) {
-      console.error('🔴 시설 평면화 오류:', facilitiesError)
-      return NextResponse.json(
-        { error: '시설 데이터 처리 오류', details: facilitiesError instanceof Error ? facilitiesError.message : 'Unknown error' },
-        { status: 400 }
-      )
-    }
+    // Step 3: 배출구 정보 추출 (평면화하지 않고 구조 유지)
+    const outlets = rawUpdateData.outlets || []
+    console.log('✅ 배출구 정보 추출 완료:', {
+      outletCount: outlets.length,
+      outletsData: outlets.map((o: any) => ({
+        number: o.outlet_number,
+        discharge: o.discharge_facilities?.length || 0,
+        prevention: o.prevention_facilities?.length || 0
+      }))
+    })
 
     // Step 4: 날짜 필드 검증
     const validateDate = (dateStr: string, fieldName: string): string | null => {
@@ -224,15 +192,12 @@ export async function PUT(request: NextRequest) {
         business_type: rawUpdateData.business_type || null,
         first_report_date: validatedFirstReportDate,
         operation_start_date: validatedOperationStartDate,
-        // additional_info에 나머지 정보 저장
+        // additional_info에 나머지 정보 저장 (배출구 정보는 별도 테이블에서 관리)
         additional_info: {
           ...rawUpdateData.additional_info || {},
           category: rawUpdateData.category || null,
           business_name: rawUpdateData.business_name || null,
-          pollutants: Array.isArray(rawUpdateData.pollutants) ? rawUpdateData.pollutants : [],
-          outlets: Array.isArray(rawUpdateData.outlets) ? rawUpdateData.outlets : [],
-          discharge_facilities: allDischargeFacilities,
-          prevention_facilities: allPreventionFacilities
+          pollutants: Array.isArray(rawUpdateData.pollutants) ? rawUpdateData.pollutants : []
         }
       }
       console.log('✅ 업데이트 데이터 구성 완료')
@@ -250,7 +215,7 @@ export async function PUT(request: NextRequest) {
     
     try {
       console.log('🔄 데이터베이스 업데이트 시작...')
-      updatedPermit = await DatabaseService.updateAirPermit(id, updateData)
+      updatedPermit = await DatabaseService.updateAirPermitWithOutlets(id, updateData, outlets)
       console.log('✅ 데이터베이스 업데이트 완료:', updatedPermit)
     } catch (dbError) {
       console.error('🔴 데이터베이스 업데이트 오류:', dbError)

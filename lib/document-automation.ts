@@ -98,19 +98,17 @@ export class DocumentAutomationService {
       
       // 대표자 정보
       '{{REPRESENTATIVE_NAME}}': businessData.representative_name || '',
-      '{{REPRESENTATIVE_BIRTH_DATE}}': businessData.representative_birth_date 
-        ? new Date(businessData.representative_birth_date).toLocaleDateString('ko-KR') 
-        : '',
+      '{{REPRESENTATIVE_BIRTH_DATE}}': '',
       '{{BUSINESS_REGISTRATION_NUMBER}}': businessData.business_registration_number || '',
       
       // 장비 정보
       '{{MANUFACTURER}}': businessData.manufacturer || '',
-      '{{PH_METER}}': businessData.ph_meter ? 'O' : 'X',
+      '{{PH_METER}}': businessData.ph_sensor ? 'O' : 'X',
       '{{DIFFERENTIAL_PRESSURE_METER}}': businessData.differential_pressure_meter ? 'O' : 'X',
       '{{TEMPERATURE_METER}}': businessData.temperature_meter ? 'O' : 'X',
-      '{{DISCHARGE_CT}}': businessData.discharge_ct || '',
+      '{{DISCHARGE_CT}}': businessData.additional_info?.discharge_ct || '',
       '{{PREVENTION_CT}}': businessData.additional_info?.prevention_ct || '',
-      '{{GATEWAY}}': businessData.gateway || '',
+      '{{GATEWAY}}': businessData.gateway ? String(businessData.gateway) : '',
       '{{VPN_WIRED}}': businessData.vpn_wired ? 'O' : 'X',
       '{{VPN_WIRELESS}}': businessData.vpn_wireless ? 'O' : 'X',
       '{{MULTIPLE_STACK}}': businessData.multiple_stack ? 'O' : 'X',

@@ -146,6 +146,8 @@ export default memo(function HomePage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"
+                  lang="ko"
+                  inputMode="text"
                   placeholder="🔍 사업장 검색..."
                   value={searchTerm}
                   onChange={handleSearchChange}

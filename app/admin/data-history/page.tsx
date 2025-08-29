@@ -1,9 +1,27 @@
 // app/admin/data-history/page.tsx - 데이터 이력 및 복구 관리 페이지
 'use client'
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, RefreshCw, Undo2, Eye, Users, FileText, Database, History } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import AdminLayout from '@/components/ui/AdminLayout'
+import StatsCard from '@/components/ui/StatsCard'
+import DataTable, { commonActions } from '@/components/ui/DataTable'
+import { ConfirmModal } from '@/components/ui/Modal'
+import { 
+  ArrowLeft, 
+  RefreshCw, 
+  Undo2, 
+  Eye, 
+  Users, 
+  FileText, 
+  Database, 
+  History,
+  Filter,
+  RotateCcw,
+  CheckCircle,
+  AlertTriangle,
+  Trash2,
+  Plus
+} from 'lucide-react'
 
 export default function DataHistoryPage() {
   const [history, setHistory] = useState<any[]>([])
@@ -15,6 +33,21 @@ export default function DataHistoryPage() {
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any>(null)
   const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false)
   const [restoreReason, setRestoreReason] = useState('')
+  
+  // Stats calculation
+  const stats = useMemo(() => {
+    const total = history.length
+    const inserts = history.filter(h => h.operation === 'INSERT').length
+    const updates = history.filter(h => h.operation === 'UPDATE').length
+    const deletes = history.filter(h => h.operation === 'DELETE').length
+    
+    return {
+      total,
+      inserts,
+      updates,
+      deletes
+    }
+  }, [history])
 
   const tableOptions = [
     { value: 'business_info', label: '사업장 정보' },
@@ -85,6 +118,13 @@ export default function DataHistoryPage() {
     setIsRestoreModalOpen(true)
   }
 
+  // 데이터 복구 확인
+  const confirmRestore = (historyItem: any) => {
+    setSelectedHistoryItem(historyItem)
+    setRestoreReason('')
+    setIsRestoreModalOpen(true)
+  }
+
   // 데이터 복구 실행
   const handleRestore = async () => {
     if (!selectedHistoryItem) return
@@ -102,7 +142,6 @@ export default function DataHistoryPage() {
       const result = await response.json()
 
       if (response.ok) {
-        alert('데이터가 성공적으로 복구되었습니다')
         setIsRestoreModalOpen(false)
         loadHistory() // 이력 새로고침
       } else {
@@ -129,211 +168,218 @@ export default function DataHistoryPage() {
     return JSON.stringify(data, null, 2)
   }
 
+  // History items with ID for DataTable
+  const historyWithId = useMemo(() => 
+    history.map(item => ({
+      ...item,
+      id: item.id || `history-${item.record_id}`
+    }))
+  , [history])
+
+  // Table columns for history
+  const historyColumns = [
+    {
+      key: 'table_display_name',
+      title: '테이블',
+      render: (item: any) => (
+        <span className="font-medium text-sm">{item.table_display_name}</span>
+      )
+    },
+    {
+      key: 'operation',
+      title: '작업',
+      render: (item: any) => (
+        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+          item.operation === 'INSERT' ? 'bg-green-100 text-green-800' :
+          item.operation === 'UPDATE' ? 'bg-blue-100 text-blue-800' :
+          'bg-red-100 text-red-800'
+        }`}>
+          {item.operation_display_name}
+        </span>
+      )
+    },
+    {
+      key: 'formatted_created_at',
+      title: '변경일시',
+      render: (item: any) => (
+        <span className="text-sm">{item.formatted_created_at}</span>
+      )
+    },
+    {
+      key: 'record_id',
+      title: '레코드 ID',
+      render: (item: any) => (
+        <span className="font-mono text-xs text-gray-500">{item.record_id.slice(0, 8)}...</span>
+      )
+    }
+  ]
+
+  // Table actions for history
+  const historyActions = [
+    {
+      ...commonActions.view((item: any) => openDetailModal(item)),
+      show: () => true
+    },
+    {
+      label: '복구',
+      icon: RotateCcw,
+      onClick: (item: any) => confirmRestore(item),
+      variant: 'secondary' as const,
+      show: (item: any) => item.operation === 'UPDATE' || item.operation === 'DELETE'
+    }
+  ]
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* 네비게이션 메뉴 */}
-      <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/"
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            실사관리
-          </Link>
-          <Link
-            href="/admin/business"
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Users className="w-4 h-4" />
-            사업장 관리
-          </Link>
-          <Link
-            href="/admin/air-permit"
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            <FileText className="w-4 h-4" />
-            대기필증 관리
-          </Link>
-          <Link
-            href="/admin/data-history"
-            className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-          >
-            <History className="w-4 h-4" />
-            데이터 이력
-          </Link>
-          <Link
-            href="/admin/document-automation"
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <FileText className="w-4 h-4" />
-            문서 자동화
-          </Link>
-        </div>
-      </div>
-
-      <div className="mb-8">
-        <div className="flex items-center gap-4 mb-4">
-          <Link href="/admin" className="flex items-center text-blue-600 hover:text-blue-800">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            관리자 홈으로
-          </Link>
-        </div>
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">데이터 변경 이력 관리</h1>
+    <AdminLayout
+      title="데이터 변경 이력 관리"
+      description="시스템 데이터 변경 이력 조회 및 복구"
+      actions={
+        <button
+          onClick={handleFilter}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          새로고침
+        </button>
+      }
+    >
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatsCard
+          title="전체 이력"
+          value={stats.total}
+          icon={History}
+          color="blue"
+          description="조회된 변경 이력 수"
+        />
         
-        {/* 필터 섹션 */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">필터 설정</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* 테이블 선택 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                테이블 선택
-              </label>
-              <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-300 rounded p-2">
-                {tableOptions.map(option => (
-                  <label key={option.value} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedTables.includes(option.value)}
-                      onChange={() => handleTableSelect(option.value)}
-                      className="mr-2"
-                    />
-                    {option.label}
-                  </label>
-                ))}
-              </div>
-            </div>
+        <StatsCard
+          title="데이터 생성"
+          value={stats.inserts}
+          icon={Plus}
+          color="green"
+          trend={{
+            value: stats.total > 0 ? Math.round((stats.inserts / stats.total) * 100) : 0,
+            direction: 'up',
+            label: '전체 대비'
+          }}
+        />
+        
+        <StatsCard
+          title="데이터 수정"
+          value={stats.updates}
+          icon={RefreshCw}
+          color="yellow"
+          trend={{
+            value: stats.total > 0 ? Math.round((stats.updates / stats.total) * 100) : 0,
+            direction: 'up',
+            label: '전체 대비'
+          }}
+        />
+        
+        <StatsCard
+          title="데이터 삭제"
+          value={stats.deletes}
+          icon={Trash2}
+          color="red"
+          trend={{
+            value: stats.total > 0 ? Math.round((stats.deletes / stats.total) * 100) : 0,
+            direction: 'up',
+            label: '전체 대비'
+          }}
+        />
+      </div>
 
-            {/* 레코드 ID */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                특정 레코드 ID
-              </label>
-              <input
-                type="text"
-                value={selectedRecordId}
-                onChange={(e) => setSelectedRecordId(e.target.value)}
-                placeholder="UUID 입력..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* 조회 개수 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                조회 개수
-              </label>
-              <select
-                value={limit}
-                onChange={(e) => setLimit(parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                <option value={50}>50개</option>
-                <option value={100}>100개</option>
-                <option value={200}>200개</option>
-                <option value={500}>500개</option>
-              </select>
+      {/* Filter Panel */}
+      <div className="bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
+        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <Filter className="w-6 h-6 text-blue-600" />
+          </div>
+          필터 설정
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Table Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              테이블 선택
+            </label>
+            <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-3 bg-gray-50">
+              {tableOptions.map(option => (
+                <label key={option.value} className="flex items-center hover:bg-white p-1 rounded">
+                  <input
+                    type="checkbox"
+                    checked={selectedTables.includes(option.value)}
+                    onChange={() => handleTableSelect(option.value)}
+                    className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm">{option.label}</span>
+                </label>
+              ))}
             </div>
           </div>
 
-          <div className="flex gap-4 mt-4">
-            <button
-              onClick={handleFilter}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              조회
-            </button>
-            <button
-              onClick={handleResetFilter}
-              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              초기화
-            </button>
+          {/* Record ID */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              특정 레코드 ID
+            </label>
+            <input
+              type="text"
+              lang="ko"
+              inputMode="text"
+              value={selectedRecordId}
+              onChange={(e) => setSelectedRecordId(e.target.value)}
+              placeholder="UUID 입력..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
           </div>
+
+          {/* Limit */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              조회 개수
+            </label>
+            <select
+              value={limit}
+              onChange={(e) => setLimit(parseInt(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={50}>50개</option>
+              <option value={100}>100개</option>
+              <option value={200}>200개</option>
+              <option value={500}>500개</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex gap-4 mt-6">
+          <button
+            onClick={handleFilter}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <Filter className="w-4 h-4" />
+            조회
+          </button>
+          <button
+            onClick={handleResetFilter}
+            className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+          >
+            초기화
+          </button>
         </div>
       </div>
 
-      {/* 이력 목록 */}
-      {isLoading ? (
-        <div className="text-center py-12">
-          <div className="text-gray-500">로딩 중...</div>
-        </div>
-      ) : history.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-gray-500">조회된 이력이 없습니다</div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  테이블
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  작업
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  변경일시
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  레코드 ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  작업
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {history.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {item.table_display_name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      item.operation === 'INSERT' ? 'bg-green-100 text-green-800' :
-                      item.operation === 'UPDATE' ? 'bg-blue-100 text-blue-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {item.operation_display_name}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {item.formatted_created_at}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                    {item.record_id.slice(0, 8)}...
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openDetailModal(item)}
-                        className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
-                      >
-                        <Eye className="w-4 h-4" />
-                        상세
-                      </button>
-                      {(item.operation === 'UPDATE' || item.operation === 'DELETE') && (
-                        <button
-                          onClick={() => openRestoreModal(item)}
-                          className="text-green-600 hover:text-green-900 flex items-center gap-1"
-                        >
-                          <Undo2 className="w-4 h-4" />
-                          복구
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Data History Table */}
+      <DataTable
+        data={historyWithId}
+        columns={historyColumns}
+        actions={historyActions}
+        loading={isLoading}
+        emptyMessage="조회된 데이터 변경 이력이 없습니다."
+        pageSize={10}
+      />
 
       {/* 상세 정보 모달 */}
       {isDetailModalOpen && selectedHistoryItem && (
@@ -447,6 +493,24 @@ export default function DataHistoryPage() {
           </div>
         </div>
       )}
-    </div>
+
+      {/* Restore Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isRestoreModalOpen}
+        onClose={() => {
+          setIsRestoreModalOpen(false)
+          setSelectedHistoryItem(null)
+        }}
+        onConfirm={handleRestore}
+        title="데이터 복구 확인"
+        message={selectedHistoryItem ? 
+          `${selectedHistoryItem.table_display_name}의 ${selectedHistoryItem.operation_display_name} 작업을 복구하시겠습니까?` :
+          '데이터를 복구하시겠습니까?'
+        }
+        confirmText="복구 실행"
+        cancelText="취소"
+        variant="primary"
+      />
+    </AdminLayout>
   )
 }
