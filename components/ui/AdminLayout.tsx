@@ -102,7 +102,7 @@ export default function AdminLayout({ children, title, description, actions }: A
                 </div>
                 <div>
                   <h1 className="text-lg font-bold text-white lg:text-gray-900">시설관리</h1>
-                  <p className="text-xs text-blue-100 lg:text-gray-600">Admin Console</p>
+                  <p className="text-xs text-blue-100 lg:text-gray-600">주식회사 블루온</p>
                 </div>
               </div>
               <button
@@ -157,7 +157,7 @@ export default function AdminLayout({ children, title, description, actions }: A
                 </div>
                 <div className="flex-1">
                   <div className="text-sm lg:text-xs font-medium text-gray-900">관리자</div>
-                  <div className="text-xs lg:text-xs text-gray-500 lg:hidden">시설관리 시스템</div>
+                  <div className="text-xs lg:text-xs text-gray-500 lg:hidden">주식회사 블루온</div>
                 </div>
               </div>
             </div>
@@ -167,74 +167,118 @@ export default function AdminLayout({ children, title, description, actions }: A
         {/* Main content - Integrated Card Design */}
         <div className="flex-1 lg:flex lg:flex-col lg:min-h-0">
           <div className="lg:bg-white lg:shadow-sm lg:border lg:border-gray-200 lg:rounded-2xl lg:flex lg:flex-col lg:h-full lg:overflow-hidden">
-            {/* Top bar - Integrated with main card */}
+            {/* Top bar - Mobile optimized */}
             <header className="bg-white lg:bg-transparent border-b border-gray-200 lg:border-gray-300 shadow-sm lg:shadow-none">
-              <div className="flex items-center justify-between h-16 px-6 lg:px-8 lg:py-6 lg:h-auto">
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => setSidebarOpen(true)}
-                    className="lg:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </button>
-                  
-                  <div>
-                    {title && (
-                      <h1 className="text-xl lg:text-2xl font-semibold lg:font-bold text-gray-900">{title}</h1>
+              <div className="px-4 py-3 lg:px-8 lg:py-6">
+                {/* Mobile Layout (< 768px) */}
+                <div className="flex items-center justify-between md:hidden">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <button
+                      onClick={() => setSidebarOpen(true)}
+                      className="flex-shrink-0 p-2.5 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors duration-200 touch-manipulation"
+                    >
+                      <Menu className="w-5 h-5" />
+                    </button>
+                    
+                    <div className="min-w-0 flex-1">
+                      {title && (
+                        <h1 className="text-lg font-semibold text-gray-900 truncate">{title}</h1>
+                      )}
+                      {description && (
+                        <p className="text-sm text-gray-500 truncate">{description}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Mobile Search Button */}
+                    <button className="p-2.5 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors duration-200 touch-manipulation">
+                      <Search className="w-5 h-5" />
+                    </button>
+                    
+                    {/* Mobile Actions */}
+                    {actions && (
+                      <div className="flex items-center">
+                        {actions}
+                      </div>
                     )}
-                    {description && (
-                      <p className="text-sm lg:text-base text-gray-500 lg:text-gray-600 lg:mt-1">{description}</p>
-                    )}
+                    
+                    {/* Mobile Notifications */}
+                    <button className="relative p-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors duration-200 touch-manipulation">
+                      <Bell className="w-5 h-5" />
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                    </button>
+                    
+                    {/* Mobile Avatar */}
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 lg:gap-6">
-                  {/* Search Bar */}
-                  <div className="hidden md:flex relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Search className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="시설명, 담당자 검색..."
-                      className="pl-10 pr-4 py-2.5 lg:py-3 w-64 lg:w-80 text-sm lg:text-base border border-gray-300 lg:border-gray-200 rounded-xl lg:rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 lg:bg-gray-50 hover:bg-white transition-all duration-200 shadow-sm"
-                    />
-                  </div>
-
-                  {/* Quick Stats */}
-                  <div className="hidden lg:flex items-center gap-4">
-                    <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 shadow-sm">
-                      <Activity className="w-5 h-5 text-green-600" />
-                      <span className="text-sm font-semibold text-green-700">시스템 정상</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 text-gray-700 shadow-sm">
-                      <Clock className="w-5 h-5 text-blue-600" />
-                      <span className="text-sm font-semibold">
-                        {currentTime.toLocaleTimeString('ko-KR', { 
-                          hour: '2-digit', 
-                          minute: '2-digit'
-                        })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-3">
-                    {actions}
-                  </div>
-                  
-                  {/* User Area */}
+                {/* Desktop Layout (≥ 768px) */}
+                <div className="hidden md:flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <button className="relative p-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200 shadow-sm border border-gray-200 lg:border-gray-300">
-                      <Bell className="w-5 h-5" />
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-sm"></span>
-                    </button>
+                    <div>
+                      {title && (
+                        <h1 className="text-xl lg:text-2xl font-semibold lg:font-bold text-gray-900">{title}</h1>
+                      )}
+                      {description && (
+                        <p className="text-sm lg:text-base text-gray-500 lg:text-gray-600 lg:mt-1">{description}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 lg:gap-6">
+                    {/* Desktop Search Bar */}
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="w-4 h-4 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="시설명, 담당자 검색..."
+                        className="pl-10 pr-4 py-2.5 lg:py-3 w-64 lg:w-80 text-sm lg:text-base border border-gray-300 lg:border-gray-200 rounded-xl lg:rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 lg:bg-gray-50 hover:bg-white transition-all duration-200 shadow-sm"
+                      />
+                    </div>
+
+                    {/* Desktop Quick Stats */}
+                    <div className="hidden lg:flex items-center gap-4">
+                      <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 shadow-sm">
+                        <Activity className="w-5 h-5 text-green-600" />
+                        <span className="text-sm font-semibold text-green-700">시스템 정상</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 text-gray-700 shadow-sm">
+                        <Clock className="w-5 h-5 text-blue-600" />
+                        <span className="text-sm font-semibold">
+                          {currentTime.toLocaleTimeString('ko-KR', { 
+                            hour: '2-digit', 
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Desktop Actions */}
+                    {actions && (
+                      <div className="flex items-center gap-3">
+                        {actions}
+                      </div>
+                    )}
                     
-                    <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-                      <User className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
+                    {/* Desktop User Area */}
+                    <div className="flex items-center gap-4">
+                      <button className="relative p-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200 shadow-sm border border-gray-200 lg:border-gray-300">
+                        <Bell className="w-5 h-5" />
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-sm"></span>
+                      </button>
+                      
+                      <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                        <User className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
+                      </div>
                     </div>
                   </div>
                 </div>
