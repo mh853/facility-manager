@@ -162,10 +162,20 @@ export default function FacilityPhotoUploadSection({
       createdTime: new Date().toISOString(),
       modifiedTime: new Date().toISOString(),
       webViewLink: URL.createObjectURL(file),
+      downloadUrl: URL.createObjectURL(file),
+      thumbnailUrl: URL.createObjectURL(file),
+      publicUrl: URL.createObjectURL(file),
+      directUrl: URL.createObjectURL(file),
+      folderName: facilityType === 'discharge' ? '배출시설' : '방지시설',
+      uploadStatus: 'uploading',
+      syncedAt: null,
+      googleFileId: null,
+      facilityInfo: `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`,
+      filePath: undefined,
       justUploaded: true,
       uploadedAt: Date.now(),
       isPreview: true // 미리보기 표시
-    } as UploadedFile & { isPreview: boolean }));
+    } as unknown as UploadedFile & { isPreview: boolean }));
     
     // 즉시 미리보기 파일 추가
     setUploadedFiles(prev => [...previewFiles, ...prev]);
@@ -261,12 +271,21 @@ export default function FacilityPhotoUploadSection({
       createdTime: new Date().toISOString(),
       modifiedTime: new Date().toISOString(),
       webViewLink: URL.createObjectURL(file),
+      downloadUrl: URL.createObjectURL(file),
+      thumbnailUrl: URL.createObjectURL(file),
+      publicUrl: URL.createObjectURL(file),
+      directUrl: URL.createObjectURL(file),
+      folderName: '기본사진',
+      uploadStatus: 'uploading',
+      syncedAt: null,
+      googleFileId: null,
+      facilityInfo: category,
+      filePath: undefined,
       justUploaded: true,
       uploadedAt: Date.now(),
       subcategory: category,
-      folderName: '기본사진',
       isPreview: true // 미리보기 표시
-    } as UploadedFile & { isPreview: boolean }));
+    } as unknown as UploadedFile & { isPreview: boolean }));
     
     // 즉시 미리보기 파일 추가
     setUploadedFiles(prev => [...previewFiles, ...prev]);
