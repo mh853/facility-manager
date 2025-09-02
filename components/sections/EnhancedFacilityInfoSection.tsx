@@ -349,6 +349,7 @@ export default function EnhancedFacilityInfoSection({
                       </label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min="0"
                         value={editingFacility.dischargeCT || '0'}
                         onChange={(e) => setEditingFacility({ ...editingFacility, dischargeCT: e.target.value })}
@@ -405,6 +406,7 @@ export default function EnhancedFacilityInfoSection({
                       </label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min="0"
                         value={editingFacility.ph || '0'}
                         onChange={(e) => setEditingFacility({ ...editingFacility, ph: e.target.value })}
@@ -419,6 +421,7 @@ export default function EnhancedFacilityInfoSection({
                       </label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min="0"
                         value={editingFacility.pressure || '0'}
                         onChange={(e) => setEditingFacility({ ...editingFacility, pressure: e.target.value })}
@@ -433,6 +436,7 @@ export default function EnhancedFacilityInfoSection({
                       </label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min="0"
                         value={editingFacility.temperature || '0'}
                         onChange={(e) => setEditingFacility({ ...editingFacility, temperature: e.target.value })}
@@ -447,6 +451,7 @@ export default function EnhancedFacilityInfoSection({
                       </label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min="0"
                         value={editingFacility.fan || '0'}
                         onChange={(e) => setEditingFacility({ ...editingFacility, fan: e.target.value })}
@@ -461,6 +466,7 @@ export default function EnhancedFacilityInfoSection({
                       </label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min="0"
                         value={editingFacility.pump || '0'}
                         onChange={(e) => setEditingFacility({ ...editingFacility, pump: e.target.value })}
@@ -514,6 +520,7 @@ export default function EnhancedFacilityInfoSection({
                     </label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       min="0"
                       value={editingFacility.gatewayInfo?.id || '0'}
                       onChange={(e) => setEditingFacility({ 

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, MapPin, Phone, Calendar, User, Navigation, ExternalLink } from 'lucide-react';
+import { Building2, MapPin, Phone, Calendar, User, Navigation, ExternalLink, X } from 'lucide-react';
 import { BusinessInfo } from '@/types';
-import { createPhoneLink, openNavigation } from '@/utils/contact';
+import { createPhoneLink, createNavigationLinks } from '@/utils/contact';
 
 interface BusinessInfoSectionProps {
   businessInfo: BusinessInfo;
@@ -12,12 +12,51 @@ interface BusinessInfoSectionProps {
 export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectionProps) {
   const [contactInfo, setContactInfo] = useState<BusinessInfo>(businessInfo);
   const [loading, setLoading] = useState(false);
+  const [showNavigationModal, setShowNavigationModal] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState('');
 
   // 연락처 정보 로드 (기본값 사용)
   useEffect(() => {
     setContactInfo(businessInfo);
     setLoading(false);
   }, [businessInfo]);
+
+  // 네비게이션 모달 열기
+  const handleNavigationClick = (address: string) => {
+    setSelectedAddress(address);
+    setShowNavigationModal(true);
+  };
+
+  // 네비게이션 앱 열기
+  const openNavigationApp = (app: 'tmap' | 'naver' | 'kakao') => {
+    const links = createNavigationLinks(selectedAddress);
+    
+    if (!links) {
+      alert('주소 정보가 없습니다.');
+      return;
+    }
+
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (!isMobile && app === 'naver') {
+      // PC에서는 네이버 지도 웹 버전으로
+      window.open(`https://map.naver.com/v5/search/${encodeURIComponent(selectedAddress)}`, '_blank');
+    } else {
+      // 모바일에서는 앱 링크로
+      window.location.href = links[app];
+      
+      // 앱이 없으면 웹 버전으로 fallback (2초 후)
+      setTimeout(() => {
+        if (app === 'naver') {
+          window.open(`https://map.naver.com/v5/search/${encodeURIComponent(selectedAddress)}`, '_blank');
+        } else if (app === 'kakao') {
+          window.open(`https://map.kakao.com/link/search/${encodeURIComponent(selectedAddress)}`, '_blank');
+        }
+      }, 2000);
+    }
+    
+    setShowNavigationModal(false);
+  };
 
   if (loading) {
     return (
@@ -65,7 +104,7 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
                 <p className="text-gray-800 flex-1">{contactInfo.주소 || '정보 없음'}</p>
                 {contactInfo.주소 && contactInfo.주소 !== '정보 없음' && (
                   <button
-                    onClick={() => openNavigation(contactInfo.주소!)}
+                    onClick={() => handleNavigationClick(contactInfo.주소!)}
                     className="ml-2 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
                     title="네비게이션으로 길찾기"
                   >
@@ -178,6 +217,82 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
           </div>
         </div>
       </div>
+
+      {/* 네비게이션 앱 선택 모달 */}
+      {showNavigationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-gray-900">네비게이션 앱 선택</h3>
+                <button
+                  onClick={() => setShowNavigationModal(false)}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">목적지:</p>
+                <p className="text-gray-800 font-medium bg-gray-50 p-3 rounded-lg">
+                  {selectedAddress}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => openNavigationApp('tmap')}
+                  className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                    <span className="text-red-600 font-bold text-lg">T</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold text-gray-900">티맵 (TMAP)</div>
+                    <div className="text-sm text-gray-500">SK텔레콤 내비게이션</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => openNavigationApp('naver')}
+                  className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <span className="text-green-600 font-bold text-lg">N</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold text-gray-900">네이버지도</div>
+                    <div className="text-sm text-gray-500">네이버 지도 서비스</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => openNavigationApp('kakao')}
+                  className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <span className="text-yellow-600 font-bold text-lg">K</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold text-gray-900">카카오맵</div>
+                    <div className="text-sm text-gray-500">카카오 지도 서비스</div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowNavigationModal(false)}
+                  className="w-full py-3 px-4 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
