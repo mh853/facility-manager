@@ -559,7 +559,7 @@ export default function EnhancedFacilityInfoSection({
   return (
     <div className="space-y-6">
       {/* 시설 정보 (대기필증 관리) - 접기/펼치기 */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+      <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border-2 border-gray-200/80 hover:shadow-2xl hover:border-gray-300/80 transition-all duration-300">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition-colors"
@@ -578,7 +578,7 @@ export default function EnhancedFacilityInfoSection({
         {!isCollapsed && (
           <div className="px-6 pb-6 space-y-6">
             {/* 측정기기 수량 요약 */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-100/50">
+            <div className="bg-white/95 backdrop-blur-sm rounded-xl p-6 shadow-xl border-2 border-gray-200/80 hover:shadow-2xl hover:border-gray-300/80 transition-all duration-300">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <Zap className="w-5 h-5 text-blue-600" />
                 측정기기 수량 현황

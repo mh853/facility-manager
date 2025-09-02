@@ -126,7 +126,7 @@ export default function SupabaseFacilitiesSection({
   const outlets = Object.keys(outletFacilities).map(Number).sort((a, b) => a - b);
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100/50">
+    <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border-2 border-gray-200/80 hover:shadow-2xl hover:border-gray-300/80 transition-all duration-300">
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="w-full flex items-center justify-between p-6 text-left hover:bg-green-50 transition-colors"
@@ -139,19 +139,16 @@ export default function SupabaseFacilitiesSection({
         </div>
         
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span>마지막 업데이트: {lastUpdated}</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                loadFacilities(true);
-              }}
-              className="p-1 text-gray-600 hover:text-green-600 hover:bg-green-100 rounded transition-colors"
-              title="새로고침"
-            >
-              <RefreshCw className="w-3 h-3" />
-            </button>
-          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              loadFacilities(true);
+            }}
+            className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-100 rounded-lg transition-colors border border-gray-200 shadow-sm"
+            title="새로고침"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
           {isCollapsed ? (
             <ChevronDown className="w-5 h-5 text-gray-500" />
           ) : (

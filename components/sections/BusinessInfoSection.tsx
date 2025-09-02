@@ -76,7 +76,7 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
   }
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-100/50">
+    <div className="bg-white/95 backdrop-blur-sm rounded-xl p-6 shadow-xl border-2 border-gray-200/80 hover:shadow-2xl hover:border-gray-300/80 transition-all duration-300">
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2 bg-blue-100 rounded-lg">
           <Building2 className="w-6 h-6 text-blue-600" />
