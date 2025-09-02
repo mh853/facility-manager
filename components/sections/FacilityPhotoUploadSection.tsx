@@ -166,6 +166,26 @@ export default function FacilityPhotoUploadSection({
           [uploadKey]: ((index + 1) / files.length) * 100 
         }));
 
+        // 업로드 성공 시 즉시 optimistic UI 업데이트
+        if (result.success && result.files && result.files.length > 0) {
+          const newFile = result.files[0];
+          setUploadedFiles(prev => [
+            {
+              ...newFile,
+              justUploaded: true,
+              uploadedAt: Date.now()
+            },
+            ...prev
+          ]);
+          
+          // 3초 후 깜빡임 효과 제거
+          setTimeout(() => {
+            setUploadedFiles(prev => prev.map(f => 
+              f.id === newFile.id ? { ...f, justUploaded: false } : f
+            ));
+          }, 3000);
+        }
+
         return result;
       });
 
@@ -215,6 +235,27 @@ export default function FacilityPhotoUploadSection({
           ...prev, 
           [uploadKey]: ((index + 1) / files.length) * 100 
         }));
+
+        // 업로드 성공 시 즉시 optimistic UI 업데이트
+        if (result.success && result.files && result.files.length > 0) {
+          const newFile = result.files[0];
+          setUploadedFiles(prev => [
+            {
+              ...newFile,
+              justUploaded: true,
+              uploadedAt: Date.now(),
+              subcategory: category
+            },
+            ...prev
+          ]);
+          
+          // 3초 후 깜빡임 효과 제거
+          setTimeout(() => {
+            setUploadedFiles(prev => prev.map(f => 
+              f.id === newFile.id ? { ...f, justUploaded: false } : f
+            ));
+          }, 3000);
+        }
 
         return result;
       });
@@ -530,7 +571,9 @@ export default function FacilityPhotoUploadSection({
                         {facilityFiles.length > 0 && (
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
                             {facilityFiles.map((file) => (
-                              <div key={file.id} className="bg-white rounded border p-2">
+                              <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
+                                file.justUploaded ? 'animate-pulse border-green-400 bg-green-50' : ''
+                              }`}>
                                 <div 
                                   className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
                                   onClick={() => setSelectedFile(file)}
@@ -660,7 +703,9 @@ export default function FacilityPhotoUploadSection({
                         {facilityFiles.length > 0 && (
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
                             {facilityFiles.map((file) => (
-                              <div key={file.id} className="bg-white rounded border p-2">
+                              <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
+                                file.justUploaded ? 'animate-pulse border-orange-400 bg-orange-50' : ''
+                              }`}>
                                 <div 
                                   className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
                                   onClick={() => setSelectedFile(file)}
@@ -768,7 +813,9 @@ export default function FacilityPhotoUploadSection({
               {getBasicFiles('gateway').length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
                   {getBasicFiles('gateway').map((file) => (
-                    <div key={file.id} className="bg-white rounded border p-2">
+                    <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
+                      file.justUploaded ? 'animate-pulse border-purple-400 bg-purple-50' : ''
+                    }`}>
                       <div 
                         className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
                         onClick={() => setSelectedFile(file)}
@@ -861,7 +908,9 @@ export default function FacilityPhotoUploadSection({
               {getBasicFiles('fan').length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
                   {getBasicFiles('fan').map((file) => (
-                    <div key={file.id} className="bg-white rounded border p-2">
+                    <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
+                      file.justUploaded ? 'animate-pulse border-yellow-400 bg-yellow-50' : ''
+                    }`}>
                       <div 
                         className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
                         onClick={() => setSelectedFile(file)}
@@ -954,7 +1003,9 @@ export default function FacilityPhotoUploadSection({
               {getBasicFiles('electrical').length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
                   {getBasicFiles('electrical').map((file) => (
-                    <div key={file.id} className="bg-white rounded border p-2">
+                    <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
+                      file.justUploaded ? 'animate-pulse border-indigo-400 bg-indigo-50' : ''
+                    }`}>
                       <div 
                         className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
                         onClick={() => setSelectedFile(file)}
@@ -1047,7 +1098,9 @@ export default function FacilityPhotoUploadSection({
               {getBasicFiles('others').length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
                   {getBasicFiles('others').map((file) => (
-                    <div key={file.id} className="bg-white rounded border p-2">
+                    <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
+                      file.justUploaded ? 'animate-pulse border-gray-400 bg-gray-50' : ''
+                    }`}>
                       <div 
                         className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
                         onClick={() => setSelectedFile(file)}
