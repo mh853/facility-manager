@@ -7,7 +7,13 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     console.log('🔍 [BUSINESS-MGMT] 어드민 사업장 목록 조회 (기존 데이터 활용)');
     
     // 1. 기존 business-list API에서 사업장 목록 가져오기
-    const businessListResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/business-list`);
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : process.env.NEXT_PUBLIC_BASE_URL 
+      ? process.env.NEXT_PUBLIC_BASE_URL
+      : `http://localhost:${process.env.PORT || 3000}`;
+      
+    const businessListResponse = await fetch(`${baseUrl}/api/business-list`);
     const businessListData = await businessListResponse.json();
     
     if (!businessListData.success || !businessListData.data?.businesses) {
@@ -58,7 +64,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     const businessDetailsPromises = businessNames.map(async (businessName: string) => {
       try {
         const encodedName = encodeURIComponent(businessName);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/facilities-supabase/${encodedName}`);
+        const response = await fetch(`${baseUrl}/api/facilities-supabase/${encodedName}`);
         const data = await response.json();
         
         if (data.success && data.data?.businessInfo) {
