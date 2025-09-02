@@ -183,8 +183,13 @@ export default function FacilityPhotoUploadSection({
     setUploadProgress(prev => ({ ...prev, [uploadKey]: 0 }));
 
     try {
-      const uploadPromises = Array.from(files).map(async (file, index) => {
-        const compressedFile = await compressImage(file);
+      // 병렬 이미지 압축으로 성능 개선
+      const compressedFiles = await Promise.all(
+        Array.from(files).map(file => compressImage(file))
+      );
+      
+      const uploadPromises = compressedFiles.map(async (compressedFile, index) => {
+        const originalFile = files[index];
         
         const formData = new FormData();
         formData.append('files', compressedFile);
@@ -201,18 +206,25 @@ export default function FacilityPhotoUploadSection({
         const result = await response.json();
         setUploadProgress(prev => ({ 
           ...prev, 
-          [uploadKey]: ((index + 1) / files.length) * 100 
+          [uploadKey]: ((index + 1) / compressedFiles.length) * 100 
         }));
 
         // 업로드 성공 시 미리보기를 실제 파일로 교체
         if (result.success && result.files && result.files.length > 0) {
           const newFile = result.files[0];
           // 미리보기 파일을 실제 업로드된 파일로 즉시 교체
-          setUploadedFiles(prev => prev.map(f => 
-            f.name === file.name && (f as any).isPreview 
-              ? { ...newFile, justUploaded: true, uploadedAt: Date.now() }
-              : f
-          ));
+          setUploadedFiles(prev => prev.map(f => {
+            if (f.name === originalFile.name && (f as any).isPreview) {
+              // 기존 Object URL 정리 (메모리 누수 방지)
+              if (f.thumbnailUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(f.thumbnailUrl);
+                URL.revokeObjectURL(f.webViewLink);
+                URL.revokeObjectURL(f.downloadUrl);
+              }
+              return { ...newFile, justUploaded: true, uploadedAt: Date.now() };
+            }
+            return f;
+          }));
           
           // 즉시 업로드 상태 업데이트
           setUploadProgress(prev => ({ ...prev, [uploadKey]: 100 }));
@@ -237,7 +249,7 @@ export default function FacilityPhotoUploadSection({
       const successCount = results.filter(r => r.success).length;
       
       // 완전한 optimistic UI: 서버 동기화 완전 제거 (즉시 반영)
-      console.log(`✅ [UPLOAD-SUCCESS] 시설 업로드 완료: ${successCount}/${files.length} (완전 optimistic UI)`);
+      console.log(`✅ [UPLOAD-SUCCESS] 시설 업로드 완료: ${successCount}/${compressedFiles.length} (완전 optimistic UI)`);
       
       // 실패한 업로드가 있는 경우 미리보기 파일만 제거
       if (successCount < files.length) {
@@ -414,28 +426,47 @@ export default function FacilityPhotoUploadSection({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // 시설별 업로드된 파일 필터링 - 단순화된 안정적 로직
+  // 시설별 업로드된 파일 필터링 - 실제 API 데이터 형식에 맞춘 로직
   const getFilesForFacility = (facility: Facility, facilityType: 'discharge' | 'prevention') => {
-    const expectedFacilityInfo = `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`;
     const expectedFolderName = facilityType === 'discharge' ? '배출시설' : '방지시설';
     
     const filteredFiles = uploadedFiles.filter(file => {
-      // 1차: 정확한 facilityInfo 매칭 (최우선)
-      if (file.facilityInfo === expectedFacilityInfo) {
-        return true;
+      // 1차: 폴더명이 맞는지 확인
+      if (file.folderName !== expectedFolderName) {
+        return false;
       }
       
-      // 2차: 폴더명 + 파일 경로 매칭 (안정적 백업)
-      if (file.folderName === expectedFolderName && file.filePath) {
+      // 2차: facilityInfo에서 배출구 번호 추출하여 매칭
+      if (file.facilityInfo) {
+        // "흡착에의한시설 (200㎥/분, 수량: 1개, 배출구: 4번)" 형식에서 배출구 번호 추출
+        const outletMatch = file.facilityInfo.match(/배출구[:\s]*(\d+)/);
+        if (outletMatch) {
+          const fileOutlet = parseInt(outletMatch[1]);
+          if (fileOutlet === facility.outlet) {
+            return true;
+          }
+        }
+      }
+      
+      // 3차: 파일 경로 매칭 (outlet_X 패턴)
+      if (file.filePath) {
         const facilityPathType = facilityType === 'discharge' ? 'discharge' : 'prevention';
-        const pathPattern = new RegExp(`facility_${facilityPathType}${facility.number}(?:/|$)`);
-        return pathPattern.test(file.filePath);
+        const outletPattern = new RegExp(`outlet_${facility.outlet}_.*${facilityPathType}`);
+        if (outletPattern.test(file.filePath)) {
+          return true;
+        }
+      }
+      
+      // 4차: 기존 정확한 매칭 방식 (하위 호환성)
+      const expectedFacilityInfo = `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`;
+      if (file.facilityInfo === expectedFacilityInfo) {
+        return true;
       }
       
       return false;
     });
 
-    console.log(`[FACILITY-FILTER] ${facilityType}${facility.number}: ${filteredFiles.length}개 파일 매칭`);
+    console.log(`[FACILITY-FILTER] ${facilityType}${facility.number} (outlet ${facility.outlet}): ${filteredFiles.length}개 파일 매칭`);
     return filteredFiles;
   };
 

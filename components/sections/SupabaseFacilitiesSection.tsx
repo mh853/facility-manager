@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, Factory, Shield, AlertCircle, RefreshCw, Plus } from 'lucide-react';
+import { Building2, Factory, Shield, AlertCircle, RefreshCw, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { FacilitiesData, Facility } from '@/types';
 
 interface SupabaseFacilitiesSectionProps {
@@ -17,6 +17,7 @@ export default function SupabaseFacilitiesSection({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   // 시설 정보 로드
   const loadFacilities = async (forceRefresh = false) => {
@@ -61,7 +62,7 @@ export default function SupabaseFacilitiesSection({
           <div className="p-2 bg-green-100 rounded-lg">
             <Building2 className="w-6 h-6 text-green-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800">시설 정보 (대기필증 관리)</h2>
+          <h2 className="text-xl font-bold text-gray-800">시설 정보</h2>
         </div>
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
@@ -78,7 +79,7 @@ export default function SupabaseFacilitiesSection({
           <div className="p-2 bg-red-100 rounded-lg">
             <AlertCircle className="w-6 h-6 text-red-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800">시설 정보 (대기필증 관리)</h2>
+          <h2 className="text-xl font-bold text-gray-800">시설 정보</h2>
         </div>
         <div className="text-center py-8">
           <p className="text-red-600 mb-4">{error}</p>
@@ -125,158 +126,175 @@ export default function SupabaseFacilitiesSection({
   const outlets = Object.keys(outletFacilities).map(Number).sort((a, b) => a - b);
 
   return (
-    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 shadow-sm border border-green-100">
-      <div className="flex items-center justify-between mb-6">
+    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-sm border border-green-100">
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="w-full flex items-center justify-between p-6 text-left hover:bg-green-50 transition-colors"
+      >
         <div className="flex items-center gap-3">
           <div className="p-2 bg-green-100 rounded-lg">
             <Building2 className="w-6 h-6 text-green-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800">시설 정보 (대기필증 관리)</h2>
+          <h2 className="text-xl font-bold text-gray-800">시설 정보</h2>
         </div>
         
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <span>마지막 업데이트: {lastUpdated}</span>
-          <button
-            onClick={() => loadFacilities(true)}
-            className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-            title="새로고침"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* 요약 통계 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg p-4 text-center shadow-sm border border-gray-100">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Factory className="w-5 h-5 text-orange-500" />
-            <h3 className="text-sm font-medium text-gray-600">배출시설</h3>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <span>마지막 업데이트: {lastUpdated}</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                loadFacilities(true);
+              }}
+              className="p-1 text-gray-600 hover:text-green-600 hover:bg-green-100 rounded transition-colors"
+              title="새로고침"
+            >
+              <RefreshCw className="w-3 h-3" />
+            </button>
           </div>
-          <p className="text-2xl font-bold text-orange-600">{dischargeCount}</p>
-          <p className="text-xs text-gray-500">개</p>
+          {isCollapsed ? (
+            <ChevronDown className="w-5 h-5 text-gray-500" />
+          ) : (
+            <ChevronUp className="w-5 h-5 text-gray-500" />
+          )}
         </div>
-        
-        <div className="bg-white rounded-lg p-4 text-center shadow-sm border border-gray-100">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Shield className="w-5 h-5 text-blue-500" />
-            <h3 className="text-sm font-medium text-gray-600">방지시설</h3>
-          </div>
-          <p className="text-2xl font-bold text-blue-600">{preventionCount}</p>
-          <p className="text-xs text-gray-500">개</p>
-        </div>
-        
-        <div className="bg-white rounded-lg p-4 text-center shadow-sm border border-gray-100">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Building2 className="w-5 h-5 text-green-500" />
-            <h3 className="text-sm font-medium text-gray-600">배출구</h3>
-          </div>
-          <p className="text-2xl font-bold text-green-600">{outlets.length}</p>
-          <p className="text-xs text-gray-500">개</p>
-        </div>
-      </div>
-
-      {/* 시설 정보가 없는 경우 */}
-      {totalFacilities === 0 ? (
-        <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
-          <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-600 mb-2">등록된 시설 정보가 없습니다.</p>
-          <p className="text-sm text-gray-500">Supabase에 시설 데이터를 추가해주세요.</p>
-        </div>
-      ) : (
-        /* 배출구별 시설 목록 */
-        <div className="space-y-6">
-          {outlets.map(outlet => {
-            const outletData = outletFacilities[outlet];
-            const outletDischarge = outletData.discharge || [];
-            const outletPrevention = outletData.prevention || [];
-            
-            return (
-              <div key={outlet} className="bg-white rounded-lg p-4 border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">
-                    배출구 {outlet}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    (배출시설 {outletDischarge.length}개, 방지시설 {outletPrevention.length}개)
-                  </span>
-                </h3>
-                
-                <div className="grid md:grid-cols-2 gap-4">
-                  {/* 배출시설 */}
-                  {outletDischarge.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-orange-600 mb-2 flex items-center gap-2">
-                        <Factory className="w-4 h-4" />
-                        배출시설
-                      </h4>
-                      <div className="space-y-2">
-                        {outletDischarge.map((facility, index) => (
-                          <div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium text-gray-800">{facility.name}</p>
-                                <p className="text-sm text-gray-600">용량: {facility.capacity}</p>
-                                <p className="text-sm text-gray-600">수량: {facility.quantity}개</p>
-                              </div>
-                              <span className="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded-full">
-                                #{facility.number}
-                              </span>
-                            </div>
-                            {facility.notes && (
-                              <p className="text-xs text-gray-500 mt-2 bg-gray-50 p-2 rounded">
-                                메모: {facility.notes}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* 방지시설 */}
-                  {outletPrevention.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-blue-600 mb-2 flex items-center gap-2">
-                        <Shield className="w-4 h-4" />
-                        방지시설
-                      </h4>
-                      <div className="space-y-2">
-                        {outletPrevention.map((facility, index) => (
-                          <div key={index} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium text-gray-800">{facility.name}</p>
-                                <p className="text-sm text-gray-600">용량: {facility.capacity}</p>
-                                <p className="text-sm text-gray-600">수량: {facility.quantity}개</p>
-                              </div>
-                              <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">
-                                #{facility.number}
-                              </span>
-                            </div>
-                            {facility.notes && (
-                              <p className="text-xs text-gray-500 mt-2 bg-gray-50 p-2 rounded">
-                                메모: {facility.notes}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+      </button>
+      
+      {!isCollapsed && (
+        <div className="px-6 pb-6">
+          {/* 요약 통계 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white rounded-lg p-4 text-center shadow-sm border border-gray-100">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Factory className="w-5 h-5 text-orange-500" />
+                <h3 className="text-sm font-medium text-gray-600">배출시설</h3>
               </div>
-            );
-          })}
+              <p className="text-2xl font-bold text-orange-600">{dischargeCount}</p>
+              <p className="text-xs text-gray-500">개</p>
+            </div>
+            
+            <div className="bg-white rounded-lg p-4 text-center shadow-sm border border-gray-100">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Shield className="w-5 h-5 text-blue-500" />
+                <h3 className="text-sm font-medium text-gray-600">방지시설</h3>
+              </div>
+              <p className="text-2xl font-bold text-blue-600">{preventionCount}</p>
+              <p className="text-xs text-gray-500">개</p>
+            </div>
+            
+            <div className="bg-white rounded-lg p-4 text-center shadow-sm border border-gray-100">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Building2 className="w-5 h-5 text-green-500" />
+                <h3 className="text-sm font-medium text-gray-600">배출구</h3>
+              </div>
+              <p className="text-2xl font-bold text-green-600">{outlets.length}</p>
+              <p className="text-xs text-gray-500">개</p>
+            </div>
+          </div>
+
+          {/* 시설 정보가 없는 경우 */}
+          {totalFacilities === 0 ? (
+            <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
+              <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-600 mb-2">등록된 시설 정보가 없습니다.</p>
+              <p className="text-sm text-gray-500">Supabase에 시설 데이터를 추가해주세요.</p>
+            </div>
+          ) : (
+            /* 배출구별 시설 목록 */
+            <div className="space-y-6">
+              {outlets.map(outlet => {
+                const outletData = outletFacilities[outlet];
+                const outletDischarge = outletData.discharge || [];
+                const outletPrevention = outletData.prevention || [];
+                
+                return (
+                  <div key={outlet} className="bg-white rounded-lg p-4 border border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">
+                        배출구 {outlet}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        (배출시설 {outletDischarge.length}개, 방지시설 {outletPrevention.length}개)
+                      </span>
+                    </h3>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {/* 배출시설 */}
+                      {outletDischarge.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium text-orange-600 mb-2 flex items-center gap-2">
+                            <Factory className="w-4 h-4" />
+                            배출시설
+                          </h4>
+                          <div className="space-y-2">
+                            {outletDischarge.map((facility, index) => (
+                              <div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium text-gray-800">{facility.name}</p>
+                                    <p className="text-sm text-gray-600">용량: {facility.capacity}</p>
+                                    <p className="text-sm text-gray-600">수량: {facility.quantity}개</p>
+                                  </div>
+                                  <span className="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded-full">
+                                    #{facility.number}
+                                  </span>
+                                </div>
+                                {facility.notes && (
+                                  <p className="text-xs text-gray-500 mt-2 bg-gray-50 p-2 rounded">
+                                    메모: {facility.notes}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 방지시설 */}
+                      {outletPrevention.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium text-blue-600 mb-2 flex items-center gap-2">
+                            <Shield className="w-4 h-4" />
+                            방지시설
+                          </h4>
+                          <div className="space-y-2">
+                            {outletPrevention.map((facility, index) => (
+                              <div key={index} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium text-gray-800">{facility.name}</p>
+                                    <p className="text-sm text-gray-600">용량: {facility.capacity}</p>
+                                    <p className="text-sm text-gray-600">수량: {facility.quantity}개</p>
+                                  </div>
+                                  <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">
+                                    #{facility.number}
+                                  </span>
+                                </div>
+                                {facility.notes && (
+                                  <p className="text-xs text-gray-500 mt-2 bg-gray-50 p-2 rounded">
+                                    메모: {facility.notes}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 데이터 출처 표시 */}
+          <div className="mt-4 text-xs text-gray-500 text-center">
+            <span className="bg-gray-100 px-2 py-1 rounded-full">
+              📋 대기필증 관리 시스템에서 로드됨
+            </span>
+          </div>
         </div>
       )}
-
-      {/* 데이터 출처 표시 */}
-      <div className="mt-4 text-xs text-gray-500 text-center">
-        <span className="bg-gray-100 px-2 py-1 rounded-full">
-          📋 대기필증 관리 시스템에서 로드됨
-        </span>
-      </div>
     </div>
   );
 }

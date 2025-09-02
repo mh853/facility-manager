@@ -7,14 +7,27 @@ export interface Facility {
   quantity: number;
   displayName: string;
   notes?: string;
+  
   // 배출시설 추가 데이터
   dischargeCT?: string;
+  exemptionReason?: 'none' | '무동력' | '통합전원' | '연속공정' | '연간 30일 미만 가동' | '물리적으로 부착 불가능';
+  remarks?: string; // 비고
+  
   // 방지시설 추가 데이터
   ph?: string;
-  pressure?: string; // 차압
-  temperature?: string; // 온도
-  pump?: string; // 펌프
-  fan?: string; // 송풍
+  pressure?: string; // 차압계
+  temperature?: string; // 온도계
+  pump?: string; // 펌프CT
+  fan?: string; // 송풍CT
+  
+  // 게이트웨이 정보
+  gatewayInfo?: {
+    id?: string;
+    ip?: string;
+    mac?: string;
+    firmware?: string;
+    status?: 'connected' | 'disconnected' | 'error';
+  };
 }
 
 export interface FacilitiesData {
@@ -44,6 +57,18 @@ export interface BusinessInfo {
   사업자등록번호?: string;
   대표자?: string;
   업종?: string;
+  
+  // 측정기기 수량 정보
+  equipmentCounts?: {
+    phSensor: number;
+    differentialPressureMeter: number;
+    temperatureMeter: number;
+    dischargeCT: number;
+    fanCT: number;
+    pumpCT: number;
+    gateway: number;
+    totalDevices: number;
+  };
 }
 
 export interface FileInfo {

@@ -104,7 +104,18 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-600">담당자명</p>
               <div className="flex items-center gap-2">
-                <p className="text-gray-800">{contactInfo.담당자명 || '정보 없음'}</p>
+                <div className="flex flex-wrap gap-2">
+                {contactInfo.담당자명 && contactInfo.담당자명 !== '정보 없음' ? (
+                  contactInfo.담당자명.split(' ').filter(name => name.trim()).map((name, index) => (
+                    <span key={index} className="text-gray-800">
+                      {name.trim()}
+                      {index < contactInfo.담당자명!.split(' ').filter(n => n.trim()).length - 1 && <span className="text-gray-400 ml-1">/</span>}
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-gray-800">정보 없음</p>
+                )}
+              </div>
                 {contactInfo.담당자직급 && contactInfo.담당자직급 !== '정보 없음' && (
                   <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                     {contactInfo.담당자직급}
@@ -122,18 +133,21 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
               <p className="text-sm font-medium text-gray-600">담당자 연락처</p>
               <div className="flex items-center justify-between">
                 {contactInfo.담당자연락처 && contactInfo.담당자연락처 !== '정보 없음' ? (
-                  <a 
-                    href={createPhoneLink(contactInfo.담당자연락처)}
-                    className="text-blue-600 hover:text-blue-800 hover:underline transition-colors flex-1"
-                    title="전화걸기"
-                  >
-                    {contactInfo.담당자연락처}
-                  </a>
+                  <div className="flex flex-wrap gap-2 flex-1">
+                    {contactInfo.담당자연락처.split(' ').filter(contact => contact.trim()).map((contact, index) => (
+                      <a 
+                        key={index}
+                        href={createPhoneLink(contact.trim())}
+                        className="text-blue-600 hover:text-blue-800 hover:underline transition-colors flex items-center gap-1"
+                        title="전화걸기"
+                      >
+                        <Phone className="w-3 h-3" />
+                        {contact.trim()}
+                      </a>
+                    ))}
+                  </div>
                 ) : (
                   <p className="text-gray-800 flex-1">정보 없음</p>
-                )}
-                {contactInfo.담당자연락처 && contactInfo.담당자연락처 !== '정보 없음' && (
-                  <Phone className="w-4 h-4 text-blue-600 ml-2" />
                 )}
               </div>
             </div>

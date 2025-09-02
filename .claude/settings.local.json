@@ -59,7 +59,17 @@
       "Bash(start http://localhost:3001)",
       "Bash(start http://localhost:3000/business/하나테크)",
       "Bash(start http://localhost:3000/test-upload.html)",
-      "Bash(del test-upload.html)"
+      "Bash(del test-upload.html)",
+      "Bash(start http://localhost:3000/business/농업회사법인 주식회사 건양 2공장)",
+      "Bash(start http://localhost:3001/business/오메가칼라)",
+      "Bash(del test-image.txt)",
+      "Bash(start http://localhost:3002/business/농업회사법인%20주식회사%20건양%202공장)",
+      "Bash(start http://localhost:3000/business/농업회사법인%20주식회사%20건양%202공장)",
+      "Bash(start http://localhost:3003/business/농업회사법인%20주식회사%20건양%202공장)",
+      "Bash(start http://localhost:3005/business/농업회사법인%20주식회사%20건양%202공장)",
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "Bash(start http://localhost:3005/business/(주)조양(전체))"
     ],
     "deny": [],
     "ask": [],
