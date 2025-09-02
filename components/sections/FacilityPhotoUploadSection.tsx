@@ -109,6 +109,15 @@ export default function FacilityPhotoUploadSection({
     loadUploadedFiles();
   }, [loadUploadedFiles]);
 
+  // 파일 목록 실시간 새로고침 (30초마다)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadUploadedFiles(true);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [loadUploadedFiles]);
+
   // 모달 키보드 및 클릭 이벤트 처리
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -192,8 +201,17 @@ export default function FacilityPhotoUploadSection({
       const results = await Promise.all(uploadPromises);
       const successCount = results.filter(r => r.success).length;
       
+      // 전체 성공 시에만 서버 데이터 동기화 (optimistic UI 보호)
       if (successCount === files.length) {
-        loadUploadedFiles(); // 파일 목록 새로고침
+        console.log(`✅ [UPLOAD-SUCCESS] 시설 업로드 완료: ${successCount}/${files.length}`);
+        // 1초 대기 후 서버 동기화 (optimistic UI 표시 시간 확보)
+        setTimeout(() => {
+          loadUploadedFiles(true);
+        }, 1000);
+      } else {
+        // 실패 시에만 즉시 서버 데이터로 복구
+        console.log(`❌ [UPLOAD-PARTIAL] 부분 실패: ${successCount}/${files.length}`);
+        loadUploadedFiles(true);
       }
 
     } catch (error) {
@@ -263,8 +281,17 @@ export default function FacilityPhotoUploadSection({
       const results = await Promise.all(uploadPromises);
       const successCount = results.filter(r => r.success).length;
       
+      // 전체 성공 시에만 서버 데이터 동기화 (optimistic UI 보호)
       if (successCount === files.length) {
-        loadUploadedFiles();
+        console.log(`✅ [UPLOAD-SUCCESS] 기본사진 업로드 완료: ${successCount}/${files.length}`);
+        // 1초 대기 후 서버 동기화 (optimistic UI 표시 시간 확보)
+        setTimeout(() => {
+          loadUploadedFiles(true);
+        }, 1000);
+      } else {
+        // 실패 시에만 즉시 서버 데이터로 복구
+        console.log(`❌ [UPLOAD-PARTIAL] 기본사진 부분 실패: ${successCount}/${files.length}`);
+        loadUploadedFiles(true);
       }
 
     } catch (error) {
@@ -277,14 +304,22 @@ export default function FacilityPhotoUploadSection({
     }
   }, [businessName, loadUploadedFiles]);
 
-  // 파일 삭제
+  // 파일 삭제 - 안정적인 optimistic UI 구현
   const deleteFile = useCallback(async (file: UploadedFile) => {
     if (!confirm(`"${file.name}" 파일을 삭제하시겠습니까?`)) return;
+
+    // 1. 즉시 optimistic 삭제 (UI 반응성 확보)
+    setUploadedFiles(prev => prev.filter(f => f.id !== file.id));
+    setSelectedFile(null);
+    console.log(`🗑️ [OPTIMISTIC-DELETE] 로컬 삭제: ${file.name}`);
 
     try {
       const response = await fetch('/api/uploaded-files-supabase', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
         body: JSON.stringify({ 
           fileId: file.id, 
           fileName: file.name,
@@ -293,19 +328,26 @@ export default function FacilityPhotoUploadSection({
       });
 
       const result = await response.json();
+      
       if (result.success) {
-        // 즉시 로컬 상태 업데이트
-        setUploadedFiles(prev => prev.filter(f => f.id !== file.id));
-        setSelectedFile(null);
-        // 서버에서 최신 데이터 다시 로드 (캐시 우회)
+        console.log(`✅ [DELETE-SUCCESS] 서버 삭제 완료: ${file.name}`);
+        // 성공 시 2초 후 서버 동기화로 일관성 확보
         setTimeout(() => {
           loadUploadedFiles(true);
-        }, 500);
+        }, 2000);
+      } else {
+        console.log(`❌ [DELETE-FAILED] 서버 삭제 실패, 롤백: ${file.name}`);
+        // 실패 시 즉시 롤백
+        setUploadedFiles(prev => [file, ...prev]);
+        alert('파일 삭제에 실패했습니다: ' + result.message);
       }
     } catch (error) {
       console.error('파일 삭제 오류:', error);
+      // 오류 시 즉시 롤백
+      setUploadedFiles(prev => [file, ...prev]);
+      alert('파일 삭제 중 오류가 발생했습니다.');
     }
-  }, []);
+  }, [businessName, loadUploadedFiles]);
 
   // 파일 크기 포맷팅
   const formatFileSize = (bytes: number) => {
@@ -316,90 +358,43 @@ export default function FacilityPhotoUploadSection({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // 시설별 업로드된 파일 필터링 (파일 경로 기반 정확한 매칭)
+  // 시설별 업로드된 파일 필터링 - 단순화된 안정적 로직
   const getFilesForFacility = (facility: Facility, facilityType: 'discharge' | 'prevention') => {
-    const newFacilityInfo = `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`;
+    const expectedFacilityInfo = `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`;
+    const expectedFolderName = facilityType === 'discharge' ? '배출시설' : '방지시설';
     
     const filteredFiles = uploadedFiles.filter(file => {
-      // 새로운 형식 매칭
-      if (file.facilityInfo === newFacilityInfo) {
+      // 1차: 정확한 facilityInfo 매칭 (최우선)
+      if (file.facilityInfo === expectedFacilityInfo) {
         return true;
       }
       
-      // 올바른 폴더 타입인지 확인
-      const correctFolderType = file.folderName === (facilityType === 'discharge' ? '배출시설' : '방지시설');
-      if (!correctFolderType) {
-        return false;
-      }
-      
-      // 파일 경로에서 시설 번호 추출하여 정확한 매칭
-      if (file.filePath) {
+      // 2차: 폴더명 + 파일 경로 매칭 (안정적 백업)
+      if (file.folderName === expectedFolderName && file.filePath) {
         const facilityPathType = facilityType === 'discharge' ? 'discharge' : 'prevention';
-        const pathPattern = new RegExp(`facility_${facilityPathType}(\\d+)`);
-        const match = file.filePath.match(pathPattern);
-        
-        if (match) {
-          const filesFacilityNumber = parseInt(match[1]);
-          // 파일 경로의 시설 번호와 현재 시설 번호가 정확히 일치하는 경우만
-          if (filesFacilityNumber === facility.number) {
-            return true;
-          }
-        }
-      }
-      
-      // 기존 형식에서 시설명과 용량이 정확히 일치하는 경우 (중복 방지)
-      if (file.facilityInfo && file.facilityInfo.includes(`배출구: ${facility.outlet}번`)) {
-        const facilityNameInFile = file.facilityInfo.split(' (')[0];
-        const capacityInFile = file.facilityInfo.match(/\(([^,]+),/)?.[1];
-        
-        // 시설명과 용량이 모두 정확히 일치하는 경우만
-        if (facility.name === facilityNameInFile && facility.capacity === capacityInFile) {
-          return true;
-        }
+        const pathPattern = new RegExp(`facility_${facilityPathType}${facility.number}(?:/|$)`);
+        return pathPattern.test(file.filePath);
       }
       
       return false;
     });
 
-    // 디버깅 로그
-    console.log(`[DEBUG] ${facilityType} ${facility.number} (배출구 ${facility.outlet}) 매칭:`, {
-      facilityName: facility.name,
-      facilityCapacity: facility.capacity,
-      expectedNew: newFacilityInfo,
-      foundFiles: filteredFiles.length,
-      allFiles: uploadedFiles.filter(f => f.folderName === (facilityType === 'discharge' ? '배출시설' : '방지시설')).length,
-      fileDetails: filteredFiles.map(f => ({ 
-        name: f.originalName, 
-        facilityInfo: f.facilityInfo,
-        filePath: f.filePath,
-        pathNumber: f.filePath?.match(new RegExp(`facility_${facilityType === 'discharge' ? 'discharge' : 'prevention'}(\\d+)`))?.[1]
-      }))
-    });
-
+    console.log(`[FACILITY-FILTER] ${facilityType}${facility.number}: ${filteredFiles.length}개 파일 매칭`);
     return filteredFiles;
   };
 
-  // 기본사진 필터링 (카테고리별) - 이전 작동 버전 로직으로 복원
+  // 기본사진 필터링 (카테고리별) - 단순화된 안정적 로직
   const getBasicFiles = (category?: string) => {
-    console.log('[DEBUG] 전체 업로드된 파일들:', uploadedFiles.map(f => ({ 
-      name: f.name, 
-      folderName: f.folderName, 
-      filePath: f.filePath || 'no path' 
-    })));
-    
     const basicFiles = uploadedFiles.filter(file => {
-      // 기본사진 폴더 확인 - 매우 관대한 조건으로 복원
-      const isBasicFolder = !file.folderName || 
-                           file.folderName === '' ||
-                           file.folderName === 'basic' || 
-                           file.folderName === '기본사진' ||
-                           file.folderName.includes('기본') ||
-                           // 시설 폴더가 아닌 경우도 기본사진으로 간주 (이전 작동 로직)
+      // 기본사진 폴더 확인 (명확한 조건)
+      const isBasicFolder = file.folderName === '기본사진' || 
+                           file.folderName === 'basic' ||
+                           (!file.folderName || file.folderName === '') ||
                            (file.folderName !== '배출시설' && file.folderName !== '방지시설');
       
       if (!isBasicFolder) return false;
       
-      // 카테고리별 필터링 (없으면 모든 기본사진 반환)
+      // 카테고리별 필터링
       if (category) {
         const fileCategory = (file as any).subcategory || extractCategoryFromFileName(file.name);
         return fileCategory === category;
@@ -408,12 +403,7 @@ export default function FacilityPhotoUploadSection({
       return true;
     });
     
-    console.log('[DEBUG] 기본사진 필터링 (복원된 로직):', { 
-      category: category || 'all',
-      totalFiles: uploadedFiles.length, 
-      basicFiles: basicFiles.length,
-      basicFileNames: basicFiles.map(f => f.name)
-    });
+    console.log(`[BASIC-FILTER] ${category || 'all'}: ${basicFiles.length}개 파일`);
     return basicFiles;
   };
 
@@ -469,11 +459,21 @@ export default function FacilityPhotoUploadSection({
 
   return (
     <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 shadow-sm border border-purple-100">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-purple-100 rounded-lg">
-          <Camera className="w-6 h-6 text-purple-600" />
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <Camera className="w-6 h-6 text-purple-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-800">시설별 사진 업로드</h2>
         </div>
-        <h2 className="text-xl font-bold text-gray-800">시설별 사진 업로드</h2>
+        <button
+          onClick={() => loadUploadedFiles(true)}
+          disabled={loadingFiles}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${loadingFiles ? 'animate-spin' : ''}`} />
+          새로고침
+        </button>
       </div>
 
       <div className="space-y-6">

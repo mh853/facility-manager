@@ -1,6 +1,7 @@
 // app/api/upload-supabase/route.ts - Supabase 기반 업로드 API
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { memoryCache } from '@/lib/cache';
 import { createHash } from 'crypto';
 
 // 파일 해시 계산
@@ -408,6 +409,13 @@ export async function POST(request: NextRequest) {
     }
 
     message += ' Google Drive 동기화가 백그라운드에서 진행됩니다.';
+
+    // 업로드 성공 시 캐시 무효화 (즉시 새 데이터 반영)
+    if (successfulUploads.length > 0) {
+      memoryCache.delete(`files_${businessName}_completion`);
+      memoryCache.delete(`files_${businessName}_presurvey`);
+      console.log(`💾 [CACHE-INVALIDATE] 업로드 후 캐시 무효화: ${businessName}`);
+    }
 
     console.log(`✅ [SUPABASE-UPLOAD] 완료: ${requestId}, 성공=${successfulUploads.length}, 실패=${failedUploads.length}, 중복=${duplicateFiles.length}`);
 
