@@ -6,6 +6,7 @@ export interface Facility {
   capacity: string;
   quantity: number;
   displayName: string;
+  notes?: string;
   // 배출시설 추가 데이터
   dischargeCT?: string;
   // 방지시설 추가 데이터
@@ -31,6 +32,18 @@ export interface BusinessInfo {
   address?: string;
   rowIndex?: number;
   error?: string;
+  
+  // Supabase 확장 정보
+  id?: string;
+  사업장명?: string;
+  주소?: string;
+  담당자명?: string;
+  담당자연락처?: string;
+  담당자직급?: string;
+  사업장연락처?: string;
+  사업자등록번호?: string;
+  대표자?: string;
+  업종?: string;
 }
 
 export interface FileInfo {

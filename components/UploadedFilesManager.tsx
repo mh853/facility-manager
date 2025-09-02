@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Trash2, Download, Eye, RefreshCw, FolderOpen, Image, X, ZoomIn, AlertTriangle } from 'lucide-react';
 import { useFileContext } from '@/contexts/FileContext';
+import LazyImage from '@/components/ui/LazyImage';
 
 interface UploadedFile {
   id: string;
@@ -220,14 +221,12 @@ function UploadedFilesManager({
                           className="relative aspect-square mb-3 bg-gray-100 rounded-lg overflow-hidden cursor-pointer group"
                           onClick={() => setSelectedFile(file)}
                         >
-                          <img
+                          <LazyImage
                             src={file.thumbnailUrl}
                             alt={file.name}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f3f4f6"/><text x="50" y="50" text-anchor="middle" dy="0.3em" font-family="Arial" font-size="12" fill="%236b7280">이미지 없음</text></svg>`;
-                            }}
+                            quality={75}
+                            placeholder={true}
                           />
                           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity flex items-center justify-center">
                             <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -301,14 +300,12 @@ function UploadedFilesManager({
             </div>
             
             <div className="p-4">
-              <img
+              <LazyImage
                 src={selectedFile.thumbnailUrl}
                 alt={selectedFile.name}
                 className="max-w-full max-h-[60vh] mx-auto"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = selectedFile.thumbnailUrl;
-                }}
+                priority={true}
+                quality={90}
               />
               
               <div className="mt-4 text-sm text-gray-600 space-y-1">

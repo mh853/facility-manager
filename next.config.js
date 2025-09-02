@@ -8,7 +8,7 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react'],
   },
   
-  // 이미지 최적화
+  // 이미지 최적화 - 성능 개선
   images: {
     remotePatterns: [
       {
@@ -28,10 +28,15 @@ const nextConfig = {
       },
     ],
     formats: ['image/webp', 'image/avif'],
-    minimumCacheTTL: 60 * 60 * 24 * 7, // 7일 캐시
+    minimumCacheTTL: 60 * 60, // 1시간 캐시 (더 자주 업데이트)
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256],
     // Jest worker 오류 방지
     loader: 'default',
     dangerouslyAllowSVG: true,
+    // 썸네일 품질 최적화
+    domains: [],
+    unoptimized: false,
   },
   
   // 성능 헤더
@@ -51,6 +56,15 @@ const nextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin'
+          }
+        ],
+      },
+      {
+        source: '/api/uploaded-files-supabase',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=600'
           }
         ],
       },

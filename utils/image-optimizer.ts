@@ -52,7 +52,7 @@ export class ImageOptimizer {
     `)}`;
   }
 
-  // 파일 업로드 시 클라이언트 사이드 압축
+  // 파일 업로드 시 클라이언트 사이드 압축 - 성능 개선
   static async compressImage(file: File, maxSize: number = 1024 * 1024): Promise<File> {
     if (file.size <= maxSize) return file;
 
@@ -62,32 +62,37 @@ export class ImageOptimizer {
       const img = new Image();
 
       img.onload = () => {
-        // 비율 유지하면서 크기 조정
-        const ratio = Math.min(1920 / img.width, 1080 / img.height);
+        // 썸네일 크기로 압축 (200x200px 최대)
+        const thumbnailSize = 400;
+        const ratio = Math.min(thumbnailSize / img.width, thumbnailSize / img.height);
         canvas.width = img.width * ratio;
         canvas.height = img.height * ratio;
 
-        // 이미지 그리기
+        // 이미지 품질 최적화
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        // Blob으로 변환 (품질 조정)
+        // Progressive JPEG 대신 WebP로 변환 (더 나은 압축)
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              const compressedFile = new File([blob], file.name, {
+              const compressedFile = new File([blob], file.name.replace(/\.(jpg|jpeg|png)$/i, '.webp'), {
                 type: 'image/webp',
                 lastModified: Date.now()
               });
+              console.log(`⚡ [COMPRESS] ${file.name}: ${(file.size/1024).toFixed(1)}KB → ${(compressedFile.size/1024).toFixed(1)}KB`);
               resolve(compressedFile);
             } else {
               resolve(file);
             }
           },
           'image/webp',
-          0.8
+          0.75 // 품질 75% (빠른 로딩과 품질의 균형)
         );
       };
 
+      img.onerror = () => resolve(file);
       img.src = URL.createObjectURL(file);
     });
   }
