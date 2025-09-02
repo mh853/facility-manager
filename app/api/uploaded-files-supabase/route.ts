@@ -184,8 +184,8 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    // 캐시에 저장 (5분 TTL)
-    memoryCache.set(cacheKey, response, 5);
+    // 캐시에 저장 (모바일 최적화: 2분 TTL)
+    memoryCache.set(cacheKey, response, 2); // 모바일 최적화: 2분으로 단축
 
     return NextResponse.json(response);
 

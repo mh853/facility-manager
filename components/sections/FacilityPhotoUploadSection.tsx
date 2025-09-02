@@ -109,11 +109,11 @@ export default function FacilityPhotoUploadSection({
     loadUploadedFiles();
   }, [loadUploadedFiles]);
 
-  // 파일 목록 실시간 새로고침 (30초마다)
+  // 파일 목록 실시간 새로고침 (모바일 최적화: 10초마다)
   useEffect(() => {
     const interval = setInterval(() => {
       loadUploadedFiles(true);
-    }, 30000);
+    }, 10000); // 모바일에서 빠른 반영을 위해 10초로 단축
 
     return () => clearInterval(interval);
   }, [loadUploadedFiles]);
@@ -204,10 +204,8 @@ export default function FacilityPhotoUploadSection({
       // 전체 성공 시에만 서버 데이터 동기화 (optimistic UI 보호)
       if (successCount === files.length) {
         console.log(`✅ [UPLOAD-SUCCESS] 시설 업로드 완료: ${successCount}/${files.length}`);
-        // 1초 대기 후 서버 동기화 (optimistic UI 표시 시간 확보)
-        setTimeout(() => {
-          loadUploadedFiles(true);
-        }, 1000);
+        // 모바일 최적화: 즉시 서버 동기화로 빠른 반영
+        loadUploadedFiles(true);
       } else {
         // 실패 시에만 즉시 서버 데이터로 복구
         console.log(`❌ [UPLOAD-PARTIAL] 부분 실패: ${successCount}/${files.length}`);
@@ -284,10 +282,8 @@ export default function FacilityPhotoUploadSection({
       // 전체 성공 시에만 서버 데이터 동기화 (optimistic UI 보호)
       if (successCount === files.length) {
         console.log(`✅ [UPLOAD-SUCCESS] 기본사진 업로드 완료: ${successCount}/${files.length}`);
-        // 1초 대기 후 서버 동기화 (optimistic UI 표시 시간 확보)
-        setTimeout(() => {
-          loadUploadedFiles(true);
-        }, 1000);
+        // 모바일 최적화: 즉시 서버 동기화로 빠른 반영
+        loadUploadedFiles(true);
       } else {
         // 실패 시에만 즉시 서버 데이터로 복구
         console.log(`❌ [UPLOAD-PARTIAL] 기본사진 부분 실패: ${successCount}/${files.length}`);
@@ -331,10 +327,8 @@ export default function FacilityPhotoUploadSection({
       
       if (result.success) {
         console.log(`✅ [DELETE-SUCCESS] 서버 삭제 완료: ${file.name}`);
-        // 성공 시 2초 후 서버 동기화로 일관성 확보
-        setTimeout(() => {
-          loadUploadedFiles(true);
-        }, 2000);
+        // 모바일 최적화: 즉시 서버 동기화로 빠른 반영
+        loadUploadedFiles(true);
       } else {
         console.log(`❌ [DELETE-FAILED] 서버 삭제 실패, 롤백: ${file.name}`);
         // 실패 시 즉시 롤백
