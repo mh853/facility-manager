@@ -7,6 +7,7 @@ import AdminLayout from '@/components/ui/AdminLayout'
 import StatsCard from '@/components/ui/StatsCard'
 import DataTable, { commonActions } from '@/components/ui/DataTable'
 import { ConfirmModal } from '@/components/ui/Modal'
+import GoogleSheetsImporter from '@/components/ui/GoogleSheetsImporter'
 import { 
   Users, 
   FileText, 
@@ -626,13 +627,14 @@ export default function AirPermitManagementPage() {
       title="대기필증 관리"
       description="대기배출시설 허가증 관리 시스템"
       actions={(
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <GoogleSheetsImporter />
           <button
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Upload className="w-4 h-4" />
-            구글시트 가져오기
+            기존 가져오기
           </button>
           <button
             onClick={openAddModal}

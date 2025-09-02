@@ -57,37 +57,38 @@ export default function AdminPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/sync?systemType=presurvey', { method: 'PUT' })
-      const result = await response.json()
+      console.log('Admin 데이터 로드: Supabase 마이그레이션으로 인해 비활성화됨')
       
-      if (result.success) {
-        const businessData = result.data.map((item: BusinessData, index: number) => ({
-          ...item,
-          id: `business-${item.rowIndex || index}`
-        }))
-        
-        setBusinesses(businessData)
-        setLastSync(new Date().toLocaleString())
-        
-        // Calculate stats
-        const completed = businessData.filter((b: BusinessData) => b.상태 === '완료').length
-        const inProgress = businessData.filter((b: BusinessData) => b.상태 === '진행중').length
-        const pending = businessData.filter((b: BusinessData) => b.상태 === '대기중').length
-        
-        setStats({
-          total: businessData.length,
-          completed,
-          inProgress,
-          pending
-        })
-      } else {
-        console.error('API 응답 오류:', result)
-        let errorMsg = result.message
-        if (result.details) {
-          errorMsg += `\n\n상세 정보:\n- 스프레드시트 ID: ${result.details.spreadsheetId}\n- 시트명: ${result.details.sheetName}`
+      // 샘플 데이터로 대체 (Supabase 마이그레이션 완료 후 실제 API로 교체 필요)
+      const sampleData: BusinessData[] = [
+        {
+          rowIndex: 1,
+          번호: '1',
+          사업장명: '(주)조양(전체)',
+          상태: '완료',
+          URL: '/business/(주)조양(전체)',
+          특이사항: '',
+          설치담당자: '',
+          연락처: '',
+          설치일: '',
+          id: 'business-1'
         }
-        alert('데이터 로드 실패:\n' + errorMsg)
-      }
+      ]
+      
+      setBusinesses(sampleData)
+      setLastSync(new Date().toLocaleString())
+      
+      // Calculate stats
+      const completed = sampleData.filter((b: BusinessData) => b.상태 === '완료').length
+      const inProgress = sampleData.filter((b: BusinessData) => b.상태 === '진행중').length
+      const pending = sampleData.filter((b: BusinessData) => b.상태 === '대기중').length
+      
+      setStats({
+        total: sampleData.length,
+        completed,
+        inProgress,
+        pending
+      });
     } catch (error) {
       console.error('네트워크 오류:', error)
       alert('데이터 로드 오류: ' + error)
@@ -113,6 +114,21 @@ export default function AdminPage() {
     if (!editData) return
     
     try {
+      // Admin 편집 기능 비활성화됨 (Google Sheets API 삭제)
+      console.log('Admin 편집: Supabase 마이그레이션으로 인해 비활성화됨', editData)
+      
+      // 로컬 상태만 업데이트 (실제 저장은 비활성화)
+      setBusinesses(prev => 
+        prev.map(b => 
+          b.rowIndex === editData.rowIndex ? { ...editData, id: b.id } : b
+        )
+      )
+      setEditingRow(null)
+      setEditData(null)
+      alert('로컬 상태 업데이트 완료 (실제 저장은 비활성화됨)')
+      return
+      
+      /* 원본 코드 (Google Sheets API 삭제로 비활성화):
       const response = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -145,6 +161,7 @@ export default function AdminPage() {
       } else {
         alert('저장 실패: ' + result.message)
       }
+      */
     } catch (error) {
       alert('저장 오류: ' + error)
     }

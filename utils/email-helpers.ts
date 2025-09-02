@@ -1,13 +1,12 @@
 // utils/email-helpers.ts
 import { SystemType } from '@/types';
 
-export function generateDriveUrl(businessName: string, systemType: SystemType): string {
-  // Google Drive 폴더 URL 생성 로직
-  const folderId = systemType === 'presurvey' 
-    ? process.env.PRESURVEY_FOLDER_ID 
-    : process.env.COMPLETION_FOLDER_ID;
+export function generateStorageUrl(businessName: string, systemType: SystemType): string {
+  // Supabase 스토리지 URL 생성 로직
+  const bucketName = 'facility-files';
+  const folderPath = `business/${systemType}/${businessName}`;
   
-  return `https://drive.google.com/drive/folders/${folderId}`;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucketName}/${folderPath}`;
 }
 
 export function formatKoreanDateTime(date: Date): string {

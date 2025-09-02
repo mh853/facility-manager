@@ -13,7 +13,8 @@
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "dev-mobile": "next dev --hostname 0.0.0.0",
-    "health": "curl http://localhost:3000/api/health"
+    "health": "curl http://localhost:3000/api/health",
+    "migrate:photos": "node --experimental-modules scripts/migrate-existing-photos.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
@@ -22,7 +23,6 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "browser-image-compression": "^2.0.2",
-    "googleapis": "^144.0.0",
     "jspdf": "^3.0.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.263.1",

@@ -65,7 +65,7 @@ async function getOrCreateBusiness(businessName: string): Promise<string> {
 }
 
 // 시설별 세분화된 폴더 경로 생성 (Supabase Storage 호환 - ASCII만 사용)
-function getFilePath(businessName: string, fileType: string, facilityInfo: string, filename: string, displayName?: string): string {
+function getFilePath(businessName: string, fileType: string, facilityInfo: string, filename: string, systemType: string = 'completion', displayName?: string): string {
   // Supabase Storage는 ASCII 문자만 허용하므로 한글 제거
   const sanitizedBusiness = businessName
     .replace(/[가-힣]/g, '')          // 한글 완전 제거
@@ -107,29 +107,35 @@ function getFilePath(businessName: string, fileType: string, facilityInfo: strin
   if (fileType === 'discharge') baseFolder = 'discharge';
   if (fileType === 'prevention') baseFolder = 'prevention';
   
+  // 시스템 타입 기반 폴더 구조 추가 (설치 전/후 분리)
+  const systemPrefix = systemType === 'presurvey' ? 'presurvey' : 'completion';
+  
   // 시설명 기반 ASCII 호환 폴더 구조 (각 시설별 구분)
-  // 예: business/discharge/facility_discharge1/, business/discharge/facility_discharge2/
+  // 예: business/presurvey/discharge/facility_discharge1/, business/completion/discharge/facility_discharge1/
   let facilityFolder = '';
   
-  if (fileType === 'discharge' || fileType === 'prevention') {
-    // 배출/방지시설: displayName에서 마지막 숫자 추출 (배출구1-배출시설1 → 1, 배출구2-방지시설2 → 2)
-    const facilityNumber = displayName ? displayName.match(/(\d+)$/)?.[1] : outletNumber;
-    const shortType = fileType === 'discharge' ? 'discharge' : 'prevention';
-    facilityFolder = `facility_${shortType}${facilityNumber}`;
+  if (fileType === 'discharge') {
+    // 배출시설: facility_discharge + 숫자 (displayName에서 마지막 숫자 추출)
+    const facilityNumber = displayName ? displayName.match(/(\d+)$/)?.[1] || outletNumber : outletNumber;
+    facilityFolder = `facility_discharge${facilityNumber}`;
+  } else if (fileType === 'prevention') {
+    // 방지시설: outlet_숫자_prev_facility (배출구 번호 기반)
+    const facilityNumber = displayName ? displayName.match(/(\d+)$/)?.[1] || outletNumber : outletNumber;
+    facilityFolder = `outlet_${facilityNumber}_prev_facility`;
   } else {
-    // 기본시설: 시설 인덱스 기반 숫자 폴더
+    // 기본시설: facility_숫자 (시설 인덱스 기반)
     const facilityIndex = getFacilityIndex(facilityInfo);
     facilityFolder = `facility_${facilityIndex}`;
   }
   
-  const path = `${sanitizedBusiness}/${baseFolder}/${facilityFolder}/${timestamp}_${sanitizedFilename}`;
+  const path = `${sanitizedBusiness}/${systemPrefix}/${baseFolder}/${facilityFolder}/${timestamp}_${sanitizedFilename}`;
   
   console.log('🔧 [PATH] 시설명 기반 안정적 경로 생성:', {
-    원본: { businessName, fileType, facilityInfo, filename, displayName },
+    원본: { businessName, fileType, facilityInfo, filename, displayName, systemType },
     추출됨: { facilityName, outletNumber, displayFacilityNumber: displayName ? displayName.match(/(\d+)/)?.[1] : null },
-    정리후: { sanitizedBusiness, baseFolder, facilityFolder, sanitizedFilename },
+    정리후: { sanitizedBusiness, systemPrefix, baseFolder, facilityFolder, sanitizedFilename },
     최종경로: path,
-    구조: 'displayName 기반 ASCII 호환 구조'
+    구조: 'systemType 분리된 ASCII 호환 구조'
   });
 
   return path;
@@ -291,7 +297,7 @@ export async function POST(request: NextRequest) {
     // 4. Supabase Storage에 업로드 (병렬)
     const uploadPromises = validFiles.map(async ({ file, hash }, index) => {
       try {
-        const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', file.name, displayName || undefined);
+        const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', file.name, systemType, displayName || undefined);
         
         // Storage에 업로드
         const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
@@ -354,8 +360,8 @@ export async function POST(request: NextRequest) {
           .getPublicUrl(uploadData.path);
 
         // FileContext에서 기대하는 UploadedFile 형식으로 반환
-        const folderName = filePath.includes('/discharge/') ? '배출시설' : 
-                          filePath.includes('/prevention/') ? '방지시설' : '기본사진';
+        const folderName = filePath.includes('discharge') ? '배출시설' : 
+                          filePath.includes('prevention') ? '방지시설' : '기본사진';
         
         return {
           id: fileRecord.id,

@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
           fax_number: null,
           email: 'test@example.com',
           representative_name: '테스트대표',
+          facility_summary: null,
           business_registration_number: '000-00-00000',
           manufacturer: 'ecosense',
           vpn: 'wired',

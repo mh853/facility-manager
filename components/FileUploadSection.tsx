@@ -221,39 +221,88 @@ const UploadItem = memo(({
     }
   }, [getFacilityIndex]);
 
-  // 파일이 현재 시설에 속하는지 검증하는 함수
+  // 파일이 현재 시설에 속하는지 검증하는 함수 (실제 스토리지 구조에 맞게 수정)
   const checkIfFileBelongsToFacility = useCallback((file: UploadedFile, fileType: string, label: string, facilityInfo: string) => {
-    if (fileType === 'discharge' || fileType === 'prevention') {
-      // label에서 마지막 숫자 추출 (배출구1-배출시설1 → 1, 배출구2-방지시설2 → 2)
+    console.log(`🔍 [FACILITY-MATCH] 시설 매칭 검증 시작:`, {
+      파일명: file.originalName,
+      파일경로: file.filePath,
+      시설정보: facilityInfo,
+      파일타입: fileType,
+      라벨: label,
+      파일시설정보: file.facilityInfo
+    });
+
+    if (fileType === 'discharge') {
+      // 배출시설: facility_discharge + 숫자 (예: facility_discharge1, facility_discharge2)
       const labelFacilityNumber = label ? label.match(/(\d+)$/)?.[1] || '0' : '0';
-      const shortType = fileType === 'discharge' ? 'discharge' : 'prevention';
+      
+      console.log(`🔍 [FACILITY-MATCH] 배출시설 검증: ${label} -> ${labelFacilityNumber} (${file.originalName})`);
       
       if (labelFacilityNumber !== '0' && file.filePath) {
-        const expectedPathPattern = `facility_${shortType}${labelFacilityNumber}`;
-        return file.filePath.includes(expectedPathPattern);
+        // 정규표현식을 사용한 정확한 매칭 (단어 경계 사용)
+        const regexPattern = new RegExp(`/facility_discharge${labelFacilityNumber}/`);
+        const pathMatches = regexPattern.test(file.filePath);
+        
+        console.log(`🔍 [FACILITY-MATCH] 배출시설 매칭: ${regexPattern.source} -> ${pathMatches} (${file.originalName})`);
+        
+        return pathMatches;
+      }
+    } else if (fileType === 'prevention') {
+      // 방지시설: outlet_숫자_prev_facility (예: outlet_1_prev_facility, outlet_2_prev_facility)
+      const labelFacilityNumber = label ? label.match(/(\d+)$/)?.[1] || '0' : '0';
+      
+      console.log(`🔍 [FACILITY-MATCH] 방지시설 검증: ${label} -> ${labelFacilityNumber} (${file.originalName})`);
+      
+      if (labelFacilityNumber !== '0' && file.filePath) {
+        // 정규표현식을 사용한 정확한 매칭
+        const regexPattern = new RegExp(`/outlet_${labelFacilityNumber}_prev_facility/`);
+        const pathMatches = regexPattern.test(file.filePath);
+        
+        console.log(`🔍 [FACILITY-MATCH] 방지시설 매칭: ${regexPattern.source} -> ${pathMatches} (${file.originalName})`);
+        
+        return pathMatches;
       }
     } else if (fileType === 'basic') {
-      // 기본시설도 숫자 ID 기반 검증
+      // 기본시설: basic/facility_숫자 (예: basic/facility_1, basic/facility_2)
       const facilityName = facilityInfo.split('(')[0].trim();
       const facilityIndex = getFacilityIndex(facilityName);
       
+      console.log(`🔍 [FACILITY-MATCH] 기본시설 검증: ${facilityName} -> ${facilityIndex} (${file.originalName})`);
+      
       if (file.filePath) {
-        const expectedPathPattern = `facility_${facilityIndex}`;
-        return file.filePath.includes(expectedPathPattern);
+        // 정규표현식을 사용한 정확한 매칭
+        const regexPattern = new RegExp(`/facility_${facilityIndex}/`);
+        const pathMatches = regexPattern.test(file.filePath);
+        
+        console.log(`🔍 [FACILITY-MATCH] 기본시설 매칭: ${regexPattern.source} -> ${pathMatches} (${file.originalName})`);
+        
+        return pathMatches;
       }
     }
+    
+    console.log(`🔍 [FACILITY-MATCH] 매칭 실패 - 조건 불충족`);
     return false;
   }, [getFacilityIndex]);
 
   // 필터링된 파일들을 메모화하여 안정성 확보 (최강 엄격한 매칭)
   const filteredUploadedFiles = useMemo(() => {
-    if (!uploadedFiles || uploadedFiles.length === 0) return [];
+    if (!uploadedFiles || uploadedFiles.length === 0) {
+      console.log(`🎯 [${uploadId}] 업로드된 파일이 없음`);
+      return [];
+    }
     
     console.log(`🎯 [${uploadId}] 필터링 시작 - 현재 시설:`, {
       uploadId,
       currentFacilityInfo: facilityInfo,
       fileType,
-      totalFiles: uploadedFiles.length
+      label,
+      totalFiles: uploadedFiles.length,
+      files: uploadedFiles.map(f => ({ 
+        name: f.originalName, 
+        folder: f.folderName, 
+        facilityInfo: f.facilityInfo,
+        filePath: f.filePath
+      }))
     });
     
     const filtered = uploadedFiles.filter(file => {
@@ -274,7 +323,7 @@ const UploadItem = memo(({
         return false;
       }
 
-      // 🚨 시설정보 기반 필터링 (최근 업로드 파일은 항상 표시)
+      // 🚨 시설정보 기반 필터링 (최근 업로드 파일은 더 관대하게)
       const now = new Date().getTime();
       const fileTime = new Date(file.createdTime).getTime();
       const isVeryRecentUpload = now - fileTime < 3 * 60 * 1000; // 3분 이내
@@ -287,32 +336,33 @@ const UploadItem = memo(({
         시간차이초: Math.round((now - fileTime) / 1000)
       });
       
-      // 완전 일치하는 경우도 시설별 폴더 검증 추가 (정확성 보장)
+      // 완전 일치하는 경우는 바로 통과 (단, 라벨 기반 매칭도 확인)
       if (file.facilityInfo === facilityInfo) {
-        console.log(`🔍 [${uploadId}] 완전 일치 - 추가 폴더 검증: ${file.originalName}`);
-        const belongsToFacility = checkIfFileBelongsToFacility(file, fileType, label, facilityInfo);
-        if (belongsToFacility) {
-          console.log(`✅ [${uploadId}] 완전 일치 + 폴더 매치 성공: ${file.originalName}`);
+        // 완전일치더라도 라벨 기반 매칭으로 한 번 더 검증
+        const belongsToCurrentFacility = checkIfFileBelongsToFacility(file, fileType, label, facilityInfo);
+        if (belongsToCurrentFacility) {
+          console.log(`✅ [${uploadId}] 시설정보 완전 일치 + 라벨 매칭 통과: ${file.originalName}`);
           return true;
         } else {
-          console.warn(`⚠️ [${uploadId}] 완전 일치하지만 폴더 불일치: ${file.originalName}`);
-          return false;
+          console.log(`⚠️ [${uploadId}] 시설정보 완전 일치하지만 라벨 매칭 실패: ${file.originalName}`);
         }
       }
       
-      // ⭐ 최근 업로드 파일도 시설 매칭 검증 후 표시 (다른 시설 파일은 제외)
+      // ⭐ 최근 업로드 파일은 관대하게 처리 (폴더 타입만 확인)
       if (isVeryRecentUpload || file.justUploaded) {
-        console.log(`⭐ [${uploadId}] 최근 업로드 파일 - 시설 매칭 검증 필요: ${file.originalName}`, {
+        console.log(`⭐ [${uploadId}] 최근 업로드 파일 - 관대한 검증: ${file.originalName}`, {
           시간기반최근: isVeryRecentUpload,
           업로드플래그: file.justUploaded
         });
-        // 최근 업로드 파일이라도 해당 시설에 속하는지 검증
+        
+        // 최근 업로드 파일이라도 라벨 기반으로 정확하게 매칭해야 함
         const belongsToCurrentFacility = checkIfFileBelongsToFacility(file, fileType, label, facilityInfo);
+        
         if (belongsToCurrentFacility) {
-          console.log(`✅ [${uploadId}] 최근 업로드 + 시설 매치 성공: ${file.originalName}`);
+          console.log(`✅ [${uploadId}] 최근 업로드 + 라벨 기반 정확한 시설 매치: ${file.originalName}`);
           return true;
         } else {
-          console.log(`❌ [${uploadId}] 최근 업로드지만 다른 시설 파일: ${file.originalName}`);
+          console.log(`❌ [${uploadId}] 최근 업로드지만 다른 시설 파일 (라벨 기준): ${file.originalName}`);
           return false;
         }
       }
@@ -332,11 +382,30 @@ const UploadItem = memo(({
       total: uploadedFiles.length,
       filtered: filtered.length,
       facilityInfo,
-      fileType
+      fileType,
+      label
     });
     
-    return filtered;
-  }, [uploadedFiles, facilityInfo, fileType, uploadId, generateFacilityId]);
+    // 중복 제거 (같은 ID의 파일이 여러 번 포함될 수 있음)
+    const uniqueFiltered = filtered.filter((file, index, array) => {
+      const firstIndex = array.findIndex(f => f.id === file.id);
+      const isDuplicate = firstIndex !== index;
+      
+      if (isDuplicate) {
+        console.warn(`🔄 [${uploadId}] 중복 파일 제거: ${file.originalName} (ID: ${file.id})`);
+      }
+      
+      return firstIndex === index;
+    });
+    
+    console.log(`🧹 [${uploadId}] 중복 제거 후 최종 결과:`, {
+      필터링후: filtered.length,
+      중복제거후: uniqueFiltered.length,
+      제거된중복: filtered.length - uniqueFiltered.length
+    });
+    
+    return uniqueFiltered;
+  }, [uploadedFiles, facilityInfo, fileType, uploadId, label, checkIfFileBelongsToFacility]);
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files) return;
     
@@ -886,7 +955,7 @@ function FileUploadSection({
               facilityInfo={`${facility.name} (${facility.capacity}, 수량: ${facility.quantity}개, 배출구: ${facility.outlet}번)`}
               IconComponent={Shield}
               facility={facility}
-              onUpload={uploadFiles}
+              onUpload={(uploadId, fileType, facilityInfo, displayLabel) => uploadFiles(uploadId, fileType, facilityInfo, displayLabel || facility.displayName)}
               uploadState={uploads[`prevention-${index}`] || { files: [], status: '', uploading: false }}
               uploadedFiles={uploadedFiles}
               onDeleteFile={handleDeleteFile}
@@ -919,7 +988,7 @@ function FileUploadSection({
               facilityInfo={`${facility.name} (${facility.capacity}, 수량: ${facility.quantity}개, 배출구: ${facility.outlet}번)`}
               IconComponent={Zap}
               facility={facility}
-              onUpload={uploadFiles}
+              onUpload={(uploadId, fileType, facilityInfo, displayLabel) => uploadFiles(uploadId, fileType, facilityInfo, displayLabel || facility.displayName)}
               uploadState={uploads[`discharge-${index}`] || { files: [], status: '', uploading: false }}
               uploadedFiles={uploadedFiles}
               onDeleteFile={handleDeleteFile}

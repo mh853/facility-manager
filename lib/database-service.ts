@@ -85,6 +85,23 @@ export interface BusinessInfo {
   // 영업점
   sales_office: string | null
   
+  // 시설 요약 정보
+  facility_summary: {
+    outlets?: Array<{
+      outlet: number
+      discharge_count: number
+      prevention_count: number
+      discharge_facilities: string[]
+      prevention_facilities: string[]
+    }>
+    totals?: {
+      total_outlets: number
+      total_discharge: number
+      total_prevention: number
+    }
+    last_updated?: string
+  } | null
+  
   additional_info: Record<string, any>
   is_active: boolean
   is_deleted: boolean

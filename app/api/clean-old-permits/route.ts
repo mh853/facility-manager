@@ -46,12 +46,12 @@ export async function DELETE() {
     console.log(`🏢 사업장 수: ${businessGroups.size}개`);
 
     // 3. 각 사업장별로 가장 최근 대기필증만 보존, 나머지 삭제 대상으로 수집
-    const preservedPermits = [];
-    const permitsToDelete = [];
+    const preservedPermits: any[] = [];
+    const permitsToDelete: any[] = [];
 
     businessGroups.forEach((permits, businessId) => {
       // 생성일 기준 내림차순 정렬 (가장 최근이 첫 번째)
-      permits.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      permits.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       
       const latest = permits[0];
       const duplicates = permits.slice(1);

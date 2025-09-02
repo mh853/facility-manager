@@ -55,18 +55,19 @@ export default function FacilityPhotoUploadSection({
   const modalRef = useRef<HTMLDivElement>(null);
 
   // 업로드된 파일 로드 - 스마트 캐싱 및 병렬 로딩 적용
-  const loadUploadedFiles = useCallback(async () => {
+  const loadUploadedFiles = useCallback(async (forceRefresh = false) => {
     if (!businessName) return;
     
     setLoadingFiles(true);
     try {
       // 병렬 요청: completion과 presurvey 동시에 시도
+      const refreshParam = forceRefresh ? '&refresh=true' : '';
       const [completionResponse, presurveyResponse] = await Promise.allSettled([
-        fetch(`/api/uploaded-files-supabase?businessName=${encodeURIComponent(businessName)}&systemType=completion`, {
-          headers: { 'Cache-Control': 'max-age=300' } // 5분 캐시
+        fetch(`/api/uploaded-files-supabase?businessName=${encodeURIComponent(businessName)}&systemType=completion${refreshParam}`, {
+          headers: { 'Cache-Control': forceRefresh ? 'no-cache' : 'max-age=300' }
         }),
-        fetch(`/api/uploaded-files-supabase?businessName=${encodeURIComponent(businessName)}&systemType=presurvey`, {
-          headers: { 'Cache-Control': 'max-age=300' } // 5분 캐시
+        fetch(`/api/uploaded-files-supabase?businessName=${encodeURIComponent(businessName)}&systemType=presurvey${refreshParam}`, {
+          headers: { 'Cache-Control': forceRefresh ? 'no-cache' : 'max-age=300' }
         })
       ]);
 
@@ -148,10 +149,10 @@ export default function FacilityPhotoUploadSection({
         const compressedFile = await compressImage(file);
         
         const formData = new FormData();
-        formData.append('file', compressedFile);
+        formData.append('files', compressedFile);
         formData.append('businessName', businessName);
-        formData.append('category', facilityType);
-        formData.append('systemType', 'completion');
+        formData.append('fileType', facilityType);
+        formData.append('type', 'completion');
         formData.append('facilityInfo', `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`);
 
         const response = await fetch('/api/upload-supabase', {
@@ -198,11 +199,11 @@ export default function FacilityPhotoUploadSection({
         const compressedFile = await compressImage(file);
         
         const formData = new FormData();
-        formData.append('file', compressedFile);
+        formData.append('files', compressedFile);
         formData.append('businessName', businessName);
-        formData.append('category', 'basic');
-        formData.append('systemType', 'completion');
-        formData.append('subcategory', category);
+        formData.append('fileType', 'basic');
+        formData.append('type', 'completion');
+        formData.append('facilityInfo', category);
 
         const response = await fetch('/api/upload-supabase', {
           method: 'POST',
@@ -245,14 +246,20 @@ export default function FacilityPhotoUploadSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           fileId: file.id, 
-          fileName: file.name 
+          fileName: file.name,
+          businessName: businessName
         })
       });
 
       const result = await response.json();
       if (result.success) {
+        // 즉시 로컬 상태 업데이트
         setUploadedFiles(prev => prev.filter(f => f.id !== file.id));
         setSelectedFile(null);
+        // 서버에서 최신 데이터 다시 로드 (캐시 우회)
+        setTimeout(() => {
+          loadUploadedFiles(true);
+        }, 500);
       }
     } catch (error) {
       console.error('파일 삭제 오류:', error);

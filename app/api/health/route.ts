@@ -5,14 +5,9 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 export async function GET(request: NextRequest) {
   try {
     const requiredEnvVars = [
-      'GOOGLE_SERVICE_ACCOUNT_EMAIL',
-      'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY',
-      'MAIN_SPREADSHEET_ID',
-      'UPLOAD_SPREADSHEET_ID',
-      'DATA_COLLECTION_SPREADSHEET_ID',
-      'COMPLETION_SPREADSHEET_ID',
-      'PRESURVEY_FOLDER_ID',
-      'COMPLETION_FOLDER_ID'
+      'NEXT_PUBLIC_SUPABASE_URL',
+      'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+      'SUPABASE_SERVICE_ROLE_KEY'
     ];
 
     const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);

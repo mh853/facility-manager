@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
 // 파일 삭제 (DELETE)
 export async function DELETE(request: NextRequest) {
   try {
-    const { fileId, fileName } = await request.json();
+    const { fileId, fileName, businessName } = await request.json();
 
     if (!fileId) {
       return NextResponse.json({
@@ -212,10 +212,15 @@ export async function DELETE(request: NextRequest) {
 
     console.log(`🗑️ [DELETE-SUPABASE] 파일 삭제 시작: ${fileId} (${fileName})`);
 
-    // 파일 정보 조회
+    // 파일 정보 조회 (사업장 정보 포함)
     const { data: file, error: selectError } = await supabaseAdmin
       .from('uploaded_files')
-      .select('file_path, google_file_id, filename')
+      .select(`
+        file_path, 
+        google_file_id, 
+        filename,
+        businesses!business_id(name)
+      `)
       .eq('id', fileId)
       .single();
 
@@ -249,7 +254,14 @@ export async function DELETE(request: NextRequest) {
 
     console.log(`✅ [DELETE-SUPABASE] DB 삭제 완료: ${fileId}`);
 
-    // 3. Google Drive 삭제 큐에 추가 (Google 파일이 있는 경우)
+    // 3. 캐시 무효화 (삭제 후 즉시 새 데이터 로드를 위해)
+    if (businessName) {
+      memoryCache.delete(`files_${businessName}_completion`);
+      memoryCache.delete(`files_${businessName}_presurvey`);
+      console.log(`💾 [CACHE-INVALIDATE] 캐시 무효화 완료: ${businessName}`);
+    }
+
+    // 4. Google Drive 삭제 큐에 추가 (Google 파일이 있는 경우)
     if (file.google_file_id) {
       await supabaseAdmin
         .from('sync_queue')

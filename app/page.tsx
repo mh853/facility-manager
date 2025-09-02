@@ -29,11 +29,18 @@ export default memo(function HomePage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
+      console.log('🔍 [FRONTEND] business-list API 호출 시작');
       const response = await fetch('/api/business-list', {
         signal: controller.signal,
         headers: {
           'Cache-Control': 'max-age=300' // 5분 캐시
         }
+      });
+      
+      console.log('🔍 [FRONTEND] API 응답:', { 
+        status: response.status, 
+        ok: response.ok,
+        url: response.url 
       });
       
       clearTimeout(timeoutId);
@@ -43,19 +50,18 @@ export default memo(function HomePage() {
       }
       
       const data = await response.json();
+      console.log('🔍 [FRONTEND] API 데이터:', { 
+        success: data.success, 
+        hasData: !!data.data,
+        businesses: data.data?.businesses?.length || 0 
+      });
       
       if (data.success && data.data && Array.isArray(data.data.businesses)) {
-        // '#REF!' 같은 오류 값들을 추가로 필터링
-        const cleanBusinesses = data.data.businesses.filter((business: string) => 
-          business && 
-          typeof business === 'string' && 
-          !business.startsWith('#') &&
-          !business.includes('REF!') &&
-          business.trim().length > 1
-        );
+        // business-list API 응답 구조에 맞춤
+        const businesses = data.data.businesses;
         
-        if (cleanBusinesses.length > 0) {
-          setBusinessList(cleanBusinesses);
+        if (businesses.length > 0) {
+          setBusinessList(businesses);
         } else {
           throw new Error('유효한 사업장 데이터가 없습니다');
         }
@@ -108,24 +114,36 @@ export default memo(function HomePage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center">
         <div className="text-center text-white">
           <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-xl font-semibold">실제 데이터를 로딩하는 중...</p>
-          <p className="text-sm text-blue-200 mt-2">Google Sheets에서 사업장 목록을 가져오고 있습니다</p>
+          <p className="text-xl font-semibold">사업장 목록을 불러오는 중...</p>
+          <p className="text-sm text-blue-200 mt-2">데이터베이스에서 시설 정보를 가져오고 있습니다</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           {/* 헤더 */}
-          <div className="text-center text-white mb-8">
-            <h1 className="text-4xl font-bold mb-4">📋 시설관리 시스템</h1>
-            <p className="text-xl text-blue-100">사업장을 선택하여 보고서를 작성하세요</p>
-            <p className="text-sm text-blue-200 mt-2">
-              ✨ 실사관리 스프레드시트에서 실시간 데이터 로드
-            </p>
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <div className="p-4 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg">
+                <Building2 className="w-12 h-12 text-white" />
+              </div>
+              <div>
+                <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  시설관리 시스템
+                </h1>
+                <p className="text-lg text-gray-600 mt-2">친환경 시설 관리 통합 솔루션</p>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <p className="text-gray-700 text-lg mb-2">사업장을 선택하여 시설 관리를 시작하세요</p>
+              <p className="text-sm text-gray-500">
+                ✨ 실시간 데이터 연동 · 📊 시설 현황 관리 · 📷 사진 업로드
+              </p>
+            </div>
           </div>
 
           {/* 메인 카드 */}
@@ -148,7 +166,7 @@ export default memo(function HomePage() {
                   type="text"
                   lang="ko"
                   inputMode="text"
-                  placeholder="🔍 사업장 검색..."
+                  placeholder="사업장 검색..."
                   value={searchTerm}
                   onChange={handleSearchChange}
                   className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 text-lg"
@@ -195,8 +213,7 @@ export default memo(function HomePage() {
 
             {/* 푸터 */}
             <div className="bg-gray-50 px-6 py-4 text-center border-t">
-              <p className="text-gray-600">💡 모바일에서도 편리하게 사용 가능합니다</p>
-              <div className="mt-4 space-x-4">
+              <div className="space-x-4">
                 <button 
                   onClick={loadBusinessList}
                   className="text-blue-600 hover:text-blue-800 text-sm font-medium"
