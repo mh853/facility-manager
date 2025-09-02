@@ -372,7 +372,7 @@ export default function AdminDashboard() {
                   </div>
                   {activity.link && (
                     <div
-                      onClick={() => router.push(activity.link)}
+                      onClick={() => router.push(activity.link!)}
                       className="text-blue-600 hover:text-blue-800 cursor-pointer"
                     >
                       <ExternalLink className="w-4 h-4" />
