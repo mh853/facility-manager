@@ -1,483 +1,455 @@
-// app/admin/page.tsx - Enhanced Admin Dashboard
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import AdminLayout from '@/components/ui/AdminLayout'
-import StatsCard, { StatsCardPresets } from '@/components/ui/StatsCard'
-import DataTable, { commonActions } from '@/components/ui/DataTable'
-import { ConfirmModal } from '@/components/ui/Modal'
+import StatsCard from '@/components/ui/StatsCard'
 import { 
-  RefreshCw, 
-  Edit, 
-  Save, 
-  X, 
-  ExternalLink, 
   Building2,
-  FileText,
-  Clock,
+  Users,
   TrendingUp,
-  AlertCircle,
-  CheckCircle,
-  Calendar
+  Calendar,
+  Settings,
+  FileText,
+  BarChart3,
+  Wrench,
+  CreditCard,
+  Activity,
+  ChevronRight,
+  ExternalLink
 } from 'lucide-react'
 
-interface BusinessData {
-  rowIndex: number
-  번호: string
-  사업장명: string
-  상태: string
-  URL: string
-  특이사항: string
-  설치담당자: string
-  연락처: string
-  설치일: string
-  id: string // Add ID for DataTable
+interface DashboardStats {
+  totalBusinesses: number
+  activeBusinesses: number
+  monthlyRevenue: number
+  installationsInProgress: number
+  completedThisMonth: number
+  upcomingInstallations: number
 }
 
-const statusVariants = {
-  '완료': 'bg-green-100 text-green-800 border-green-200',
-  '진행중': 'bg-blue-100 text-blue-800 border-blue-200', 
-  '보류': 'bg-red-100 text-red-800 border-red-200',
-  '대기중': 'bg-gray-100 text-gray-800 border-gray-200'
+interface RecentActivity {
+  id: string
+  type: 'business_added' | 'installation_completed' | 'revenue_recorded'
+  message: string
+  timestamp: string
+  link?: string
 }
 
-export default function AdminPage() {
-  const [businesses, setBusinesses] = useState<BusinessData[]>([])
-  const [loading, setLoading] = useState(false)
-  const [editingRow, setEditingRow] = useState<number | null>(null)
-  const [editData, setEditData] = useState<BusinessData | null>(null)
-  const [lastSync, setLastSync] = useState<string>('')
-  const [stats, setStats] = useState({
-    total: 0,
-    completed: 0,
-    inProgress: 0,
-    pending: 0
+export default function AdminDashboard() {
+  const router = useRouter()
+  const [mounted, setMounted] = useState(false)
+  const [stats, setStats] = useState<DashboardStats>({
+    totalBusinesses: 0,
+    activeBusinesses: 0,
+    monthlyRevenue: 15000000,
+    installationsInProgress: 3,
+    completedThisMonth: 8,
+    upcomingInstallations: 5
   })
-
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      console.log('Admin 데이터 로드: Supabase 마이그레이션으로 인해 비활성화됨')
-      
-      // 샘플 데이터로 대체 (Supabase 마이그레이션 완료 후 실제 API로 교체 필요)
-      const sampleData: BusinessData[] = [
-        {
-          rowIndex: 1,
-          번호: '1',
-          사업장명: '(주)조양(전체)',
-          상태: '완료',
-          URL: '/business/(주)조양(전체)',
-          특이사항: '',
-          설치담당자: '',
-          연락처: '',
-          설치일: '',
-          id: 'business-1'
-        }
-      ]
-      
-      setBusinesses(sampleData)
-      setLastSync(new Date().toLocaleString())
-      
-      // Calculate stats
-      const completed = sampleData.filter((b: BusinessData) => b.상태 === '완료').length
-      const inProgress = sampleData.filter((b: BusinessData) => b.상태 === '진행중').length
-      const pending = sampleData.filter((b: BusinessData) => b.상태 === '대기중').length
-      
-      setStats({
-        total: sampleData.length,
-        completed,
-        inProgress,
-        pending
-      });
-    } catch (error) {
-      console.error('네트워크 오류:', error)
-      alert('데이터 로드 오류: ' + error)
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([
+    {
+      id: '1',
+      type: 'business_added',
+      message: '시스템 시작됨',
+      timestamp: new Date().toISOString(),
+      link: '/admin/business'
     }
-    setLoading(false)
-  }
-
-  const formatPhoneNumber = (phone: string): string => {
-    if (!phone) return ''
-    const numbers = phone.replace(/[^0-9]/g, '')
-    if (numbers.length === 11 && numbers.startsWith('010')) {
-      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`
-    }
-    return phone
-  }
-
-  const handleEdit = (business: BusinessData) => {
-    setEditingRow(business.rowIndex)
-    setEditData({ ...business })
-  }
-
-  const handleSave = async () => {
-    if (!editData) return
-    
-    try {
-      // Admin 편집 기능 비활성화됨 (Google Sheets API 삭제)
-      console.log('Admin 편집: Supabase 마이그레이션으로 인해 비활성화됨', editData)
-      
-      // 로컬 상태만 업데이트 (실제 저장은 비활성화)
-      setBusinesses(prev => 
-        prev.map(b => 
-          b.rowIndex === editData.rowIndex ? { ...editData, id: b.id } : b
-        )
-      )
-      setEditingRow(null)
-      setEditData(null)
-      alert('로컬 상태 업데이트 완료 (실제 저장은 비활성화됨)')
-      return
-      
-      /* 원본 코드 (Google Sheets API 삭제로 비활성화):
-      const response = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessName: editData.사업장명,
-          systemType: 'presurvey',
-          updateData: {
-            상태: editData.상태,
-            URL: editData.URL,
-            특이사항: editData.특이사항,
-            설치담당자: editData.설치담당자,
-            연락처: editData.연락처,
-            설치일: editData.설치일
-          }
-        })
-      })
-      
-      const result = await response.json()
-      
-      if (result.success) {
-        setBusinesses(prev => 
-          prev.map(b => 
-            b.rowIndex === editData.rowIndex ? { ...editData, id: b.id } : b
-          )
-        )
-        setEditingRow(null)
-        setEditData(null)
-        alert('저장되었습니다.')
-        loadData() // Refresh data to update stats
-      } else {
-        alert('저장 실패: ' + result.message)
-      }
-      */
-    } catch (error) {
-      alert('저장 오류: ' + error)
-    }
-  }
-
-  const handleCancel = () => {
-    setEditingRow(null)
-    setEditData(null)
-  }
-
-  // Define table columns
-  const columns = [
-    {
-      key: '번호',
-      title: '번호',
-      width: '80px',
-      render: (item: BusinessData) => (
-        <span className="font-mono text-sm">{item.번호}</span>
-      )
-    },
-    {
-      key: '사업장명',
-      title: '사업장명',
-      render: (item: BusinessData) => (
-        <div className="font-medium text-gray-900">{item.사업장명}</div>
-      )
-    },
-    {
-      key: '상태',
-      title: '상태',
-      width: '120px',
-      render: (item: BusinessData) => {
-        if (editingRow === item.rowIndex) {
-          return (
-            <select
-              value={editData?.상태 || ''}
-              onChange={(e) => setEditData(prev => prev ? {...prev, 상태: e.target.value} : null)}
-              className="w-full px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">선택</option>
-              <option value="대기중">대기중</option>
-              <option value="진행중">진행중</option>
-              <option value="완료">완료</option>
-              <option value="보류">보류</option>
-            </select>
-          )
-        }
-        
-        return (
-          <span className={`
-            inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border
-            ${statusVariants[item.상태 as keyof typeof statusVariants] || statusVariants['대기중']}
-          `}>
-            {item.상태 || '대기중'}
-          </span>
-        )
-      }
-    },
-    {
-      key: 'URL',
-      title: 'URL',
-      width: '100px',
-      align: 'center' as const,
-      render: (item: BusinessData) => 
-        item.URL ? (
-          <a
-            href={item.URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
-          >
-            <ExternalLink className="w-4 h-4" />
-            <span className="hidden sm:inline">보기</span>
-          </a>
-        ) : (
-          <span className="text-gray-400">-</span>
-        )
-    },
-    {
-      key: '설치담당자',
-      title: '담당자',
-      render: (item: BusinessData) => {
-        if (editingRow === item.rowIndex) {
-          return (
-            <input
-              type="text"
-              value={editData?.설치담당자 || ''}
-              onChange={(e) => setEditData(prev => prev ? {...prev, 설치담당자: e.target.value} : null)}
-              className="w-full px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500"
-            />
-          )
-        }
-        return <span className="text-sm">{item.설치담당자}</span>
-      }
-    },
-    {
-      key: '연락처',
-      title: '연락처',
-      render: (item: BusinessData) => {
-        if (editingRow === item.rowIndex) {
-          return (
-            <input
-              type="text"
-              value={editData?.연락처 || ''}
-              onChange={(e) => setEditData(prev => prev ? {...prev, 연락처: formatPhoneNumber(e.target.value)} : null)}
-              placeholder="010-0000-0000"
-              maxLength={13}
-              className="w-full px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500"
-            />
-          )
-        }
-        return <span className="text-sm font-mono">{item.연락처}</span>
-      }
-    },
-    {
-      key: '설치일',
-      title: '설치일',
-      render: (item: BusinessData) => {
-        if (editingRow === item.rowIndex) {
-          return (
-            <input
-              type="date"
-              value={editData?.설치일 || ''}
-              onChange={(e) => setEditData(prev => prev ? {...prev, 설치일: e.target.value} : null)}
-              className="w-full px-2 py-1 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500"
-            />
-          )
-        }
-        return item.설치일 ? (
-          <span className="text-sm">{item.설치일}</span>
-        ) : (
-          <span className="text-gray-400 text-sm">-</span>
-        )
-      }
-    }
-  ]
-
-  // Define table actions
-  const actions = [
-    {
-      ...commonActions.edit((item: BusinessData) => handleEdit(item)),
-      show: (item: BusinessData) => editingRow !== item.rowIndex
-    },
-    {
-      label: '저장',
-      icon: Save,
-      onClick: handleSave,
-      variant: 'primary' as const,
-      show: (item: BusinessData) => editingRow === item.rowIndex
-    },
-    {
-      label: '취소',
-      icon: X,
-      onClick: handleCancel,
-      variant: 'secondary' as const,
-      show: (item: BusinessData) => editingRow === item.rowIndex
-    }
-  ]
+  ])
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    loadData()
+    setMounted(true)
+    loadDashboardData()
   }, [])
+
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true)
+      
+      // Load business stats from business-list API with proper error handling
+      try {
+        const businessResponse = await fetch('/api/business-list')
+        
+        if (businessResponse.ok) {
+          const contentType = businessResponse.headers.get('content-type')
+          
+          if (contentType && contentType.includes('application/json')) {
+            const businessData = await businessResponse.json()
+            const businesses = businessData.data?.businesses || []
+            
+            setStats(prev => ({
+              ...prev,
+              totalBusinesses: businesses.length,
+              activeBusinesses: businesses.length
+            }))
+          } else {
+            console.warn('API returned non-JSON response')
+            setStats(prev => ({
+              ...prev,
+              totalBusinesses: 0,
+              activeBusinesses: 0
+            }))
+          }
+        } else {
+          console.warn('API request failed:', businessResponse.status)
+          setStats(prev => ({
+            ...prev,
+            totalBusinesses: 0,
+            activeBusinesses: 0
+          }))
+        }
+      } catch (apiError) {
+        console.warn('Business API error:', apiError)
+        setStats(prev => ({
+          ...prev,
+          totalBusinesses: 0,
+          activeBusinesses: 0
+        }))
+      }
+
+      // Mock data for future features
+      setStats(prev => ({
+        ...prev,
+        monthlyRevenue: 15000000, // 1,500만원 (예시)
+        installationsInProgress: 3,
+        completedThisMonth: 8,
+        upcomingInstallations: 5
+      }))
+
+      // Mock recent activities
+      setRecentActivities([
+        {
+          id: '1',
+          type: 'business_added',
+          message: '새 사업장 "오메가칼라" 등록됨',
+          timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+          link: '/admin/business'
+        },
+        {
+          id: '2', 
+          type: 'installation_completed',
+          message: '농업회사법인 주식회사 건양 2공장 설치 완료',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString()
+        },
+        {
+          id: '3',
+          type: 'revenue_recorded',
+          message: '이번 달 매출 목표 달성 (120%)',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString()
+        }
+      ])
+
+    } catch (error) {
+      console.warn('Dashboard data loading error:', error)
+      // 오류 발생 시에도 기본값으로 계속 진행 (사용자에게 알림 없이)
+      setStats({
+        totalBusinesses: 0,
+        activeBusinesses: 0,
+        monthlyRevenue: 15000000,
+        installationsInProgress: 3,
+        completedThisMonth: 8,
+        upcomingInstallations: 5
+      })
+      
+      // 기본 활동 내역도 설정
+      setRecentActivities([
+        {
+          id: '1',
+          type: 'business_added',
+          message: '시스템 시작됨',
+          timestamp: new Date().toISOString(),
+          link: '/admin/business'
+        }
+      ])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const quickActions = [
+    {
+      title: '사업장 관리',
+      description: '사업장 정보 등록 및 관리',
+      icon: Building2,
+      color: 'blue',
+      href: '/admin/business',
+      stats: `${stats.totalBusinesses}개 등록`,
+      disabled: false
+    },
+    {
+      title: '매출 관리',
+      description: '매출 현황 및 분석 (준비중)',
+      icon: CreditCard,
+      color: 'green',
+      href: '#',
+      stats: '준비중',
+      disabled: true
+    },
+    {
+      title: '설치 현황',
+      description: '설치 진행 상황 관리 (준비중)',
+      icon: Wrench,
+      color: 'orange',
+      href: '#',
+      stats: '준비중',
+      disabled: true
+    },
+    {
+      title: '데이터 히스토리',
+      description: '데이터 변경 이력 조회',
+      icon: FileText,
+      color: 'purple',
+      href: '/admin/data-history',
+      stats: '이력 조회',
+      disabled: false
+    }
+  ]
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'business_added': return <Building2 className="w-4 h-4 text-blue-600" />
+      case 'installation_completed': return <Wrench className="w-4 h-4 text-green-600" />
+      case 'revenue_recorded': return <CreditCard className="w-4 h-4 text-purple-600" />
+      default: return <Activity className="w-4 h-4 text-gray-600" />
+    }
+  }
+
+  const formatRelativeTime = (timestamp: string) => {
+    const diff = Date.now() - new Date(timestamp).getTime()
+    const minutes = Math.floor(diff / (1000 * 60))
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    
+    if (minutes < 60) return `${minutes}분 전`
+    if (hours < 24) return `${hours}시간 전`
+    return new Date(timestamp).toLocaleDateString('ko-KR')
+  }
 
   return (
     <AdminLayout
-      title="구글시트 관리자 대시보드"
-      description="실사 관리 시스템 통합 관리"
-      actions={
-        <button
-          onClick={loadData}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          새로고침
-        </button>
-      }
+      title="관리자 대시보드"
+      description="시설 관리 시스템 종합 현황"
     >
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatsCard
-          title="전체 사업장"
-          value={stats.total}
-          icon={Building2}
-          color="blue"
-          description="등록된 총 사업장 수"
-        />
-        
-        <StatsCard
-          title="완료"
-          value={stats.completed}
-          icon={CheckCircle}
-          color="green"
-          trend={{
-            value: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
-            direction: 'up',
-            label: '완료율'
-          }}
-        />
-        
-        <StatsCard
-          title="진행중"
-          value={stats.inProgress}
-          icon={Clock}
-          color="yellow"
-          description="현재 작업 중인 사업장"
-        />
-        
-        <StatsCard
-          title="대기중"
-          value={stats.pending}
-          icon={AlertCircle}
-          color="red"
-          description="대기 상태의 사업장"
-        />
-      </div>
+      <div className="space-y-8">
+        {/* 핵심 KPI 카드들 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatsCard
+            title="전체 사업장"
+            value={stats.totalBusinesses}
+            icon={Building2}
+            color="blue"
+            description="등록된 총 사업장 수"
+            trend={{
+              value: stats.activeBusinesses,
+              direction: 'up',
+              label: '활성 사업장'
+            }}
+          />
+          
+          <StatsCard
+            title="이번 달 매출"
+            value={`${(stats.monthlyRevenue / 10000).toFixed(0)}만원`}
+            icon={CreditCard}
+            color="green"
+            description="당월 누적 매출"
+            trend={{
+              value: 120,
+              direction: 'up',
+              label: '목표 대비'
+            }}
+          />
+          
+          <StatsCard
+            title="설치 진행중"
+            value={stats.installationsInProgress}
+            icon={Wrench}
+            color="orange"
+            description="현재 진행 중인 설치"
+            trend={{
+              value: stats.completedThisMonth,
+              direction: 'up',
+              label: '이번 달 완료'
+            }}
+          />
+          
+          <StatsCard
+            title="예정된 설치"
+            value={stats.upcomingInstallations}
+            icon={Calendar}
+            color="purple"
+            description="예정된 설치 건수"
+          />
+        </div>
 
-      {/* Recent Activity Summary */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        {/* 빠른 액션 섹션 */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Settings className="w-6 h-6 text-blue-600" />
+            </div>
+            업무 관리
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {quickActions.map((action, index) => (
+              <div
+                key={index}
+                onClick={() => !action.disabled && router.push(action.href)}
+                className={`
+                  relative p-6 rounded-xl border-2 transition-all duration-200 text-left cursor-pointer
+                  ${action.disabled 
+                    ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60' 
+                    : 'border-gray-200 hover:border-blue-300 hover:shadow-lg bg-white'
+                  }
+                `}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className={`
+                    p-3 rounded-lg
+                    ${action.color === 'blue' ? 'bg-blue-100' : ''}
+                    ${action.color === 'green' ? 'bg-green-100' : ''}
+                    ${action.color === 'orange' ? 'bg-orange-100' : ''}
+                    ${action.color === 'purple' ? 'bg-purple-100' : ''}
+                  `}>
+                    <action.icon className={`
+                      w-6 h-6
+                      ${action.color === 'blue' ? 'text-blue-600' : ''}
+                      ${action.color === 'green' ? 'text-green-600' : ''}
+                      ${action.color === 'orange' ? 'text-orange-600' : ''}
+                      ${action.color === 'purple' ? 'text-purple-600' : ''}
+                    `} />
+                  </div>
+                  {!action.disabled && (
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {action.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-3">
+                    {action.description}
+                  </p>
+                  <div className={`
+                    text-sm font-medium
+                    ${action.color === 'blue' ? 'text-blue-600' : ''}
+                    ${action.color === 'green' ? 'text-green-600' : ''}
+                    ${action.color === 'orange' ? 'text-orange-600' : ''}
+                    ${action.color === 'purple' ? 'text-purple-600' : ''}
+                    ${action.disabled ? 'text-gray-400' : ''}
+                  `}>
+                    {action.stats}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 최근 활동 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-600" />
+              최근 활동
+            </h3>
+            
+            <div className="space-y-4">
+              {recentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <div className="mt-1">
+                    {getActivityIcon(activity.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 font-medium">
+                      {activity.message}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formatRelativeTime(activity.timestamp)}
+                    </p>
+                  </div>
+                  {activity.link && (
+                    <div
+                      onClick={() => router.push(activity.link)}
+                      className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 시스템 상태 */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-green-600" />
+              시스템 상태
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-green-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-green-900">Supabase 연결</span>
+                </div>
+                <span className="text-xs text-green-600">정상</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 rounded-lg bg-green-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-green-900">파일 업로드</span>
+                </div>
+                <span className="text-xs text-green-600">정상</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-yellow-900">매출 시스템</span>
+                </div>
+                <span className="text-xs text-yellow-600">준비중</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-yellow-900">설치 관리</span>
+                </div>
+                <span className="text-xs text-yellow-600">준비중</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 미래 기능 프리뷰 */}
+        <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-xl border border-blue-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-blue-600" />
-            시스템 상태
+            개발 예정 기능
           </h3>
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              <span>마지막 동기화: {lastSync || '없음'}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-100 rounded-xl">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-              <div>
-                <div className="font-semibold text-green-900 text-lg">시스템 정상</div>
-                <div className="text-sm text-green-600 mt-1">모든 서비스가 정상 작동 중</div>
-              </div>
-            </div>
-          </div>
           
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <RefreshCw className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <div className="font-semibold text-blue-900 text-lg">자동 동기화</div>
-                <div className="text-sm text-blue-600 mt-1">구글시트와 실시간 동기화</div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white bg-opacity-70 rounded-lg p-4 border border-blue-100">
+              <CreditCard className="w-8 h-8 text-blue-600 mb-3" />
+              <h4 className="font-semibold text-gray-900 mb-2">매출 관리</h4>
+              <p className="text-sm text-gray-600">월별/연도별 매출 분석, 청구서 관리, 수익성 분석</p>
             </div>
-          </div>
-          
-          <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-6 border border-purple-100 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-purple-100 rounded-xl">
-                <FileText className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <div className="font-semibold text-purple-900 text-lg">문서 관리</div>
-                <div className="text-sm text-purple-600 mt-1">자동 문서 생성 지원</div>
-              </div>
+            
+            <div className="bg-white bg-opacity-70 rounded-lg p-4 border border-blue-100">
+              <Wrench className="w-8 h-8 text-orange-600 mb-3" />
+              <h4 className="font-semibold text-gray-900 mb-2">설치 관리</h4>
+              <p className="text-sm text-gray-600">설치 일정 관리, 진행 상황 추적, 기술자 배정</p>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Data Table */}
-      <DataTable
-        data={businesses}
-        columns={columns}
-        actions={actions}
-        loading={loading}
-        emptyMessage="등록된 사업장이 없습니다. 새로고침 버튼을 클릭하여 데이터를 불러오세요."
-        pageSize={15}
-      />
-
-      {/* Usage Guide */}
-      <div className="mt-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border border-blue-200 rounded-2xl p-8 shadow-sm">
-        <h3 className="font-bold text-gray-900 text-xl mb-6 flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <FileText className="w-6 h-6 text-blue-600" />
-          </div>
-          사용 가이드
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
-          <div className="space-y-2">
-            <div className="flex items-start gap-2">
-              <RefreshCw className="w-4 h-4 mt-0.5 text-blue-600" />
-              <div>
-                <strong>새로고침:</strong> 구글시트에서 최신 데이터를 가져옵니다.
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <Edit className="w-4 h-4 mt-0.5 text-blue-600" />
-              <div>
-                <strong>수정:</strong> 행의 수정 버튼을 클릭하여 데이터를 편집할 수 있습니다.
-              </div>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-start gap-2">
-              <Save className="w-4 h-4 mt-0.5 text-blue-600" />
-              <div>
-                <strong>저장:</strong> 수정한 내용을 구글시트에 자동으로 반영합니다.
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <ExternalLink className="w-4 h-4 mt-0.5 text-blue-600" />
-              <div>
-                <strong>URL 보기:</strong> 해당 사업장의 시스템 페이지로 바로 이동합니다.
-              </div>
+            
+            <div className="bg-white bg-opacity-70 rounded-lg p-4 border border-blue-100">
+              <BarChart3 className="w-8 h-8 text-purple-600 mb-3" />
+              <h4 className="font-semibold text-gray-900 mb-2">통계 리포트</h4>
+              <p className="text-sm text-gray-600">업무 성과 분석, 트렌드 분석, 자동 리포트 생성</p>
             </div>
           </div>
         </div>

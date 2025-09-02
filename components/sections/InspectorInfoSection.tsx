@@ -29,7 +29,7 @@ export default function InspectorInfoSection({ inspectorInfo, onUpdate }: Inspec
   };
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-6 shadow-sm border border-purple-100">
+    <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-100/50">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-purple-100 rounded-lg">

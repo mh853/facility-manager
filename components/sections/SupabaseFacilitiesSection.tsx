@@ -57,7 +57,7 @@ export default function SupabaseFacilitiesSection({
 
   if (loading) {
     return (
-      <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 shadow-sm border border-green-100">
+      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-100/50">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-green-100 rounded-lg">
             <Building2 className="w-6 h-6 text-green-600" />
@@ -74,7 +74,7 @@ export default function SupabaseFacilitiesSection({
 
   if (error) {
     return (
-      <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-6 shadow-sm border border-red-100">
+      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-red-100/50">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-red-100 rounded-lg">
             <AlertCircle className="w-6 h-6 text-red-600" />
@@ -126,7 +126,7 @@ export default function SupabaseFacilitiesSection({
   const outlets = Object.keys(outletFacilities).map(Number).sort((a, b) => a - b);
 
   return (
-    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-sm border border-green-100">
+    <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100/50">
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="w-full flex items-center justify-between p-6 text-left hover:bg-green-50 transition-colors"

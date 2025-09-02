@@ -21,7 +21,7 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
 
   if (loading) {
     return (
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 shadow-sm border border-blue-100">
+      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-100/50">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-blue-100 rounded-lg">
             <Building2 className="w-6 h-6 text-blue-600" />
@@ -37,7 +37,7 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
   }
 
   return (
-    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 shadow-sm border border-blue-100">
+    <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-100/50">
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2 bg-blue-100 rounded-lg">
           <Building2 className="w-6 h-6 text-blue-600" />

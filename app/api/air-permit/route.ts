@@ -31,10 +31,12 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json(
-      { error: '사업장 ID는 필수입니다' },
-      { status: 400 }
-    )
+    // 모든 대기필증 조회 (대기필증이 있는 사업장 목록 확인용)
+    const allPermits = await DatabaseService.getAllAirPermits()
+    return NextResponse.json({ 
+      data: allPermits,
+      count: allPermits.length 
+    })
 
   } catch (error) {
     console.error('대기필증 조회 오류:', error)

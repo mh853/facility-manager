@@ -111,18 +111,18 @@ export default memo(function HomePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center text-gray-800">
+          <div className="w-16 h-16 border-4 border-gray-800 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-xl font-semibold">사업장 목록을 불러오는 중...</p>
-          <p className="text-sm text-blue-200 mt-2">데이터베이스에서 시설 정보를 가져오고 있습니다</p>
+          <p className="text-sm text-gray-600 mt-2">데이터베이스에서 시설 정보를 가져오고 있습니다</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* 헤더 */}

@@ -571,7 +571,7 @@ export default function EnhancedFacilityInfoSection({
         {!isCollapsed && (
           <div className="px-6 pb-6 space-y-6">
             {/* 측정기기 수량 요약 */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 shadow-sm border border-blue-100">
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-100/50">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <Zap className="w-5 h-5 text-blue-600" />
                 측정기기 수량 현황

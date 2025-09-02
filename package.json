@@ -30,7 +30,8 @@
     "nodemailer": "^7.0.5",
     "react": "^18",
     "react-dom": "^18",
-    "typescript": "^5"
+    "typescript": "^5",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/nodemailer": "^7.0.0",

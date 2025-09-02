@@ -18,7 +18,7 @@ export default function FacilityOverviewSection({ facilities }: FacilityOverview
   ]).size;
 
   return (
-    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 shadow-sm border border-green-100">
+    <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-100/50">
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2 bg-green-100 rounded-lg">
           <BarChart3 className="w-6 h-6 text-green-600" />

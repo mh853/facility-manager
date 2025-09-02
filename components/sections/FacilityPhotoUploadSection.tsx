@@ -238,7 +238,7 @@ export default function FacilityPhotoUploadSection({
         } else {
           // 업로드 실패 시 미리보기 파일 제거
           setUploadedFiles(prev => prev.filter(f => 
-            !(f.name === file.name && (f as any).isPreview)
+            !(f.name === originalFile.name && (f as any).isPreview)
           ));
         }
 
@@ -505,7 +505,7 @@ export default function FacilityPhotoUploadSection({
 
   if (!facilities) {
     return (
-      <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-6 shadow-sm border border-gray-100">
+      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-100/50">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-gray-100 rounded-lg">
             <Camera className="w-6 h-6 text-gray-600" />
@@ -545,7 +545,7 @@ export default function FacilityPhotoUploadSection({
   const outlets = Object.keys(outletFacilities).map(Number).sort((a, b) => a - b);
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 shadow-sm border border-purple-100">
+    <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm border border-gray-100/50">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-purple-100 rounded-lg">
@@ -1244,7 +1244,7 @@ export default function FacilityPhotoUploadSection({
             className="bg-white rounded-xl shadow-2xl max-w-5xl max-h-[95vh] overflow-hidden transform transition-all duration-300 scale-100"
           >
             {/* 모달 헤더 */}
-            <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b flex items-center justify-between">
+            <div className="p-4 bg-white/90 backdrop-blur-sm border-b border-gray-100/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Eye className="w-5 h-5 text-blue-600" />

@@ -7,13 +7,11 @@ import AdminLayout from '@/components/ui/AdminLayout'
 import StatsCard from '@/components/ui/StatsCard'
 import DataTable, { commonActions } from '@/components/ui/DataTable'
 import { ConfirmModal } from '@/components/ui/Modal'
-import GoogleSheetsImporter from '@/components/ui/GoogleSheetsImporter'
 import { 
   Users, 
   FileText, 
   Database, 
   History, 
-  RefreshCw, 
   Plus,
   Building2,
   ClipboardList,
@@ -23,8 +21,7 @@ import {
   Eye,
   Factory,
   Search,
-  X,
-  Upload
+  X
 } from 'lucide-react'
 
 // 커스텀 날짜 입력 컴포넌트 (yyyy-mm-dd 형태, 백스페이스 네비게이션)
@@ -146,13 +143,6 @@ export default function AirPermitManagementPage() {
   const [formData, setFormData] = useState<Partial<AirPermitInfo>>({})
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [permitToDelete, setPermitToDelete] = useState<AirPermitInfo | null>(null)
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
-  const [isImporting, setIsImporting] = useState(false)
-  const [importSettings, setImportSettings] = useState({
-    spreadsheetId: '1XXumtd7tl8w17FUgbJj5XzW1Mi04Rq4vlH9OYGNmM3U',
-    sheetName: '대기필증 DB',
-    startRow: 3
-  })
   
   // Stats calculation for air permits
   const stats = useMemo(() => {
@@ -199,38 +189,67 @@ export default function AirPermitManagementPage() {
   }, [businessSearchTerm, allBusinesses])
 
 
-  // 대기필증이 있는 사업장만 로드하는 최적화된 함수
-  const loadBusinessesWithPermitsOptimized = useCallback(async () => {
+  // 대기필증이 등록된 사업장만 로드하는 함수
+  const loadBusinessesWithPermits = useCallback(async () => {
     try {
       setIsLoading(true)
       
-      // 모든 활성 대기필증 조회
-      const response = await fetch('/api/air-permit-management')
-      const result = await response.json()
+      // 1. 모든 대기필증 조회 (사업장 정보 포함)
+      const airPermitResponse = await fetch('/api/air-permit')
+      const airPermitResult = await airPermitResponse.json()
       
-      if (response.ok && result.data) {
-        // 대기필증에서 고유한 사업장 ID 추출
-        const uniqueBusinessIds = [...new Set(result.data.map((permit: AirPermitInfo) => permit.business_id))]
+      if (airPermitResponse.ok && airPermitResult.data) {
+        const permits = airPermitResult.data
+        console.log(`✅ 대기필증 ${permits.length}개 조회 완료`)
         
-        // 해당 사업장들의 정보 조회
-        const businessResponse = await fetch('/api/business-management')
-        const businessResult = await businessResponse.json()
+        // 2. 대기필증에서 유니크한 사업장 ID 추출
+        const uniqueBusinessIds = [...new Set(permits.map((permit: any) => permit.business_id))].filter(Boolean)
+        console.log(`✅ 대기필증 보유 사업장 ${uniqueBusinessIds.length}개 발견`)
         
-        if (businessResponse.ok) {
-          setAllBusinesses(businessResult.data)
-          
-          // 대기필증이 있는 사업장만 필터링
-          const businessesWithPermits = businessResult.data.filter((business: BusinessInfo) =>
-            uniqueBusinessIds.includes(business.id)
-          )
-          
-          setBusinessesWithPermits(businessesWithPermits)
-          console.log(`✅ 대기필증이 있는 사업장: ${businessesWithPermits.length}개`)
-        }
+        // 3. 사업장 ID별로 사업장 정보 구성
+        const businessesWithPermitsMap = new Map()
+        permits.forEach((permit: any) => {
+          if (permit.business?.business_name && permit.business_id) {
+            businessesWithPermitsMap.set(permit.business_id, {
+              id: permit.business_id,
+              business_name: permit.business?.business_name,
+              local_government: permit.business?.local_government || '',
+              address: '',
+              manager_name: '',
+              manager_contact: '',
+              is_active: true,
+              created_at: new Date().toISOString()
+            })
+          }
+        })
+        
+        const businessesWithPermits = Array.from(businessesWithPermitsMap.values())
+        setBusinessesWithPermits(businessesWithPermits)
+        console.log(`✅ 대기필증 보유 사업장 ${businessesWithPermits.length}개 로드 완료`)
+      }
+      
+      // 4. 전체 사업장 목록은 새 대기필증 추가용으로만 로드
+      const businessResponse = await fetch('/api/business-list')
+      const businessResult = await businessResponse.json()
+      
+      if (businessResponse.ok && businessResult.data?.businesses) {
+        const allBusinesses = businessResult.data.businesses.map((name: string, index: number) => ({
+          id: `business-${index}`,
+          business_name: name,
+          local_government: '',
+          address: '',
+          manager_name: '',
+          manager_contact: '',
+          is_active: true,
+          created_at: new Date().toISOString()
+        }))
+        
+        setAllBusinesses(allBusinesses)
+        console.log(`✅ 전체 사업장 ${allBusinesses.length}개 로드 완료 (새 대기필증 추가용)`)
       }
     } catch (error) {
       console.error('Error loading businesses with permits:', error)
-      alert('사업장 목록을 불러오는데 실패했습니다')
+      alert('대기필증 사업장 목록을 불러오는데 실패했습니다')
     } finally {
       setIsLoading(false)
     }
@@ -278,10 +297,10 @@ export default function AirPermitManagementPage() {
     }
   }
 
-  // 페이지 로드 시 대기필증이 있는 사업장 목록 로드 (최적화됨)
+  // 페이지 로드 시 대기필증이 등록된 사업장만 로드
   useEffect(() => {
-    loadBusinessesWithPermitsOptimized()
-  }, [loadBusinessesWithPermitsOptimized])
+    loadBusinessesWithPermits()
+  }, [loadBusinessesWithPermits])
 
   // 사업장 선택 시 대기필증 목록 로드
   const handleBusinessSelect = (business: BusinessInfo) => {
@@ -485,48 +504,6 @@ export default function AirPermitManagementPage() {
     }
   }
 
-  // 구글시트 가져오기 처리
-  const handleImportFromSheet = async () => {
-    if (!importSettings.spreadsheetId.trim()) {
-      alert('스프레드시트 ID를 입력해주세요.')
-      return
-    }
-
-    try {
-      setIsImporting(true)
-      
-      const response = await fetch('/api/air-permit-management', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          spreadsheetId: importSettings.spreadsheetId,
-          sheetName: importSettings.sheetName,
-          startRow: importSettings.startRow
-        })
-      })
-
-      const result = await response.json()
-
-      if (response.ok) {
-        const summary = result.summary || {}
-        alert(`구글시트에서 ${summary.successCount || 0}개의 대기필증 데이터를 가져왔습니다. (중복 스킵: ${summary.skipCount || 0}개, 오류: ${summary.errorCount || 0}개)`)
-        setIsImportModalOpen(false)
-        // 현재 선택된 사업장의 데이터 새로고침
-        if (selectedBusiness) {
-          await loadAirPermits(selectedBusiness.id)
-        }
-        // 대기필증이 있는 사업장 목록도 새로고침
-        await loadBusinessesWithPermitsOptimized()
-      } else {
-        alert(result.error || '구글시트 가져오기에 실패했습니다.')
-      }
-    } catch (error) {
-      console.error('구글시트 가져오기 오류:', error)
-      alert('구글시트 가져오기에 실패했습니다.')
-    } finally {
-      setIsImporting(false)
-    }
-  }
 
   // Air permits with ID for DataTable
   const airPermitsWithId = useMemo(() => 
@@ -627,23 +604,13 @@ export default function AirPermitManagementPage() {
       title="대기필증 관리"
       description="대기배출시설 허가증 관리 시스템"
       actions={(
-        <div className="flex items-center gap-3">
-          <GoogleSheetsImporter />
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Upload className="w-4 h-4" />
-            기존 가져오기
-          </button>
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            새 대기필증 추가
-          </button>
-        </div>
+        <button
+          onClick={openAddModal}
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          새 대기필증 추가
+        </button>
       )}
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1339,117 +1306,6 @@ export default function AirPermitManagementPage() {
         </div>
       )}
 
-      {/* Google Sheets Import Modal */}
-      {isImportModalOpen && (
-        <div 
-          className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsImportModalOpen(false)
-            }
-          }}
-        >
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                <Upload className="w-5 h-5" />
-                구글시트에서 대기필증 가져오기
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                대기필증 DB 시트에서 사업장별 배출구 및 시설 데이터를 일괄 가져옵니다.
-              </p>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  스프레드시트 ID
-                </label>
-                <input
-                  type="text"
-                  value={importSettings.spreadsheetId}
-                  onChange={(e) => setImportSettings({...importSettings, spreadsheetId: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                  placeholder="1ABC123...xyz"
-                  disabled={isImporting}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  구글시트 URL에서 /d/ 뒤의 ID 부분만 입력하세요
-                </p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    시트명
-                  </label>
-                  <input
-                    type="text"
-                    lang="ko"
-                    inputMode="text"
-                    value={importSettings.sheetName}
-                    onChange={(e) => setImportSettings({...importSettings, sheetName: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                    disabled={isImporting}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    시작 행
-                  </label>
-                  <input
-                    type="number"
-                    value={importSettings.startRow}
-                    onChange={(e) => setImportSettings({...importSettings, startRow: parseInt(e.target.value) || 2})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                    min="1"
-                    disabled={isImporting}
-                  />
-                </div>
-              </div>
-              
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-blue-800 mb-2">시트 구조 안내</h4>
-                <ul className="text-xs text-blue-700 space-y-1">
-                  <li>• A열: 연번, B열: 사업장명, C열: 배출구</li>
-                  <li>• D~DD열: 배출시설 35개 (시설명/용량/수량 3열씩)</li>
-                  <li>• DE~HE열: 방지시설 35개 (시설명/용량/수량 3열씩)</li>
-                  <li>• 동일 사업장의 여러 배출구는 C열에 1,2,3... 형태로 구분</li>
-                </ul>
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-4 px-6 py-4 bg-gray-50 rounded-b-lg">
-              <button
-                type="button"
-                onClick={() => setIsImportModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                disabled={isImporting}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleImportFromSheet}
-                disabled={isImporting || !importSettings.spreadsheetId.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2"
-              >
-                {isImporting ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    가져오는 중...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    가져오기 시작
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal

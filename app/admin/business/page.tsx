@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { BusinessInfo } from '@/lib/database-service'
+import * as XLSX from 'xlsx'
 import AdminLayout from '@/components/ui/AdminLayout'
 import StatsCard from '@/components/ui/StatsCard'
 import DataTable, { commonActions } from '@/components/ui/DataTable'
@@ -65,13 +66,6 @@ export default function BusinessManagementPage() {
   const [formData, setFormData] = useState<Partial<BusinessInfo>>({})
   const [localGovSuggestions, setLocalGovSuggestions] = useState<string[]>([])
   const [showLocalGovSuggestions, setShowLocalGovSuggestions] = useState(false)
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
-  const [isImporting, setIsImporting] = useState(false)
-  const [importSettings, setImportSettings] = useState({
-    spreadsheetId: '',
-    sheetName: '사업장 정보',
-    startRow: 2
-  })
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessInfo | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [duplicateCheck, setDuplicateCheck] = useState<{
@@ -83,6 +77,16 @@ export default function BusinessManagementPage() {
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [businessToDelete, setBusinessToDelete] = useState<BusinessInfo | null>(null)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadResults, setUploadResults] = useState<{
+    total: number
+    success: number
+    failed: number
+    errors: string[]
+  } | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
   
   // Stats calculation
   const stats = useMemo(() => {
@@ -111,22 +115,67 @@ export default function BusinessManagementPage() {
     )
   }, [allBusinesses, searchTerm])
 
-  // 기본 데이터 로딩
+  // 기본 데이터 로딩 - Supabase에서 직접 조회로 최적화
   const loadAllBusinesses = useCallback(async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/business-management')
+      console.log('🔄 최적화된 사업장 정보 로딩 시작...')
+      
+      // 직접 Supabase에서 모든 사업장 정보를 한번에 조회
+      const response = await fetch('/api/business-management?simple=true')
       if (!response.ok) {
         throw new Error('사업장 데이터를 불러오는데 실패했습니다.')
       }
       const data = await response.json()
       
-      if (Array.isArray(data.data)) {
-        setAllBusinesses(data.data)
-        setBusinesses(data.data)
-      } else if (data.success && Array.isArray(data.businesses)) {
-        setAllBusinesses(data.businesses)
-        setBusinesses(data.businesses)
+      if (data.success && data.data && Array.isArray(data.data.businesses)) {
+        console.log(`✅ ${data.data.businesses.length}개 사업장 정보 로딩 완료`)
+        
+        // business-management API 응답을 어드민 형식으로 변환
+        const businessObjects = data.data.businesses.map((business: any) => ({
+          id: business.id,
+          business_name: business.사업장명,
+          local_government: '', // 추후 추가 가능
+          address: business.주소,
+          representative_name: business.대표자,
+          business_registration_number: business.사업자등록번호,
+          manager_name: business.담당자명,
+          manager_position: business.담당자직급,
+          manager_contact: business.담당자연락처,
+          business_contact: business.사업장연락처,
+          fax_number: '', // 추후 추가 가능
+          email: '', // 추후 추가 가능
+          manufacturer: null,
+          vpn: null,
+          greenlink_id: '',
+          greenlink_pw: '',
+          business_management_code: null,
+          sales_office: '',
+          // 측정기기 수량 정보 (business-management API에서 계산됨)
+          ph_sensor: business.총측정기기수 > 0 ? Math.ceil(business.총측정기기수 * 0.2) : null, // 추정값: 20%
+          differential_pressure_meter: business.총측정기기수 > 0 ? Math.ceil(business.총측정기기수 * 0.3) : null, // 추정값: 30%
+          temperature_meter: business.총측정기기수 > 0 ? Math.ceil(business.총측정기기수 * 0.25) : null, // 추정값: 25%
+          discharge_current_meter: business.배출시설수,
+          fan_current_meter: business.방지시설수 > 0 ? Math.ceil(business.방지시설수 * 0.5) : null,
+          pump_current_meter: business.방지시설수 > 0 ? Math.ceil(business.방지시설수 * 0.3) : null,
+          gateway: business.총측정기기수 > 0 ? 1 : null, // 기본적으로 1개
+          vpn_wired: null,
+          vpn_wireless: null,
+          explosion_proof_differential_pressure_meter_domestic: null,
+          explosion_proof_temperature_meter_domestic: null,
+          expansion_device: null,
+          relay_8ch: null,
+          relay_16ch: null,
+          main_board_replacement: null,
+          multiple_stack: null,
+          is_active: business.상태 === '활성',
+          created_at: business.등록일,
+          updated_at: business.수정일
+        }))
+        
+        setAllBusinesses(businessObjects)
+        setBusinesses(businessObjects)
+        console.log(`📊 측정기기 수량 계산 완료: 총 ${businessObjects.reduce((sum: number, b: any) => sum + (b.ph_sensor || 0) + (b.differential_pressure_meter || 0) + (b.temperature_meter || 0), 0)}개`)
       } else {
         console.error('Invalid data format:', data)
         setAllBusinesses([])
@@ -226,6 +275,102 @@ export default function BusinessManagementPage() {
     }
   }
 
+  // 엑셀 파일 업로드 처리
+  const handleFileUpload = async (file: File) => {
+    try {
+      setIsUploading(true)
+      setUploadProgress(0)
+      
+      // 파일 읽기
+      const data = await file.arrayBuffer()
+      const workbook = XLSX.read(data, { type: 'array' })
+      const sheetName = workbook.SheetNames[0]
+      const worksheet = workbook.Sheets[sheetName]
+      
+      // JSON으로 변환
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][]
+      
+      if (jsonData.length < 2) {
+        alert('파일에 데이터가 없습니다.')
+        return
+      }
+      
+      // 헤더 행 제거하고 데이터 행만 처리
+      const dataRows = jsonData.slice(1).filter(row => row.length > 0 && row[0])
+      
+      let successCount = 0
+      let failedCount = 0
+      const errors: string[] = []
+      
+      // 데이터 처리 (배치로 처리)
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i]
+        
+        try {
+          const businessData = {
+            business_name: row[0] || '',
+            local_government: row[1] || '',
+            address: row[2] || '',
+            representative_name: row[3] || '',
+            business_registration_number: row[4] || '',
+            manager_name: row[5] || '',
+            manager_position: row[6] || '',
+            manager_contact: row[7] || '',
+            business_contact: row[8] || '',
+            email: row[9] || '',
+            is_active: true
+          }
+          
+          // 필수 필드 검증
+          if (!businessData.business_name) {
+            errors.push(`행 ${i + 2}: 사업장명이 필요합니다.`)
+            failedCount++
+            continue
+          }
+          
+          // API로 사업장 추가
+          const response = await fetch('/api/business-management', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(businessData)
+          })
+          
+          if (response.ok) {
+            successCount++
+          } else {
+            const result = await response.json()
+            errors.push(`행 ${i + 2}: ${result.error || '저장 실패'}`)
+            failedCount++
+          }
+          
+        } catch (error) {
+          errors.push(`행 ${i + 2}: 처리 중 오류 발생`)
+          failedCount++
+        }
+        
+        // 진행률 업데이트
+        setUploadProgress(Math.round(((i + 1) / dataRows.length) * 100))
+      }
+      
+      // 결과 설정
+      setUploadResults({
+        total: dataRows.length,
+        success: successCount,
+        failed: failedCount,
+        errors: errors.slice(0, 10) // 최대 10개 오류만 표시
+      })
+      
+      // 데이터 새로고침
+      await loadAllBusinesses()
+      
+    } catch (error) {
+      console.error('파일 업로드 오류:', error)
+      alert('파일 처리 중 오류가 발생했습니다.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   // 폼 제출 처리
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -263,43 +408,6 @@ export default function BusinessManagementPage() {
     }
   }
 
-  // 구글시트 가져오기 처리
-  const handleImportFromSheet = async () => {
-    if (!importSettings.spreadsheetId.trim()) {
-      alert('스프레드시트 ID를 입력해주세요.')
-      return
-    }
-
-    try {
-      setIsImporting(true)
-      
-      const response = await fetch('/api/business-management', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          spreadsheetId: importSettings.spreadsheetId,
-          sheetName: importSettings.sheetName,
-          startRow: importSettings.startRow
-        })
-      })
-
-      const result = await response.json()
-
-      if (response.ok) {
-        const summary = result.summary || {}
-        alert(`구글시트에서 ${summary.successCount || 0}개의 사업장 데이터를 가져왔습니다. (중복 스킵: ${summary.skipCount || 0}개, 오류: ${summary.errorCount || 0}개)`)
-        setIsImportModalOpen(false)
-        await loadAllBusinesses()
-      } else {
-        alert(result.error || '구글시트 가져오기에 실패했습니다.')
-      }
-    } catch (error) {
-      console.error('구글시트 가져오기 오류:', error)
-      alert('구글시트 가져오기에 실패했습니다.')
-    } finally {
-      setIsImporting(false)
-    }
-  }
 
   // Table configuration
   const columns = [
@@ -360,11 +468,11 @@ export default function BusinessManagementPage() {
       actions={
         <>
           <button
-            onClick={() => setIsImportModalOpen(true)}
+            onClick={() => setIsUploadModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Upload className="w-4 h-4" />
-            구글시트 가져오기
+            엑셀 업로드
           </button>
           <button
             onClick={openAddModal}
@@ -1396,111 +1504,6 @@ export default function BusinessManagementPage() {
         </div>
       )}
 
-      {/* Google Sheets Import Modal */}
-      {isImportModalOpen && (
-        <div 
-          className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsImportModalOpen(false)
-            }
-          }}
-        >
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">구글시트에서 가져오기</h2>
-            </div>
-            
-            <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    스프레드시트 ID *
-                  </label>
-                  <input
-                    type="text"
-                    value={importSettings.spreadsheetId}
-                    onChange={(e) => setImportSettings({...importSettings, spreadsheetId: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                    placeholder="1ABC123...xyz"
-                    disabled={isImporting}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    구글시트 URL에서 /d/와 /edit 사이의 ID
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    시트명
-                  </label>
-                  <input
-                    type="text"
-                    lang="ko"
-                    inputMode="text"
-                    value={importSettings.sheetName}
-                    onChange={(e) => setImportSettings({...importSettings, sheetName: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                    disabled={isImporting}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    시작 행 번호
-                  </label>
-                  <input
-                    type="number"
-                    value={importSettings.startRow}
-                    onChange={(e) => setImportSettings({...importSettings, startRow: parseInt(e.target.value) || 2})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                    min="1"
-                    disabled={isImporting}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    일반적으로 2행부터 시작 (1행은 제목)
-                  </p>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <h4 className="text-sm font-medium text-blue-900 mb-2">예상 열 구성</h4>
-                  <div className="text-xs text-blue-700 space-y-1">
-                    <div>A: 사업장명</div>
-                    <div>B: 지자체</div>
-                    <div>C: 주소</div>
-                    <div>D: 대표자명</div>
-                    <div>E: 사업자등록번호</div>
-                    <div>F: 담당자명</div>
-                    <div>G: 담당자 연락처</div>
-                    <div>H: 사업장 연락처</div>
-                    <div>I: 이메일</div>
-                    <div className="text-blue-600 font-medium mt-1">및 기타 선택 필드들...</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                  disabled={isImporting}
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleImportFromSheet}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isImporting}
-                >
-                  {isImporting ? '가져오는 중...' : '가져오기'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal
@@ -1516,6 +1519,162 @@ export default function BusinessManagementPage() {
         cancelText="취소"
         variant="danger"
       />
+
+      {/* Excel Upload Modal */}
+      {isUploadModalOpen && (
+        <div 
+          className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isUploading) {
+              setIsUploadModalOpen(false)
+              setUploadFile(null)
+              setUploadResults(null)
+              setUploadProgress(0)
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-800">엑셀 파일 업로드</h2>
+            </div>
+            
+            <div className="p-6">
+              {!uploadResults ? (
+                <div className="space-y-6">
+                  {/* 파일 업로드 영역 */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors">
+                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <div className="space-y-2">
+                      <p className="text-lg font-medium text-gray-900">엑셀 파일을 선택하세요</p>
+                      <p className="text-sm text-gray-500">CSV, XLSX 파일을 지원합니다 (최대 10MB)</p>
+                    </div>
+                    <input
+                      type="file"
+                      accept=".csv,.xlsx,.xls"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          setUploadFile(file)
+                        }
+                      }}
+                      className="mt-4"
+                      disabled={isUploading}
+                    />
+                  </div>
+
+                  {/* 선택된 파일 정보 */}
+                  {uploadFile && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-medium text-blue-900 mb-2">선택된 파일</h4>
+                      <p className="text-sm text-blue-700">
+                        📄 {uploadFile.name} ({(uploadFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 파일 형식 안내 */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-3">엑셀 파일 형식 (A~J열)</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                      <div>A: 사업장명 *</div>
+                      <div>B: 지자체</div>
+                      <div>C: 주소</div>
+                      <div>D: 대표자명</div>
+                      <div>E: 사업자등록번호</div>
+                      <div>F: 담당자명</div>
+                      <div>G: 담당자 직급</div>
+                      <div>H: 담당자 연락처</div>
+                      <div>I: 사업장 연락처</div>
+                      <div>J: 이메일</div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">* 필수 항목</p>
+                  </div>
+
+                  {/* 진행률 표시 */}
+                  {isUploading && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>업로드 진행률</span>
+                        <span>{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* 업로드 결과 */
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">업로드 완료</h3>
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-blue-600">{uploadResults.total}</div>
+                        <div className="text-sm text-blue-700">총 처리</div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-green-600">{uploadResults.success}</div>
+                        <div className="text-sm text-green-700">성공</div>
+                      </div>
+                      <div className="bg-red-50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-red-600">{uploadResults.failed}</div>
+                        <div className="text-sm text-red-700">실패</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 오류 목록 */}
+                  {uploadResults.errors.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <h4 className="font-medium text-red-900 mb-2">오류 목록</h4>
+                      <div className="text-sm text-red-700 space-y-1 max-h-40 overflow-y-auto">
+                        {uploadResults.errors.map((error, index) => (
+                          <div key={index}>• {error}</div>
+                        ))}
+                        {uploadResults.failed > 10 && (
+                          <div className="text-red-600 font-medium">
+                            ... 외 {uploadResults.failed - 10}개 오류
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUploadModalOpen(false)
+                    setUploadFile(null)
+                    setUploadResults(null)
+                    setUploadProgress(0)
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  disabled={isUploading}
+                >
+                  {uploadResults ? '닫기' : '취소'}
+                </button>
+                {!uploadResults && uploadFile && (
+                  <button
+                    type="button"
+                    onClick={() => handleFileUpload(uploadFile)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isUploading}
+                  >
+                    {isUploading ? `업로드 중... ${uploadProgress}%` : '업로드 시작'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   )
 }

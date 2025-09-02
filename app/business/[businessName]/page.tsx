@@ -464,17 +464,17 @@ export default function BusinessDetailPage() {
 
   return (
     <FileProvider>
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
         {/* Header with system type dropdown */}
-        <div className="sticky top-0 z-50 bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg">
+        <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100/50">
           <div className="container mx-auto px-4 py-4">
-            <div className="text-center text-white">
+            <div className="text-center text-gray-800">
               <h1 className="text-xl md:text-2xl font-bold mb-2 flex items-center justify-center gap-2">
                 <Building2 className="w-5 h-5 md:w-6 md:h-6" />
                 {businessName}
               </h1>
               <div className="flex items-center justify-center gap-4">
-                <p className="text-blue-100 text-xs md:text-sm">
+                <p className="text-gray-600 text-xs md:text-sm font-medium">
                   시설 관리 및 보고서 작성
                 </p>
                 
@@ -482,7 +482,7 @@ export default function BusinessDetailPage() {
                 <div className="relative system-type-dropdown">
                   <button
                     onClick={() => setShowSystemTypeDropdown(!showSystemTypeDropdown)}
-                    className="bg-blue-500 hover:bg-blue-600 px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs md:text-sm font-medium flex items-center gap-2 transition-colors"
+                    className="bg-gray-700 hover:bg-gray-800 text-white px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs md:text-sm font-medium flex items-center gap-2 transition-colors"
                   >
                     {systemType === 'presurvey' ? '🔍 설치 전 실사' : '📸 설치 후 사진'}
                     <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${showSystemTypeDropdown ? 'rotate-180' : ''}`} />
