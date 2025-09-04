@@ -13,9 +13,7 @@ import {
   Menu,
   X,
   ChevronRight,
-  Bell,
   User,
-  Search,
   Clock,
   Activity
 } from 'lucide-react'
@@ -111,7 +109,6 @@ function NavigationItems({ pathname, onItemClick }: { pathname: string, onItemCl
 
 export default function AdminLayout({ children, title, description, actions }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [currentTime, setCurrentTime] = useState('')
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
@@ -231,10 +228,11 @@ export default function AdminLayout({ children, title, description, actions }: A
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Mobile Search Button */}
-                    <button className="p-2.5 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors duration-200 touch-manipulation">
-                      <Search className="w-5 h-5" />
-                    </button>
+                    {/* 시간 표시 (모바일) */}
+                    <div className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded border">
+                      <Clock className="w-3 h-3" />
+                      <span>{currentTime}</span>
+                    </div>
                     
                     {/* Mobile Actions */}
                     {actions && (
@@ -242,17 +240,6 @@ export default function AdminLayout({ children, title, description, actions }: A
                         {actions}
                       </div>
                     )}
-                    
-                    {/* Mobile Notifications */}
-                    <button className="relative p-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors duration-200 touch-manipulation">
-                      <Bell className="w-5 h-5" />
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                    </button>
-                    
-                    {/* Mobile Avatar */}
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-                      <User className="w-5 h-5 text-white" />
-                    </div>
                   </div>
                 </div>
 
@@ -270,53 +257,18 @@ export default function AdminLayout({ children, title, description, actions }: A
                   </div>
 
                   <div className="flex items-center gap-4 lg:gap-6">
-                    {/* Desktop Search Bar */}
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search className="w-4 h-4 text-gray-400" />
-                      </div>
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="시설명, 담당자 검색..."
-                        className="pl-10 pr-4 py-2.5 lg:py-3 w-64 lg:w-80 text-sm lg:text-base border border-gray-300 lg:border-gray-200 rounded-xl lg:rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 lg:bg-gray-50 hover:bg-white transition-all duration-200 shadow-sm"
-                      />
+                    {/* 시간 표시 */}
+                    <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg border">
+                      <Clock className="w-4 h-4" />
+                      <span>{currentTime}</span>
                     </div>
-
-                    {/* Desktop Quick Stats */}
-                    <div className="hidden lg:flex items-center gap-4">
-                      <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 shadow-sm">
-                        <Activity className="w-5 h-5 text-green-600" />
-                        <span className="text-sm font-semibold text-green-700">시스템 정상</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 text-gray-700 shadow-sm">
-                        <Clock className="w-5 h-5 text-blue-600" />
-                        <span className="text-sm font-semibold">
-                          {currentTime}
-                        </span>
-                      </div>
-                    </div>
-
+                    
                     {/* Desktop Actions */}
                     {actions && (
                       <div className="flex items-center gap-3">
                         {actions}
                       </div>
                     )}
-                    
-                    {/* Desktop User Area */}
-                    <div className="flex items-center gap-4">
-                      <button className="relative p-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200 shadow-sm border border-gray-200 lg:border-gray-300">
-                        <Bell className="w-5 h-5" />
-                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-sm"></span>
-                      </button>
-                      
-                      <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-                        <User className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

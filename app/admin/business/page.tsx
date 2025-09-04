@@ -3,6 +3,144 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { BusinessInfo } from '@/lib/database-service'
+
+interface Contact {
+  name: string;
+  position: string;
+  phone: string;
+  role: string;
+}
+
+interface UnifiedBusinessInfo {
+  // Base fields from BusinessInfo
+  id: string;
+  created_at: string;
+  updated_at: string;
+  business_name: string;
+  local_government: string | null;
+  address: string | null;
+  manager_name: string | null;
+  manager_position: string | null;
+  manager_contact: string | null;
+  business_contact: string | null;
+  fax_number: string | null;
+  email: string | null;
+  representative_name: string | null;
+  business_registration_number: string | null;
+  
+  // 프로젝트 관리 필드들
+  row_number?: number | null;
+  department?: string | null;
+  progress_status?: string | null;
+  contract_document?: string | null;
+  order_request_date?: string | null;
+  wireless_document?: string | null;
+  installation_support?: string | null;
+  order_manager?: string | null;
+  order_date?: string | null;
+  shipment_date?: string | null;
+  inventory_check?: string | null;
+  installation_date?: string | null;
+  installation_team?: string | null;
+  business_type?: string | null;
+  business_category?: string | null;
+  pollutants?: string | null;
+  annual_emission_amount?: number | null;
+  first_report_date?: string | null;
+  operation_start_date?: string | null;
+  subsidy_approval_date?: string | null;
+  expansion_pack?: number | null;
+  other_equipment?: string | null;
+  additional_cost?: number | null;
+  negotiation?: string | null;
+  multiple_stack_cost?: number | null;
+  representative_birth_date?: string | null;
+  
+  // 시스템 필드들
+  manufacturer?: 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null;
+  vpn?: 'wired' | 'wireless' | null;
+  greenlink_id?: string | null;
+  greenlink_pw?: string | null;
+  business_management_code?: number | null;
+  
+  // 센서/장비 수량 필드들
+  ph_meter?: number | null;
+  differential_pressure_meter?: number | null;
+  temperature_meter?: number | null;
+  discharge_current_meter?: number | null;
+  fan_current_meter?: number | null;
+  pump_current_meter?: number | null;
+  gateway?: number | null;
+  vpn_wired?: number | null;
+  vpn_wireless?: number | null;
+  explosion_proof_differential_pressure_meter_domestic?: number | null;
+  explosion_proof_temperature_meter_domestic?: number | null;
+  expansion_device?: number | null;
+  relay_8ch?: number | null;
+  relay_16ch?: number | null;
+  main_board_replacement?: number | null;
+  multiple_stack?: number | null;
+  
+  // 영업점
+  sales_office?: string | null;
+  
+  // 시설 요약 정보
+  facility_summary?: {
+    outlets?: Array<{
+      outlet: number;
+      discharge_count: number;
+      prevention_count: number;
+      discharge_facilities: string[];
+      prevention_facilities: string[];
+    }>;
+    totals?: {
+      total_outlets: number;
+      total_discharge: number;
+      total_prevention: number;
+    };
+    last_updated?: string;
+  } | null;
+  
+  additional_info?: Record<string, any>;
+  is_active: boolean;
+  is_deleted: boolean;
+  
+  // Korean display fields
+  사업장명: string;
+  주소: string;
+  담당자명: string;
+  담당자연락처: string;
+  담당자직급: string;
+  contacts?: Contact[];
+  대표자: string;
+  사업자등록번호: string;
+  업종: string;
+  사업장연락처: string;
+  상태: string;
+  현재단계?: string;
+  PH센서?: number;
+  차압계?: number;
+  온도계?: number;
+  배출전류계?: number;
+  송풍전류계?: number;
+  펌프전류계?: number;
+  게이트웨이?: number;
+  VPN유선?: number;
+  VPN무선?: number;
+  복수굴뚝?: number;
+  등록일: string;
+  수정일: string;
+  지자체?: string;
+  팩스번호?: string;
+  이메일?: string;
+  사업장관리코드?: number;
+  그린링크ID?: string;
+  그린링크PW?: string;
+  영업점?: string;
+  files?: any | null;
+  hasFiles: boolean;
+  fileCount: number;
+}
 import * as XLSX from 'xlsx'
 import AdminLayout from '@/components/ui/AdminLayout'
 import StatsCard from '@/components/ui/StatsCard'
@@ -35,9 +173,11 @@ import {
   Shield,
   Hash,
   Factory,
-  Search,
   Filter,
-  Settings
+  Settings,
+  ClipboardList,
+  AlertTriangle,
+  Search
 } from 'lucide-react'
 
 // 대한민국 지자체 목록
@@ -57,26 +197,27 @@ const KOREAN_LOCAL_GOVERNMENTS = [
 ].sort()
 
 export default function BusinessManagementPage() {
-  const [businesses, setBusinesses] = useState<BusinessInfo[]>([])
-  const [allBusinesses, setAllBusinesses] = useState<BusinessInfo[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
+  const [businesses, setBusinesses] = useState<UnifiedBusinessInfo[]>([])
+  const [allBusinesses, setAllBusinesses] = useState<UnifiedBusinessInfo[]>([])
+  const [filteredBusinesses, setFilteredBusinesses] = useState<UnifiedBusinessInfo[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingBusiness, setEditingBusiness] = useState<BusinessInfo | null>(null)
-  const [formData, setFormData] = useState<Partial<BusinessInfo>>({})
+  const [editingBusiness, setEditingBusiness] = useState<UnifiedBusinessInfo | null>(null)
+  const [formData, setFormData] = useState<Partial<UnifiedBusinessInfo>>({})
   const [localGovSuggestions, setLocalGovSuggestions] = useState<string[]>([])
   const [showLocalGovSuggestions, setShowLocalGovSuggestions] = useState(false)
-  const [selectedBusiness, setSelectedBusiness] = useState<BusinessInfo | null>(null)
+  const [selectedBusiness, setSelectedBusiness] = useState<UnifiedBusinessInfo | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [duplicateCheck, setDuplicateCheck] = useState<{
     isDuplicate: boolean
-    exactMatch: BusinessInfo | null
-    similarMatches: BusinessInfo[]
+    exactMatch: UnifiedBusinessInfo | null
+    similarMatches: UnifiedBusinessInfo[]
     message: string
   } | null>(null)
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-  const [businessToDelete, setBusinessToDelete] = useState<BusinessInfo | null>(null)
+  const [businessToDelete, setBusinessToDelete] = useState<UnifiedBusinessInfo | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -85,8 +226,38 @@ export default function BusinessManagementPage() {
     success: number
     failed: number
     errors: string[]
+    created?: number
+    updated?: number
   } | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+
+  // 엑셀 템플릿 다운로드 함수 (API 엔드포인트 사용)
+  const downloadExcelTemplate = async () => {
+    try {
+      const response = await fetch('/api/download-excel-template');
+      
+      if (!response.ok) {
+        throw new Error(`템플릿 다운로드 실패: ${response.status}`);
+      }
+      
+      // 파일 다운로드
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `사업장정보_업로드템플릿_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      console.log('✅ 엑셀 템플릿 다운로드 완료');
+    } catch (error) {
+      console.error('❌ 템플릿 다운로드 실패:', error);
+      alert('템플릿 다운로드 중 오류가 발생했습니다.');
+    }
+  }
   
   // Stats calculation
   const stats = useMemo(() => {
@@ -103,17 +274,6 @@ export default function BusinessManagementPage() {
     }
   }, [allBusinesses])
 
-  // 실시간 검색 - 메모이제이션된 필터링
-  const filteredBusinesses = useMemo(() => {
-    if (!searchTerm.trim()) return allBusinesses
-    const searchLower = searchTerm.toLowerCase()
-    return allBusinesses.filter(business =>
-      business.business_name.toLowerCase().includes(searchLower) ||
-      (business.manager_name && business.manager_name.toLowerCase().includes(searchLower)) ||
-      (business.address && business.address.toLowerCase().includes(searchLower)) ||
-      (business.local_government && business.local_government.toLowerCase().includes(searchLower))
-    )
-  }, [allBusinesses, searchTerm])
 
   // 기본 데이터 로딩 - Supabase에서 직접 조회로 최적화
   const loadAllBusinesses = useCallback(async () => {
@@ -121,83 +281,388 @@ export default function BusinessManagementPage() {
       setIsLoading(true)
       console.log('🔄 최적화된 사업장 정보 로딩 시작...')
       
-      // 직접 Supabase에서 모든 사업장 정보를 한번에 조회
-      const response = await fetch('/api/business-management?simple=true')
+      // 직접 business_info 테이블에서 사업장 정보 조회 (파일 통계 포함)
+      const response = await fetch('/api/business-info-direct?includeFileStats=true')
       if (!response.ok) {
         throw new Error('사업장 데이터를 불러오는데 실패했습니다.')
       }
       const data = await response.json()
       
-      if (data.success && data.data && Array.isArray(data.data.businesses)) {
-        console.log(`✅ ${data.data.businesses.length}개 사업장 정보 로딩 완료`)
+      if (data.success && data.data && Array.isArray(data.data)) {
+        console.log(`✅ ${data.data.length}개 사업장 정보 로딩 완료`)
         
-        // business-management API 응답을 어드민 형식으로 변환
-        const businessObjects = data.data.businesses.map((business: any) => ({
+        // 직접 API 응답 데이터를 한국어 필드명으로 매핑
+        const businessObjects = data.data.map((business: any) => ({
           id: business.id,
-          business_name: business.사업장명,
-          local_government: '', // 추후 추가 가능
-          address: business.주소,
-          representative_name: business.대표자,
-          business_registration_number: business.사업자등록번호,
-          manager_name: business.담당자명,
-          manager_position: business.담당자직급,
-          manager_contact: business.담당자연락처,
-          business_contact: business.사업장연락처,
-          fax_number: '', // 추후 추가 가능
-          email: '', // 추후 추가 가능
-          manufacturer: null,
-          vpn: null,
-          greenlink_id: '',
-          greenlink_pw: '',
-          business_management_code: null,
-          sales_office: '',
-          // 측정기기 수량 정보 (business-management API에서 계산됨)
-          ph_sensor: business.총측정기기수 > 0 ? Math.ceil(business.총측정기기수 * 0.2) : null, // 추정값: 20%
-          differential_pressure_meter: business.총측정기기수 > 0 ? Math.ceil(business.총측정기기수 * 0.3) : null, // 추정값: 30%
-          temperature_meter: business.총측정기기수 > 0 ? Math.ceil(business.총측정기기수 * 0.25) : null, // 추정값: 25%
-          discharge_current_meter: business.배출시설수,
-          fan_current_meter: business.방지시설수 > 0 ? Math.ceil(business.방지시설수 * 0.5) : null,
-          pump_current_meter: business.방지시설수 > 0 ? Math.ceil(business.방지시설수 * 0.3) : null,
-          gateway: business.총측정기기수 > 0 ? 1 : null, // 기본적으로 1개
-          vpn_wired: null,
-          vpn_wireless: null,
-          explosion_proof_differential_pressure_meter_domestic: null,
-          explosion_proof_temperature_meter_domestic: null,
-          expansion_device: null,
-          relay_8ch: null,
-          relay_16ch: null,
-          main_board_replacement: null,
-          multiple_stack: null,
-          is_active: business.상태 === '활성',
-          created_at: business.등록일,
-          updated_at: business.수정일
+          사업장명: business.business_name,
+          주소: business.address || '',
+          담당자명: business.manager_name || '',
+          담당자연락처: business.manager_contact || '',
+          담당자직급: business.manager_position || '',
+          contacts: business.additional_info?.contacts || [],
+          대표자: business.representative_name || '',
+          사업자등록번호: business.business_registration_number || '',
+          업종: business.business_type || '',
+          사업장연락처: business.business_contact || '',
+          상태: business.is_active ? '활성' : '비활성',
+          등록일: business.created_at,
+          수정일: business.updated_at,
+          // 추가 database 필드들
+          fax_number: business.fax_number || '',
+          email: business.email || '',
+          local_government: business.local_government || '',
+          representative_birth_date: business.representative_birth_date || '',
+          // 센서 및 장비 정보
+          ph_meter: business.ph_meter || 0,
+          differential_pressure_meter: business.differential_pressure_meter || 0,
+          temperature_meter: business.temperature_meter || 0,
+          discharge_current_meter: business.discharge_current_meter || 0,
+          fan_current_meter: business.fan_current_meter || 0,
+          pump_current_meter: business.pump_current_meter || 0,
+          gateway: business.gateway || 0,
+          vpn_wired: business.vpn_wired || 0,
+          vpn_wireless: business.vpn_wireless || 0,
+          multiple_stack: business.multiple_stack || 0,
+          manufacturer: business.manufacturer || '',
+          negotiation: business.negotiation || '',
+          // 한국어 센서/장비 필드명 매핑
+          PH센서: business.ph_meter || 0,
+          차압계: business.differential_pressure_meter || 0,
+          온도계: business.temperature_meter || 0,
+          배출전류계: business.discharge_current_meter || 0,
+          송풍전류계: business.fan_current_meter || 0,
+          펌프전류계: business.pump_current_meter || 0,
+          게이트웨이: business.gateway || 0,
+          VPN유선: business.vpn_wired || 0,
+          VPN무선: business.vpn_wireless || 0,
+          복수굴뚝: business.multiple_stack || 0,
+          // 추가 한국어 필드
+          지자체: business.local_government || '',
+          팩스번호: business.fax_number || '',
+          이메일: business.email || '',
+          // 시스템 정보 필드
+          사업장관리코드: business.business_management_code || null,
+          그린링크ID: business.greenlink_id || '',
+          그린링크PW: business.greenlink_pw || '',
+          영업점: business.sales_office || '',
+          // 현재 단계 필드
+          현재단계: '준비 중',
+          // 호환성을 위한 영어 필드명
+          business_name: business.business_name,
+          address: business.address || '',
+          representative_name: business.representative_name || '',
+          business_registration_number: business.business_registration_number || '',
+          manager_name: business.manager_name || '',
+          manager_position: business.manager_position || '',
+          manager_contact: business.manager_contact || '',
+          business_contact: business.business_contact || '',
+          created_at: business.created_at,
+          updated_at: business.updated_at,
+          is_active: business.is_active,
+          is_deleted: false,
+          // 파일 관련 필드 (businesses 테이블 연동)
+          hasFiles: business.hasFileRecords || false,
+          fileCount: business.fileStats?.totalFiles || 0,
+          files: business.fileStats ? {
+            id: business.id,
+            name: business.fileStats.businessName,
+            status: business.fileStats.totalFiles > 0 ? 'active' : 'inactive',
+            fileStats: {
+              total: business.fileStats.totalFiles,
+              uploaded: business.fileStats.totalFiles,
+              syncing: 0,
+              synced: business.fileStats.totalFiles,
+              failed: 0
+            },
+            url: business.fileStats.storageUrl,
+            createdAt: business.fileStats.lastUploadDate || business.created_at,
+            updatedAt: business.fileStats.lastUploadDate || business.updated_at
+          } : null
         }))
         
         setAllBusinesses(businessObjects)
         setBusinesses(businessObjects)
-        console.log(`📊 측정기기 수량 계산 완료: 총 ${businessObjects.reduce((sum: number, b: any) => sum + (b.ph_sensor || 0) + (b.differential_pressure_meter || 0) + (b.temperature_meter || 0), 0)}개`)
+        setFilteredBusinesses(businessObjects)
+        
+        // selectedBusiness가 있다면 업데이트된 데이터로 동기화 (useEffect에서 처리)
+        
+        console.log(`📊 사업장 데이터 로딩 완료: 총 ${businessObjects.length}개`)
       } else {
         console.error('Invalid data format:', data)
         setAllBusinesses([])
         setBusinesses([])
+        setFilteredBusinesses([])
       }
     } catch (error) {
       console.error('사업장 데이터 로딩 오류:', error)
       setAllBusinesses([])
       setBusinesses([])
+      setFilteredBusinesses([])
     } finally {
       setIsLoading(false)
     }
   }, [])
 
+  // 검색 필터링 함수
+  const filterBusinesses = useCallback((query: string) => {
+    if (!query.trim()) {
+      setFilteredBusinesses(allBusinesses)
+      return
+    }
+
+    const filtered = allBusinesses.filter(business => {
+      const searchTerm = query.toLowerCase()
+      const businessName = (business.사업장명 || business.business_name || '').toLowerCase()
+      const address = (business.주소 || business.local_government || '').toLowerCase()
+      const contactName = (business.담당자명 || business.contact_name || '').toLowerCase()
+      const phone = (business.담당자연락처 || business.contact_phone || '').toLowerCase()
+      const businessType = (business.업종 || business.business_type || '').toLowerCase()
+
+      return businessName.includes(searchTerm) ||
+             address.includes(searchTerm) ||
+             contactName.includes(searchTerm) ||
+             phone.includes(searchTerm) ||
+             businessType.includes(searchTerm)
+    })
+
+    setFilteredBusinesses(filtered)
+  }, [allBusinesses])
+
+  // 검색어 하이라이팅 함수
+  const highlightSearchTerm = useCallback((text: string, searchTerm: string) => {
+    if (!searchTerm || !text) return text
+    
+    const regex = new RegExp(`(${searchTerm})`, 'gi')
+    const parts = text.split(regex)
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-200 text-yellow-900 px-0.5 rounded">
+          {part}
+        </mark>
+      ) : part
+    )
+  }, [])
+
+  // 검색어 변경 시 필터링
+  useEffect(() => {
+    filterBusinesses(searchQuery)
+  }, [searchQuery, filterBusinesses])
+
+  // 초기 데이터 로딩 - 의존성 제거하여 무한루프 방지
   useEffect(() => {
     loadAllBusinesses()
-  }, [loadAllBusinesses])
+  }, [])
+
+  // selectedBusiness 동기화를 위한 별도 useEffect (완전 최적화)
+  useEffect(() => {
+    if (selectedBusiness && allBusinesses.length > 0) {
+      const updatedSelected = allBusinesses.find(b => b.id === selectedBusiness.id)
+      if (updatedSelected && updatedSelected.수정일 !== selectedBusiness.수정일) {
+        console.log('🔄 selectedBusiness 동기화:', updatedSelected.사업장명, '담당자:', updatedSelected.담당자명)
+        setSelectedBusiness(updatedSelected)
+      }
+    }
+  }, [allBusinesses.length, selectedBusiness?.id]) // length 변화만 감지
+
+  // ESC 키로 모달 닫기
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (isDetailModalOpen) {
+          setIsDetailModalOpen(false)
+        }
+        if (isModalOpen) {
+          setIsModalOpen(false)
+          setShowLocalGovSuggestions(false)
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleEscKey)
+    return () => {
+      document.removeEventListener('keydown', handleEscKey)
+    }
+  }, [isDetailModalOpen, isModalOpen])
+
+  // 통합 새로고침 함수 - 모든 데이터 동기화를 위한 단일 소스
+  const refreshBusinessData = async (businessId: string, businessName: string): Promise<UnifiedBusinessInfo | null> => {
+    try {
+      const timestamp = Date.now()
+      const response = await fetch(`/api/business-info-direct?id=${businessId}&t=${timestamp}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Charset': 'utf-8'
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`API 응답 오류: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log('🔄 새로고침된 데이터:', {
+        담당자명: data.data?.[0]?.manager_name,
+        담당자직급: data.data?.[0]?.manager_position,
+        fullData: data.data?.[0]
+      })
+      
+      if (data.success && data.data?.length > 0) {
+        const business = data.data[0]
+        // 직접 API 응답을 한국어 필드명으로 변환
+        const refreshedBusiness = {
+          // Base BusinessInfo fields
+          id: business.id,
+          created_at: business.created_at,
+          updated_at: business.updated_at,
+          business_name: business.business_name || '정보없음',
+          local_government: business.local_government,
+          address: business.address,
+          manager_name: business.manager_name,
+          manager_position: business.manager_position,
+          manager_contact: business.manager_contact,
+          business_contact: business.business_contact,
+          fax_number: business.fax_number,
+          email: business.email,
+          representative_name: business.representative_name,
+          business_registration_number: business.business_registration_number,
+          
+          // 프로젝트 관리 필드들
+          row_number: business.row_number,
+          department: business.department,
+          progress_status: business.progress_status,
+          contract_document: business.contract_document,
+          order_request_date: business.order_request_date,
+          wireless_document: business.wireless_document,
+          installation_support: business.installation_support,
+          order_manager: business.order_manager,
+          order_date: business.order_date,
+          shipment_date: business.shipment_date,
+          inventory_check: business.inventory_check,
+          installation_date: business.installation_date,
+          installation_team: business.installation_team,
+          business_type: business.business_type,
+          business_category: business.business_category,
+          pollutants: business.pollutants,
+          annual_emission_amount: business.annual_emission_amount,
+          first_report_date: business.first_report_date,
+          operation_start_date: business.operation_start_date,
+          subsidy_approval_date: business.subsidy_approval_date,
+          expansion_pack: business.expansion_pack,
+          other_equipment: business.other_equipment,
+          additional_cost: business.additional_cost,
+          negotiation: business.negotiation,
+          multiple_stack_cost: business.multiple_stack_cost,
+          representative_birth_date: business.representative_birth_date,
+          
+          // 시스템 필드들
+          manufacturer: business.manufacturer,
+          vpn: business.vpn,
+          greenlink_id: business.greenlink_id,
+          greenlink_pw: business.greenlink_pw,
+          business_management_code: business.business_management_code,
+          
+          // 센서/장비 수량 필드들
+          ph_meter: business.ph_meter,
+          differential_pressure_meter: business.differential_pressure_meter,
+          temperature_meter: business.temperature_meter,
+          discharge_current_meter: business.discharge_current_meter,
+          fan_current_meter: business.fan_current_meter,
+          pump_current_meter: business.pump_current_meter,
+          gateway: business.gateway,
+          vpn_wired: business.vpn_wired,
+          vpn_wireless: business.vpn_wireless,
+          explosion_proof_differential_pressure_meter_domestic: business.explosion_proof_differential_pressure_meter_domestic,
+          explosion_proof_temperature_meter_domestic: business.explosion_proof_temperature_meter_domestic,
+          expansion_device: business.expansion_device,
+          relay_8ch: business.relay_8ch,
+          relay_16ch: business.relay_16ch,
+          main_board_replacement: business.main_board_replacement,
+          multiple_stack: business.multiple_stack,
+          
+          // 영업점
+          sales_office: business.sales_office,
+          
+          // 시설 요약 정보
+          facility_summary: business.facility_summary,
+          
+          additional_info: business.additional_info,
+          is_active: business.is_active,
+          is_deleted: business.is_deleted,
+          
+          // UI 표시용 한국어 필드들
+          사업장명: business.business_name || '정보없음',
+          주소: business.address || '',
+          담당자명: business.manager_name || '',
+          담당자연락처: business.manager_contact || '',
+          담당자직급: business.manager_position || '',
+          contacts: business.additional_info?.contacts || [],
+          대표자: business.representative_name || '',
+          사업자등록번호: business.business_registration_number || '',
+          업종: business.business_type || '',
+          사업장연락처: business.business_contact || '',
+          상태: business.is_active ? '활성' : '비활성',
+          등록일: business.created_at,
+          수정일: business.updated_at,
+          지자체: business.local_government || '',
+          팩스번호: business.fax_number || '',
+          이메일: business.email || '',
+          // 시스템 정보 필드
+          사업장관리코드: business.business_management_code || null,
+          그린링크ID: business.greenlink_id || '',
+          그린링크PW: business.greenlink_pw || '',
+          영업점: business.sales_office || '',
+          // 현재 단계 필드
+          현재단계: '준비 중',
+          // 한국어 센서/장비 필드명 매핑
+          PH센서: business.ph_meter || 0,
+          차압계: business.differential_pressure_meter || 0,
+          온도계: business.temperature_meter || 0,
+          배출전류계: business.discharge_current_meter || 0,
+          송풍전류계: business.fan_current_meter || 0,
+          펌프전류계: business.pump_current_meter || 0,
+          게이트웨이: business.gateway || 0,
+          VPN유선: business.vpn_wired || 0,
+          VPN무선: business.vpn_wireless || 0,
+          복수굴뚝: business.multiple_stack || 0,
+          
+          // UI specific fields
+          hasFiles: false,
+          fileCount: 0,
+          files: null
+        }
+        return refreshedBusiness
+      }
+      return null
+    } catch (error) {
+      console.error('데이터 새로고침 오류:', error)
+      return null
+    }
+  }
 
   // Modal functions
-  const openDetailModal = (business: BusinessInfo) => {
-    setSelectedBusiness(business)
-    setIsDetailModalOpen(true)
+  const openDetailModal = async (business: UnifiedBusinessInfo) => {
+    try {
+      console.log('📋 모달 열기 시작:', business.사업장명)
+      
+      // 기본 데이터로 먼저 모달 열기
+      setSelectedBusiness(business)
+      setIsDetailModalOpen(true)
+      
+      // 백그라운드에서 최신 데이터 조회
+      if (business.id && business.사업장명) {
+        const refreshedBusiness = await refreshBusinessData(business.id, business.사업장명)
+        if (refreshedBusiness) {
+          console.log('🔄 모달용 최신 데이터 조회 완료:', refreshedBusiness.사업장명)
+          setSelectedBusiness(refreshedBusiness)
+        }
+      }
+    } catch (error) {
+      console.error('❌ 모달 열기 오류:', error)
+      // 기본 데이터라도 표시
+      setSelectedBusiness(business)
+      setIsDetailModalOpen(true)
+    }
   }
 
   const openAddModal = () => {
@@ -214,13 +679,13 @@ export default function BusinessManagementPage() {
       business_contact: '',
       fax_number: '',
       email: '',
-      manufacturer: null,
+      manufacturer: 'ecosense' as 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs',
       vpn: null,
       greenlink_id: '',
       greenlink_pw: '',
       business_management_code: null,
       sales_office: '',
-      ph_sensor: null,
+      ph_meter: null,
       differential_pressure_meter: null,
       temperature_meter: null,
       discharge_current_meter: null,
@@ -241,13 +706,42 @@ export default function BusinessManagementPage() {
     setIsModalOpen(true)
   }
 
-  const openEditModal = (business: BusinessInfo) => {
+  const openEditModal = (business: UnifiedBusinessInfo) => {
     setEditingBusiness(business)
-    setFormData(business)
+    
+    setFormData({
+      id: business.id,
+      business_name: business.사업장명,
+      local_government: business.지자체,
+      address: business.주소,
+      manager_name: business.담당자명,
+      manager_position: business.담당자직급,
+      manager_contact: business.담당자연락처,
+      representative_name: business.대표자,
+      business_registration_number: business.사업자등록번호,
+      business_type: business.업종,
+      business_contact: business.사업장연락처,
+      fax_number: business.팩스번호,
+      email: business.이메일,
+      business_management_code: business.사업장관리코드 ? Number(business.사업장관리코드) : null,
+      greenlink_id: business.그린링크ID,
+      greenlink_pw: business.그린링크PW,
+      sales_office: business.영업점,
+      ph_meter: business.PH센서,
+      differential_pressure_meter: business.차압계,
+      temperature_meter: business.온도계,
+      discharge_current_meter: business.배출전류계,
+      fan_current_meter: business.송풍전류계,
+      pump_current_meter: business.펌프전류계,
+      gateway: business.게이트웨이,
+      contacts: business.contacts || [],
+      manufacturer: business.manufacturer,
+      is_active: business.상태 === '활성'
+    })
     setIsModalOpen(true)
   }
 
-  const confirmDelete = (business: BusinessInfo) => {
+  const confirmDelete = (business: UnifiedBusinessInfo) => {
     setBusinessToDelete(business)
     setDeleteConfirmOpen(true)
   }
@@ -256,7 +750,7 @@ export default function BusinessManagementPage() {
     if (!businessToDelete) return
 
     try {
-      const response = await fetch('/api/business-management', {
+      const response = await fetch('/api/business-info-direct', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: businessToDelete.id }),
@@ -275,99 +769,112 @@ export default function BusinessManagementPage() {
     }
   }
 
-  // 엑셀 파일 업로드 처리
+  // 엑셀 파일 업로드 처리 (배치 업데이트/생성)
   const handleFileUpload = async (file: File) => {
     try {
       setIsUploading(true)
       setUploadProgress(0)
       
-      // 파일 읽기
+      // 파일 읽기 진행률 10%
+      setUploadProgress(10)
       const data = await file.arrayBuffer()
       const workbook = XLSX.read(data, { type: 'array' })
       const sheetName = workbook.SheetNames[0]
       const worksheet = workbook.Sheets[sheetName]
       
-      // JSON으로 변환
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][]
+      // 데이터 파싱 진행률 20%
+      setUploadProgress(20)
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[]
       
-      if (jsonData.length < 2) {
+      if (jsonData.length === 0) {
         alert('파일에 데이터가 없습니다.')
         return
       }
       
-      // 헤더 행 제거하고 데이터 행만 처리
-      const dataRows = jsonData.slice(1).filter(row => row.length > 0 && row[0])
+      console.log('📊 엑셀 데이터 샘플:', jsonData.slice(0, 2))
       
-      let successCount = 0
-      let failedCount = 0
-      const errors: string[] = []
+      // 엑셀 헤더를 API 필드명으로 매핑
+      const mappedBusinesses = jsonData.map((row: any) => ({
+        business_name: row['사업장명'] || '',
+        address: row['주소'] || '',
+        manager_name: row['사업장담당자'] || '',
+        manager_position: row['담당자직급'] || '',
+        manager_contact: row['연락처'] || '',
+        representative_name: row['대표자명'] || '',
+        business_registration_number: row['사업자등록번호'] || '',
+        business_type: row['업종'] || '',
+        business_contact: row['사업장연락처'] || '',
+        ph_meter: parseInt(row['PH센서'] || '0') || 0,
+        differential_pressure_meter: parseInt(row['차압계'] || '0') || 0,
+        temperature_meter: parseInt(row['온도계'] || '0') || 0,
+        discharge_current_meter: parseInt(row['배출전류계'] || '0') || 0,
+        fan_current_meter: parseInt(row['송풍전류계'] || '0') || 0,
+        pump_current_meter: parseInt(row['펌프전류계'] || '0') || 0,
+        gateway: parseInt(row['게이트웨이'] || '0') || 0,
+        vpn_wired: parseInt(row['VPN(유선)'] || '0') || 0,
+        vpn_wireless: parseInt(row['VPN(무선)'] || '0') || 0,
+        multiple_stack: parseInt(row['복수굴뚝(설치비)'] || '0') || 0,
+        negotiation: row['네고'] || ''
+      }));
       
-      // 데이터 처리 (배치로 처리)
-      for (let i = 0; i < dataRows.length; i++) {
-        const row = dataRows[i]
+      console.log('🔄 헤더 기반 매핑 완료:', mappedBusinesses.slice(0, 2));
+      
+      // 진행률 추적을 위한 이벤트 스트림 설정
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev < 90) {
+            return Math.min(prev + 2, 90) // 90%까지만 자동 증가
+          }
+          return prev
+        })
+      }, 500)
+      
+      try {
+        // 배치 업로드 API 호출
+        const response = await fetch('/api/business-info-direct', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            isBatchUpload: true,
+            businesses: mappedBusinesses
+          })
+        })
         
-        try {
-          const businessData = {
-            business_name: row[0] || '',
-            local_government: row[1] || '',
-            address: row[2] || '',
-            representative_name: row[3] || '',
-            business_registration_number: row[4] || '',
-            manager_name: row[5] || '',
-            manager_position: row[6] || '',
-            manager_contact: row[7] || '',
-            business_contact: row[8] || '',
-            email: row[9] || '',
-            is_active: true
-          }
+        clearInterval(progressInterval)
+        setUploadProgress(95) // API 완료시 95%
+        
+        const result = await response.json()
+        
+        if (response.ok && result.success) {
+          setUploadProgress(100) // 완료시 100%
           
-          // 필수 필드 검증
-          if (!businessData.business_name) {
-            errors.push(`행 ${i + 2}: 사업장명이 필요합니다.`)
-            failedCount++
-            continue
-          }
-          
-          // API로 사업장 추가
-          const response = await fetch('/api/business-management', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(businessData)
+          setUploadResults({
+            total: result.data.results.total,
+            success: result.data.results.created + result.data.results.updated,
+            failed: result.data.results.errors,
+            errors: result.data.results.errorDetails || [],
+            created: result.data.results.created,
+            updated: result.data.results.updated
           })
           
-          if (response.ok) {
-            successCount++
-          } else {
-            const result = await response.json()
-            errors.push(`행 ${i + 2}: ${result.error || '저장 실패'}`)
-            failedCount++
-          }
+          console.log('✅ 배치 업로드 완료:', result.data.results)
           
-        } catch (error) {
-          errors.push(`행 ${i + 2}: 처리 중 오류 발생`)
-          failedCount++
+          // 데이터 새로고침
+          await loadAllBusinesses()
+        } else {
+          throw new Error(result.error || '배치 업로드 실패')
         }
-        
-        // 진행률 업데이트
-        setUploadProgress(Math.round(((i + 1) / dataRows.length) * 100))
+      } catch (apiError) {
+        clearInterval(progressInterval)
+        throw apiError
       }
       
-      // 결과 설정
-      setUploadResults({
-        total: dataRows.length,
-        success: successCount,
-        failed: failedCount,
-        errors: errors.slice(0, 10) // 최대 10개 오류만 표시
-      })
-      
-      // 데이터 새로고침
-      await loadAllBusinesses()
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error('파일 업로드 오류:', error)
-      alert('파일 처리 중 오류가 발생했습니다.')
+      alert(`파일 처리 중 오류가 발생했습니다: ${error.message}`)
     } finally {
       setIsUploading(false)
+      setUploadProgress(100)
     }
   }
 
@@ -375,30 +882,57 @@ export default function BusinessManagementPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.business_name?.trim()) {
+    // 편집 모드에서는 원래 사업장명을 보장
+    const finalFormData = { ...formData }
+    if (editingBusiness && !finalFormData.business_name?.trim()) {
+      finalFormData.business_name = editingBusiness.사업장명
+    }
+    
+    if (!finalFormData.business_name?.trim()) {
       alert('사업장명을 입력해주세요.')
       return
     }
 
     try {
       const method = editingBusiness ? 'PUT' : 'POST'
-      const body = editingBusiness 
-        ? { id: editingBusiness.id, ...formData }
-        : { ...formData, is_active: formData.is_active !== false }
+      
+      // 담당자 정보는 개별 필드로 직접 사용
+      let processedFormData = { ...finalFormData };
 
-      const response = await fetch('/api/business-management', {
+      const body = editingBusiness 
+        ? { id: editingBusiness.id, updateData: processedFormData }
+        : processedFormData
+
+      console.log('📤 [FRONTEND] 전송할 데이터:', JSON.stringify(body, null, 2));
+
+      const response = await fetch('/api/business-info-direct', {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json; charset=utf-8',
+          'Accept': 'application/json',
+          'Accept-Charset': 'utf-8'
+        },
         body: JSON.stringify(body)
       })
 
       const result = await response.json()
+      console.log('🔄 API 응답 데이터:', result)
 
       if (response.ok) {
         alert(editingBusiness ? '사업장 정보가 수정되었습니다.' : '새 사업장이 추가되었습니다.')
         setIsModalOpen(false)
         setShowLocalGovSuggestions(false)
         await loadAllBusinesses()
+        
+        // 수정된 사업장이 현재 선택된 사업장이면 새로고침으로 모달 업데이트
+        if (editingBusiness && selectedBusiness && editingBusiness.id === selectedBusiness.id) {
+          // 간단한 새로고침 패턴 - 직접 API에서 최신 데이터 조회
+          const refreshedBusiness = await refreshBusinessData(editingBusiness.id, editingBusiness.사업장명)
+          if (refreshedBusiness) {
+            console.log('✅ 수정 후 데이터 새로고침 완료:', refreshedBusiness.담당자명)
+            setSelectedBusiness(refreshedBusiness)
+          }
+        }
       } else {
         alert(result.error || '저장에 실패했습니다.')
       }
@@ -409,53 +943,79 @@ export default function BusinessManagementPage() {
   }
 
 
-  // Table configuration
+  // Table configuration - 시설관리 시스템에 맞게 수정
   const columns = [
     { 
-      key: 'business_name' as keyof BusinessInfo, 
+      key: '사업장명' as string, 
       title: '사업장명',
-      width: '200px',
-      render: (item: BusinessInfo) => (
+      width: '180px',
+      render: (item: any) => (
         <button
           onClick={() => openDetailModal(item)}
           className="text-left text-blue-600 hover:text-blue-800 hover:underline font-medium"
         >
-          {item.business_name}
+          {searchQuery ? highlightSearchTerm(item.사업장명 || '', searchQuery) : item.사업장명}
         </button>
       )
     },
     { 
-      key: 'local_government' as keyof BusinessInfo, 
-      title: '지자체',
-      width: '120px'
-    },
-    { 
-      key: 'manager_name' as keyof BusinessInfo, 
+      key: '담당자명' as string, 
       title: '담당자',
-      width: '100px'
+      width: '100px',
+      render: (item: any) => (
+        searchQuery ? highlightSearchTerm(item.담당자명 || '-', searchQuery) : (item.담당자명 || '-')
+      )
     },
     { 
-      key: 'address' as keyof BusinessInfo, 
+      key: '담당자연락처' as string, 
+      title: '연락처',
+      width: '120px',
+      render: (item: any) => (
+        searchQuery ? highlightSearchTerm(item.담당자연락처 || '-', searchQuery) : (item.담당자연락처 || '-')
+      )
+    },
+    { 
+      key: '주소' as string, 
       title: '주소',
-      width: '250px'
+      width: '200px',
+      render: (item: any) => (
+        <div className="truncate" title={item.주소 || item.local_government || '-'}>
+          {searchQuery ? highlightSearchTerm(item.주소 || item.local_government || '-', searchQuery) : (item.주소 || item.local_government || '-')}
+        </div>
+      )
+    },
+    { 
+      key: '현재단계', 
+      title: '현재 단계',
+      width: '120px',
+      render: (item: any) => (
+        <div className="text-center">
+          <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            준비 중
+          </span>
+          <div className="text-xs text-gray-500 mt-1">
+            향후 구현
+          </div>
+        </div>
+      )
     }
   ]
 
   const businessesWithId = useMemo(() => 
     filteredBusinesses.map(business => ({
       ...business,
-      id: business.id || `business-${business.business_name}`
+      id: business.id
     })), [filteredBusinesses])
 
   const actions = [
     {
-      ...commonActions.edit((item: BusinessInfo) => openEditModal(item)),
+      ...commonActions.edit((item: UnifiedBusinessInfo) => openEditModal(item)),
       show: () => true
     },
     {
       label: '삭제',
       icon: Trash2,
-      onClick: (item: BusinessInfo) => confirmDelete(item),
+      onClick: (item: UnifiedBusinessInfo) => confirmDelete(item),
       variant: 'danger' as const,
       show: () => true
     }
@@ -534,45 +1094,45 @@ export default function BusinessManagementPage() {
                 사업장 목록
               </h2>
               <span className="text-sm text-gray-500">
-                {filteredBusinesses.length}개 사업장
+                {searchQuery ? `${filteredBusinesses.length}개 검색 결과 (전체 ${allBusinesses.length}개)` : `${allBusinesses.length}개 사업장`}
               </span>
             </div>
             
-            {/* Search Input */}
+            {/* 실시간 검색창 */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="w-4 h-4 text-gray-400" />
+                <Search className="h-5 w-5 text-gray-400" />
               </div>
               <input
                 type="text"
-                lang="ko"
-                inputMode="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="사업장명, 담당자, 주소, 지자체로 검색..."
-                className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-all duration-200"
+                placeholder="사업장명, 주소, 담당자명, 연락처, 업종으로 검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              {searchTerm && (
+              {searchQuery && (
                 <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
                 </button>
               )}
             </div>
+            
           </div>
 
           {/* Data Table */}
           <div className="p-6 overflow-x-auto">
-            <div className="min-w-full max-w-5xl">
+            <div className="min-w-full max-w-7xl">
               <DataTable
                 data={businessesWithId}
                 columns={columns}
                 actions={actions}
                 loading={isLoading}
-                emptyMessage={searchTerm ? `"${searchTerm}"에 대한 검색 결과가 없습니다.` : "등록된 사업장이 없습니다."}
+                emptyMessage="등록된 사업장이 없습니다."
                 searchable={false}
+                pageSize={100}
               />
             </div>
           </div>
@@ -589,7 +1149,7 @@ export default function BusinessManagementPage() {
             }
           }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
             {/* Header with gradient background */}
             <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-8 py-6 text-white relative overflow-hidden">
               <div className="absolute inset-0 bg-white bg-opacity-10 backdrop-blur-sm"></div>
@@ -599,24 +1159,24 @@ export default function BusinessManagementPage() {
                     <Building2 className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold">{selectedBusiness.business_name}</h2>
+                    <h2 className="text-2xl font-bold">{selectedBusiness?.사업장명 || selectedBusiness?.business_name || '사업장명 없음'}</h2>
                     <p className="text-blue-100 flex items-center mt-1">
                       <MapPin className="w-4 h-4 mr-1" />
-                      {selectedBusiness.local_government || '지자체 미등록'}
+                      {selectedBusiness?.주소 || selectedBusiness?.local_government || '주소 미등록'}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="text-right">
                     <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      selectedBusiness.is_active 
+                      selectedBusiness?.is_active || selectedBusiness?.상태 === '활성'
                         ? 'bg-green-500 bg-opacity-20 text-green-100 border border-green-300 border-opacity-30' 
                         : 'bg-gray-500 bg-opacity-20 text-gray-200 border border-gray-300 border-opacity-30'
                     }`}>
                       <div className={`w-2 h-2 rounded-full mr-2 ${
-                        selectedBusiness.is_active ? 'bg-green-300' : 'bg-gray-300'
+                        selectedBusiness?.is_active || selectedBusiness?.상태 === '활성' ? 'bg-green-300' : 'bg-gray-300'
                       }`}></div>
-                      {selectedBusiness.is_active ? '활성' : '비활성'}
+                      {selectedBusiness?.is_active || selectedBusiness?.상태 === '활성' ? '활성' : '비활성'}
                     </div>
                   </div>
                   <button
@@ -629,12 +1189,12 @@ export default function BusinessManagementPage() {
               </div>
             </div>
             
-            {/* Content area with enhanced layout */}
+            {/* Content area with balanced layout */}
             <div className="overflow-y-auto max-h-[calc(95vh-120px)]">
-              <div className="p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* Left Column - Main Info */}
-                  <div className="lg:col-span-2 space-y-6">
+              <div className="p-6">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  {/* Left Column - Basic Info */}
+                  <div className="space-y-6">
                     {/* Basic Information Card */}
                     <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-6 border border-slate-200">
                       <div className="flex items-center mb-4">
@@ -650,7 +1210,7 @@ export default function BusinessManagementPage() {
                             <Factory className="w-4 h-4 mr-2 text-blue-500" />
                             사업장명
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.business_name}</div>
+                          <div className="text-base font-medium text-gray-900">{selectedBusiness.사업장명}</div>
                         </div>
                         
                         <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -658,7 +1218,7 @@ export default function BusinessManagementPage() {
                             <MapPin className="w-4 h-4 mr-2 text-green-500" />
                             지자체
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.local_government || '-'}</div>
+                          <div className="text-base font-medium text-gray-900">{selectedBusiness.지자체 || '-'}</div>
                         </div>
                         
                         <div className="bg-white rounded-lg p-4 shadow-sm md:col-span-2">
@@ -666,7 +1226,7 @@ export default function BusinessManagementPage() {
                             <MapPin className="w-4 h-4 mr-2 text-red-500" />
                             주소
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.address || '-'}</div>
+                          <div className="text-base font-medium text-gray-900">{selectedBusiness.주소 || '-'}</div>
                         </div>
                         
                         <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -674,7 +1234,7 @@ export default function BusinessManagementPage() {
                             <User className="w-4 h-4 mr-2 text-purple-500" />
                             대표자명
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.representative_name || '-'}</div>
+                          <div className="text-base font-medium text-gray-900">{selectedBusiness.대표자 || '-'}</div>
                         </div>
                         
                         <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -682,7 +1242,7 @@ export default function BusinessManagementPage() {
                             <Hash className="w-4 h-4 mr-2 text-orange-500" />
                             사업자등록번호
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.business_registration_number || '-'}</div>
+                          <div className="text-base font-medium text-gray-900">{selectedBusiness.사업자등록번호 || '-'}</div>
                         </div>
                       </div>
                     </div>
@@ -696,29 +1256,35 @@ export default function BusinessManagementPage() {
                         <h3 className="text-lg font-semibold text-slate-800">담당자 정보</h3>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="bg-white rounded-lg p-4 shadow-sm">
                           <div className="flex items-center text-sm text-gray-600 mb-1">
                             <User className="w-4 h-4 mr-2 text-green-500" />
                             담당자명
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.manager_name || '-'}</div>
+                          <div className="text-base font-medium text-gray-900">
+                            {selectedBusiness.담당자명 || '-'}
+                          </div>
                         </div>
-                        
+
                         <div className="bg-white rounded-lg p-4 shadow-sm">
                           <div className="flex items-center text-sm text-gray-600 mb-1">
                             <Briefcase className="w-4 h-4 mr-2 text-blue-500" />
                             직급
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.manager_position || '-'}</div>
+                          <div className="text-base font-medium text-gray-900">
+                            {selectedBusiness.담당자직급 || '-'}
+                          </div>
                         </div>
-                        
+
                         <div className="bg-white rounded-lg p-4 shadow-sm">
                           <div className="flex items-center text-sm text-gray-600 mb-1">
                             <Phone className="w-4 h-4 mr-2 text-green-500" />
                             담당자 연락처
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.manager_contact || '-'}</div>
+                          <div className="text-base font-medium text-gray-900">
+                            {selectedBusiness.담당자연락처 || '-'}
+                          </div>
                         </div>
                         
                         <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -726,7 +1292,7 @@ export default function BusinessManagementPage() {
                             <Phone className="w-4 h-4 mr-2 text-blue-500" />
                             사업장 연락처
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.business_contact || '-'}</div>
+                          <div className="text-base font-medium text-gray-900">{selectedBusiness.사업장연락처 || '-'}</div>
                         </div>
                         
                         <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -744,6 +1310,97 @@ export default function BusinessManagementPage() {
                           </div>
                           <div className="text-base font-medium text-gray-900">{selectedBusiness.email || '-'}</div>
                         </div>
+                        
+                        
+                        {selectedBusiness.representative_birth_date && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                              <Calendar className="w-4 h-4 mr-2 text-purple-500" />
+                              대표자생년월일
+                            </div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.representative_birth_date}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Work Progress & Communication Area */}
+                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-6 border border-orange-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center">
+                          <div className="p-2 bg-orange-600 rounded-lg mr-3">
+                            <ClipboardList className="w-5 h-5 text-white" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-slate-800">업무 진행 현황</h3>
+                        </div>
+                        <button
+                          onClick={() => {/* TODO: Add note functionality */}}
+                          className="px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 rounded-lg transition-colors"
+                        >
+                          메모 추가
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {/* Current Status */}
+                        <div className="bg-white rounded-lg p-4 shadow-sm">
+                          <div className="flex items-center text-sm text-gray-600 mb-2">
+                            <Clock className="w-4 h-4 mr-2 text-orange-500" />
+                            현재 진행 단계
+                          </div>
+                          <div className="text-base font-medium text-gray-900">
+                            {selectedBusiness.progress_status || '설치 대기'}
+                          </div>
+                        </div>
+
+                        {/* Team Communication */}
+                        <div className="bg-white rounded-lg p-4 shadow-sm">
+                          <div className="flex items-center text-sm text-gray-600 mb-2">
+                            <Users className="w-4 h-4 mr-2 text-blue-500" />
+                            팀 공유 사항
+                          </div>
+                          <div className="space-y-2">
+                            <div className="text-sm text-gray-700 p-3 bg-gray-50 rounded-lg">
+                              • 설치 담당자: {selectedBusiness.installation_team || '미배정'}
+                            </div>
+                            <div className="text-sm text-gray-700 p-3 bg-blue-50 rounded-lg">
+                              • 주문 담당자: {selectedBusiness.order_manager || '미배정'}
+                            </div>
+                            {selectedBusiness.installation_date && (
+                              <div className="text-sm text-gray-700 p-3 bg-green-50 rounded-lg">
+                                • 설치 예정일: {selectedBusiness.installation_date}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Important Notes */}
+                        <div className="bg-white rounded-lg p-4 shadow-sm">
+                          <div className="flex items-center text-sm text-gray-600 mb-2">
+                            <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
+                            확인 필요 사항
+                          </div>
+                          <div className="space-y-2">
+                            {!selectedBusiness.manager_contact && (
+                              <div className="text-sm text-red-600 p-2 bg-red-50 rounded-lg flex items-center">
+                                <AlertTriangle className="w-4 h-4 mr-2" />
+                                담당자 연락처 확인 필요
+                              </div>
+                            )}
+                            {!selectedBusiness.installation_support && (
+                              <div className="text-sm text-yellow-600 p-2 bg-yellow-50 rounded-lg flex items-center">
+                                <Clock className="w-4 h-4 mr-2" />
+                                설치 지원 여부 확인 필요
+                              </div>
+                            )}
+                            {selectedBusiness.additional_cost && selectedBusiness.additional_cost > 0 && (
+                              <div className="text-sm text-blue-600 p-2 bg-blue-50 rounded-lg flex items-center">
+                                <FileText className="w-4 h-4 mr-2" />
+                                추가 비용 협의: {selectedBusiness.additional_cost?.toLocaleString()}원
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -759,12 +1416,12 @@ export default function BusinessManagementPage() {
                         <h3 className="text-lg font-semibold text-slate-800">시스템 정보</h3>
                       </div>
                       
-                      <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="bg-white rounded-lg p-4 shadow-sm">
                           <div className="text-sm text-gray-600 mb-1">제조사</div>
                           <div className="text-base font-medium text-gray-900">
                             {selectedBusiness.manufacturer === 'ecosense' ? '🏭 에코센스' :
-                             selectedBusiness.manufacturer === 'cleanearth' ? '🌍 클린어스' :
+                             selectedBusiness.manufacturer === 'cleanearth' ? '🌍 크린어스' :
                              selectedBusiness.manufacturer === 'gaia_cns' ? '🌿 가이아씨앤에스' :
                              selectedBusiness.manufacturer === 'evs' ? '⚡ 이브이에스' :
                              selectedBusiness.manufacturer || '-'}
@@ -815,129 +1472,350 @@ export default function BusinessManagementPage() {
                         <div className="p-2 bg-teal-600 rounded-lg mr-3">
                           <Settings className="w-5 h-5 text-white" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800">측정기기</h3>
+                        <h3 className="text-lg font-semibold text-slate-800">측정기기 및 네트워크</h3>
                       </div>
                       
-                      <div className="space-y-3">
-                        {/* Basic Sensors */}
-                        {selectedBusiness.ph_sensor && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">PH센서</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.ph_sensor}개</div>
+                      {/* Equipment Grid - Compact 3x3 Layout */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                        {/* Measurement Instruments */}
+                        {(selectedBusiness.PH센서 || selectedBusiness.PH센서 === 0) && (
+                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-xs text-teal-600 mb-1">PH센서</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.PH센서 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
                           </div>
                         )}
-                        {selectedBusiness.differential_pressure_meter && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">차압계</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.differential_pressure_meter}개</div>
+                        {(selectedBusiness.차압계 || selectedBusiness.차압계 === 0) && (
+                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-xs text-teal-600 mb-1">차압계</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.차압계 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
                           </div>
                         )}
-                        {selectedBusiness.temperature_meter && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">온도계</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.temperature_meter}개</div>
+                        {(selectedBusiness.온도계 || selectedBusiness.온도계 === 0) && (
+                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-xs text-teal-600 mb-1">온도계</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.온도계 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
                           </div>
                         )}
                         
                         {/* Current Meters */}
-                        {selectedBusiness.discharge_current_meter && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">배출전류계</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.discharge_current_meter}개</div>
+                        {(selectedBusiness.배출전류계 || selectedBusiness.배출전류계 === 0) && (
+                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-xs text-orange-600 mb-1">배출전류계</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.배출전류계 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
                           </div>
                         )}
-                        {selectedBusiness.fan_current_meter && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">송풍전류계</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.fan_current_meter}개</div>
+                        {(selectedBusiness.송풍전류계 || selectedBusiness.송풍전류계 === 0) && (
+                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-xs text-orange-600 mb-1">송풍전류계</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.송풍전류계 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
                           </div>
                         )}
-                        {selectedBusiness.pump_current_meter && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">펌프전류계</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.pump_current_meter}개</div>
+                        {(selectedBusiness.펌프전류계 || selectedBusiness.펌프전류계 === 0) && (
+                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-xs text-orange-600 mb-1">펌프전류계</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.펌프전류계 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
                           </div>
                         )}
                         
                         {/* Network Equipment */}
-                        {selectedBusiness.gateway && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">게이트웨이</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.gateway}개</div>
+                        {(selectedBusiness.게이트웨이 || selectedBusiness.게이트웨이 === 0) && (
+                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-xs text-purple-600 mb-1">게이트웨이</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.게이트웨이 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
                           </div>
                         )}
-                        {selectedBusiness.vpn_wired && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">VPN(유선)</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.vpn_wired}개</div>
+                        {(selectedBusiness.VPN유선 || selectedBusiness.VPN유선 === 0) && (
+                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-xs text-purple-600 mb-1">VPN유선</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.VPN유선 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
                           </div>
                         )}
-                        {selectedBusiness.vpn_wireless && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">VPN(무선)</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.vpn_wireless}개</div>
+                        {(selectedBusiness.VPN무선 || selectedBusiness.VPN무선 === 0) && (
+                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-xs text-purple-600 mb-1">VPN무선</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.VPN무선 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
+                          </div>
+                        )}
+                        {(selectedBusiness.복수굴뚝 || selectedBusiness.복수굴뚝 === 0) && (
+                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-xs text-red-600 mb-1">복수굴뚝</div>
+                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.복수굴뚝 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
+                          </div>
+                        )}
+                      </div>
+                        
+                      {/* Summary Card */}
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <div className="text-sm text-blue-600 mb-1">배출시설</div>
+                            <div className="text-xl font-bold text-blue-800">0</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-blue-600 mb-1">방지시설</div>
+                            <div className="text-xl font-bold text-blue-800">0</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-blue-600 mb-1">총 측정기기</div>
+                            <div className="text-xl font-bold text-blue-900">0</div>
+                          </div>
+                        </div>
+                      </div>
+                        
+                      {/* Empty State */}
+                      {(!selectedBusiness.PH센서 || selectedBusiness.PH센서 === 0) && 
+                       (!selectedBusiness.차압계 || selectedBusiness.차압계 === 0) && 
+                       (!selectedBusiness.온도계 || selectedBusiness.온도계 === 0) && 
+                       (!selectedBusiness.배출전류계 || selectedBusiness.배출전류계 === 0) &&
+                       (!selectedBusiness.송풍전류계 || selectedBusiness.송풍전류계 === 0) && 
+                       (!selectedBusiness.펌프전류계 || selectedBusiness.펌프전류계 === 0) &&
+                       (!selectedBusiness.게이트웨이 || selectedBusiness.게이트웨이 === 0) && (
+                        <div className="bg-white rounded-lg p-6 text-center text-gray-500">
+                          <Settings className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                          <div className="text-sm">측정기기 정보를 불러오는 중...</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Project Information Card */}
+                    <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
+                      <div className="flex items-center mb-4">
+                        <div className="p-2 bg-orange-600 rounded-lg mr-3">
+                          <Briefcase className="w-5 h-5 text-white" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-800">프로젝트 정보</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedBusiness.department && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">담당부서</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.department}</div>
                           </div>
                         )}
                         
-                        {/* Advanced Equipment */}
-                        {selectedBusiness.explosion_proof_differential_pressure_meter_domestic && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">방폭차압계(국산)</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.explosion_proof_differential_pressure_meter_domestic}개</div>
-                          </div>
-                        )}
-                        {selectedBusiness.explosion_proof_temperature_meter_domestic && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">방폭온도계(국산)</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.explosion_proof_temperature_meter_domestic}개</div>
-                          </div>
-                        )}
-                        {selectedBusiness.expansion_device && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">확장디바이스</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.expansion_device}개</div>
-                          </div>
-                        )}
-                        {selectedBusiness.relay_8ch && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">중계기(8채널)</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.relay_8ch}개</div>
-                          </div>
-                        )}
-                        {selectedBusiness.relay_16ch && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">중계기(16채널)</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.relay_16ch}개</div>
-                          </div>
-                        )}
-                        {selectedBusiness.main_board_replacement && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">메인보드교체</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.main_board_replacement}개</div>
-                          </div>
-                        )}
-                        {selectedBusiness.multiple_stack && (
-                          <div className="bg-white rounded-lg p-3 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">복수굴뚝</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.multiple_stack}개</div>
+                        {selectedBusiness.progress_status && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">진행구분</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.progress_status}</div>
                           </div>
                         )}
                         
-                        {/* No Equipment Message */}
-                        {!selectedBusiness.ph_sensor && !selectedBusiness.differential_pressure_meter && 
-                         !selectedBusiness.temperature_meter && !selectedBusiness.discharge_current_meter &&
-                         !selectedBusiness.fan_current_meter && !selectedBusiness.pump_current_meter &&
-                         !selectedBusiness.gateway && !selectedBusiness.vpn_wired &&
-                         !selectedBusiness.vpn_wireless && !selectedBusiness.explosion_proof_differential_pressure_meter_domestic &&
-                         !selectedBusiness.explosion_proof_temperature_meter_domestic && !selectedBusiness.expansion_device &&
-                         !selectedBusiness.relay_8ch && !selectedBusiness.relay_16ch &&
-                         !selectedBusiness.main_board_replacement && !selectedBusiness.multiple_stack && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm text-center text-gray-500">
-                            등록된 측정기기가 없습니다
+                        {selectedBusiness.업종 && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">업종</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.업종}</div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.상태 && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">상태</div>
+                            <div className="text-base font-medium text-gray-900">
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                selectedBusiness.상태 === '활성' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {selectedBusiness.상태}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.business_category && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">종별</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.business_category}</div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.order_manager && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">발주담당</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.order_manager}</div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.installation_team && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">설치팀</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.installation_team}</div>
                           </div>
                         )}
                       </div>
                     </div>
+
+                    {/* Schedule Information Card */}
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+                      <div className="flex items-center mb-4">
+                        <div className="p-2 bg-blue-600 rounded-lg mr-3">
+                          <Calendar className="w-5 h-5 text-white" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-800">일정 정보</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedBusiness.order_request_date && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">발주요청일</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.order_request_date}</div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.order_date && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">발주일</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.order_date}</div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.shipment_date && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">출고일</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.shipment_date}</div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.installation_date && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">설치일</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.installation_date}</div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.first_report_date && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">최초신고일</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.first_report_date}</div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.operation_start_date && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">가동개시일</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.operation_start_date}</div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.subsidy_approval_date && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">보조금 승인일</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.subsidy_approval_date}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Environmental Information Card */}
+                    <div className="bg-gradient-to-br from-green-50 to-lime-50 rounded-xl p-6 border border-green-200">
+                      <div className="flex items-center mb-4">
+                        <div className="p-2 bg-green-600 rounded-lg mr-3">
+                          <Factory className="w-5 h-5 text-white" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-800">환경 정보</h3>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {selectedBusiness.pollutants && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">오염물질</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.pollutants}</div>
+                          </div>
+                        )}
+                        
+                        {selectedBusiness.annual_emission_amount && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">발생량(톤/년)</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.annual_emission_amount}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Financial Information Card */}
+                    {(selectedBusiness.additional_cost || selectedBusiness.negotiation || selectedBusiness.multiple_stack_cost) && (
+                      <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-6 border border-yellow-200">
+                        <div className="flex items-center mb-4">
+                          <div className="p-2 bg-yellow-600 rounded-lg mr-3">
+                            <Database className="w-5 h-5 text-white" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-slate-800">비용 정보</h3>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {selectedBusiness.additional_cost && (
+                            <div className="bg-white rounded-lg p-4 shadow-sm">
+                              <div className="text-sm text-gray-600 mb-1">추가공사비</div>
+                              <div className="text-base font-medium text-gray-900">{selectedBusiness.additional_cost?.toLocaleString()}원</div>
+                            </div>
+                          )}
+                          
+                          {selectedBusiness.multiple_stack_cost && (
+                            <div className="bg-white rounded-lg p-4 shadow-sm">
+                              <div className="text-sm text-gray-600 mb-1">복수굴뚝(설치비)</div>
+                              <div className="text-base font-medium text-gray-900">{selectedBusiness.multiple_stack_cost?.toLocaleString()}원</div>
+                            </div>
+                          )}
+                          
+                          {selectedBusiness.negotiation && (
+                            <div className="bg-white rounded-lg p-4 shadow-sm">
+                              <div className="text-sm text-gray-600 mb-1">네고</div>
+                              <div className="text-base font-medium text-gray-900">{selectedBusiness.negotiation}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Document Information Card */}
+                    {(selectedBusiness.contract_document || selectedBusiness.wireless_document || selectedBusiness.installation_support || selectedBusiness.other_equipment || selectedBusiness.inventory_check) && (
+                      <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-6 border border-gray-200">
+                        <div className="flex items-center mb-4">
+                          <div className="p-2 bg-gray-600 rounded-lg mr-3">
+                            <FileText className="w-5 h-5 text-white" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-slate-800">문서 및 기타 정보</h3>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {selectedBusiness.contract_document && (
+                            <div className="bg-white rounded-lg p-4 shadow-sm">
+                              <div className="text-sm text-gray-600 mb-1">계약서</div>
+                              <div className="text-base font-medium text-gray-900">{selectedBusiness.contract_document}</div>
+                            </div>
+                          )}
+                          
+                          {selectedBusiness.wireless_document && (
+                            <div className="bg-white rounded-lg p-4 shadow-sm">
+                              <div className="text-sm text-gray-600 mb-1">무선서류</div>
+                              <div className="text-base font-medium text-gray-900">{selectedBusiness.wireless_document}</div>
+                            </div>
+                          )}
+                          
+                          {selectedBusiness.installation_support && (
+                            <div className="bg-white rounded-lg p-4 shadow-sm">
+                              <div className="text-sm text-gray-600 mb-1">설치업무지원</div>
+                              <div className="text-base font-medium text-gray-900">{selectedBusiness.installation_support}</div>
+                            </div>
+                          )}
+                          
+                          {selectedBusiness.inventory_check && (
+                            <div className="bg-white rounded-lg p-4 shadow-sm">
+                              <div className="text-sm text-gray-600 mb-1">재고파악</div>
+                              <div className="text-base font-medium text-gray-900">{selectedBusiness.inventory_check}</div>
+                            </div>
+                          )}
+                          
+                          {selectedBusiness.other_equipment && (
+                            <div className="bg-white rounded-lg p-4 shadow-sm">
+                              <div className="text-sm text-gray-600 mb-1">기타</div>
+                              <div className="text-base font-medium text-gray-900">{selectedBusiness.other_equipment}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Status Information Card */}
                     <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-200">
@@ -969,14 +1847,27 @@ export default function BusinessManagementPage() {
                             등록일
                           </div>
                           <div className="text-base font-medium text-gray-900">
-                            {selectedBusiness.created_at ? 
+                            {selectedBusiness.등록일 ? 
+                              selectedBusiness.등록일 : (selectedBusiness.created_at ? 
                               new Date(selectedBusiness.created_at).toLocaleDateString('ko-KR', {
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric'
-                              }) : '-'}
+                              }) : '-')}
                           </div>
                         </div>
+                        
+                        {selectedBusiness.수정일 && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                              <Calendar className="w-4 h-4 mr-2 text-green-500" />
+                              수정일
+                            </div>
+                            <div className="text-base font-medium text-gray-900">
+                              {selectedBusiness.수정일}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1021,7 +1912,7 @@ export default function BusinessManagementPage() {
             }
           }}
         >
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-800">
                 {editingBusiness ? '사업장 정보 수정' : '새 사업장 추가'}
@@ -1143,7 +2034,7 @@ export default function BusinessManagementPage() {
                 {/* 담당자 정보 */}
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">담당자 정보</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">담당자명</label>
                       <input
@@ -1153,6 +2044,7 @@ export default function BusinessManagementPage() {
                         value={formData.manager_name || ''}
                         onChange={(e) => setFormData({...formData, manager_name: e.target.value})}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        placeholder="김태훈"
                       />
                     </div>
 
@@ -1165,7 +2057,7 @@ export default function BusinessManagementPage() {
                         value={formData.manager_position || ''}
                         onChange={(e) => setFormData({...formData, manager_position: e.target.value})}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                        placeholder="예: 부장, 차장, 대리"
+                        placeholder="팀장"
                       />
                     </div>
 
@@ -1176,7 +2068,7 @@ export default function BusinessManagementPage() {
                         value={formData.manager_contact || ''}
                         onChange={(e) => setFormData({...formData, manager_contact: e.target.value})}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                        placeholder="010-0000-0000"
+                        placeholder="010-1234-5678"
                       />
                     </div>
 
@@ -1228,7 +2120,7 @@ export default function BusinessManagementPage() {
                       >
                         <option value="">선택하세요</option>
                         <option value="ecosense">에코센스</option>
-                        <option value="cleanearth">클린어스</option>
+                        <option value="cleanearth">크린어스</option>
                         <option value="gaia_cns">가이아씨앤에스</option>
                         <option value="evs">이브이에스</option>
                       </select>
@@ -1303,8 +2195,8 @@ export default function BusinessManagementPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">PH센서</label>
                       <input
                         type="number"
-                        value={formData.ph_sensor || ''}
-                        onChange={(e) => setFormData({...formData, ph_sensor: parseInt(e.target.value) || null})}
+                        value={formData.ph_meter || ''}
+                        onChange={(e) => setFormData({...formData, ph_meter: parseInt(e.target.value) || null})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -1533,7 +2425,7 @@ export default function BusinessManagementPage() {
             }
           }}
         >
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-800">엑셀 파일 업로드</h2>
             </div>
@@ -1572,22 +2464,42 @@ export default function BusinessManagementPage() {
                     </div>
                   )}
 
+                  {/* 템플릿 다운로드 버튼 */}
+                  <div className="mb-4">
+                    <button
+                      onClick={downloadExcelTemplate}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors border-2 border-green-600 hover:border-green-700"
+                    >
+                      <Download className="w-5 h-5" />
+                      엑셀 템플릿 다운로드
+                    </button>
+                    <p className="text-xs text-gray-500 mt-1 text-center">
+                      표준 형식의 엑셀 파일을 다운로드하여 작성 후 업로드하세요
+                    </p>
+                  </div>
+
                   {/* 파일 형식 안내 */}
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">엑셀 파일 형식 (A~J열)</h4>
+                    <h4 className="font-medium text-gray-900 mb-3">주요 필드 안내</h4>
                     <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
-                      <div>A: 사업장명 *</div>
-                      <div>B: 지자체</div>
-                      <div>C: 주소</div>
-                      <div>D: 대표자명</div>
-                      <div>E: 사업자등록번호</div>
-                      <div>F: 담당자명</div>
-                      <div>G: 담당자 직급</div>
-                      <div>H: 담당자 연락처</div>
-                      <div>I: 사업장 연락처</div>
-                      <div>J: 이메일</div>
+                      <div>사업장명 * (필수)</div>
+                      <div>지자체, 주소, 대표자명</div>
+                      <div>사업장담당자, 직급, 연락처</div>
+                      <div>사업장연락처, 이메일</div>
+                      <div>제조사 (1. 에코센스 등)</div>
+                      <div>VPN (1. 무선, 2. 유선)</div>
+                      <div>그린링크ID, 그린링크PW</div>
+                      <div>사업장관리코드</div>
+                      <div>PH센서, 차압계, 온도계</div>
+                      <div>배출전류계(CT), 송풍전류계(CT), 펌프전류계(CT)</div>
+                      <div>게이트웨이 (통합 수량)</div>
+                      <div>VPN(유선), VPN(무선)</div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">* 필수 항목</p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      • 기존 사업장은 자동 업데이트, 새 사업장은 자동 생성<br/>
+                      • CT = 전류계 (Current Transformer)<br/>
+                      • 템플릿 다운로드로 정확한 형식 확인 가능
+                    </p>
                   </div>
 
                   {/* 진행률 표시 */}
@@ -1611,14 +2523,18 @@ export default function BusinessManagementPage() {
                 <div className="space-y-4">
                   <div className="text-center">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">업로드 완료</h3>
-                    <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-4 gap-3 mb-6">
                       <div className="bg-blue-50 rounded-lg p-4">
                         <div className="text-2xl font-bold text-blue-600">{uploadResults.total}</div>
                         <div className="text-sm text-blue-700">총 처리</div>
                       </div>
                       <div className="bg-green-50 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-green-600">{uploadResults.success}</div>
-                        <div className="text-sm text-green-700">성공</div>
+                        <div className="text-2xl font-bold text-green-600">{uploadResults.created || 0}</div>
+                        <div className="text-sm text-green-700">신규 생성</div>
+                      </div>
+                      <div className="bg-cyan-50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-cyan-600">{uploadResults.updated || 0}</div>
+                        <div className="text-sm text-cyan-700">업데이트</div>
                       </div>
                       <div className="bg-red-50 rounded-lg p-4">
                         <div className="text-2xl font-bold text-red-600">{uploadResults.failed}</div>
@@ -1633,7 +2549,7 @@ export default function BusinessManagementPage() {
                       <h4 className="font-medium text-red-900 mb-2">오류 목록</h4>
                       <div className="text-sm text-red-700 space-y-1 max-h-40 overflow-y-auto">
                         {uploadResults.errors.map((error, index) => (
-                          <div key={index}>• {error}</div>
+                          <div key={index}>• {typeof error === 'object' ? `${(error as any).business}: ${(error as any).error}` : error}</div>
                         ))}
                         {uploadResults.failed > 10 && (
                           <div className="text-red-600 font-medium">

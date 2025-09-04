@@ -24,7 +24,14 @@ export async function GET(request: NextRequest) {
 
     // 사업장별 대기필증 목록 조회
     if (businessId) {
-      const permits = await DatabaseService.getAirPermitsByBusinessId(businessId)
+      let permits
+      if (includeDetails) {
+        // 상세 정보 포함하여 조회
+        permits = await DatabaseService.getAirPermitsByBusinessIdWithDetails(businessId)
+      } else {
+        // 기본 정보만 조회
+        permits = await DatabaseService.getAirPermitsByBusinessId(businessId)
+      }
       return NextResponse.json({ 
         data: permits,
         count: permits.length 

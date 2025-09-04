@@ -4,18 +4,11 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { BusinessInfo, AirPermitInfo, AirPermitWithOutlets } from '@/lib/database-service'
 import AdminLayout from '@/components/ui/AdminLayout'
-import StatsCard from '@/components/ui/StatsCard'
-import DataTable, { commonActions } from '@/components/ui/DataTable'
 import { ConfirmModal } from '@/components/ui/Modal'
 import { 
-  Users, 
   FileText, 
-  Database, 
-  History, 
   Plus,
   Building2,
-  ClipboardList,
-  Calendar,
   Trash2,
   Edit,
   Eye,
@@ -137,6 +130,7 @@ export default function AirPermitManagementPage() {
   const [showBusinessSuggestions, setShowBusinessSuggestions] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessInfo | null>(null)
   const [airPermits, setAirPermits] = useState<AirPermitInfo[]>([])
+  const [selectedPermit, setSelectedPermit] = useState<AirPermitInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPermit, setEditingPermit] = useState<AirPermitInfo | null>(null)
@@ -144,25 +138,9 @@ export default function AirPermitManagementPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [permitToDelete, setPermitToDelete] = useState<AirPermitInfo | null>(null)
   
-  // Stats calculation for air permits
-  const stats = useMemo(() => {
-    const total = airPermits.length
-    const withOutlets = airPermits.filter(p => p.additional_info?.outlets?.length > 0).length
-    const withPollutants = airPermits.filter(p => p.additional_info?.pollutants?.length > 0).length
-    const recentlyAdded = airPermits.filter(p => {
-      const createdDate = new Date(p.created_at)
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      return createdDate >= thirtyDaysAgo
-    }).length
-    
-    return {
-      total,
-      withOutlets,
-      withPollutants,
-      recentlyAdded
-    }
-  }, [airPermits])
+  // 대기필증 검색 상태
+  const [filteredAirPermits, setFilteredAirPermits] = useState<AirPermitInfo[]>([])
+  const [permitSearchQuery, setPermitSearchQuery] = useState('')
 
   // 대기필증이 등록된 사업장만 필터링 (선택 리스트용)
   const filteredBusinessesWithPermits = useMemo(() => {
@@ -188,32 +166,164 @@ export default function AirPermitManagementPage() {
     ).slice(0, 10) // 최대 10개만 표시
   }, [businessSearchTerm, allBusinesses])
 
+  // 대기필증 필터링 함수
+  const filterAirPermits = useCallback((query: string) => {
+    if (!query.trim()) {
+      setFilteredAirPermits(airPermits)
+      return
+    }
+    
+    const searchLower = query.toLowerCase()
+    const filtered = airPermits.filter(permit => {
+      return (
+        permit.id?.toLowerCase().includes(searchLower) ||
+        permit.business_type?.toLowerCase().includes(searchLower) ||
+        permit.permit_number?.toLowerCase().includes(searchLower) ||
+        permit.facility_name?.toLowerCase().includes(searchLower) ||
+        permit.installation_location?.toLowerCase().includes(searchLower) ||
+        permit.pollutant_type?.toLowerCase().includes(searchLower)
+      )
+    })
+    
+    setFilteredAirPermits(filtered)
+  }, [airPermits])
 
-  // 대기필증이 등록된 사업장만 로드하는 함수
+  // 대기필증 검색어 하이라이팅 함수
+  const highlightPermitSearchTerm = useCallback((text: string, searchTerm: string) => {
+    if (!searchTerm || !text) return text
+    
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+    const parts = text.split(regex)
+    
+    return (
+      <>
+        {parts.map((part, index) => 
+          regex.test(part) ? (
+            <mark key={index} className="bg-yellow-200 px-1 rounded">
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        )}
+      </>
+    )
+  }, [])
+
+  // 사업장 검색어 하이라이팅 함수
+  const highlightBusinessSearchTerm = useCallback((text: string, searchTerm: string) => {
+    if (!searchTerm || !text) return text
+    
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+    const parts = text.split(regex)
+    
+    return (
+      <>
+        {parts.map((part, index) => 
+          regex.test(part) ? (
+            <mark key={index} className="bg-yellow-200 px-1 rounded">
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        )}
+      </>
+    )
+  }, [])
+
+
+  // 대기필증이 등록된 사업장만 로드하는 함수 (필터링 적용)
   const loadBusinessesWithPermits = useCallback(async () => {
+    let timeoutId: NodeJS.Timeout | undefined
+    const abortController = new AbortController()
+    
     try {
       setIsLoading(true)
+      console.log('🔄 대기필증 보유 사업장 로드 시작')
+      
+      // 10초 타임아웃 설정
+      timeoutId = setTimeout(() => {
+        console.error('⏰ 대기필증 로드 타임아웃 (10초)')
+        abortController.abort()
+        setIsLoading(false)
+      }, 10000)
       
       // 1. 모든 대기필증 조회 (사업장 정보 포함)
-      const airPermitResponse = await fetch('/api/air-permit')
+      const airPermitResponse = await fetch('/api/air-permit', {
+        signal: abortController.signal
+      })
+      
+      if (abortController.signal.aborted) {
+        console.log('❌ 요청이 중단되었습니다.')
+        return
+      }
+      
       const airPermitResult = await airPermitResponse.json()
       
       if (airPermitResponse.ok && airPermitResult.data) {
         const permits = airPermitResult.data
         console.log(`✅ 대기필증 ${permits.length}개 조회 완료`)
         
-        // 2. 대기필증에서 유니크한 사업장 ID 추출
-        const uniqueBusinessIds = [...new Set(permits.map((permit: any) => permit.business_id))].filter(Boolean)
+        if (permits.length === 0) {
+          console.log('ℹ️ 등록된 대기필증이 없습니다.')
+          setBusinessesWithPermits([])
+          // 타임아웃 클리어
+          if (timeoutId) {
+            clearTimeout(timeoutId)
+          }
+          setIsLoading(false)
+          return
+        }
+        
+        // 2. 대기필증에서 유니크한 사업장 ID 추출 - FIX: 타입 명시
+        const uniqueBusinessIds = [...new Set(permits.map((permit: any) => permit.business_id as string))].filter(Boolean) as string[]
         console.log(`✅ 대기필증 보유 사업장 ${uniqueBusinessIds.length}개 발견`)
         
-        // 3. 사업장 ID별로 사업장 정보 구성
+        if (uniqueBusinessIds.length === 0) {
+          console.warn('⚠️ 대기필증이 있지만 유효한 사업장 ID가 없습니다.')
+          setBusinessesWithPermits([])
+          // 타임아웃 클리어
+          if (timeoutId) {
+            clearTimeout(timeoutId)
+          }
+          setIsLoading(false)
+          return
+        }
+        
+        // 3. 사업장 ID별로 실제 사업장 정보 조회
         const businessesWithPermitsMap = new Map()
-        permits.forEach((permit: any) => {
-          if (permit.business?.business_name && permit.business_id) {
-            businessesWithPermitsMap.set(permit.business_id, {
-              id: permit.business_id,
-              business_name: permit.business?.business_name,
-              local_government: permit.business?.local_government || '',
+        
+        // 대기필증 데이터에서 직접 사업장 정보 추출 (더 안정적)
+        for (const businessId of uniqueBusinessIds) {
+          if (abortController.signal.aborted) {
+            console.log('❌ 사업장 정보 로드 중단됨')
+            return
+          }
+          
+          // 해당 사업장 ID의 첫 번째 대기필증에서 사업장 정보 가져오기
+          const permitForBusiness = permits.find((p: any) => p.business_id === businessId)
+          
+          if (permitForBusiness && permitForBusiness.business) {
+            // 대기필증에 연결된 사업장 정보 사용 (이미 join되어 있음)
+            businessesWithPermitsMap.set(businessId, {
+              id: businessId,
+              business_name: permitForBusiness.business.business_name || '(사업장명 없음)',
+              local_government: permitForBusiness.business.local_government || '',
+              address: '',
+              manager_name: '',
+              manager_contact: '',
+              is_active: true,
+              created_at: new Date().toISOString()
+            })
+            console.log(`✅ 사업장 "${permitForBusiness.business.business_name}" 정보 로드 완료`)
+          } else {
+            // 사업장 정보가 없는 경우 대기필증 ID로 기본 정보 생성
+            console.warn(`⚠️ 사업장 ID ${businessId}의 사업장 정보가 없습니다.`)
+            businessesWithPermitsMap.set(businessId, {
+              id: businessId,
+              business_name: `사업장-${businessId.slice(0, 8)}`,
+              local_government: '',
               address: '',
               manager_name: '',
               manager_contact: '',
@@ -221,36 +331,56 @@ export default function AirPermitManagementPage() {
               created_at: new Date().toISOString()
             })
           }
-        })
+        }
         
         const businessesWithPermits = Array.from(businessesWithPermitsMap.values())
         setBusinessesWithPermits(businessesWithPermits)
         console.log(`✅ 대기필증 보유 사업장 ${businessesWithPermits.length}개 로드 완료`)
+        
+        if (businessesWithPermits.length === 0) {
+          console.warn('⚠️ 대기필증은 있지만 사업장 정보를 찾을 수 없습니다. uniqueBusinessIds:', uniqueBusinessIds)
+        }
+      } else {
+        console.error('❌ 대기필증 데이터 로드 실패:', airPermitResult.error)
+        setBusinessesWithPermits([])
+        // 타임아웃 클리어
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+        }
       }
       
-      // 4. 전체 사업장 목록은 새 대기필증 추가용으로만 로드
-      const businessResponse = await fetch('/api/business-list')
-      const businessResult = await businessResponse.json()
-      
-      if (businessResponse.ok && businessResult.data?.businesses) {
-        const allBusinesses = businessResult.data.businesses.map((name: string, index: number) => ({
-          id: `business-${index}`,
-          business_name: name,
-          local_government: '',
-          address: '',
-          manager_name: '',
-          manager_contact: '',
-          is_active: true,
-          created_at: new Date().toISOString()
-        }))
+      // 4. 전체 사업장 목록은 새 대기필증 추가용으로만 로드 (별도 요청)
+      try {
+        const businessResponse = await fetch('/api/business-list')
+        const businessResult = await businessResponse.json()
         
-        setAllBusinesses(allBusinesses)
-        console.log(`✅ 전체 사업장 ${allBusinesses.length}개 로드 완료 (새 대기필증 추가용)`)
+        if (businessResponse.ok && businessResult.data?.businesses) {
+          const allBusinesses = businessResult.data.businesses.map((name: string, index: number) => ({
+            id: `business-${index}`,
+            business_name: name,
+            local_government: '',
+            address: '',
+            manager_name: '',
+            manager_contact: '',
+            is_active: true,
+            created_at: new Date().toISOString()
+          }))
+          
+          setAllBusinesses(allBusinesses)
+          console.log(`✅ 전체 사업장 ${allBusinesses.length}개 로드 완료 (새 대기필증 추가용)`)
+        }
+      } catch (businessError) {
+        console.error('⚠️ 전체 사업장 목록 로드 실패 (새 대기필증 추가에만 영향):', businessError)
+        // 이 에러는 기존 대기필증 목록 표시에는 영향을 주지 않음
       }
     } catch (error) {
       console.error('Error loading businesses with permits:', error)
       alert('대기필증 사업장 목록을 불러오는데 실패했습니다')
     } finally {
+      // 타임아웃 클리어
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
       setIsLoading(false)
     }
   }, [])
@@ -259,7 +389,7 @@ export default function AirPermitManagementPage() {
   const loadAirPermits = async (businessId: string) => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/air-permit?businessId=${businessId}`)
+      const response = await fetch(`/api/air-permit?businessId=${businessId}&details=true`)
       const result = await response.json()
       
       if (response.ok) {
@@ -286,6 +416,13 @@ export default function AirPermitManagementPage() {
         })
         
         setAirPermits(normalizedPermits)
+        
+        // 🎯 첫 번째 대기필증 자동 선택하여 상세페이지 바로 표시
+        if (normalizedPermits.length > 0) {
+          console.log('✅ 첫 번째 대기필증 자동 선택:', normalizedPermits[0])
+          console.log('🔍 첫 번째 대기필증의 outlets 정보:', normalizedPermits[0].outlets)
+          setSelectedPermit(normalizedPermits[0])
+        }
       } else {
         alert('대기필증 목록을 불러오는데 실패했습니다: ' + result.error)
       }
@@ -297,15 +434,34 @@ export default function AirPermitManagementPage() {
     }
   }
 
+  // 대기필증 검색어 변경 시 필터링
+  useEffect(() => {
+    filterAirPermits(permitSearchQuery)
+  }, [permitSearchQuery, filterAirPermits])
+
+  // 대기필증 목록 변경 시 필터링 초기화
+  useEffect(() => {
+    setFilteredAirPermits(airPermits)
+    if (permitSearchQuery) {
+      filterAirPermits(permitSearchQuery)
+    }
+  }, [airPermits, filterAirPermits, permitSearchQuery])
+
   // 페이지 로드 시 대기필증이 등록된 사업장만 로드
   useEffect(() => {
     loadBusinessesWithPermits()
-  }, [loadBusinessesWithPermits])
+  }, [])
 
   // 사업장 선택 시 대기필증 목록 로드
   const handleBusinessSelect = (business: BusinessInfo) => {
     setSelectedBusiness(business)
+    setSelectedPermit(null) // 사업장 변경시 선택된 필증 초기화
     loadAirPermits(business.id)
+  }
+
+  // 필증 선택 핸들러
+  const handlePermitSelect = (permit: AirPermitInfo) => {
+    setSelectedPermit(permit)
   }
 
   // 새 대기필증 추가 모달 열기
@@ -504,823 +660,413 @@ export default function AirPermitManagementPage() {
     }
   }
 
-
-  // Air permits with ID for DataTable
-  const airPermitsWithId = useMemo(() => 
-    airPermits.map(permit => ({
-      ...permit,
-      id: permit.id || `permit-${permit.business_name}`
-    }))
-  , [airPermits])
-
-  // Table columns for air permits
-  const airPermitColumns = [
-    {
-      key: 'business_type',
-      title: '업종',
-      render: (item: AirPermitInfo) => (
-        <span className="text-sm">{item.business_type || '-'}</span>
-      )
-    },
-    {
-      key: 'category',
-      title: '종별',
-      render: (item: AirPermitInfo) => (
-        <span className="text-sm">{item.category || item.additional_info?.category || '-'}</span>
-      )
-    },
-    {
-      key: 'pollutants',
-      title: '오염물질',
-      render: (item: AirPermitInfo) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-medium">
-            {item.additional_info?.pollutants?.length > 0 
-              ? `${item.additional_info.pollutants.length}개`
-              : '0개'
-            }
-          </span>
-          {item.additional_info?.pollutants?.length > 0 && (
-            <span className="text-xs text-gray-500">
-              {item.additional_info.pollutants.slice(0, 2).map((p: any) => p.type).join(', ')}
-              {item.additional_info.pollutants.length > 2 && '...'}
-            </span>
-          )}
-        </div>
-      )
-    },
-    {
-      key: 'first_report_date',
-      title: '최초신고일',
-      render: (item: AirPermitInfo) => {
-        const date = item.first_report_date || item.additional_info?.first_report_date
-        return (
-          <span className="text-sm">
-            {date ? new Date(date).toLocaleDateString('ko-KR') : '-'}
-          </span>
-        )
-      }
-    },
-    {
-      key: 'operation_start_date',
-      title: '가동개시일',
-      render: (item: AirPermitInfo) => {
-        const date = item.operation_start_date || item.additional_info?.operation_start_date
-        return (
-          <span className="text-sm">
-            {date ? new Date(date).toLocaleDateString('ko-KR') : '-'}
-          </span>
-        )
-      }
-    }
-  ]
-
-  // Table actions for air permits
-  const airPermitActions = [
-    {
-      label: '필증보기',
-      icon: Eye,
-      onClick: (item: AirPermitInfo) => {
-        window.location.href = `/admin/air-permit-detail?permitId=${item.id}`
-      },
-      variant: 'secondary' as const,
-      show: () => true
-    },
-    {
-      ...commonActions.edit((item: AirPermitInfo) => openEditModal(item)),
-      show: () => true
-    },
-    {
-      label: '삭제',
-      icon: Trash2,
-      onClick: (item: AirPermitInfo) => confirmDelete(item),
-      variant: 'danger' as const,
-      show: () => true
-    }
-  ]
-
   return (
-    <AdminLayout
+    <AdminLayout 
       title="대기필증 관리"
       description="대기배출시설 허가증 관리 시스템"
-      actions={(
-        <button
-          onClick={openAddModal}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          새 대기필증 추가
-        </button>
-      )}
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Business Selection Panel */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-blue-600" />
-              사업장 선택
-              <span className="ml-auto text-sm text-gray-500">
-                {filteredBusinessesWithPermits.length}개 사업장
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-blue-600" />
+                대기필증 보유 사업장
+              </div>
+              <span className="text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                {searchTerm ? `${filteredBusinessesWithPermits.length}개 검색 결과 (전체 ${businessesWithPermits.length}개)` : `총 ${filteredBusinessesWithPermits.length}개`}
               </span>
             </h2>
             
-            {/* 검색 입력 필드 */}
-            <div className="relative mb-4">
+            {/* 사업장 검색 입력 */}
+            <div className="mb-4 relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="w-4 h-4 text-gray-400" />
+                <Search className="h-4 w-4 text-gray-400" />
               </div>
               <input
                 type="text"
-                lang="ko"
-                inputMode="text"
+                placeholder="사업장명, 지역, 담당자명으로 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="사업장명, 지자체, 담당자 검색..."
-                className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-all duration-200"
+                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
                 </button>
               )}
             </div>
             
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {filteredBusinessesWithPermits.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Search className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <div className="text-sm">
-                    {searchTerm ? `"${searchTerm}"에 대한 검색 결과가 없습니다.` : '대기필증이 등록된 사업장이 없습니다.'}
-                  </div>
-                </div>
-              ) : (
-                filteredBusinessesWithPermits.map((business) => (
-                <button
+            <div className="space-y-4">
+              {filteredBusinessesWithPermits.map((business) => (
+                <div 
                   key={business.id}
-                  onClick={() => handleBusinessSelect(business)}
-                  className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
-                    selectedBusiness?.id === business.id
-                      ? 'bg-blue-50 text-blue-800 border border-blue-200 shadow-sm'
-                      : 'hover:bg-gray-50 border border-transparent hover:border-gray-200'
+                  className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                    selectedBusiness?.id === business.id 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
                   }`}
+                  onClick={() => handleBusinessSelect(business)}
                 >
-                  <div className="font-medium">{business.business_name}</div>
-                  <div className="text-sm text-gray-500">{business.local_government || '-'}</div>
-                </button>
-              )))}
+                  <h3 className="font-medium text-gray-900">
+                    {searchTerm ? highlightBusinessSearchTerm(business.business_name, searchTerm) : business.business_name}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {business.business_registration_number || '등록번호 미등록'}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Air Permits Panel */}
+        {/* Air Permit Detail Panel */}
         <div className="lg:col-span-2">
           {!selectedBusiness ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-              <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <div className="text-gray-500 mb-2 font-medium">사업장을 선택하세요</div>
-              <div className="text-sm text-gray-400">
-                왼쪽에서 사업장을 선택하면 해당 사업장의 대기필증 목록을 확인할 수 있습니다
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
+              <div className="text-center text-gray-500">
+                <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-medium mb-2">사업장을 선택해주세요</h3>
+                <p>좌측에서 사업장을 선택하면 해당 대기필증 정보가 표시됩니다.</p>
+              </div>
+            </div>
+          ) : !selectedPermit ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  {selectedBusiness.business_name} - 대기필증 목록
+                </span>
+                <span className="text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                  {permitSearchQuery ? `${filteredAirPermits.length}개 검색 결과 (전체 ${airPermits.length}개)` : `${airPermits.length}개 대기필증`}
+                </span>
+              </h2>
+              
+              {/* 대기필증 검색 입력 */}
+              <div className="mb-4 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="대기필증 번호, 업종, 시설명, 설치장소, 오염물질로 검색..."
+                  value={permitSearchQuery}
+                  onChange={(e) => setPermitSearchQuery(e.target.value)}
+                  className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {permitSearchQuery && (
+                  <button
+                    onClick={() => setPermitSearchQuery('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                  </button>
+                )}
+              </div>
+              
+              <div className="space-y-3">
+                {filteredAirPermits.map((permit) => (
+                  <div 
+                    key={permit.id}
+                    className="p-4 rounded-lg border border-gray-200 hover:border-gray-300 cursor-pointer transition-colors"
+                    onClick={() => setSelectedPermit(permit)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium text-gray-900">
+                          {permitSearchQuery ? (
+                            <>
+                              대기필증 #{highlightPermitSearchTerm(permit.id || '', permitSearchQuery)}
+                            </>
+                          ) : (
+                            `대기필증 #${permit.id}`
+                          )}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {permitSearchQuery ? 
+                            highlightPermitSearchTerm(permit.business_type || '업종 미지정', permitSearchQuery) : 
+                            (permit.business_type || '업종 미지정')
+                          }
+                        </p>
+                      </div>
+                      <Eye className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
-              {/* Stats Cards for selected business */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatsCard
-                  title="총 대기필증"
-                  value={stats.total}
-                  icon={ClipboardList}
-                  color="blue"
-                  description="등록된 대기필증 수"
-                />
-                
-                <StatsCard
-                  title="배출구 설정"
-                  value={stats.withOutlets}
-                  icon={Factory}
-                  color="green"
-                  trend={{
-                    value: stats.total > 0 ? Math.round((stats.withOutlets / stats.total) * 100) : 0,
-                    direction: 'up',
-                    label: '설정 완료율'
-                  }}
-                />
-                
-                <StatsCard
-                  title="오염물질 등록"
-                  value={stats.withPollutants}
-                  icon={FileText}
-                  color="purple"
-                  trend={{
-                    value: stats.total > 0 ? Math.round((stats.withPollutants / stats.total) * 100) : 0,
-                    direction: 'up',
-                    label: '등록 완료율'
-                  }}
-                />
-                
-                <StatsCard
-                  title="최근 추가"
-                  value={stats.recentlyAdded}
-                  icon={Calendar}
-                  color="yellow"
-                  description="30일 이내 추가된 대기필증"
-                />
+            /* Permit Detail View */
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <FileText className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">
+                        대기필증 상세정보
+                      </h2>
+                      <p className="text-sm text-gray-600">
+                        {selectedBusiness.business_name}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => window.open(`/admin/air-permit-detail?permitId=${selectedPermit.id}`, '_blank')}
+                      className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      <Edit className="w-4 h-4" />
+                      상세관리
+                    </button>
+                    <button
+                      onClick={() => setSelectedPermit(null)}
+                      className="p-2 hover:bg-white rounded-lg transition-colors"
+                    >
+                      <X className="w-5 h-5 text-gray-400" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {/* Air Permits Data Table */}
-              <DataTable
-                data={airPermitsWithId}
-                columns={airPermitColumns}
-                actions={airPermitActions}
-                loading={isLoading}
-                emptyMessage="등록된 대기필증이 없습니다. 새 대기필증을 추가해보세요."
-                pageSize={10}
-              />
+              <div className="p-6 space-y-6">
+                {/* Basic Information */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Factory className="w-5 h-5 text-blue-600" />
+                    기본 정보
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 rounded-lg p-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">업종</label>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {selectedPermit.business_type || '미지정'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">최초신고일</label>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {selectedPermit.first_report_date || '미지정'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">가동개시일</label>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {selectedPermit.operation_start_date || '미지정'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Outlets and Facilities Information */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Factory className="w-5 h-5 text-green-600" />
+                    배출구별 시설 현황
+                  </h3>
+                  
+                  {(() => {
+                    console.log('🔍 현재 selectedPermit:', selectedPermit)
+                    console.log('🔍 selectedPermit.outlets:', selectedPermit.outlets)
+                    return selectedPermit.outlets && selectedPermit.outlets.length > 0
+                  })() ? (
+                    <div className="space-y-4">
+                      {selectedPermit.outlets.map((outlet: any, index: number) => {
+                        // 게이트웨이 색상 결정
+                        const gateway = outlet.additional_info?.gateway || ''
+                        const gatewayColors = {
+                          'gateway1': 'bg-blue-100 border-blue-300 text-blue-800',
+                          'gateway2': 'bg-green-100 border-green-300 text-green-800',
+                          'gateway3': 'bg-yellow-100 border-yellow-300 text-yellow-800',
+                          'gateway4': 'bg-red-100 border-red-300 text-red-800',
+                          'gateway5': 'bg-purple-100 border-purple-300 text-purple-800',
+                          'gateway6': 'bg-pink-100 border-pink-300 text-pink-800',
+                          '': 'bg-gray-100 border-gray-300 text-gray-800'
+                        }
+                        const colorClass = gatewayColors[gateway as keyof typeof gatewayColors] || gatewayColors['']
+                        
+                        return (
+                          <div key={index} className={`border-2 rounded-lg p-4 ${colorClass}`}>
+                            {/* 배출구 헤더 */}
+                            <div className="flex justify-between items-center mb-4">
+                              <div className="flex items-center gap-3">
+                                <h4 className="text-lg font-semibold">
+                                  배출구 #{outlet.outlet_number || index + 1}
+                                </h4>
+                                {outlet.outlet_name && (
+                                  <span className="text-sm text-gray-600">({outlet.outlet_name})</span>
+                                )}
+                                {gateway && (
+                                  <span className="text-xs px-2 py-1 rounded-full bg-white bg-opacity-70">
+                                    Gateway {gateway.replace('gateway', '')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 시설 정보 테이블 */}
+                            <div className="bg-white rounded-lg overflow-hidden shadow-sm">
+                              <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-medium text-gray-700 border-r">구분</th>
+                                    <th className="px-3 py-2 text-left font-medium text-red-700 border-r">배출시설</th>
+                                    <th className="px-3 py-2 text-center font-medium text-red-700 border-r">용량</th>
+                                    <th className="px-3 py-2 text-center font-medium text-red-700 border-r">수량</th>
+                                    <th className="px-3 py-2 text-left font-medium text-blue-700 border-r">방지시설</th>
+                                    <th className="px-3 py-2 text-center font-medium text-blue-700 border-r">용량</th>
+                                    <th className="px-3 py-2 text-center font-medium text-blue-700">수량</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(() => {
+                                    const maxRows = Math.max(
+                                      outlet.discharge_facilities?.length || 0,
+                                      outlet.prevention_facilities?.length || 0,
+                                      1
+                                    )
+                                    
+                                    return Array.from({ length: maxRows }, (_, rowIndex) => {
+                                      const dischargeFacility = outlet.discharge_facilities?.[rowIndex]
+                                      const preventionFacility = outlet.prevention_facilities?.[rowIndex]
+                                      
+                                      return (
+                                        <tr key={rowIndex} className="border-t hover:bg-gray-50">
+                                          <td className="px-3 py-2 text-center text-gray-500 border-r font-medium">
+                                            {rowIndex + 1}
+                                          </td>
+                                          
+                                          {/* 배출시설 정보 */}
+                                          <td className="px-3 py-2 border-r">
+                                            <div className="font-medium text-gray-900">
+                                              {dischargeFacility?.facility_name || '-'}
+                                            </div>
+                                            {dischargeFacility?.additional_info?.facility_number && (
+                                              <div className="text-xs text-gray-500 mt-1">
+                                                #{dischargeFacility.additional_info.facility_number}
+                                              </div>
+                                            )}
+                                          </td>
+                                          <td className="px-3 py-2 text-center border-r text-gray-700">
+                                            {dischargeFacility?.capacity || '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-center border-r font-medium">
+                                            {dischargeFacility?.quantity || '-'}
+                                          </td>
+                                          
+                                          {/* 방지시설 정보 */}
+                                          <td className="px-3 py-2 border-r">
+                                            <div className="font-medium text-gray-900">
+                                              {preventionFacility?.facility_name || '-'}
+                                            </div>
+                                            {preventionFacility?.additional_info?.facility_number && (
+                                              <div className="text-xs text-gray-500 mt-1">
+                                                #{preventionFacility.additional_info.facility_number}
+                                              </div>
+                                            )}
+                                          </td>
+                                          <td className="px-3 py-2 text-center border-r text-gray-700">
+                                            {preventionFacility?.capacity || '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-center font-medium">
+                                            {preventionFacility?.quantity || '-'}
+                                          </td>
+                                        </tr>
+                                      )
+                                    })
+                                  })()}
+                                </tbody>
+                              </table>
+                            </div>
+                            
+                            {/* 추가 정보 (시설코드가 있는 경우) */}
+                            {(outlet.discharge_facilities?.some((f: any) => f.additional_info?.green_link_code) ||
+                              outlet.prevention_facilities?.some((f: any) => f.additional_info?.green_link_code)) && (
+                              <div className="mt-3 p-3 bg-white bg-opacity-70 rounded-lg">
+                                <h5 className="text-sm font-medium text-gray-700 mb-2">시설코드 정보</h5>
+                                <div className="grid grid-cols-2 gap-4 text-xs">
+                                  <div>
+                                    <span className="font-medium text-red-700">배출시설:</span>
+                                    {outlet.discharge_facilities?.map((facility: any, fIndex: number) => (
+                                      facility.additional_info?.green_link_code && (
+                                        <div key={fIndex} className="ml-2">
+                                          {facility.facility_name}: {facility.additional_info.green_link_code}
+                                        </div>
+                                      )
+                                    ))}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-blue-700">방지시설:</span>
+                                    {outlet.prevention_facilities?.map((facility: any, fIndex: number) => (
+                                      facility.additional_info?.green_link_code && (
+                                        <div key={fIndex} className="ml-2">
+                                          {facility.facility_name}: {facility.additional_info.green_link_code}
+                                        </div>
+                                      )
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <Factory className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p className="text-gray-500">등록된 배출구 정보가 없습니다</p>
+                      <p className="text-sm text-gray-400 mt-1">상세관리 버튼을 클릭하여 배출구 정보를 추가해보세요</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Additional Information */}
+                {selectedPermit.additional_info && Object.keys(selectedPermit.additional_info).length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-purple-600" />
+                      추가 정보
+                    </h3>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      {selectedPermit.additional_info.pollutants && selectedPermit.additional_info.pollutants.length > 0 && (
+                        <div className="mb-3">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">배출 오염물질</label>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedPermit.additional_info.pollutants.map((pollutant: string, index: number) => (
+                              <span key={index} className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
+                                {pollutant}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        {Object.entries(selectedPermit.additional_info).map(([key, value]) => {
+                          if (key === 'pollutants' || key === 'outlets') return null
+                          return (
+                            <div key={key}>
+                              <label className="block text-xs font-medium text-gray-600 uppercase tracking-wide">{key}</label>
+                              <p className="mt-1 text-gray-900">{JSON.stringify(value)}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* 대기필증 추가/편집 모달 */}
-      {isModalOpen && (
-        <div 
-          className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsModalOpen(false)
-            }
-          }}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {editingPermit ? '대기필증 정보 편집' : '새 대기필증 추가'}
-              </h2>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="p-6" onClick={() => setShowBusinessSuggestions(false)}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    업종
-                  </label>
-                  <input
-                    type="text"
-                    lang="ko"
-                    inputMode="text"
-                    value={formData.business_type || ''}
-                    onChange={(e) => setFormData({...formData, business_type: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    종별
-                  </label>
-                  <input
-                    type="text"
-                    lang="ko"
-                    inputMode="text"
-                    value={formData.category || ''}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    사업장명 *
-                  </label>
-                  {editingPermit ? (
-                    // 편집 모드: 사업장명은 읽기 전용으로 표시
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                      {formData.business_name || editingPermit?.additional_info?.business_name || '-'}
-                    </div>
-                  ) : (
-                    // 새 추가 모드: 검색 입력 필드
-                    <input
-                      type="text"
-                      lang="ko"
-                      inputMode="text"
-                      value={businessSearchTerm}
-                      onChange={(e) => {
-                        setBusinessSearchTerm(e.target.value)
-                        setShowBusinessSuggestions(true)
-                      }}
-                      onFocus={() => setShowBusinessSuggestions(true)}
-                      placeholder="사업장명을 검색하세요..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  )}
-                  
-                  {/* 사업장 검색 결과 */}
-                  {showBusinessSuggestions && filteredAllBusinesses.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                      {filteredAllBusinesses.map((business) => (
-                        <button
-                          key={business.id}
-                          type="button"
-                          onClick={() => {
-                            setFormData({
-                              ...formData,
-                              business_id: business.id,
-                              business_name: business.business_name
-                            })
-                            setBusinessSearchTerm(business.business_name)
-                            setShowBusinessSuggestions(false)
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                        >
-                          <div className="font-medium">{business.business_name}</div>
-                          <div className="text-sm text-gray-500">{business.local_government}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* 검색 결과가 없을 때 */}
-                  {showBusinessSuggestions && businessSearchTerm && filteredAllBusinesses.length === 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3 text-sm text-gray-500">
-                      검색 결과가 없습니다.
-                    </div>
-                  )}
-                </div>
-
-                {/* 오염물질 종류와 발생량 */}
-                <div className="md:col-span-2">
-                  <h4 className="text-lg font-medium text-gray-800 mb-4">오염물질 정보</h4>
-                  <div className="space-y-4">
-                    {(formData.pollutants || []).map((pollutant: any, index: number) => (
-                      <div key={index} className="p-4 border border-gray-200 rounded-lg">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              오염물질종류
-                            </label>
-                            <input
-                              type="text"
-                              lang="ko"
-                              inputMode="text"
-                              value={pollutant.type || ''}
-                              onChange={(e) => {
-                                const newPollutants = [...(formData.pollutants || [])]
-                                newPollutants[index] = { ...pollutant, type: e.target.value }
-                                setFormData({...formData, pollutants: newPollutants})
-                              }}
-                              placeholder="예: 먼지, 황산화물, 질소산화물"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              오염물질발생량 (톤/년)
-                            </label>
-                            <input
-                              type="number"
-                              step="any"
-                              min="0"
-                              value={pollutant.amount !== null && pollutant.amount !== undefined ? pollutant.amount : ''}
-                              onChange={(e) => {
-                                const newPollutants = [...(formData.pollutants || [])]
-                                const value = e.target.value
-                                newPollutants[index] = { 
-                                  ...pollutant, 
-                                  amount: value === '' ? null : parseFloat(value) 
-                                }
-                                setFormData({...formData, pollutants: newPollutants})
-                              }}
-                              placeholder="0.012"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div className="flex items-end">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newPollutants = (formData.pollutants || []).filter((_: any, i: number) => i !== index)
-                                setFormData({...formData, pollutants: newPollutants})
-                              }}
-                              className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                            >
-                              삭제
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newPollutants = [...(formData.pollutants || []), { type: '', amount: null }]
-                        setFormData({...formData, pollutants: newPollutants})
-                      }}
-                      className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-800"
-                    >
-                      + 오염물질 추가
-                    </button>
-                  </div>
-                </div>
-
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    최초신고일
-                  </label>
-                  <DateInput
-                    value={formData.first_report_date || ''}
-                    onChange={(value) => setFormData({...formData, first_report_date: value})}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    가동개시일
-                  </label>
-                  <DateInput
-                    value={formData.operation_start_date || ''}
-                    onChange={(value) => setFormData({...formData, operation_start_date: value})}
-                  />
-                </div>
-              </div>
-
-              {/* 배출구별 시설 관리 */}
-              <div className="mt-8">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">배출구별 시설 관리</h3>
-                <div className="space-y-6">
-                  {(formData.outlets || []).map((outlet: any, outletIndex: number) => (
-                    <div key={outletIndex} className="p-6 border-2 border-gray-200 rounded-lg bg-gray-50">
-                      {/* 배출구 정보 */}
-                      <div className="mb-6">
-                        <div className="flex justify-between items-center mb-4">
-                          <h4 className="text-md font-semibold text-gray-800">
-                            배출구 #{outletIndex + 1}
-                          </h4>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newOutlets = (formData.outlets || []).filter((_: any, i: number) => i !== outletIndex)
-                              setFormData({...formData, outlets: newOutlets})
-                            }}
-                            className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-                          >
-                            배출구 삭제
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              배출구번호
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={outlet.outlet_number || outletIndex + 1}
-                              onChange={(e) => {
-                                const newOutlets = [...(formData.outlets || [])]
-                                newOutlets[outletIndex] = { ...outlet, outlet_number: parseInt(e.target.value) || 1 }
-                                setFormData({...formData, outlets: newOutlets})
-                              }}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              배출구명
-                            </label>
-                            <input
-                              type="text"
-                              lang="ko"
-                              inputMode="text"
-                              value={outlet.outlet_name || ''}
-                              onChange={(e) => {
-                                const newOutlets = [...(formData.outlets || [])]
-                                newOutlets[outletIndex] = { ...outlet, outlet_name: e.target.value }
-                                setFormData({...formData, outlets: newOutlets})
-                              }}
-                              placeholder="예: 보일러 배출구"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 배출시설 */}
-                      <div className="mb-6">
-                        <h5 className="text-sm font-medium text-gray-800 mb-3">배출시설</h5>
-                        <div className="space-y-3">
-                          {(outlet.discharge_facilities || []).map((facility: any, facilityIndex: number) => (
-                            <div key={facilityIndex} className="p-3 bg-white border border-gray-200 rounded-lg">
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                <div>
-                                  <input
-                                    type="text"
-                                    lang="ko"
-                                    inputMode="text"
-                                    value={facility.name || ''}
-                                    onChange={(e) => {
-                                      const newOutlets = [...(formData.outlets || [])]
-                                      const newFacilities = [...(outlet.discharge_facilities || [])]
-                                      newFacilities[facilityIndex] = { ...facility, name: e.target.value }
-                                      newOutlets[outletIndex] = { ...outlet, discharge_facilities: newFacilities }
-                                      setFormData({...formData, outlets: newOutlets})
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Tab' && !e.shiftKey) {
-                                        e.preventDefault()
-                                        const nextInput = e.currentTarget.parentElement?.nextElementSibling?.querySelector('input')
-                                        nextInput?.focus()
-                                      }
-                                    }}
-                                    placeholder="배출시설명"
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div>
-                                  <input
-                                    type="text"
-                                    lang="ko"
-                                    inputMode="text"
-                                    value={facility.capacity || ''}
-                                    onChange={(e) => {
-                                      const newOutlets = [...(formData.outlets || [])]
-                                      const newFacilities = [...(outlet.discharge_facilities || [])]
-                                      newFacilities[facilityIndex] = { ...facility, capacity: e.target.value }
-                                      newOutlets[outletIndex] = { ...outlet, discharge_facilities: newFacilities }
-                                      setFormData({...formData, outlets: newOutlets})
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Tab' && !e.shiftKey) {
-                                        e.preventDefault()
-                                        const nextInput = e.currentTarget.parentElement?.nextElementSibling?.querySelector('input')
-                                        nextInput?.focus()
-                                      }
-                                    }}
-                                    placeholder="용량"
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    value={facility.quantity || 1}
-                                    onChange={(e) => {
-                                      const newOutlets = [...(formData.outlets || [])]
-                                      const newFacilities = [...(outlet.discharge_facilities || [])]
-                                      newFacilities[facilityIndex] = { ...facility, quantity: parseInt(e.target.value) || 1 }
-                                      newOutlets[outletIndex] = { ...outlet, discharge_facilities: newFacilities }
-                                      setFormData({...formData, outlets: newOutlets})
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Tab' && !e.shiftKey) {
-                                        e.preventDefault()
-                                        const copyButton = e.currentTarget.parentElement?.nextElementSibling?.querySelector('button')
-                                        copyButton?.focus()
-                                      }
-                                    }}
-                                    placeholder="수량"
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div className="flex gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newOutlets = [...(formData.outlets || [])]
-                                      const newFacilities = [...(outlet.discharge_facilities || [])]
-                                      // 현재 시설을 복사하여 추가
-                                      const facilityToCopy = { ...facility }
-                                      newFacilities.splice(facilityIndex + 1, 0, facilityToCopy)
-                                      newOutlets[outletIndex] = { ...outlet, discharge_facilities: newFacilities }
-                                      setFormData({...formData, outlets: newOutlets})
-                                    }}
-                                    className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-                                    title="복제"
-                                  >
-                                    복제
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newOutlets = [...(formData.outlets || [])]
-                                      const newFacilities = (outlet.discharge_facilities || []).filter((_: any, i: number) => i !== facilityIndex)
-                                      newOutlets[outletIndex] = { ...outlet, discharge_facilities: newFacilities }
-                                      setFormData({...formData, outlets: newOutlets})
-                                    }}
-                                    className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                    title="삭제"
-                                  >
-                                    삭제
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newOutlets = [...(formData.outlets || [])]
-                              const newFacilities = [...(outlet.discharge_facilities || []), { name: '', capacity: '', quantity: 1 }]
-                              newOutlets[outletIndex] = { ...outlet, discharge_facilities: newFacilities }
-                              setFormData({...formData, outlets: newOutlets})
-                            }}
-                            className="w-full px-3 py-2 border border-dashed border-gray-300 rounded text-gray-600 hover:border-gray-400 text-sm"
-                          >
-                            + 배출시설 추가
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 방지시설 */}
-                      <div>
-                        <h5 className="text-sm font-medium text-gray-800 mb-3">방지시설</h5>
-                        <div className="space-y-3">
-                          {(outlet.prevention_facilities || []).map((facility: any, facilityIndex: number) => (
-                            <div key={facilityIndex} className="p-3 bg-white border border-gray-200 rounded-lg">
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                <div>
-                                  <input
-                                    type="text"
-                                    lang="ko"
-                                    inputMode="text"
-                                    value={facility.name || ''}
-                                    onChange={(e) => {
-                                      const newOutlets = [...(formData.outlets || [])]
-                                      const newFacilities = [...(outlet.prevention_facilities || [])]
-                                      newFacilities[facilityIndex] = { ...facility, name: e.target.value }
-                                      newOutlets[outletIndex] = { ...outlet, prevention_facilities: newFacilities }
-                                      setFormData({...formData, outlets: newOutlets})
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Tab' && !e.shiftKey) {
-                                        e.preventDefault()
-                                        const nextInput = e.currentTarget.parentElement?.nextElementSibling?.querySelector('input')
-                                        nextInput?.focus()
-                                      }
-                                    }}
-                                    placeholder="방지시설명"
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div>
-                                  <input
-                                    type="text"
-                                    lang="ko"
-                                    inputMode="text"
-                                    value={facility.capacity || ''}
-                                    onChange={(e) => {
-                                      const newOutlets = [...(formData.outlets || [])]
-                                      const newFacilities = [...(outlet.prevention_facilities || [])]
-                                      newFacilities[facilityIndex] = { ...facility, capacity: e.target.value }
-                                      newOutlets[outletIndex] = { ...outlet, prevention_facilities: newFacilities }
-                                      setFormData({...formData, outlets: newOutlets})
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Tab' && !e.shiftKey) {
-                                        e.preventDefault()
-                                        const nextInput = e.currentTarget.parentElement?.nextElementSibling?.querySelector('input')
-                                        nextInput?.focus()
-                                      }
-                                    }}
-                                    placeholder="용량"
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    value={facility.quantity || 1}
-                                    onChange={(e) => {
-                                      const newOutlets = [...(formData.outlets || [])]
-                                      const newFacilities = [...(outlet.prevention_facilities || [])]
-                                      newFacilities[facilityIndex] = { ...facility, quantity: parseInt(e.target.value) || 1 }
-                                      newOutlets[outletIndex] = { ...outlet, prevention_facilities: newFacilities }
-                                      setFormData({...formData, outlets: newOutlets})
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Tab' && !e.shiftKey) {
-                                        e.preventDefault()
-                                        const copyButton = e.currentTarget.parentElement?.nextElementSibling?.querySelector('button')
-                                        copyButton?.focus()
-                                      }
-                                    }}
-                                    placeholder="수량"
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div className="flex gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newOutlets = [...(formData.outlets || [])]
-                                      const newFacilities = [...(outlet.prevention_facilities || [])]
-                                      // 현재 시설을 복사하여 추가
-                                      const facilityToCopy = { ...facility }
-                                      newFacilities.splice(facilityIndex + 1, 0, facilityToCopy)
-                                      newOutlets[outletIndex] = { ...outlet, prevention_facilities: newFacilities }
-                                      setFormData({...formData, outlets: newOutlets})
-                                    }}
-                                    className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-                                    title="복제"
-                                  >
-                                    복제
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newOutlets = [...(formData.outlets || [])]
-                                      const newFacilities = (outlet.prevention_facilities || []).filter((_: any, i: number) => i !== facilityIndex)
-                                      newOutlets[outletIndex] = { ...outlet, prevention_facilities: newFacilities }
-                                      setFormData({...formData, outlets: newOutlets})
-                                    }}
-                                    className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                    title="삭제"
-                                  >
-                                    삭제
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newOutlets = [...(formData.outlets || [])]
-                              const newFacilities = [...(outlet.prevention_facilities || []), { name: '', capacity: '', quantity: 1 }]
-                              newOutlets[outletIndex] = { ...outlet, prevention_facilities: newFacilities }
-                              setFormData({...formData, outlets: newOutlets})
-                            }}
-                            className="w-full px-3 py-2 border border-dashed border-gray-300 rounded text-gray-600 hover:border-gray-400 text-sm"
-                          >
-                            + 방지시설 추가
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newOutlets = [...(formData.outlets || []), { 
-                        outlet_number: (formData.outlets || []).length + 1,
-                        outlet_name: '',
-                        discharge_facilities: [],
-                        prevention_facilities: []
-                      }]
-                      setFormData({...formData, outlets: newOutlets})
-                    }}
-                    className="w-full px-4 py-3 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 hover:border-blue-400 hover:text-blue-800 bg-blue-50 hover:bg-blue-100"
-                  >
-                    + 새 배출구 추가
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-4 mt-8">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  {editingPermit ? '수정' : '추가'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={deleteConfirmOpen}
-        onClose={() => {
-          setDeleteConfirmOpen(false)
-          setPermitToDelete(null)
-        }}
-        onConfirm={handleDelete}
-        title="대기필증 삭제 확인"
-        message={`대기필증을 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
-        confirmText="삭제"
-        cancelText="취소"
-        variant="danger"
-      />
     </AdminLayout>
-  )
+  );
 }

@@ -57,7 +57,35 @@ export interface BusinessInfo {
   representative_name: string | null
   business_registration_number: string | null
   
-  // 새로운 필드들
+  // 프로젝트 관리 필드들
+  row_number: number | null
+  department: string | null
+  progress_status: string | null
+  contract_document: string | null
+  order_request_date: string | null
+  wireless_document: string | null
+  installation_support: string | null
+  order_manager: string | null
+  order_date: string | null
+  shipment_date: string | null
+  inventory_check: string | null
+  installation_date: string | null
+  installation_team: string | null
+  business_type: string | null
+  business_category: string | null
+  pollutants: string | null
+  annual_emission_amount: number | null
+  first_report_date: string | null
+  operation_start_date: string | null
+  subsidy_approval_date: string | null
+  expansion_pack: number | null
+  other_equipment: string | null
+  additional_cost: number | null
+  negotiation: string | null
+  multiple_stack_cost: number | null
+  representative_birth_date: string | null
+  
+  // 시스템 필드들
   manufacturer: 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null
   vpn: 'wired' | 'wireless' | null
   greenlink_id: string | null
@@ -65,7 +93,7 @@ export interface BusinessInfo {
   business_management_code: number | null
   
   // 센서/장비 수량 필드들
-  ph_sensor: number | null
+  ph_meter: number | null
   differential_pressure_meter: number | null
   temperature_meter: number | null
   discharge_current_meter: number | null
@@ -375,6 +403,43 @@ export class DatabaseService {
 
     if (error) throw new Error(`대기필증 목록 조회 실패: ${error.message}`)
     return data || []
+  }
+
+  /**
+   * 사업장별 대기필증 목록 조회 (배출구 및 시설 정보 포함)
+   */
+  static async getAirPermitsByBusinessIdWithDetails(businessId: string): Promise<AirPermitWithOutlets[]> {
+    // 기본 허가 정보 조회 (사업장 정보 포함)
+    const { data: permits, error: permitError } = await supabase
+      .from('air_permit_info')
+      .select(`
+        *,
+        business:business_info!business_id (
+          business_name,
+          local_government
+        )
+      `)
+      .eq('business_id', businessId)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+
+    if (permitError) throw new Error(`대기필증 목록 조회 실패: ${permitError.message}`)
+
+    if (!permits || permits.length === 0) return []
+
+    // 각 대기필증의 배출구 및 시설 정보 조회
+    const permitsWithOutlets = await Promise.all(
+      permits.map(async (permit) => {
+        const outlets = await this.getDischargeOutlets(permit.id)
+        return {
+          ...permit,
+          outlets
+        }
+      })
+    )
+    
+    return permitsWithOutlets
   }
 
   /**

@@ -27,15 +27,17 @@ CREATE TABLE IF NOT EXISTS business_info (
     
     -- 장비 정보
     manufacturer VARCHAR(100), -- 제조사
-    ph_meter BOOLEAN DEFAULT false, -- PH계
-    differential_pressure_meter BOOLEAN DEFAULT false, -- 차압계
-    temperature_meter BOOLEAN DEFAULT false, -- 온도계
-    discharge_ct VARCHAR(100), -- 배출CT
-    prevention_ct VARCHAR(100), -- 방지CT(펌프+송풍)
-    gateway VARCHAR(100), -- 게이트웨이
-    vpn_wired BOOLEAN DEFAULT false, -- VPN(유선)
-    vpn_wireless BOOLEAN DEFAULT false, -- VPN(무선)
-    multiple_stack BOOLEAN DEFAULT false, -- 복수굴뚝
+    ph_meter INTEGER DEFAULT 0, -- PH계 (개수)
+    differential_pressure_meter INTEGER DEFAULT 0, -- 차압계 (개수)
+    temperature_meter INTEGER DEFAULT 0, -- 온도계 (개수)
+    discharge_current_meter INTEGER DEFAULT 0, -- 배출전류계
+    fan_current_meter INTEGER DEFAULT 0, -- 송풍전류계
+    pump_current_meter INTEGER DEFAULT 0, -- 펌프전류계
+    gateway INTEGER DEFAULT 0, -- 게이트웨이 (개수)
+    vpn_wired INTEGER DEFAULT 0, -- VPN(유선) (개수)
+    vpn_wireless INTEGER DEFAULT 0, -- VPN(무선) (개수)
+    multiple_stack INTEGER DEFAULT 0, -- 복수굴뚝 (개수)
+    negotiation VARCHAR(255), -- 네고
     
     -- 확장 가능한 JSON 필드 (향후 추가 정보용)
     additional_info JSONB DEFAULT '{}',

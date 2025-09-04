@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
           greenlink_id: null,
           greenlink_pw: null,
           business_management_code: null,
-          ph_sensor: 1,
+          ph_meter: 1,
           differential_pressure_meter: 0,
           temperature_meter: 1,
           discharge_current_meter: null,
@@ -108,7 +108,35 @@ export async function GET(request: NextRequest) {
           sales_office: null,
           additional_info: { test: true },
           is_active: true,
-          is_deleted: false
+          is_deleted: false,
+          
+          // 추가된 필드들 (null 값으로 설정)
+          row_number: null,
+          department: null,
+          progress_status: null,
+          contract_document: null,
+          order_request_date: null,
+          wireless_document: null,
+          installation_support: null,
+          order_manager: null,
+          order_date: null,
+          shipment_date: null,
+          inventory_check: null,
+          installation_date: null,
+          installation_team: null,
+          business_type: null,
+          business_category: null,
+          pollutants: null,
+          annual_emission_amount: null,
+          first_report_date: null,
+          operation_start_date: null,
+          subsidy_approval_date: null,
+          expansion_pack: null,
+          other_equipment: null,
+          additional_cost: null,
+          negotiation: null,
+          multiple_stack_cost: null,
+          representative_birth_date: null
         })
 
         return NextResponse.json({

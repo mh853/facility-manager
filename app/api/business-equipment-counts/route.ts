@@ -21,7 +21,7 @@ export async function PUT(request: NextRequest) {
       .from('business_info')
       .update({
         // 개별 센서 수량
-        ph_sensor: equipmentCounts.phSensor || 0,
+        ph_meter: equipmentCounts.phSensor || 0,
         differential_pressure_meter: equipmentCounts.differentialPressureMeter || 0,
         temperature_meter: equipmentCounts.temperatureMeter || 0,
         discharge_current_meter: equipmentCounts.dischargeCT || 0,
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
       .select(`
         id,
         business_name,
-        ph_sensor,
+        ph_meter,
         differential_pressure_meter,
         temperature_meter,
         discharge_current_meter,
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     }
 
     const equipmentCounts = {
-      phSensor: data.ph_sensor || 0,
+      phSensor: data.ph_meter || 0,
       differentialPressureMeter: data.differential_pressure_meter || 0,
       temperatureMeter: data.temperature_meter || 0,
       dischargeCT: data.discharge_current_meter || 0,

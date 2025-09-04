@@ -12,7 +12,8 @@ import {
   Edit,
   Save,
   X,
-  Plus
+  Plus,
+  FileDown
 } from 'lucide-react'
 
 // 게이트웨이 색상 팔레트
@@ -37,6 +38,7 @@ function AirPermitDetailContent() {
   const [editedFacilities, setEditedFacilities] = useState<{[key: string]: any}>({})
   const [gatewayAssignments, setGatewayAssignments] = useState<{[outletId: string]: string}>({})
   const [isSaving, setIsSaving] = useState(false)
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
 
   // 대기필증 상세 정보 로드
   const loadPermitDetail = useCallback(async () => {
@@ -143,6 +145,151 @@ function AirPermitDetailContent() {
     }
   }
 
+  // PDF 생성 함수
+  const generatePDF = async () => {
+    if (!permitDetail) return
+
+    try {
+      setIsGeneratingPdf(true)
+      
+      // 동적 import로 jsPDF와 html2canvas 로드
+      const [jsPDF, html2canvas] = await Promise.all([
+        import('jspdf').then(module => module.default),
+        import('html2canvas').then(module => module.default)
+      ])
+
+      // PDF 생성
+      const pdf = new jsPDF('l', 'mm', 'a4') // 가로 방향, A4
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      let yPosition = 20
+
+      // 제목
+      pdf.setFontSize(18)
+      pdf.setFont('helvetica', 'bold')
+      const businessName = permitDetail.business?.business_name || permitDetail.additional_info?.business_name || '대기필증'
+      pdf.text(`배출구 시설정보 - ${businessName}`, 20, yPosition)
+      yPosition += 15
+
+      // 기본 정보
+      pdf.setFontSize(12)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`업종: ${permitDetail.business_type || '-'}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`최초신고일: ${permitDetail.first_report_date ? new Date(permitDetail.first_report_date).toLocaleDateString('ko-KR') : '-'}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`가동개시일: ${permitDetail.operation_start_date ? new Date(permitDetail.operation_start_date).toLocaleDateString('ko-KR') : '-'}`, 20, yPosition)
+      yPosition += 15
+
+      // 배출구별 정보
+      if (permitDetail.outlets && permitDetail.outlets.length > 0) {
+        for (const [outletIndex, outlet] of permitDetail.outlets.entries()) {
+          // 페이지 넘김 체크
+          if (yPosition > pageHeight - 60) {
+            pdf.addPage()
+            yPosition = 20
+          }
+
+          // 배출구 제목
+          pdf.setFontSize(14)
+          pdf.setFont('helvetica', 'bold')
+          pdf.text(`배출구 #${outlet.outlet_number}${outlet.outlet_name ? ` (${outlet.outlet_name})` : ''}`, 20, yPosition)
+          yPosition += 10
+
+          // 게이트웨이 정보
+          const gateway = gatewayAssignments[outlet.id]
+          const gatewayName = gatewayColors.find(g => g.value === gateway)?.name || '미할당'
+          pdf.setFontSize(10)
+          pdf.setFont('helvetica', 'normal')
+          pdf.text(`게이트웨이: ${gatewayName}`, 20, yPosition)
+          yPosition += 10
+
+          // 테이블 헤더
+          const headers = ['구분', '배출시설', '용량', '수량', '시설번호', '그린링크코드', '메모', '방지시설', '용량', '수량', '시설번호', '그린링크코드', '측정기기', '메모']
+          const colWidth = (pageWidth - 40) / headers.length
+          
+          pdf.setFillColor(240, 240, 240)
+          pdf.rect(20, yPosition - 5, pageWidth - 40, 8, 'F')
+          
+          pdf.setFontSize(8)
+          pdf.setFont('helvetica', 'bold')
+          headers.forEach((header, index) => {
+            pdf.text(header, 22 + (index * colWidth), yPosition)
+          })
+          yPosition += 8
+
+          // 데이터 행
+          const maxRows = Math.max(
+            outlet.discharge_facilities?.length || 0,
+            outlet.prevention_facilities?.length || 0,
+            1
+          )
+
+          for (let rowIndex = 0; rowIndex < maxRows; rowIndex++) {
+            if (yPosition > pageHeight - 20) {
+              pdf.addPage()
+              yPosition = 20
+            }
+
+            const dischargeFacility = outlet.discharge_facilities?.[rowIndex]
+            const preventionFacility = outlet.prevention_facilities?.[rowIndex]
+
+            pdf.setFontSize(7)
+            pdf.setFont('helvetica', 'normal')
+
+            const rowData = [
+              (rowIndex + 1).toString(),
+              dischargeFacility?.facility_name || '-',
+              dischargeFacility?.capacity || '-',
+              dischargeFacility?.quantity?.toString() || '-',
+              dischargeFacility?.additional_info?.facility_number || '-',
+              dischargeFacility?.additional_info?.green_link_code || '-',
+              dischargeFacility?.additional_info?.memo || '-',
+              preventionFacility?.facility_name || '-',
+              preventionFacility?.capacity || '-',
+              preventionFacility?.quantity?.toString() || '-',
+              preventionFacility?.additional_info?.facility_number || '-',
+              preventionFacility?.additional_info?.green_link_code || '-',
+              preventionFacility?.additional_info?.measurement_device || '-',
+              preventionFacility?.additional_info?.memo || '-'
+            ]
+
+            rowData.forEach((data, index) => {
+              const text = data.length > 10 ? data.substring(0, 10) + '...' : data
+              pdf.text(text, 22 + (index * colWidth), yPosition)
+            })
+
+            yPosition += 6
+
+            // 구분선
+            pdf.setDrawColor(200, 200, 200)
+            pdf.line(20, yPosition, pageWidth - 20, yPosition)
+            yPosition += 2
+          }
+
+          yPosition += 10
+        }
+      } else {
+        pdf.text('등록된 배출구가 없습니다.', 20, yPosition)
+      }
+
+      // 생성 시간 추가
+      pdf.setFontSize(8)
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`생성일시: ${new Date().toLocaleString('ko-KR')}`, pageWidth - 80, pageHeight - 10)
+
+      // PDF 다운로드
+      const fileName = `배출구정보_${businessName}_${new Date().toISOString().split('T')[0]}.pdf`
+      pdf.save(fileName)
+
+    } catch (error) {
+      console.error('PDF 생성 중 오류:', error)
+      alert('PDF 생성 중 오류가 발생했습니다.')
+    } finally {
+      setIsGeneratingPdf(false)
+    }
+  }
+
   if (loading) {
     return (
       <AdminLayout title="대기필증 상세보기" description="로딩 중...">
@@ -186,6 +333,16 @@ function AirPermitDetailContent() {
           >
             <ArrowLeft className="w-4 h-4" />
             목록으로
+          </button>
+          
+          {/* PDF 출력 버튼 */}
+          <button
+            onClick={generatePDF}
+            disabled={isGeneratingPdf}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400"
+          >
+            <FileDown className="w-4 h-4" />
+            {isGeneratingPdf ? 'PDF 생성 중...' : 'PDF 출력'}
           </button>
           
           {isEditing ? (

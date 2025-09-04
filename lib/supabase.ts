@@ -17,6 +17,11 @@ if (!supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     persistSession: false, // 세션 유지 비활성화 (공용 앱)
+  },
+  global: {
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8'
+    }
   }
 });
 
@@ -36,6 +41,12 @@ export const supabaseAdmin = (() => {
         auth: {
           persistSession: false,
           autoRefreshToken: false,
+        },
+        global: {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Accept-Charset': 'utf-8'
+          }
         }
       }
     );
@@ -201,6 +212,7 @@ if (typeof window === 'undefined') {
   console.log('✅ [SUPABASE] 서버 클라이언트 초기화 완료:', {
     url: supabaseUrl,
     hasAnonKey: !!supabaseAnonKey,
-    hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    charset: 'UTF-8'
   });
 }

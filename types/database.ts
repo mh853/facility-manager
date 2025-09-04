@@ -34,7 +34,7 @@ export interface BusinessInfo {
   business_management_code?: number | null
   
   // Measurement Device Quantities
-  ph_sensor: number
+  ph_meter: number
   differential_pressure_meter: number
   temperature_meter: number
   discharge_current_meter: number
