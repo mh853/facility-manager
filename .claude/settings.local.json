@@ -192,7 +192,10 @@
       "Read(/C:\\Users\\user1\\Documents\\claude\\facility-manager\\app\\admin\\air-permit/**)",
       "Read(/C:\\Users\\user1\\Documents\\claude\\facility-manager\\lib/**)",
       "Read(/C:\\Users\\user1\\Documents\\claude\\facility-manager\\lib/**)",
-      "Read(/C:\\Users\\user1\\Documents\\claude\\facility-manager\\app\\admin\\business/**)"
+      "Read(/C:\\Users\\user1\\Documents\\claude\\facility-manager\\app\\admin\\business/**)",
+      "Read(/C:\\Users\\user1\\Documents\\claude\\facility-manager\\app\\admin\\air-permit/**)",
+      "Read(/C:\\Users\\user1\\Documents\\claude\\facility-manager\\app\\admin\\air-permit/**)",
+      "Read(/C:\\Users\\user1\\Documents\\claude\\facility-manager\\app\\admin\\air-permit/**)"
     ],
     "deny": [],
     "ask": [],

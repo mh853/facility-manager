@@ -672,7 +672,11 @@ export default function AirPermitManagementPage() {
                 대기필증 보유 사업장
               </div>
               <span className="text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                {searchTerm ? `${filteredBusinessesWithPermits.length}개 검색 결과 (전체 ${businessesWithPermits.length}개)` : `총 ${filteredBusinessesWithPermits.length}개`}
+                {searchTerm ? (
+                  `${Math.min(filteredBusinessesWithPermits.length, 8)}개 표시 (검색결과 ${filteredBusinessesWithPermits.length}개 중)`
+                ) : (
+                  `${Math.min(filteredBusinessesWithPermits.length, 8)}개 표시 (전체 ${filteredBusinessesWithPermits.length}개 중)`
+                )}
               </span>
             </h2>
             
@@ -699,7 +703,7 @@ export default function AirPermitManagementPage() {
             </div>
             
             <div className="space-y-4">
-              {filteredBusinessesWithPermits.map((business) => (
+              {filteredBusinessesWithPermits.slice(0, 8).map((business) => (
                 <div 
                   key={business.id}
                   className={`p-4 rounded-lg border cursor-pointer transition-colors ${
