@@ -178,10 +178,7 @@ export default function AirPermitManagementPage() {
       return (
         permit.id?.toLowerCase().includes(searchLower) ||
         permit.business_type?.toLowerCase().includes(searchLower) ||
-        permit.permit_number?.toLowerCase().includes(searchLower) ||
-        permit.facility_name?.toLowerCase().includes(searchLower) ||
-        permit.installation_location?.toLowerCase().includes(searchLower) ||
-        permit.pollutant_type?.toLowerCase().includes(searchLower)
+        permit.business_name?.toLowerCase().includes(searchLower)
       )
     })
     
@@ -877,7 +874,7 @@ export default function AirPermitManagementPage() {
                     return selectedPermit.outlets && selectedPermit.outlets.length > 0
                   })() ? (
                     <div className="space-y-4">
-                      {selectedPermit.outlets.map((outlet: any, index: number) => {
+                      {selectedPermit.outlets?.map((outlet: any, index: number) => {
                         // 게이트웨이 색상 결정
                         const gateway = outlet.additional_info?.gateway || ''
                         const gatewayColors = {

@@ -414,8 +414,8 @@ export default function BusinessManagementPage() {
       const searchTerm = query.toLowerCase()
       const businessName = (business.사업장명 || business.business_name || '').toLowerCase()
       const address = (business.주소 || business.local_government || '').toLowerCase()
-      const contactName = (business.담당자명 || business.contact_name || '').toLowerCase()
-      const phone = (business.담당자연락처 || business.contact_phone || '').toLowerCase()
+      const contactName = (business.담당자명 || business.manager_name || '').toLowerCase()
+      const phone = (business.담당자연락처 || business.manager_contact || '').toLowerCase()
       const businessType = (business.업종 || business.business_type || '').toLowerCase()
 
       return businessName.includes(searchTerm) ||
