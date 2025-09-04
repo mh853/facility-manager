@@ -482,6 +482,36 @@ export interface IntegrationStatus {
 }
 
 // =====================================================
+// BUSINESS MEMOS
+// =====================================================
+
+export interface BusinessMemo {
+  id: string
+  business_id: string
+  title: string
+  content: string
+  created_at: string
+  updated_at: string
+  created_by: string
+  updated_by: string
+  is_active: boolean
+  is_deleted: boolean
+}
+
+export interface CreateBusinessMemoInput {
+  business_id: string
+  title: string
+  content: string
+  created_by?: string
+}
+
+export interface UpdateBusinessMemoInput {
+  title?: string
+  content?: string
+  updated_by?: string
+}
+
+// =====================================================
 // AUDIT & HISTORY
 // =====================================================
 

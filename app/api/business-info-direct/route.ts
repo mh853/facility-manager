@@ -150,6 +150,90 @@ export async function PUT(request: NextRequest) {
     if (updateData.business_contact !== undefined) {
       updateObject.business_contact = cleanVarchar20(updateData.business_contact || '');
     }
+    if (updateData.fax_number !== undefined) {
+      updateObject.fax_number = cleanVarchar20(updateData.fax_number || '');
+    }
+    if (updateData.email !== undefined) {
+      updateObject.email = normalizeUTF8(updateData.email || '');
+    }
+    if (updateData.local_government !== undefined) {
+      updateObject.local_government = normalizeUTF8(updateData.local_government || '');
+    }
+
+    // New fields for business information  
+    if (updateData.business_type !== undefined) {
+      updateObject.business_type = normalizeUTF8(updateData.business_type || '');
+    }
+    if (updateData.business_category !== undefined) {
+      updateObject.business_category = normalizeUTF8(updateData.business_category || '');
+    }
+    if (updateData.department !== undefined) {
+      updateObject.department = normalizeUTF8(updateData.department || '');
+    }
+    if (updateData.progress_status !== undefined) {
+      updateObject.progress_status = normalizeUTF8(updateData.progress_status || '');
+    }
+    if (updateData.installation_team !== undefined) {
+      updateObject.installation_team = normalizeUTF8(updateData.installation_team || '');
+    }
+    if (updateData.order_manager !== undefined) {
+      updateObject.order_manager = normalizeUTF8(updateData.order_manager || '');
+    }
+
+    // Measurement device fields
+    if (updateData.ph_meter !== undefined) {
+      updateObject.ph_meter = parseInt(updateData.ph_meter) || 0;
+    }
+    if (updateData.differential_pressure_meter !== undefined) {
+      updateObject.differential_pressure_meter = parseInt(updateData.differential_pressure_meter) || 0;
+    }
+    if (updateData.temperature_meter !== undefined) {
+      updateObject.temperature_meter = parseInt(updateData.temperature_meter) || 0;
+    }
+    if (updateData.discharge_current_meter !== undefined) {
+      updateObject.discharge_current_meter = parseInt(updateData.discharge_current_meter) || 0;
+    }
+    if (updateData.fan_current_meter !== undefined) {
+      updateObject.fan_current_meter = parseInt(updateData.fan_current_meter) || 0;
+    }
+    if (updateData.pump_current_meter !== undefined) {
+      updateObject.pump_current_meter = parseInt(updateData.pump_current_meter) || 0;
+    }
+    if (updateData.gateway !== undefined) {
+      updateObject.gateway = parseInt(updateData.gateway) || 0;
+    }
+    if (updateData.vpn_wired !== undefined) {
+      updateObject.vpn_wired = parseInt(updateData.vpn_wired) || 0;
+    }
+    if (updateData.vpn_wireless !== undefined) {
+      updateObject.vpn_wireless = parseInt(updateData.vpn_wireless) || 0;
+    }
+    if (updateData.multiple_stack !== undefined) {
+      updateObject.multiple_stack = parseInt(updateData.multiple_stack) || 0;
+    }
+
+    // Date fields
+    if (updateData.representative_birth_date !== undefined) {
+      updateObject.representative_birth_date = updateData.representative_birth_date;
+    }
+    if (updateData.order_request_date !== undefined) {
+      updateObject.order_request_date = updateData.order_request_date;
+    }
+    if (updateData.order_date !== undefined) {
+      updateObject.order_date = updateData.order_date;
+    }
+    if (updateData.shipment_date !== undefined) {
+      updateObject.shipment_date = updateData.shipment_date;
+    }
+    if (updateData.installation_date !== undefined) {
+      updateObject.installation_date = updateData.installation_date;
+    }
+    if (updateData.first_report_date !== undefined) {
+      updateObject.first_report_date = updateData.first_report_date;
+    }
+    if (updateData.operation_start_date !== undefined) {
+      updateObject.operation_start_date = updateData.operation_start_date;
+    }
 
     // additional_info 업데이트 (contacts 배열)
     if (updateData.contacts && Array.isArray(updateData.contacts)) {

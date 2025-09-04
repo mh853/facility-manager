@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { BusinessInfo } from '@/lib/database-service'
+import type { BusinessMemo, CreateBusinessMemoInput, UpdateBusinessMemoInput } from '@/types/database'
 
 interface Contact {
   name: string;
@@ -177,7 +178,11 @@ import {
   Settings,
   ClipboardList,
   AlertTriangle,
-  Search
+  Search,
+  MessageSquarePlus,
+  Edit3,
+  MessageSquare,
+  Save
 } from 'lucide-react'
 
 // 대한민국 지자체 목록
@@ -197,9 +202,7 @@ const KOREAN_LOCAL_GOVERNMENTS = [
 ].sort()
 
 export default function BusinessManagementPage() {
-  const [businesses, setBusinesses] = useState<UnifiedBusinessInfo[]>([])
   const [allBusinesses, setAllBusinesses] = useState<UnifiedBusinessInfo[]>([])
-  const [filteredBusinesses, setFilteredBusinesses] = useState<UnifiedBusinessInfo[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -230,6 +233,13 @@ export default function BusinessManagementPage() {
     updated?: number
   } | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  
+  // 메모 관련 상태
+  const [businessMemos, setBusinessMemos] = useState<BusinessMemo[]>([])
+  const [isAddingMemo, setIsAddingMemo] = useState(false)
+  const [editingMemo, setEditingMemo] = useState<BusinessMemo | null>(null)
+  const [memoForm, setMemoForm] = useState({ title: '', content: '' })
+  const [isLoadingMemos, setIsLoadingMemos] = useState(false)
 
   // 엑셀 템플릿 다운로드 함수 (API 엔드포인트 사용)
   const downloadExcelTemplate = async () => {
@@ -257,6 +267,138 @@ export default function BusinessManagementPage() {
       console.error('❌ 템플릿 다운로드 실패:', error);
       alert('템플릿 다운로드 중 오류가 발생했습니다.');
     }
+  }
+  
+  // 메모 관리 함수들
+  const loadBusinessMemos = async (businessId: string) => {
+    setIsLoadingMemos(true)
+    try {
+      const response = await fetch(`/api/business-memos?businessId=${businessId}`)
+      const result = await response.json()
+      
+      if (result.success) {
+        setBusinessMemos(result.data || [])
+      } else {
+        console.error('❌ 메모 로드 실패:', result.error)
+        setBusinessMemos([])
+      }
+    } catch (error) {
+      console.error('❌ 메모 로드 오류:', error)
+      setBusinessMemos([])
+    } finally {
+      setIsLoadingMemos(false)
+    }
+  }
+
+  const handleAddMemo = async () => {
+    if (!selectedBusiness || !memoForm.title.trim() || !memoForm.content.trim()) {
+      alert('제목과 내용을 모두 입력해주세요.')
+      return
+    }
+
+    try {
+      const memoData: CreateBusinessMemoInput = {
+        business_id: selectedBusiness.id,
+        title: memoForm.title.trim(),
+        content: memoForm.content.trim(),
+        created_by: '관리자' // 향후 실제 계정 정보로 변경
+      }
+
+      const response = await fetch('/api/business-memos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(memoData)
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        // 즉시 새 메모를 로컬 state에 추가하여 즉시 화면에 표시
+        const newMemo = result.data
+        setBusinessMemos(prev => [newMemo, ...prev])
+        
+        setMemoForm({ title: '', content: '' })
+        setIsAddingMemo(false)
+      } else {
+        alert(`메모 추가 실패: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('❌ 메모 추가 오류:', error)
+      alert('메모 추가 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleEditMemo = async () => {
+    if (!editingMemo || !memoForm.title.trim() || !memoForm.content.trim()) {
+      alert('제목과 내용을 모두 입력해주세요.')
+      return
+    }
+
+    try {
+      const updateData: UpdateBusinessMemoInput = {
+        title: memoForm.title.trim(),
+        content: memoForm.content.trim(),
+        updated_by: '관리자' // 향후 실제 계정 정보로 변경
+      }
+
+      const response = await fetch(`/api/business-memos?id=${editingMemo.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        // 즉시 로컬 state에서 메모 업데이트하여 즉시 화면에 반영
+        const updatedMemo = result.data
+        setBusinessMemos(prev => prev.map(m => m.id === editingMemo.id ? updatedMemo : m))
+        
+        setMemoForm({ title: '', content: '' })
+        setEditingMemo(null)
+      } else {
+        alert(`메모 수정 실패: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('❌ 메모 수정 오류:', error)
+      alert('메모 수정 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleDeleteMemo = async (memo: BusinessMemo) => {
+    if (!confirm('정말로 이 메모를 삭제하시겠습니까?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/business-memos?id=${memo.id}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        // 즉시 로컬 state에서 메모 제거하여 즉시 화면에 반영
+        setBusinessMemos(prev => prev.filter(m => m.id !== memo.id))
+      } else {
+        alert(`메모 삭제 실패: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('❌ 메모 삭제 오류:', error)
+      alert('메모 삭제 중 오류가 발생했습니다.')
+    }
+  }
+
+  const startEditMemo = (memo: BusinessMemo) => {
+    setEditingMemo(memo)
+    setMemoForm({ title: memo.title, content: memo.content })
+    setIsAddingMemo(true) // 같은 폼을 재사용
+  }
+
+  const cancelMemoEdit = () => {
+    setIsAddingMemo(false)
+    setEditingMemo(null)
+    setMemoForm({ title: '', content: '' })
   }
   
   // Stats calculation
@@ -381,8 +523,6 @@ export default function BusinessManagementPage() {
         }))
         
         setAllBusinesses(businessObjects)
-        setBusinesses(businessObjects)
-        setFilteredBusinesses(businessObjects)
         
         // selectedBusiness가 있다면 업데이트된 데이터로 동기화 (useEffect에서 처리)
         
@@ -390,28 +530,26 @@ export default function BusinessManagementPage() {
       } else {
         console.error('Invalid data format:', data)
         setAllBusinesses([])
-        setBusinesses([])
-        setFilteredBusinesses([])
       }
     } catch (error) {
       console.error('사업장 데이터 로딩 오류:', error)
       setAllBusinesses([])
-      setBusinesses([])
-      setFilteredBusinesses([])
     } finally {
       setIsLoading(false)
     }
   }, [])
 
-  // 검색 필터링 함수
-  const filterBusinesses = useCallback((query: string) => {
-    if (!query.trim()) {
-      setFilteredBusinesses(allBusinesses)
-      return
+  // 검색 필터링 (useMemo 사용으로 자동 필터링)
+  const filteredBusinesses = useMemo(() => {
+    console.log('🔍 useMemo 필터링 실행:', searchQuery, 'allBusinesses 수:', allBusinesses.length)
+    
+    if (!searchQuery.trim()) {
+      console.log('📋 검색어 없음 - 전체 목록 표시:', allBusinesses.length)
+      return allBusinesses
     }
 
+    const searchTerm = searchQuery.toLowerCase()
     const filtered = allBusinesses.filter(business => {
-      const searchTerm = query.toLowerCase()
       const businessName = (business.사업장명 || business.business_name || '').toLowerCase()
       const address = (business.주소 || business.local_government || '').toLowerCase()
       const contactName = (business.담당자명 || business.manager_name || '').toLowerCase()
@@ -425,8 +563,9 @@ export default function BusinessManagementPage() {
              businessType.includes(searchTerm)
     })
 
-    setFilteredBusinesses(filtered)
-  }, [allBusinesses])
+    console.log('🎯 필터링 결과:', filtered.length, '개 사업장')
+    return filtered
+  }, [searchQuery, allBusinesses])
 
   // 검색어 하이라이팅 함수
   const highlightSearchTerm = useCallback((text: string, searchTerm: string) => {
@@ -444,10 +583,6 @@ export default function BusinessManagementPage() {
     )
   }, [])
 
-  // 검색어 변경 시 필터링
-  useEffect(() => {
-    filterBusinesses(searchQuery)
-  }, [searchQuery, filterBusinesses])
 
   // 초기 데이터 로딩 - 의존성 제거하여 무한루프 방지
   useEffect(() => {
@@ -657,11 +792,21 @@ export default function BusinessManagementPage() {
           setSelectedBusiness(refreshedBusiness)
         }
       }
+
+      // 메모 데이터 로드
+      if (business.id) {
+        await loadBusinessMemos(business.id)
+      }
     } catch (error) {
       console.error('❌ 모달 열기 오류:', error)
       // 기본 데이터라도 표시
       setSelectedBusiness(business)
       setIsDetailModalOpen(true)
+      
+      // 메모 로드 시도
+      if (business.id) {
+        await loadBusinessMemos(business.id)
+      }
     }
   }
 
@@ -1094,7 +1239,7 @@ export default function BusinessManagementPage() {
                 사업장 목록
               </h2>
               <span className="text-sm text-gray-500">
-                {searchQuery ? `${filteredBusinesses.length}개 검색 결과 (전체 ${allBusinesses.length}개)` : `${allBusinesses.length}개 사업장`}
+                {allBusinesses.length}개 사업장
               </span>
             </div>
             
@@ -1334,9 +1479,10 @@ export default function BusinessManagementPage() {
                           <h3 className="text-lg font-semibold text-slate-800">업무 진행 현황</h3>
                         </div>
                         <button
-                          onClick={() => {/* TODO: Add note functionality */}}
-                          className="px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 rounded-lg transition-colors"
+                          onClick={() => setIsAddingMemo(true)}
+                          className="flex items-center px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 rounded-lg transition-colors"
                         >
+                          <MessageSquarePlus className="w-3 h-3 mr-1" />
                           메모 추가
                         </button>
                       </div>
@@ -1401,6 +1547,108 @@ export default function BusinessManagementPage() {
                             )}
                           </div>
                         </div>
+
+                        {/* 메모 섹션 */}
+                        {businessMemos.length > 0 && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="flex items-center text-sm text-gray-600 mb-3">
+                              <MessageSquare className="w-4 h-4 mr-2 text-indigo-500" />
+                              메모
+                            </div>
+                            <div className="space-y-3">
+                              {businessMemos.map((memo) => (
+                                <div key={memo.id} className="bg-gray-50 rounded-lg p-3 border-l-4 border-indigo-400">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="flex-1">
+                                      <h4 className="font-medium text-gray-900 mb-1">{memo.title}</h4>
+                                      <p className="text-sm text-gray-700">{memo.content}</p>
+                                    </div>
+                                    <div className="flex items-center space-x-1 ml-2">
+                                      <button
+                                        onClick={() => {
+                                          setEditingMemo(memo)
+                                          setMemoForm({ title: memo.title, content: memo.content })
+                                        }}
+                                        className="p-1.5 text-gray-400 hover:text-indigo-600 rounded transition-colors"
+                                        title="메모 수정"
+                                      >
+                                        <Edit3 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteMemo(memo)}
+                                        className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors"
+                                        title="메모 삭제"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between text-xs text-gray-500">
+                                    <span>작성: {new Date(memo.created_at).toLocaleDateString('ko-KR', {
+                                      year: 'numeric', month: 'short', day: 'numeric'
+                                    })} ({memo.created_by})</span>
+                                    {memo.updated_at !== memo.created_at && (
+                                      <span>수정: {new Date(memo.updated_at).toLocaleDateString('ko-KR', {
+                                        year: 'numeric', month: 'short', day: 'numeric'
+                                      })} ({memo.updated_by})</span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 메모 추가/편집 폼 */}
+                        {(isAddingMemo || editingMemo) && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm border border-indigo-200">
+                            <div className="flex items-center text-sm text-indigo-600 mb-3">
+                              <MessageSquarePlus className="w-4 h-4 mr-2" />
+                              {editingMemo ? '메모 수정' : '새 메모 추가'}
+                            </div>
+                            <div className="space-y-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">제목</label>
+                                <input
+                                  type="text"
+                                  value={memoForm.title}
+                                  onChange={(e) => setMemoForm(prev => ({ ...prev, title: e.target.value }))}
+                                  placeholder="메모 제목을 입력하세요"
+                                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">내용</label>
+                                <textarea
+                                  value={memoForm.content}
+                                  onChange={(e) => setMemoForm(prev => ({ ...prev, content: e.target.value }))}
+                                  placeholder="메모 내용을 입력하세요"
+                                  rows={3}
+                                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"
+                                />
+                              </div>
+                              <div className="flex justify-end space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setIsAddingMemo(false)
+                                    setEditingMemo(null)
+                                    setMemoForm({ title: '', content: '' })
+                                  }}
+                                  className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                >
+                                  취소
+                                </button>
+                                <button
+                                  onClick={editingMemo ? handleEditMemo : handleAddMemo}
+                                  disabled={!memoForm.title.trim() || !memoForm.content.trim()}
+                                  className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                >
+                                  {editingMemo ? '수정' : '추가'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1912,18 +2160,28 @@ export default function BusinessManagementPage() {
             }
           }}
         >
-          <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {editingBusiness ? '사업장 정보 수정' : '새 사업장 추가'}
-              </h2>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
+            <div className="px-8 py-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mr-4">
+                  <Edit className="w-5 h-5 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold">
+                  {editingBusiness ? '사업장 정보 수정' : '새 사업장 추가'}
+                </h2>
+              </div>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-8 max-h-[80vh] overflow-y-auto">
               <div className="space-y-8">
                 {/* 기본 정보 */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">기본 정보</h3>
+                  <div className="flex items-center mb-6">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mr-3">
+                      <Building2 className="w-4 h-4 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-800">기본 정보</h3>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">사업장명 *</label>
@@ -2033,7 +2291,12 @@ export default function BusinessManagementPage() {
 
                 {/* 담당자 정보 */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">담당자 정보</h3>
+                  <div className="flex items-center mb-6">
+                    <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3">
+                      <User className="w-4 h-4 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-800">담당자 정보</h3>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">담당자명</label>
@@ -2104,12 +2367,199 @@ export default function BusinessManagementPage() {
                         placeholder="example@company.com"
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">대표자생년월일</label>
+                      <input
+                        type="date"
+                        value={formData.representative_birth_date || ''}
+                        onChange={(e) => setFormData({...formData, representative_birth_date: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 사업장 정보 */}
+                <div>
+                  <div className="flex items-center mb-6">
+                    <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mr-3">
+                      <Briefcase className="w-4 h-4 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-800">사업장 정보</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">업종</label>
+                      <input
+                        type="text"
+                        lang="ko"
+                        inputMode="text"
+                        value={formData.business_type || ''}
+                        onChange={(e) => setFormData({...formData, business_type: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        placeholder="예: 제조업, 서비스업..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">종별</label>
+                      <input
+                        type="text"
+                        lang="ko"
+                        inputMode="text"
+                        value={formData.business_category || ''}
+                        onChange={(e) => setFormData({...formData, business_category: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        placeholder="사업 종별"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">담당부서</label>
+                      <input
+                        type="text"
+                        lang="ko"
+                        inputMode="text"
+                        value={formData.department || ''}
+                        onChange={(e) => setFormData({...formData, department: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        placeholder="담당부서명"
+                      />
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* 프로젝트 관리 */}
+                <div>
+                  <div className="flex items-center mb-6">
+                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3">
+                      <ClipboardList className="w-4 h-4 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-800">프로젝트 관리</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">진행구분</label>
+                      <input
+                        type="text"
+                        lang="ko"
+                        inputMode="text"
+                        value={formData.progress_status || ''}
+                        onChange={(e) => setFormData({...formData, progress_status: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        placeholder="예: 설치 대기, 진행중, 완료"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">설치팀</label>
+                      <input
+                        type="text"
+                        lang="ko"
+                        inputMode="text"
+                        value={formData.installation_team || ''}
+                        onChange={(e) => setFormData({...formData, installation_team: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        placeholder="설치 담당팀"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">발주담당</label>
+                      <input
+                        type="text"
+                        lang="ko"
+                        inputMode="text"
+                        value={formData.order_manager || ''}
+                        onChange={(e) => setFormData({...formData, order_manager: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        placeholder="발주 담당자명"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 일정 관리 */}
+                <div>
+                  <div className="flex items-center mb-6">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center mr-3">
+                      <Calendar className="w-4 h-4 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-800">일정 관리</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">발주요청일</label>
+                      <input
+                        type="date"
+                        value={formData.order_request_date || ''}
+                        onChange={(e) => setFormData({...formData, order_request_date: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">발주일</label>
+                      <input
+                        type="date"
+                        value={formData.order_date || ''}
+                        onChange={(e) => setFormData({...formData, order_date: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">출고일</label>
+                      <input
+                        type="date"
+                        value={formData.shipment_date || ''}
+                        onChange={(e) => setFormData({...formData, shipment_date: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">설치일</label>
+                      <input
+                        type="date"
+                        value={formData.installation_date || ''}
+                        onChange={(e) => setFormData({...formData, installation_date: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">최초신고일</label>
+                      <input
+                        type="date"
+                        value={formData.first_report_date || ''}
+                        onChange={(e) => setFormData({...formData, first_report_date: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">가동개시일</label>
+                      <input
+                        type="date"
+                        value={formData.operation_start_date || ''}
+                        onChange={(e) => setFormData({...formData, operation_start_date: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* 시스템 정보 */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">시스템 정보</h3>
+                  <div className="flex items-center mb-6">
+                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3">
+                      <Settings className="w-4 h-4 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-800">시스템 정보</h3>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">제조사</label>
@@ -2373,22 +2823,23 @@ export default function BusinessManagementPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-4 mt-8">
+              <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => {
                     setIsModalOpen(false)
                     setShowLocalGovSuggestions(false)
                   }}
-                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium"
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl font-medium"
                 >
-                  {editingBusiness ? '수정' : '추가'}
+                  <Save className="w-4 h-4 mr-2" />
+                  {editingBusiness ? '수정 완료' : '추가 완료'}
                 </button>
               </div>
             </form>
