@@ -12,6 +12,40 @@ interface Contact {
   role: string;
 }
 
+interface FacilitySummary {
+  discharge_count: number;
+  prevention_count: number;
+  total_facilities: number;
+}
+
+interface BusinessFacilityData {
+  business: {
+    id: string;
+    business_name: string;
+  } | null;
+  discharge_facilities: Array<{
+    id: string;
+    outlet_number: number;
+    outlet_name: string;
+    facility_number: number;
+    facility_name: string;
+    capacity: string;
+    quantity: number;
+    display_name: string;
+  }>;
+  prevention_facilities: Array<{
+    id: string;
+    outlet_number: number;
+    outlet_name: string;
+    facility_number: number;
+    facility_name: string;
+    capacity: string;
+    quantity: number;
+    display_name: string;
+  }>;
+  summary: FacilitySummary;
+}
+
 interface UnifiedBusinessInfo {
   // Base fields from BusinessInfo
   id: string;
@@ -211,6 +245,8 @@ export default function BusinessManagementPage() {
   const [localGovSuggestions, setLocalGovSuggestions] = useState<string[]>([])
   const [showLocalGovSuggestions, setShowLocalGovSuggestions] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<UnifiedBusinessInfo | null>(null)
+  const [facilityData, setFacilityData] = useState<BusinessFacilityData | null>(null)
+  const [facilityLoading, setFacilityLoading] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [duplicateCheck, setDuplicateCheck] = useState<{
     isDuplicate: boolean
@@ -222,6 +258,85 @@ export default function BusinessManagementPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [businessToDelete, setBusinessToDelete] = useState<UnifiedBusinessInfo | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [facilityStats, setFacilityStats] = useState<{[businessId: string]: {dischargeCount: number, preventionCount: number, outletCount: number}}>({})
+  const [facilityDeviceCounts, setFacilityDeviceCounts] = useState<{
+    ph?: number, 
+    pressure?: number, 
+    temperature?: number, 
+    discharge?: number, 
+    fan?: number, 
+    pump?: number, 
+    gateway?: number,
+    explosionProofPressure?: number,
+    explosionProofTemp?: number,
+    expansionDevice?: number,
+    relay8ch?: number,
+    relay16ch?: number,
+    mainBoard?: number,
+    vpnWired?: number,
+    vpnWireless?: number,
+    multipleStack?: number
+  } | null>(null)
+  
+  // 시설 통계 계산 함수
+  const calculateFacilityStats = useCallback((airPermitData: any[]) => {
+    const stats: {[businessId: string]: {dischargeCount: number, preventionCount: number, outletCount: number}} = {}
+    
+    airPermitData.forEach((permit: any) => {
+      if (!permit.business_id || !permit.outlets) return
+      
+      const businessId = permit.business_id
+      if (!stats[businessId]) {
+        stats[businessId] = { dischargeCount: 0, preventionCount: 0, outletCount: 0 }
+      }
+      
+      permit.outlets.forEach((outlet: any) => {
+        stats[businessId].outletCount += 1
+        stats[businessId].dischargeCount += (outlet.discharge_facilities?.length || 0)
+        stats[businessId].preventionCount += (outlet.prevention_facilities?.length || 0)
+      })
+    })
+    
+    return stats
+  }, [])
+  
+  // 특정 사업장의 시설 통계 조회
+  const loadBusinessFacilityStats = useCallback(async (businessId: string) => {
+    try {
+      const response = await fetch(`/api/air-permit?businessId=${businessId}&details=true`)
+      if (response.ok) {
+        const result = await response.json()
+        const permits = result.data || []
+        const stats = calculateFacilityStats(permits)
+        
+        setFacilityStats(prev => ({
+          ...prev,
+          ...stats
+        }))
+      }
+    } catch (error) {
+      console.error('시설 통계 로드 실패:', error)
+    }
+  }, [calculateFacilityStats])
+
+  // 사업장별 시설 정보 조회
+  const loadBusinessFacilities = useCallback(async (businessId: string) => {
+    setFacilityLoading(true)
+    try {
+      const response = await fetch(`/api/business-facilities?businessId=${businessId}`)
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          setFacilityData(result.data)
+        }
+      }
+    } catch (error) {
+      console.error('사업장 시설 정보 로드 실패:', error)
+      setFacilityData(null)
+    } finally {
+      setFacilityLoading(false)
+    }
+  }, [])
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadResults, setUploadResults] = useState<{
@@ -475,9 +590,18 @@ export default function BusinessManagementPage() {
           송풍전류계: business.fan_current_meter || 0,
           펌프전류계: business.pump_current_meter || 0,
           게이트웨이: business.gateway || 0,
-          VPN유선: business.vpn_wired || 0,
-          VPN무선: business.vpn_wireless || 0,
-          복수굴뚝: business.multiple_stack || 0,
+          VPN유선: business.vpn_wired === true ? 1 : (business.vpn_wired === false ? 0 : (business.vpn_wired || 0)),
+          VPN무선: business.vpn_wireless === true ? 1 : (business.vpn_wireless === false ? 0 : (business.vpn_wireless || 0)),
+          복수굴뚝: business.multiple_stack === true ? 1 : (business.multiple_stack === false ? 0 : (business.multiple_stack || 0)),
+          
+          // 추가 측정기기 한국어 필드명 매핑
+          방폭차압계국산: business.explosion_proof_differential_pressure_meter_domestic || 0,
+          방폭온도계국산: business.explosion_proof_temperature_meter_domestic || 0,
+          확장디바이스: business.expansion_device || 0,
+          중계기8채널: business.relay_8ch || 0,
+          중계기16채널: business.relay_16ch || 0,
+          메인보드교체: business.main_board_replacement || 0,
+          
           // 추가 한국어 필드
           지자체: business.local_government || '',
           팩스번호: business.fax_number || '',
@@ -705,15 +829,15 @@ export default function BusinessManagementPage() {
           fan_current_meter: business.fan_current_meter,
           pump_current_meter: business.pump_current_meter,
           gateway: business.gateway,
-          vpn_wired: business.vpn_wired,
-          vpn_wireless: business.vpn_wireless,
+          vpn_wired: business.vpn_wired === true ? 1 : (business.vpn_wired === false ? 0 : (business.vpn_wired || 0)),
+          vpn_wireless: business.vpn_wireless === true ? 1 : (business.vpn_wireless === false ? 0 : (business.vpn_wireless || 0)),
           explosion_proof_differential_pressure_meter_domestic: business.explosion_proof_differential_pressure_meter_domestic,
           explosion_proof_temperature_meter_domestic: business.explosion_proof_temperature_meter_domestic,
           expansion_device: business.expansion_device,
           relay_8ch: business.relay_8ch,
           relay_16ch: business.relay_16ch,
           main_board_replacement: business.main_board_replacement,
-          multiple_stack: business.multiple_stack,
+          multiple_stack: business.multiple_stack === true ? 1 : (business.multiple_stack === false ? 0 : (business.multiple_stack || 0)),
           
           // 영업점
           sales_office: business.sales_office,
@@ -757,9 +881,17 @@ export default function BusinessManagementPage() {
           송풍전류계: business.fan_current_meter || 0,
           펌프전류계: business.pump_current_meter || 0,
           게이트웨이: business.gateway || 0,
-          VPN유선: business.vpn_wired || 0,
-          VPN무선: business.vpn_wireless || 0,
-          복수굴뚝: business.multiple_stack || 0,
+          VPN유선: business.vpn_wired === true ? 1 : (business.vpn_wired === false ? 0 : (business.vpn_wired || 0)),
+          VPN무선: business.vpn_wireless === true ? 1 : (business.vpn_wireless === false ? 0 : (business.vpn_wireless || 0)),
+          복수굴뚝: business.multiple_stack === true ? 1 : (business.multiple_stack === false ? 0 : (business.multiple_stack || 0)),
+          
+          // 추가 측정기기 한국어 필드명 매핑
+          방폭차압계국산: business.explosion_proof_differential_pressure_meter_domestic || 0,
+          방폭온도계국산: business.explosion_proof_temperature_meter_domestic || 0,
+          확장디바이스: business.expansion_device || 0,
+          중계기8채널: business.relay_8ch || 0,
+          중계기16채널: business.relay_16ch || 0,
+          메인보드교체: business.main_board_replacement || 0,
           
           // UI specific fields
           hasFiles: false,
@@ -796,6 +928,12 @@ export default function BusinessManagementPage() {
       // 메모 데이터 로드
       if (business.id) {
         await loadBusinessMemos(business.id)
+      }
+      
+      // 시설 통계 로드
+      if (business.id) {
+        await loadBusinessFacilityStats(business.id)
+        await loadBusinessFacilities(business.id)
       }
     } catch (error) {
       console.error('❌ 모달 열기 오류:', error)
@@ -879,6 +1017,20 @@ export default function BusinessManagementPage() {
       fan_current_meter: business.송풍전류계,
       pump_current_meter: business.펌프전류계,
       gateway: business.게이트웨이,
+      
+      // VPN 및 네트워크 관련 필드들
+      vpn_wired: business.VPN유선,
+      vpn_wireless: business.VPN무선,
+      multiple_stack: business.복수굴뚝,
+      
+      // 추가 측정기기 필드들
+      explosion_proof_differential_pressure_meter_domestic: business.방폭차압계국산,
+      explosion_proof_temperature_meter_domestic: business.방폭온도계국산,
+      expansion_device: business.확장디바이스,
+      relay_8ch: business.중계기8채널,
+      relay_16ch: business.중계기16채널,
+      main_board_replacement: business.메인보드교체,
+      
       contacts: business.contacts || [],
       manufacturer: business.manufacturer,
       is_active: business.상태 === '활성'
@@ -1086,7 +1238,6 @@ export default function BusinessManagementPage() {
       alert('사업장 저장에 실패했습니다.')
     }
   }
-
 
   // Table configuration - 시설관리 시스템에 맞게 수정
   const columns = [
@@ -1714,7 +1865,7 @@ export default function BusinessManagementPage() {
                       </div>
                     </div>
 
-                    {/* Measurement Equipment Card */}
+                    {/* Equipment and Network Card */}
                     <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl p-6 border border-teal-200">
                       <div className="flex items-center mb-4">
                         <div className="p-2 bg-teal-600 rounded-lg mr-3">
@@ -1723,104 +1874,107 @@ export default function BusinessManagementPage() {
                         <h3 className="text-lg font-semibold text-slate-800">측정기기 및 네트워크</h3>
                       </div>
                       
-                      {/* Equipment Grid - Compact 3x3 Layout */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                        {/* Measurement Instruments */}
-                        {(selectedBusiness.PH센서 || selectedBusiness.PH센서 === 0) && (
-                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-xs text-teal-600 mb-1">PH센서</div>
-                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.PH센서 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
-                          </div>
-                        )}
-                        {(selectedBusiness.차압계 || selectedBusiness.차압계 === 0) && (
-                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-xs text-teal-600 mb-1">차압계</div>
-                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.차압계 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
-                          </div>
-                        )}
-                        {(selectedBusiness.온도계 || selectedBusiness.온도계 === 0) && (
-                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-xs text-teal-600 mb-1">온도계</div>
-                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.온도계 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
-                          </div>
-                        )}
-                        
-                        {/* Current Meters */}
-                        {(selectedBusiness.배출전류계 || selectedBusiness.배출전류계 === 0) && (
-                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-xs text-orange-600 mb-1">배출전류계</div>
-                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.배출전류계 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
-                          </div>
-                        )}
-                        {(selectedBusiness.송풍전류계 || selectedBusiness.송풍전류계 === 0) && (
-                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-xs text-orange-600 mb-1">송풍전류계</div>
-                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.송풍전류계 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
-                          </div>
-                        )}
-                        {(selectedBusiness.펌프전류계 || selectedBusiness.펌프전류계 === 0) && (
-                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-xs text-orange-600 mb-1">펌프전류계</div>
-                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.펌프전류계 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
-                          </div>
-                        )}
-                        
-                        {/* Network Equipment */}
-                        {(selectedBusiness.게이트웨이 || selectedBusiness.게이트웨이 === 0) && (
-                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-xs text-purple-600 mb-1">게이트웨이</div>
-                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.게이트웨이 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
-                          </div>
-                        )}
-                        {(selectedBusiness.VPN유선 || selectedBusiness.VPN유선 === 0) && (
-                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-xs text-purple-600 mb-1">VPN유선</div>
-                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.VPN유선 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
-                          </div>
-                        )}
-                        {(selectedBusiness.VPN무선 || selectedBusiness.VPN무선 === 0) && (
-                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-xs text-purple-600 mb-1">VPN무선</div>
-                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.VPN무선 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
-                          </div>
-                        )}
-                        {(selectedBusiness.복수굴뚝 || selectedBusiness.복수굴뚝 === 0) && (
-                          <div className="bg-white rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-xs text-red-600 mb-1">복수굴뚝</div>
-                            <div className="text-lg font-bold text-gray-900">{selectedBusiness.복수굴뚝 || 0}<span className="text-xs text-gray-500 ml-1">개</span></div>
-                          </div>
-                        )}
-                      </div>
-                        
-                      {/* Summary Card */}
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                          <div>
-                            <div className="text-sm text-blue-600 mb-1">배출시설</div>
-                            <div className="text-xl font-bold text-blue-800">0</div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-blue-600 mb-1">방지시설</div>
-                            <div className="text-xl font-bold text-blue-800">0</div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-blue-600 mb-1">총 측정기기</div>
-                            <div className="text-xl font-bold text-blue-900">0</div>
-                          </div>
+                      {/* Equipment Quantities with Facility Management Comparison */}
+                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 border border-purple-200 mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-sm font-semibold text-purple-700">측정기기 수량</div>
+                          <button
+                            onClick={() => {
+                              // 시설관리 시스템의 해당 사업장 페이지로 연결
+                              const businessName = encodeURIComponent(selectedBusiness.business_name || selectedBusiness.사업장명 || '');
+                              if (businessName) {
+                                window.open(`/business/${businessName}`, '_blank');
+                              } else {
+                                alert('사업장명 정보가 없어 시설관리 시스템으로 연결할 수 없습니다.');
+                              }
+                            }}
+                            className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                          >
+                            시설관리 연동
+                          </button>
+                        </div>
+                        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                          {(() => {
+                            const devices = [
+                              { key: 'PH센서', value: selectedBusiness.PH센서, facilityKey: 'ph' },
+                              { key: '차압계', value: selectedBusiness.차압계, facilityKey: 'pressure' },
+                              { key: '온도계', value: selectedBusiness.온도계, facilityKey: 'temperature' },
+                              { key: '배출전류계', value: selectedBusiness.배출전류계, facilityKey: 'discharge' },
+                              { key: '송풍전류계', value: selectedBusiness.송풍전류계, facilityKey: 'fan' },
+                              { key: '펌프전류계', value: selectedBusiness.펌프전류계, facilityKey: 'pump' },
+                              { key: '게이트웨이', value: selectedBusiness.게이트웨이, facilityKey: 'gateway' },
+                              { key: '방폭차압계(국산)', value: selectedBusiness.방폭차압계국산, facilityKey: 'explosionProofPressure' },
+                              { key: '방폭온도계(국산)', value: selectedBusiness.방폭온도계국산, facilityKey: 'explosionProofTemp' },
+                              { key: '확장디바이스', value: selectedBusiness.확장디바이스, facilityKey: 'expansionDevice' },
+                              { key: '중계기(8채널)', value: selectedBusiness.중계기8채널, facilityKey: 'relay8ch' },
+                              { key: '중계기(16채널)', value: selectedBusiness.중계기16채널, facilityKey: 'relay16ch' },
+                              { key: '메인보드교체', value: selectedBusiness.메인보드교체, facilityKey: 'mainBoard' },
+                              { key: 'VPN(유선)', value: selectedBusiness.VPN유선, facilityKey: 'vpnWired' },
+                              { key: 'VPN(무선)', value: selectedBusiness.VPN무선, facilityKey: 'vpnWireless' },
+                              { key: '복수굴뚝', value: selectedBusiness.복수굴뚝, facilityKey: 'multipleStack' }
+                            ];
+                            
+                            return devices
+                              .filter(device => device.value && device.value > 0)
+                              .map((device, index) => (
+                                <div key={index} className="bg-white rounded-lg p-3 shadow-sm">
+                                  <div className="text-xs text-gray-600 mb-1">{device.key}</div>
+                                  <div className="flex items-center justify-between">
+                                    <div className="text-lg font-bold text-gray-900">{device.value}</div>
+                                    {facilityDeviceCounts?.[device.facilityKey as keyof typeof facilityDeviceCounts] !== undefined && (
+                                      <div className={`text-sm ${
+                                        facilityDeviceCounts[device.facilityKey as keyof typeof facilityDeviceCounts] === device.value 
+                                          ? 'text-green-600' 
+                                          : 'text-orange-600'
+                                      }`}>
+                                        시설관리: {facilityDeviceCounts[device.facilityKey as keyof typeof facilityDeviceCounts] || 0}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ));
+                          })()}
                         </div>
                       </div>
-                        
-                      {/* Empty State */}
-                      {(!selectedBusiness.PH센서 || selectedBusiness.PH센서 === 0) && 
-                       (!selectedBusiness.차압계 || selectedBusiness.차압계 === 0) && 
-                       (!selectedBusiness.온도계 || selectedBusiness.온도계 === 0) && 
-                       (!selectedBusiness.배출전류계 || selectedBusiness.배출전류계 === 0) &&
-                       (!selectedBusiness.송풍전류계 || selectedBusiness.송풍전류계 === 0) && 
-                       (!selectedBusiness.펌프전류계 || selectedBusiness.펌프전류계 === 0) &&
-                       (!selectedBusiness.게이트웨이 || selectedBusiness.게이트웨이 === 0) && (
+
+                      {/* Facility Information based on Air Permits */}
+                      {facilityLoading ? (
                         <div className="bg-white rounded-lg p-6 text-center text-gray-500">
                           <Settings className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                          <div className="text-sm">측정기기 정보를 불러오는 중...</div>
+                          <div className="text-sm">시설 정보를 불러오는 중...</div>
+                        </div>
+                      ) : facilityData ? (
+                        <>
+                          {/* Facility Summary Card */}
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200 mb-4">
+                            <div className="text-sm font-semibold text-blue-700 mb-3">시설 정보 (대기필증 기준)</div>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                              <div>
+                                <div className="text-sm text-blue-600 mb-1">배출시설</div>
+                                <div className="text-xl font-bold text-blue-800">{facilityData.summary.discharge_count}</div>
+                              </div>
+                              <div>
+                                <div className="text-sm text-blue-600 mb-1">방지시설</div>
+                                <div className="text-xl font-bold text-blue-800">{facilityData.summary.prevention_count}</div>
+                              </div>
+                              <div>
+                                <div className="text-sm text-blue-600 mb-1">배출구</div>
+                                <div className="text-xl font-bold text-blue-900">
+                                  {facilityData.discharge_facilities.concat(facilityData.prevention_facilities)
+                                    .reduce((outlets, facility) => {
+                                      const outletKey = facility.outlet_number;
+                                      return outlets.includes(outletKey) ? outlets : [...outlets, outletKey];
+                                    }, [] as number[]).length}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="bg-white rounded-lg p-6 text-center text-gray-500">
+                          <Settings className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                          <div className="text-sm">등록된 대기필증 정보가 없습니다</div>
+                          <div className="text-xs text-gray-400 mt-1">시설 정보를 확인하려면 먼저 대기필증을 등록하세요</div>
                         </div>
                       )}
                     </div>
@@ -2618,7 +2772,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.business_management_code || ''}
-                        onChange={(e) => setFormData({...formData, business_management_code: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, business_management_code: parseInt(e.target.value) || 0})}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -2646,7 +2800,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.ph_meter || ''}
-                        onChange={(e) => setFormData({...formData, ph_meter: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, ph_meter: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2656,7 +2810,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.differential_pressure_meter || ''}
-                        onChange={(e) => setFormData({...formData, differential_pressure_meter: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, differential_pressure_meter: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2666,7 +2820,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.temperature_meter || ''}
-                        onChange={(e) => setFormData({...formData, temperature_meter: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, temperature_meter: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2676,7 +2830,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.discharge_current_meter || ''}
-                        onChange={(e) => setFormData({...formData, discharge_current_meter: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, discharge_current_meter: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2686,7 +2840,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.fan_current_meter || ''}
-                        onChange={(e) => setFormData({...formData, fan_current_meter: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, fan_current_meter: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2696,7 +2850,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.pump_current_meter || ''}
-                        onChange={(e) => setFormData({...formData, pump_current_meter: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, pump_current_meter: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2706,7 +2860,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.gateway || ''}
-                        onChange={(e) => setFormData({...formData, gateway: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, gateway: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2716,7 +2870,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.vpn_wired || ''}
-                        onChange={(e) => setFormData({...formData, vpn_wired: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, vpn_wired: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2726,7 +2880,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.vpn_wireless || ''}
-                        onChange={(e) => setFormData({...formData, vpn_wireless: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, vpn_wireless: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2736,7 +2890,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.explosion_proof_differential_pressure_meter_domestic || ''}
-                        onChange={(e) => setFormData({...formData, explosion_proof_differential_pressure_meter_domestic: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, explosion_proof_differential_pressure_meter_domestic: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2746,7 +2900,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.explosion_proof_temperature_meter_domestic || ''}
-                        onChange={(e) => setFormData({...formData, explosion_proof_temperature_meter_domestic: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, explosion_proof_temperature_meter_domestic: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2756,7 +2910,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.expansion_device || ''}
-                        onChange={(e) => setFormData({...formData, expansion_device: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, expansion_device: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2766,7 +2920,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.relay_8ch || ''}
-                        onChange={(e) => setFormData({...formData, relay_8ch: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, relay_8ch: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2776,7 +2930,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.relay_16ch || ''}
-                        onChange={(e) => setFormData({...formData, relay_16ch: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, relay_16ch: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2786,7 +2940,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.main_board_replacement || ''}
-                        onChange={(e) => setFormData({...formData, main_board_replacement: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, main_board_replacement: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -2796,7 +2950,7 @@ export default function BusinessManagementPage() {
                       <input
                         type="number"
                         value={formData.multiple_stack || ''}
-                        onChange={(e) => setFormData({...formData, multiple_stack: parseInt(e.target.value) || null})}
+                        onChange={(e) => setFormData({...formData, multiple_stack: parseInt(e.target.value) || 0})}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />

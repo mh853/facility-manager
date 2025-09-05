@@ -60,6 +60,7 @@ export async function GET(
         manager_position,
         representative_name,
         business_registration_number,
+        business_type,
         manufacturer
       `)
       .eq('business_name', businessName)
@@ -228,7 +229,7 @@ export async function GET(
       담당자직급: business.manager_position || '정보 없음',
       대표자: business.representative_name || '정보 없음',
       사업자등록번호: business.business_registration_number || '정보 없음',
-      업종: business.manufacturer || '정보 없음'
+      업종: business.business_type || '정보 없음'
     };
     
     // 결과 데이터 구성
