@@ -163,6 +163,12 @@ interface UnifiedBusinessInfo {
   VPN유선?: number;
   VPN무선?: number;
   복수굴뚝?: number;
+  방폭차압계국산?: number;
+  방폭온도계국산?: number;
+  확장디바이스?: number;
+  중계기8채널?: number;
+  중계기16채널?: number;
+  메인보드교체?: number;
   등록일: string;
   수정일: string;
   지자체?: string;
