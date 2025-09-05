@@ -8,37 +8,53 @@ export async function POST() {
     // First, check current data types
     const { data: currentData } = await supabaseAdmin
       .from('business_info')
-      .select('vpn_wired, vpn_wireless, multiple_stack')
+      .select('id, vpn_wired, vpn_wireless, multiple_stack')
       .limit(5);
     
     console.log('Current boolean values sample:', currentData);
     
-    // Update boolean values to integers (true -> 1, false -> 0)
-    console.log('🔄 Converting boolean values to integers...');
+    // Convert boolean fields to integers one by one
+    console.log('🔄 Converting vpn_wired field...');
     
-    // Update all true values to 1 and false values to 0
-    const { error: updateError } = await supabaseAdmin
+    // Update vpn_wired: false -> 0
+    const { error: vpnWiredFalseError } = await supabaseAdmin
       .from('business_info')
-      .update({
-        vpn_wired: 0,
-        vpn_wireless: 0,
-        multiple_stack: 0
-      })
+      .update({ vpn_wired: 0 })
       .eq('vpn_wired', false);
     
-    if (updateError) {
-      console.log('Update error:', updateError);
-    }
-    
-    // Update true values  
-    const { error: updateTrueError } = await supabaseAdmin
+    // Update vpn_wired: true -> 1
+    const { error: vpnWiredTrueError } = await supabaseAdmin
       .from('business_info')
-      .update({
-        vpn_wired: 1,
-        vpn_wireless: 1,
-        multiple_stack: 1
-      })
+      .update({ vpn_wired: 1 })
       .eq('vpn_wired', true);
+
+    console.log('🔄 Converting vpn_wireless field...');
+    
+    // Update vpn_wireless: false -> 0
+    const { error: vpnWirelessFalseError } = await supabaseAdmin
+      .from('business_info')
+      .update({ vpn_wireless: 0 })
+      .eq('vpn_wireless', false);
+    
+    // Update vpn_wireless: true -> 1
+    const { error: vpnWirelessTrueError } = await supabaseAdmin
+      .from('business_info')
+      .update({ vpn_wireless: 1 })
+      .eq('vpn_wireless', true);
+
+    console.log('🔄 Converting multiple_stack field...');
+    
+    // Update multiple_stack: false -> 0
+    const { error: multipleStackFalseError } = await supabaseAdmin
+      .from('business_info')
+      .update({ multiple_stack: 0 })
+      .eq('multiple_stack', false);
+    
+    // Update multiple_stack: true -> 1
+    const { error: multipleStackTrueError } = await supabaseAdmin
+      .from('business_info')
+      .update({ multiple_stack: 1 })
+      .eq('multiple_stack', true);
     
     console.log('Boolean to integer conversion completed');
     
@@ -46,9 +62,14 @@ export async function POST() {
       success: true,
       message: 'Boolean fields converted to integer successfully',
       conversions: {
-        vpn_wired: updateError ? 'failed' : 'success',
-        vpn_wireless: updateTrueError ? 'failed' : 'success', 
-        multiple_stack: 'success'
+        vpn_wired: vpnWiredFalseError || vpnWiredTrueError ? 'failed' : 'success',
+        vpn_wireless: vpnWirelessFalseError || vpnWirelessTrueError ? 'failed' : 'success', 
+        multiple_stack: multipleStackFalseError || multipleStackTrueError ? 'failed' : 'success'
+      },
+      errors: {
+        vpn_wired: vpnWiredFalseError || vpnWiredTrueError,
+        vpn_wireless: vpnWirelessFalseError || vpnWirelessTrueError,
+        multiple_stack: multipleStackFalseError || multipleStackTrueError
       }
     });
     
