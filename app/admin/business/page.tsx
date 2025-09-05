@@ -326,15 +326,53 @@ export default function BusinessManagementPage() {
   }, [calculateFacilityStats])
 
   // 사업장별 시설 정보 조회
-  const loadBusinessFacilities = useCallback(async (businessId: string) => {
+  const loadBusinessFacilities = useCallback(async (businessName: string) => {
     setFacilityLoading(true)
     try {
-      const response = await fetch(`/api/business-facilities?businessId=${businessId}`)
+      const encodedBusinessName = encodeURIComponent(businessName)
+      const response = await fetch(`/api/facilities-supabase/${encodedBusinessName}`)
       if (response.ok) {
         const result = await response.json()
-        if (result.success) {
-          setFacilityData(result.data)
+        if (result.success && result.data) {
+          // facilities-supabase API 데이터를 BusinessFacilityData 형식으로 변환
+          const facilityApiData = result.data
+          const transformedData: BusinessFacilityData = {
+            business: {
+              id: facilityApiData.businessInfo?.businessName || businessName,
+              business_name: businessName
+            },
+            discharge_facilities: facilityApiData.facilities?.discharge?.map((facility: any) => ({
+              id: `discharge-${facility.outlet}-${facility.number}`,
+              outlet_number: facility.outlet || 1,
+              outlet_name: `배출구 ${facility.outlet || 1}`,
+              facility_number: facility.number || 1,
+              facility_name: facility.name || '배출시설',
+              capacity: facility.capacity || '',
+              quantity: facility.quantity || 1,
+              display_name: facility.displayName || `배출구${facility.outlet}-배출시설${facility.number}`
+            })) || [],
+            prevention_facilities: facilityApiData.facilities?.prevention?.map((facility: any) => ({
+              id: `prevention-${facility.outlet}-${facility.number}`,
+              outlet_number: facility.outlet || 1,
+              outlet_name: `배출구 ${facility.outlet || 1}`,
+              facility_number: facility.number || 1,
+              facility_name: facility.name || '방지시설',
+              capacity: facility.capacity || '',
+              quantity: facility.quantity || 1,
+              display_name: facility.displayName || `배출구${facility.outlet}-방지시설${facility.number}`
+            })) || [],
+            summary: {
+              discharge_count: facilityApiData.dischargeCount || 0,
+              prevention_count: facilityApiData.preventionCount || 0,
+              total_facilities: (facilityApiData.dischargeCount || 0) + (facilityApiData.preventionCount || 0)
+            }
+          }
+          setFacilityData(transformedData)
+        } else {
+          setFacilityData(null)
         }
+      } else {
+        setFacilityData(null)
       }
     } catch (error) {
       console.error('사업장 시설 정보 로드 실패:', error)
@@ -939,7 +977,12 @@ export default function BusinessManagementPage() {
       // 시설 통계 로드
       if (business.id) {
         await loadBusinessFacilityStats(business.id)
-        await loadBusinessFacilities(business.id)
+      }
+      
+      // 시설 정보 로드 (사업장명 사용)
+      const businessName = business.사업장명 || business.business_name
+      if (businessName) {
+        await loadBusinessFacilities(businessName)
       }
     } catch (error) {
       console.error('❌ 모달 열기 오류:', error)
