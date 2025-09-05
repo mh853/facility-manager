@@ -1481,12 +1481,26 @@ export default function BusinessManagementPage() {
                       {selectedBusiness?.is_active || selectedBusiness?.상태 === '활성' ? '활성' : '비활성'}
                     </div>
                   </div>
-                  <button
-                    onClick={() => setIsDetailModalOpen(false)}
-                    className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                  {/* Action Buttons */}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setIsDetailModalOpen(false)
+                        openEditModal(selectedBusiness)
+                      }}
+                      className="flex items-center px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                    >
+                      <Edit className="w-4 h-4 mr-1.5" />
+                      정보수정
+                    </button>
+                    <button
+                      onClick={() => setIsDetailModalOpen(false)}
+                      className="flex items-center px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                    >
+                      <X className="w-4 h-4 mr-1.5" />
+                      닫기
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2282,28 +2296,6 @@ export default function BusinessManagementPage() {
                 </div>
               </div>
 
-              {/* Enhanced Action Buttons */}
-              <div className="bg-gradient-to-r from-gray-50 to-slate-50 px-8 py-6 border-t border-gray-200">
-                <div className="flex justify-end space-x-4">
-                  <button
-                    onClick={() => setIsDetailModalOpen(false)}
-                    className="flex items-center px-6 py-3 border-2 border-gray-300 rounded-xl text-gray-700 hover:bg-white hover:border-gray-400 transition-all duration-200 font-medium"
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    닫기
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsDetailModalOpen(false)
-                      openEditModal(selectedBusiness)
-                    }}
-                    className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl font-medium"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    정보 수정
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -2322,17 +2314,41 @@ export default function BusinessManagementPage() {
         >
           <div className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
             <div className="px-8 py-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mr-4">
-                  <Edit className="w-5 h-5 text-white" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mr-4">
+                    <Edit className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold">
+                    {editingBusiness ? '사업장 정보 수정' : '새 사업장 추가'}
+                  </h2>
                 </div>
-                <h2 className="text-2xl font-bold">
-                  {editingBusiness ? '사업장 정보 수정' : '새 사업장 추가'}
-                </h2>
+                {/* Action Buttons */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="submit"
+                    form="business-form"
+                    className="flex items-center px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                  >
+                    <Save className="w-4 h-4 mr-1.5" />
+                    {editingBusiness ? '수정완료' : '추가완료'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsModalOpen(false)
+                      setShowLocalGovSuggestions(false)
+                    }}
+                    className="flex items-center px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                  >
+                    <X className="w-4 h-4 mr-1.5" />
+                    취소
+                  </button>
+                </div>
               </div>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 max-h-[80vh] overflow-y-auto">
+            <form id="business-form" onSubmit={handleSubmit} className="p-8 max-h-[80vh] overflow-y-auto">
               <div className="space-y-8">
                 {/* 기본 정보 */}
                 <div>
@@ -2983,25 +2999,6 @@ export default function BusinessManagementPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false)
-                    setShowLocalGovSuggestions(false)
-                  }}
-                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl font-medium"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {editingBusiness ? '수정 완료' : '추가 완료'}
-                </button>
-              </div>
             </form>
           </div>
         </div>
