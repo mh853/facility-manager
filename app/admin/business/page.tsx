@@ -381,6 +381,21 @@ export default function BusinessManagementPage() {
       setFacilityLoading(false)
     }
   }, [])
+  
+  // 대기필증 관련 상태
+  const [airPermitData, setAirPermitData] = useState<{
+    business_type: string
+    category: string
+    permits: Array<{
+      id: string
+      business_type: string
+      additional_info?: {
+        category?: string
+      }
+    }>
+  } | null>(null)
+  const [airPermitLoading, setAirPermitLoading] = useState(false)
+  
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadResults, setUploadResults] = useState<{
@@ -752,6 +767,80 @@ export default function BusinessManagementPage() {
   }, [])
 
 
+  // 대기필증 데이터 로딩 함수
+  const loadAirPermitData = useCallback(async (businessId: string) => {
+    try {
+      setAirPermitLoading(true)
+      const response = await fetch(`/api/air-permit?businessId=${businessId}`)
+      
+      if (!response.ok) {
+        // 404는 정상적인 경우 (대기필증이 없는 사업장)
+        if (response.status === 404) {
+          setAirPermitData(null)
+          return
+        }
+        throw new Error('대기필증 데이터 로딩 실패')
+      }
+
+      const result = await response.json()
+      if (result.data && result.data.length > 0) {
+        // 첫 번째 대기필증의 업종과 종별 정보를 사용
+        const firstPermit = result.data[0]
+        setAirPermitData({
+          business_type: firstPermit.business_type || '',
+          category: firstPermit.additional_info?.category || '',
+          permits: result.data
+        })
+      } else {
+        setAirPermitData(null)
+      }
+    } catch (error) {
+      console.error('대기필증 데이터 로딩 오류:', error)
+      setAirPermitData(null)
+    } finally {
+      setAirPermitLoading(false)
+    }
+  }, [])
+
+  // 대기필증 데이터 업데이트 함수 (양방향 동기화)
+  const syncAirPermitData = useCallback(async (businessId: string, updatedBusinessType: string, updatedCategory: string) => {
+    if (!airPermitData || airPermitData.permits.length === 0) return
+
+    try {
+      // 각 대기필증을 업데이트
+      for (const permit of airPermitData.permits) {
+        const updateData = {
+          id: permit.id,
+          business_type: updatedBusinessType,
+          additional_info: {
+            ...permit.additional_info,
+            category: updatedCategory
+          }
+        }
+
+        const response = await fetch('/api/air-permit', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updateData)
+        })
+
+        if (!response.ok) {
+          console.error(`대기필증 ${permit.id} 업데이트 실패`)
+        }
+      }
+
+      // 로컬 상태 업데이트
+      setAirPermitData(prev => prev ? {
+        ...prev,
+        business_type: updatedBusinessType,
+        category: updatedCategory
+      } : null)
+      
+    } catch (error) {
+      console.error('대기필증 동기화 오류:', error)
+    }
+  }, [airPermitData])
+
   // 초기 데이터 로딩 - 의존성 제거하여 무한루프 방지
   useEffect(() => {
     loadAllBusinesses()
@@ -960,6 +1049,11 @@ export default function BusinessManagementPage() {
       setSelectedBusiness(business)
       setIsDetailModalOpen(true)
       
+      // 대기필증 데이터 로딩
+      if (business.id) {
+        loadAirPermitData(business.id)
+      }
+      
       // 백그라운드에서 최신 데이터 조회
       if (business.id && business.사업장명) {
         const refreshedBusiness = await refreshBusinessData(business.id, business.사업장명)
@@ -989,6 +1083,11 @@ export default function BusinessManagementPage() {
       // 기본 데이터라도 표시
       setSelectedBusiness(business)
       setIsDetailModalOpen(true)
+      
+      // 대기필증 데이터 로딩
+      if (business.id) {
+        loadAirPermitData(business.id)
+      }
       
       // 메모 로드 시도
       if (business.id) {
@@ -1051,7 +1150,8 @@ export default function BusinessManagementPage() {
       manager_contact: business.담당자연락처,
       representative_name: business.대표자,
       business_registration_number: business.사업자등록번호,
-      business_type: business.업종,
+      business_type: airPermitData?.business_type || business.업종,
+      business_category: airPermitData?.category || business.business_category,
       business_contact: business.사업장연락처,
       fax_number: business.팩스번호,
       email: business.이메일,
@@ -1224,7 +1324,7 @@ export default function BusinessManagementPage() {
     }
   }
 
-  // 폼 제출 처리
+  // 폼 제출 처리 - 실시간 업데이트 최적화
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -1239,6 +1339,13 @@ export default function BusinessManagementPage() {
       return
     }
 
+    // 제출 버튼 비활성화를 위한 상태 추가
+    const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement
+    if (submitButton) {
+      submitButton.disabled = true
+      submitButton.textContent = editingBusiness ? '수정 중...' : '추가 중...'
+    }
+
     try {
       const method = editingBusiness ? 'PUT' : 'POST'
       
@@ -1250,6 +1357,49 @@ export default function BusinessManagementPage() {
         : processedFormData
 
       console.log('📤 [FRONTEND] 전송할 데이터:', JSON.stringify(body, null, 2));
+
+      // 1. 즉시 모달 닫기 (사용자 경험 개선)
+      setIsModalOpen(false)
+      setShowLocalGovSuggestions(false)
+
+      // 2. Optimistic Update - 편집의 경우 즉시 로컬 상태 업데이트
+      if (editingBusiness) {
+        const optimisticUpdate = {
+          ...editingBusiness,
+          ...Object.keys(processedFormData).reduce((acc, key) => {
+            // 한글 키로 매핑
+            const koreanKeyMap: {[key: string]: string} = {
+              'business_name': '사업장명',
+              'local_government': '지자체',
+              'address': '주소',
+              'representative_name': '대표자명',
+              'business_registration_number': '사업자등록번호',
+              'business_type': '업종',
+              'business_contact': '사업장전화번호',
+              'manager_name': '담당자명',
+              'manager_contact': '담당자연락처',
+              'manager_position': '담당자직급',
+              'fax_number': '팩스번호',
+              'email': '이메일'
+            }
+            
+            const koreanKey = koreanKeyMap[key] || key
+            acc[koreanKey] = processedFormData[key]
+            return acc
+          }, {} as any),
+          수정일: new Date().toISOString()
+        }
+
+        // 즉시 로컬 상태 업데이트
+        setAllBusinesses(prev => prev.map(business => 
+          business.id === editingBusiness.id ? optimisticUpdate : business
+        ))
+        
+        // 선택된 사업장도 업데이트
+        if (selectedBusiness && selectedBusiness.id === editingBusiness.id) {
+          setSelectedBusiness(optimisticUpdate)
+        }
+      }
 
       const response = await fetch('/api/business-info-direct', {
         method,
@@ -1265,26 +1415,94 @@ export default function BusinessManagementPage() {
       console.log('🔄 API 응답 데이터:', result)
 
       if (response.ok) {
+        // 성공 메시지 표시
         alert(editingBusiness ? '사업장 정보가 수정되었습니다.' : '새 사업장이 추가되었습니다.')
-        setIsModalOpen(false)
-        setShowLocalGovSuggestions(false)
-        await loadAllBusinesses()
         
-        // 수정된 사업장이 현재 선택된 사업장이면 새로고침으로 모달 업데이트
-        if (editingBusiness && selectedBusiness && editingBusiness.id === selectedBusiness.id) {
-          // 간단한 새로고침 패턴 - 직접 API에서 최신 데이터 조회
-          const refreshedBusiness = await refreshBusinessData(editingBusiness.id, editingBusiness.사업장명)
-          if (refreshedBusiness) {
-            console.log('✅ 수정 후 데이터 새로고침 완료:', refreshedBusiness.담당자명)
-            setSelectedBusiness(refreshedBusiness)
+        // 3. API 응답으로 정확한 데이터 동기화
+        if (result.success && result.data) {
+          console.log('✅ API 응답에서 받은 업데이트된 데이터:', result.data)
+          
+          if (editingBusiness) {
+            // 편집의 경우: 서버에서 받은 정확한 데이터로 교체
+            const serverData = result.data
+            const updatedBusiness = {
+              id: serverData.id,
+              사업장명: serverData.business_name || '',
+              지자체: serverData.local_government || '',
+              주소: serverData.address || '',
+              대표자명: serverData.representative_name || '',
+              사업자등록번호: serverData.business_registration_number || '',
+              업종: serverData.business_type || '',
+              사업장전화번호: serverData.business_contact || '',
+              담당자명: serverData.manager_name || '',
+              담당자연락처: serverData.manager_contact || '',
+              담당자직급: serverData.manager_position || '',
+              팩스번호: serverData.fax_number || '',
+              이메일: serverData.email || '',
+              생성일: serverData.created_at,
+              수정일: serverData.updated_at,
+              // 기존 통계 데이터 유지
+              fileStats: editingBusiness.fileStats
+            }
+            
+            setAllBusinesses(prev => prev.map(business => 
+              business.id === editingBusiness.id ? updatedBusiness : business
+            ))
+            
+            if (selectedBusiness && selectedBusiness.id === editingBusiness.id) {
+              setSelectedBusiness(updatedBusiness)
+            }
+          } else {
+            // 새 사업장 추가의 경우: 전체 목록 새로고침
+            await loadAllBusinesses()
           }
+        } else {
+          // API 응답에 데이터가 없는 경우 전체 새로고침
+          await loadAllBusinesses()
         }
+        
+        // 대기필증 데이터 동기화 (편집인 경우에만)
+        if (editingBusiness && finalFormData.business_type && finalFormData.business_category) {
+          console.log('🔄 대기필증 데이터 동기화 시작:', {
+            businessId: editingBusiness.id,
+            businessType: finalFormData.business_type,
+            category: finalFormData.business_category
+          })
+          
+          await syncAirPermitData(
+            editingBusiness.id,
+            finalFormData.business_type,
+            finalFormData.business_category
+          )
+          
+          console.log('✅ 대기필증 데이터 동기화 완료')
+        }
+        
+        // 상태 초기화
+        setEditingBusiness(null)
+        setFormData({})
+        
       } else {
+        // 에러 발생 시 optimistic update 롤백
+        if (editingBusiness) {
+          console.log('❌ API 오류로 인한 상태 롤백')
+          await loadAllBusinesses()
+        }
         alert(result.error || '저장에 실패했습니다.')
       }
     } catch (error) {
       console.error('저장 오류:', error)
+      // 에러 발생 시 상태 롤백
+      if (editingBusiness) {
+        await loadAllBusinesses()
+      }
       alert('사업장 저장에 실패했습니다.')
+    } finally {
+      // 제출 버튼 상태 복원
+      if (submitButton) {
+        submitButton.disabled = false
+        submitButton.textContent = editingBusiness ? '수정하기' : '추가하기'
+      }
     }
   }
 
@@ -2066,10 +2284,49 @@ export default function BusinessManagementPage() {
                           </div>
                         )}
                         
-                        {selectedBusiness.업종 && (
+                        {/* 업종 - 대기필증 데이터 우선 표시 */}
+                        {(airPermitData?.business_type || selectedBusiness.업종) && (
                           <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">업종</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.업종}</div>
+                            <div className="text-sm text-gray-600 mb-1 flex items-center gap-2">
+                              업종
+                              {airPermitData?.business_type && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                  대기필증 연동
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-base font-medium text-gray-900">
+                              {airPermitData?.business_type || selectedBusiness.업종}
+                            </div>
+                            {airPermitData?.business_type && selectedBusiness.업종 && 
+                             airPermitData.business_type !== selectedBusiness.업종 && (
+                              <div className="text-xs text-amber-600 mt-1">
+                                사업장 정보와 다름: {selectedBusiness.업종}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* 종별 - 대기필증 데이터 우선 표시 */}
+                        {(airPermitData?.category || selectedBusiness.business_category) && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1 flex items-center gap-2">
+                              종별
+                              {airPermitData?.category && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                  대기필증 연동
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-base font-medium text-gray-900">
+                              {airPermitData?.category || selectedBusiness.business_category}
+                            </div>
+                            {airPermitData?.category && selectedBusiness.business_category && 
+                             airPermitData.category !== selectedBusiness.business_category && (
+                              <div className="text-xs text-amber-600 mt-1">
+                                사업장 정보와 다름: {selectedBusiness.business_category}
+                              </div>
+                            )}
                           </div>
                         )}
                         
@@ -2085,13 +2342,6 @@ export default function BusinessManagementPage() {
                                 {selectedBusiness.상태}
                               </span>
                             </div>
-                          </div>
-                        )}
-                        
-                        {selectedBusiness.business_category && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">종별</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.business_category}</div>
                           </div>
                         )}
                         
@@ -2149,19 +2399,6 @@ export default function BusinessManagementPage() {
                           </div>
                         )}
                         
-                        {selectedBusiness.first_report_date && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">최초신고일</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.first_report_date}</div>
-                          </div>
-                        )}
-                        
-                        {selectedBusiness.operation_start_date && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">가동개시일</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.operation_start_date}</div>
-                          </div>
-                        )}
                         
                         {selectedBusiness.subsidy_approval_date && (
                           <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -2607,31 +2844,80 @@ export default function BusinessManagementPage() {
                     </div>
                     <h3 className="text-lg font-semibold text-slate-800">사업장 정보</h3>
                   </div>
+                  
+                  {/* 대기필증 연동 정보 안내 */}
+                  {airPermitLoading ? (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                        <div className="text-sm text-blue-700">대기필증 정보 로딩 중...</div>
+                      </div>
+                    </div>
+                  ) : airPermitData && airPermitData.permits.length > 0 ? (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="text-sm text-blue-800 font-medium mb-1">✓ 대기필증 정보 연동됨</div>
+                      <div className="text-xs text-blue-600">
+                        업종과 종별이 대기필증 정보({airPermitData.permits.length}개)와 동기화됩니다.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <div className="text-sm text-gray-700 font-medium mb-1">대기필증 미등록</div>
+                      <div className="text-xs text-gray-600">
+                        대기필증이 등록되면 업종과 종별 정보가 자동으로 연동됩니다.
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">업종</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        업종
+                        {airPermitData?.business_type && (
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            대기필증 연동
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
-                        value={formData.business_type || ''}
+                        value={formData.business_type || airPermitData?.business_type || ''}
                         onChange={(e) => setFormData({...formData, business_type: e.target.value})}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                         placeholder="예: 제조업, 서비스업..."
                       />
+                      {airPermitData?.business_type && airPermitData.business_type !== (formData.business_type || '') && (
+                        <div className="text-xs text-blue-600 mt-1">
+                          대기필증 정보: {airPermitData.business_type}
+                        </div>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">종별</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        종별
+                        {airPermitData?.category && (
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            대기필증 연동
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
-                        value={formData.business_category || ''}
+                        value={formData.business_category || airPermitData?.category || ''}
                         onChange={(e) => setFormData({...formData, business_category: e.target.value})}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                         placeholder="사업 종별"
                       />
+                      {airPermitData?.category && airPermitData.category !== (formData.business_category || '') && (
+                        <div className="text-xs text-blue-600 mt-1">
+                          대기필증 정보: {airPermitData.category}
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -2749,25 +3035,6 @@ export default function BusinessManagementPage() {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">최초신고일</label>
-                      <input
-                        type="date"
-                        value={formData.first_report_date || ''}
-                        onChange={(e) => setFormData({...formData, first_report_date: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">가동개시일</label>
-                      <input
-                        type="date"
-                        value={formData.operation_start_date || ''}
-                        onChange={(e) => setFormData({...formData, operation_start_date: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
                   </div>
                 </div>
 

@@ -124,19 +124,37 @@ const DateInput = ({ value, onChange, placeholder = "YYYY-MM-DD" }: {
 
 export default function AirPermitManagementPage() {
   const [businessesWithPermits, setBusinessesWithPermits] = useState<BusinessInfo[]>([])
-  const [allBusinesses, setAllBusinesses] = useState<BusinessInfo[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [businessSearchTerm, setBusinessSearchTerm] = useState('')
-  const [showBusinessSuggestions, setShowBusinessSuggestions] = useState(false)
+  const [businessListSearchTerm, setBusinessListSearchTerm] = useState('')
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessInfo | null>(null)
   const [airPermits, setAirPermits] = useState<AirPermitInfo[]>([])
   const [selectedPermit, setSelectedPermit] = useState<AirPermitInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingPermit, setEditingPermit] = useState<AirPermitInfo | null>(null)
-  const [formData, setFormData] = useState<Partial<AirPermitInfo>>({})
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [permitToDelete, setPermitToDelete] = useState<AirPermitInfo | null>(null)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [allBusinesses, setAllBusinesses] = useState<BusinessInfo[]>([])
+  const [isLoadingBusinesses, setIsLoadingBusinesses] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showBusinessDropdown, setShowBusinessDropdown] = useState(false)
+  const [selectedBusinessName, setSelectedBusinessName] = useState('')
+  const [newPermitData, setNewPermitData] = useState({
+    business_id: '',
+    business_type: '',
+    category: '',
+    first_report_date: '',
+    operation_start_date: '',
+    facility_number: '',
+    green_link_code: '',
+    memo: '',
+    outlets: [
+      {
+        outlet_number: 1,
+        outlet_name: '배출구 1',
+        discharge_facilities: [{ name: '', capacity: '', quantity: 1 }],
+        prevention_facilities: [{ name: '', capacity: '', quantity: 1 }]
+      }
+    ]
+  })
   
   // 대기필증 검색 상태
   const [filteredAirPermits, setFilteredAirPermits] = useState<AirPermitInfo[]>([])
@@ -144,8 +162,8 @@ export default function AirPermitManagementPage() {
 
   // 대기필증이 등록된 사업장만 필터링 (선택 리스트용)
   const filteredBusinessesWithPermits = useMemo(() => {
-    if (!searchTerm.trim()) return businessesWithPermits
-    const searchLower = searchTerm.toLowerCase()
+    if (!businessListSearchTerm.trim()) return businessesWithPermits
+    const searchLower = businessListSearchTerm.toLowerCase()
     return businessesWithPermits.filter(business =>
       business.business_name.toLowerCase().includes(searchLower) ||
       business.local_government?.toLowerCase().includes(searchLower) ||
@@ -153,18 +171,8 @@ export default function AirPermitManagementPage() {
       business.manager_contact?.toLowerCase().includes(searchLower) ||
       business.address?.toLowerCase().includes(searchLower)
     )
-  }, [searchTerm, businessesWithPermits])
+  }, [businessListSearchTerm, businessesWithPermits])
   
-  // 전체 사업장 목록 검색 (새 대기필증 추가용)
-  const filteredAllBusinesses = useMemo(() => {
-    if (!businessSearchTerm.trim()) return []
-    const searchLower = businessSearchTerm.toLowerCase()
-    return allBusinesses.filter(business =>
-      business.business_name.toLowerCase().includes(searchLower) ||
-      business.local_government?.toLowerCase().includes(searchLower) ||
-      business.manager_name?.toLowerCase().includes(searchLower)
-    ).slice(0, 10) // 최대 10개만 표시
-  }, [businessSearchTerm, allBusinesses])
 
   // 대기필증 필터링 함수
   const filterAirPermits = useCallback((query: string) => {
@@ -346,30 +354,6 @@ export default function AirPermitManagementPage() {
         }
       }
       
-      // 4. 전체 사업장 목록은 새 대기필증 추가용으로만 로드 (별도 요청)
-      try {
-        const businessResponse = await fetch('/api/business-list')
-        const businessResult = await businessResponse.json()
-        
-        if (businessResponse.ok && businessResult.data?.businesses) {
-          const allBusinesses = businessResult.data.businesses.map((name: string, index: number) => ({
-            id: `business-${index}`,
-            business_name: name,
-            local_government: '',
-            address: '',
-            manager_name: '',
-            manager_contact: '',
-            is_active: true,
-            created_at: new Date().toISOString()
-          }))
-          
-          setAllBusinesses(allBusinesses)
-          console.log(`✅ 전체 사업장 ${allBusinesses.length}개 로드 완료 (새 대기필증 추가용)`)
-        }
-      } catch (businessError) {
-        console.error('⚠️ 전체 사업장 목록 로드 실패 (새 대기필증 추가에만 영향):', businessError)
-        // 이 에러는 기존 대기필증 목록 표시에는 영향을 주지 않음
-      }
     } catch (error) {
       console.error('Error loading businesses with permits:', error)
       alert('대기필증 사업장 목록을 불러오는데 실패했습니다')
@@ -444,6 +428,214 @@ export default function AirPermitManagementPage() {
     }
   }, [airPermits, filterAirPermits, permitSearchQuery])
 
+  // 모든 사업장 목록 로드 (모달용)
+  const loadAllBusinesses = async () => {
+    setIsLoadingBusinesses(true)
+    try {
+      const response = await fetch('/api/business-list')
+      const result = await response.json()
+      
+      if (response.ok) {
+        // API에서 문자열 배열을 반환하므로 객체로 변환
+        const businessNames = Array.isArray(result.data?.businesses) ? result.data.businesses : []
+        const businesses = businessNames.map((name: string, index: number) => ({
+          id: name, // 사업장명을 ID로 사용 (백엔드에서 사업장명으로 조회)
+          business_name: name,
+          local_government: result.data?.details?.[name]?.local_government || '', // 기본값
+          business_registration_number: '', // 기본값
+          business_type: '' // 기본값
+        }))
+        
+        console.log('✅ 사업장 목록 로드 완료:', businesses.length, '개')
+        setAllBusinesses(businesses)
+      } else {
+        console.error('❌ 사업장 목록 로드 실패:', result.error)
+        setAllBusinesses([]) // Ensure it's always an array
+        alert('사업장 목록을 불러오는데 실패했습니다: ' + result.error)
+      }
+    } catch (error) {
+      console.error('❌ 사업장 목록 로드 오류:', error)
+      setAllBusinesses([]) // Ensure it's always an array
+      alert('사업장 목록을 불러오는 중 오류가 발생했습니다.')
+    } finally {
+      setIsLoadingBusinesses(false)
+    }
+  }
+
+  // 배출구 추가
+  const addOutlet = () => {
+    const newOutletNumber = newPermitData.outlets.length + 1
+    setNewPermitData(prev => ({
+      ...prev,
+      outlets: [
+        ...prev.outlets,
+        {
+          outlet_number: newOutletNumber,
+          outlet_name: `배출구 ${newOutletNumber}`,
+          discharge_facilities: [{ name: '', capacity: '', quantity: 1 }],
+          prevention_facilities: [{ name: '', capacity: '', quantity: 1 }]
+        }
+      ]
+    }))
+  }
+
+  // 배출구 삭제
+  const removeOutlet = (outletIndex: number) => {
+    if (newPermitData.outlets.length > 1) {
+      setNewPermitData(prev => ({
+        ...prev,
+        outlets: prev.outlets.filter((_, index) => index !== outletIndex)
+      }))
+    }
+  }
+
+  // 배출시설 추가
+  const addDischargeFacility = (outletIndex: number) => {
+    setNewPermitData(prev => ({
+      ...prev,
+      outlets: prev.outlets.map((outlet, index) => 
+        index === outletIndex
+          ? {
+              ...outlet,
+              discharge_facilities: [
+                ...outlet.discharge_facilities,
+                { name: '', capacity: '', quantity: 1 }
+              ]
+            }
+          : outlet
+      )
+    }))
+  }
+
+  // 배출시설 삭제
+  const removeDischargeFacility = (outletIndex: number, facilityIndex: number) => {
+    setNewPermitData(prev => ({
+      ...prev,
+      outlets: prev.outlets.map((outlet, index) => 
+        index === outletIndex
+          ? {
+              ...outlet,
+              discharge_facilities: outlet.discharge_facilities.filter((_, fIndex) => fIndex !== facilityIndex)
+            }
+          : outlet
+      )
+    }))
+  }
+
+  // 방지시설 추가
+  const addPreventionFacility = (outletIndex: number) => {
+    setNewPermitData(prev => ({
+      ...prev,
+      outlets: prev.outlets.map((outlet, index) => 
+        index === outletIndex
+          ? {
+              ...outlet,
+              prevention_facilities: [
+                ...outlet.prevention_facilities,
+                { name: '', capacity: '', quantity: 1 }
+              ]
+            }
+          : outlet
+      )
+    }))
+  }
+
+  // 방지시설 삭제
+  const removePreventionFacility = (outletIndex: number, facilityIndex: number) => {
+    setNewPermitData(prev => ({
+      ...prev,
+      outlets: prev.outlets.map((outlet, index) => 
+        index === outletIndex
+          ? {
+              ...outlet,
+              prevention_facilities: outlet.prevention_facilities.filter((_, fIndex) => fIndex !== facilityIndex)
+            }
+          : outlet
+      )
+    }))
+  }
+
+  // 시설 정보 업데이트
+  const updateFacility = (outletIndex: number, facilityType: 'discharge' | 'prevention', facilityIndex: number, field: string, value: any) => {
+    setNewPermitData(prev => ({
+      ...prev,
+      outlets: prev.outlets.map((outlet, oIndex) => 
+        oIndex === outletIndex
+          ? {
+              ...outlet,
+              [`${facilityType}_facilities`]: outlet[`${facilityType}_facilities`].map((facility: any, fIndex: number) => 
+                fIndex === facilityIndex
+                  ? { ...facility, [field]: value }
+                  : facility
+              )
+            }
+          : outlet
+      )
+    }))
+  }
+
+  // 대기필증 추가 모달 열기
+  // 사업장 필터링 로직 (실시간 검색 최적화)
+  const filteredBusinesses = useMemo(() => {
+    if (!Array.isArray(allBusinesses)) return []
+    if (!searchTerm || searchTerm.length < 1) return allBusinesses.slice(0, 100) // 초기에는 100개만 표시
+    
+    const searchLower = searchTerm.toLowerCase()
+    return allBusinesses.filter(business => {
+      return (
+        business.business_name?.toLowerCase().includes(searchLower) ||
+        business.local_government?.toLowerCase().includes(searchLower) ||
+        business.business_registration_number?.includes(searchTerm)
+      )
+    }).slice(0, 50) // 검색시에는 50개만 표시
+  }, [allBusinesses, searchTerm])
+
+  const openAddModal = () => {
+    setNewPermitData({
+      business_id: '',
+      business_type: '',
+      category: '',
+      first_report_date: '',
+      operation_start_date: '',
+      facility_number: '',
+      green_link_code: '',
+      memo: '',
+      outlets: [
+        {
+          outlet_number: 1,
+          outlet_name: '배출구 1',
+          discharge_facilities: [{ name: '', capacity: '', quantity: 1 }],
+          prevention_facilities: [{ name: '', capacity: '', quantity: 1 }]
+        }
+      ]
+    })
+    // 검색 상태 리셋
+    setSearchTerm('')
+    setSelectedBusinessName('')
+    setShowBusinessDropdown(false)
+    
+    setIsAddModalOpen(true)
+    // 모달이 열릴 때만 사업장 데이터 로드 (지연 로딩)
+    if (allBusinesses.length === 0) {
+      loadAllBusinesses()
+    }
+  }
+
+  // 외부 클릭시 드롭다운 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showBusinessDropdown) {
+        const target = event.target as HTMLElement
+        if (!target.closest('.business-dropdown-container')) {
+          setShowBusinessDropdown(false)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showBusinessDropdown])
+
   // 페이지 로드 시 대기필증이 등록된 사업장만 로드
   useEffect(() => {
     loadBusinessesWithPermits()
@@ -461,167 +653,88 @@ export default function AirPermitManagementPage() {
     setSelectedPermit(permit)
   }
 
-  // 새 대기필증 추가 모달 열기
-  const openAddModal = () => {
-    setEditingPermit(null)
-    setFormData({
-      business_id: '',
-      business_type: '',
-      category: '',
-      business_name: '',
-      pollutants: [],
-      first_report_date: '',
-      operation_start_date: '',
-      outlets: [],
-      additional_info: {},
-      is_active: true,
-      is_deleted: false
-    })
-    setBusinessSearchTerm('')
-    setShowBusinessSuggestions(false)
-    setIsModalOpen(true)
-  }
 
-  // 대기필증 편집 모달 열기 (상세 정보 로드)
-  const openEditModal = async (permit: AirPermitInfo) => {
-    console.log('🔍 편집할 대기필증 데이터:', permit)
-    
-    setEditingPermit(permit)
-    
+  // 대기필증 생성 함수 (실시간 업데이트 적용)
+  const handleCreatePermit = async () => {
     try {
-      // 상세 정보 로드 (배출구 및 시설 정보 포함)
-      const detailResponse = await fetch(`/api/air-permit?id=${permit.id}&details=true`)
-      const detailResult = await detailResponse.json()
-      
-      let permitWithDetails = permit
-      if (detailResponse.ok && detailResult.data) {
-        permitWithDetails = detailResult.data
-        console.log('📋 상세 정보 로드 성공:', permitWithDetails)
-      } else {
-        console.warn('⚠️ 상세 정보 로드 실패, 기본 정보만 사용')
+      if (!newPermitData.business_id) {
+        alert('사업장을 선택해주세요.')
+        return
       }
+
+      const selectedBusiness = Array.isArray(allBusinesses) ? allBusinesses.find(b => b.id === newPermitData.business_id) : null
       
-      // additional_info에서 모든 데이터 추출 (안전한 방식으로)
-      const additionalInfo = permitWithDetails.additional_info || {}
-      
-      const formDataToSet = {
-        ...permitWithDetails,
-        // 실제 필드 우선, 없으면 additional_info에서 추출
-        business_type: additionalInfo.business_type || permitWithDetails.business_type || '',
-        category: additionalInfo.category || permitWithDetails.category || '',
-        business_name: additionalInfo.business_name || permitWithDetails.business_name || '',
-        first_report_date: permitWithDetails.first_report_date || additionalInfo.first_report_date || '',
-        operation_start_date: permitWithDetails.operation_start_date || additionalInfo.operation_start_date || '',
-        pollutants: additionalInfo.pollutants || [],
-        outlets: permitWithDetails.outlets || additionalInfo.outlets || []
-      }
-      
-      // 기본 outlet이 없으면 빈 배출구를 하나 추가
-      if (formDataToSet.outlets.length === 0) {
-        formDataToSet.outlets = [{
-          outlet_number: 1,
-          outlet_name: '',
-          discharge_facilities: additionalInfo.discharge_facilities || [],
-          prevention_facilities: additionalInfo.prevention_facilities || []
-        }]
-      }
-      
-      // 시설 데이터 필드명 정규화 (facility_name -> name, capacity, quantity 유지)
-      formDataToSet.outlets = formDataToSet.outlets.map((outlet: any) => ({
-        ...outlet,
-        discharge_facilities: (outlet.discharge_facilities || []).map((facility: any) => ({
-          name: facility.name || facility.facility_name || '',
-          capacity: facility.capacity || '',
-          quantity: facility.quantity || 1
-        })),
-        prevention_facilities: (outlet.prevention_facilities || []).map((facility: any) => ({
-          name: facility.name || facility.facility_name || '',
-          capacity: facility.capacity || '',
-          quantity: facility.quantity || 1
+      // API 호출용 데이터 구성
+      const permitData = {
+        business_id: newPermitData.business_id,
+        business_type: newPermitData.business_type || selectedBusiness?.business_type || '',
+        category: newPermitData.category,
+        business_name: selectedBusiness?.business_name || '',
+        first_report_date: newPermitData.first_report_date || null,
+        operation_start_date: newPermitData.operation_start_date || null,
+        additional_info: {
+          facility_number: newPermitData.facility_number,
+          green_link_code: newPermitData.green_link_code,
+          memo: newPermitData.memo
+        },
+        outlets: newPermitData.outlets.map(outlet => ({
+          outlet_number: outlet.outlet_number,
+          outlet_name: outlet.outlet_name,
+          discharge_facilities: outlet.discharge_facilities.filter(f => f.name.trim()),
+          prevention_facilities: outlet.prevention_facilities.filter(f => f.name.trim()),
+          additional_info: {
+            gateway: ''
+          }
         }))
-      }))
-      
-      console.log('🔍 편집 폼에 설정할 데이터:', formDataToSet)
-      
-      setFormData(formDataToSet)
-      setIsModalOpen(true)
-      
-    } catch (error) {
-      console.error('❌ 상세 정보 로드 오류:', error)
-      // 오류 발생 시 기본 정보로 폴백
-      const additionalInfo = permit.additional_info || {}
-      const formDataToSet = {
-        ...permit,
-        business_type: additionalInfo.business_type || permit.business_type || '',
-        category: additionalInfo.category || permit.category || '',
-        business_name: additionalInfo.business_name || permit.business_name || '',
-        first_report_date: permit.first_report_date || additionalInfo.first_report_date || '',
-        operation_start_date: permit.operation_start_date || additionalInfo.operation_start_date || '',
-        pollutants: additionalInfo.pollutants || [],
-        outlets: additionalInfo.outlets || [{
-          outlet_number: 1,
-          outlet_name: '',
-          discharge_facilities: additionalInfo.discharge_facilities || [],
-          prevention_facilities: additionalInfo.prevention_facilities || []
-        }]
       }
-      setFormData(formDataToSet)
-      setIsModalOpen(true)
-    }
-  }
 
-  // 폼 제출
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    try {
-      const method = editingPermit ? 'PUT' : 'POST'
-      const url = '/api/air-permit'
-      const body = editingPermit 
-        ? { id: editingPermit.id, ...formData }
-        : formData
+      // 낙관적 업데이트: 임시 ID로 즉시 UI 업데이트
+      const tempPermit = {
+        id: `temp-${Date.now()}`,
+        ...permitData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_active: true,
+        is_deleted: false
+      }
 
-      console.log('🚀 프론트엔드에서 전송하는 데이터:', {
-        method,
-        url,
-        body
+      // 즉시 UI 업데이트
+      setAirPermits(prev => [...prev, tempPermit as any])
+      setIsAddModalOpen(false)
+
+      const response = await fetch('/api/air-permit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(permitData)
       })
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
-
-      console.log('📥 서버 응답 상태:', response.status, response.statusText)
-      
-      let result
-      const responseText = await response.text()
-      console.log('📥 원시 응답:', responseText)
-      
-      try {
-        result = responseText ? JSON.parse(responseText) : {}
-      } catch (parseError) {
-        console.error('❌ JSON 파싱 오류:', parseError)
-        console.error('❌ 원시 응답 텍스트:', responseText)
-        throw new Error(`서버 응답을 파싱할 수 없습니다: ${responseText}`)
-      }
-      
-      console.log('📥 파싱된 응답:', result)
+      const result = await response.json()
 
       if (response.ok) {
-        alert(result.message || '저장이 완료되었습니다')
-        setIsModalOpen(false)
-        if (selectedBusiness) {
-          loadAirPermits(selectedBusiness.id)
-        }
+        // 실제 데이터로 교체
+        setAirPermits(prev => prev.map(permit => 
+          permit.id === tempPermit.id ? result.data : permit
+        ))
+        
+        // 대기필증이 등록된 사업장 목록 업데이트
+        await loadBusinessesWithPermits()
+        
+        alert('대기필증이 성공적으로 생성되었습니다.')
+        console.log('✅ 대기필증 생성 성공:', result.data)
       } else {
-        console.error('❌ 저장 실패:', result)
-        alert(result.error || `서버 오류: ${response.status}`)
+        // 실패 시 롤백
+        setAirPermits(prev => prev.filter(permit => permit.id !== tempPermit.id))
+        console.error('❌ 대기필증 생성 실패:', result)
+        alert(result.error || '대기필증 생성에 실패했습니다.')
       }
+
     } catch (error) {
-      console.error('❌ 네트워크 오류:', error)
-      alert('대기필증 저장에 실패했습니다')
+      console.error('💥 대기필증 생성 중 예외 발생:', error)
+      // 오류 시 롤백
+      setAirPermits(prev => prev.filter(permit => !permit.id.toString().startsWith('temp-')))
+      alert('대기필증 생성 중 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
     }
   }
 
@@ -636,24 +749,36 @@ export default function AirPermitManagementPage() {
     if (!permitToDelete) return
 
     try {
-      const response = await fetch(`/api/air-permit?id=${permitToDelete.id}`, {
+      // 낙관적 업데이트: 즉시 UI에서 제거
+      const deletedPermit = permitToDelete
+      setAirPermits(prev => prev.filter(permit => permit.id !== permitToDelete.id))
+      setDeleteConfirmOpen(false)
+      setPermitToDelete(null)
+
+      // 사업장 목록의 필증 카운트 업데이트 (삭제 성공 후 처리)
+      // loadBusinessesWithPermits()를 호출하지 않고 UI만 즉시 업데이트
+
+      const response = await fetch(`/api/air-permit?id=${deletedPermit.id}`, {
         method: 'DELETE'
       })
 
       const result = await response.json()
 
-      if (response.ok) {
-        setDeleteConfirmOpen(false)
-        setPermitToDelete(null)
-        if (selectedBusiness) {
-          loadAirPermits(selectedBusiness.id)
-        }
+      if (!response.ok) {
+        // 실패 시 롤백
+        setAirPermits(prev => [...prev, deletedPermit])
+        console.error('❌ 대기필증 삭제 실패:', result)
+        alert(result.error || '대기필증 삭제에 실패했습니다')
       } else {
-        alert(result.error)
+        console.log('✅ 대기필증 삭제 성공:', deletedPermit.id)
       }
     } catch (error) {
-      console.error('Error deleting air permit:', error)
-      alert('대기필증 삭제에 실패했습니다')
+      console.error('💥 대기필증 삭제 중 예외 발생:', error)
+      // 오류 시 롤백
+      if (permitToDelete) {
+        setAirPermits(prev => [...prev, permitToDelete])
+      }
+      alert('대기필증 삭제 중 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
     }
   }
 
@@ -661,6 +786,16 @@ export default function AirPermitManagementPage() {
     <AdminLayout 
       title="대기필증 관리"
       description="대기배출시설 허가증 관리 시스템"
+      actions={
+        <button
+          onClick={openAddModal}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+          title="새 대기필증 추가"
+        >
+          <Plus className="w-4 h-4" />
+          대기필증 추가
+        </button>
+      }
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Business Selection Panel */}
@@ -688,13 +823,13 @@ export default function AirPermitManagementPage() {
               <input
                 type="text"
                 placeholder="사업장명, 지역, 담당자명으로 검색..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={businessListSearchTerm}
+                onChange={(e) => setBusinessListSearchTerm(e.target.value)}
                 className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              {searchTerm && (
+              {businessListSearchTerm && (
                 <button
-                  onClick={() => setSearchTerm('')}
+                  onClick={() => setBusinessListSearchTerm('')}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
                   <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
@@ -714,7 +849,7 @@ export default function AirPermitManagementPage() {
                   onClick={() => handleBusinessSelect(business)}
                 >
                   <h3 className="font-medium text-gray-900">
-                    {searchTerm ? highlightBusinessSearchTerm(business.business_name, searchTerm) : business.business_name}
+                    {businessListSearchTerm ? highlightBusinessSearchTerm(business.business_name, businessListSearchTerm) : business.business_name}
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
                     {business.business_registration_number || '등록번호 미등록'}
@@ -773,11 +908,13 @@ export default function AirPermitManagementPage() {
                 {filteredAirPermits.map((permit) => (
                   <div 
                     key={permit.id}
-                    className="p-4 rounded-lg border border-gray-200 hover:border-gray-300 cursor-pointer transition-colors"
-                    onClick={() => setSelectedPermit(permit)}
+                    className="p-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
                   >
                     <div className="flex items-center justify-between">
-                      <div>
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => setSelectedPermit(permit)}
+                      >
                         <h3 className="font-medium text-gray-900">
                           {permitSearchQuery ? (
                             <>
@@ -787,14 +924,73 @@ export default function AirPermitManagementPage() {
                             `대기필증 #${permit.id}`
                           )}
                         </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {permitSearchQuery ? 
-                            highlightPermitSearchTerm(permit.business_type || '업종 미지정', permitSearchQuery) : 
-                            (permit.business_type || '업종 미지정')
-                          }
-                        </p>
+                        <div className="text-sm text-gray-600 mt-1 space-y-1">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="font-medium">업종: </span>
+                              {permitSearchQuery ? 
+                                highlightPermitSearchTerm(permit.business_type || '미지정', permitSearchQuery) : 
+                                (permit.business_type || '미지정')
+                              }
+                            </div>
+                            <div>
+                              <span className="font-medium">종별: </span>
+                              {permitSearchQuery ? 
+                                highlightPermitSearchTerm(permit.additional_info?.category || '미지정', permitSearchQuery) : 
+                                (permit.additional_info?.category || '미지정')
+                              }
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="font-medium">최초신고일: </span>
+                              {permit.first_report_date ? 
+                                new Date(permit.first_report_date).toLocaleDateString('ko-KR') : 
+                                '미지정'
+                              }
+                            </div>
+                            <div>
+                              <span className="font-medium">가동개시일: </span>
+                              {permit.operation_start_date ? 
+                                new Date(permit.operation_start_date).toLocaleDateString('ko-KR') : 
+                                '미지정'
+                              }
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <Eye className="w-4 h-4 text-gray-400" />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedPermit(permit)
+                          }}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="상세보기"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            window.location.href = `/admin/air-permit-detail?permitId=${permit.id}`
+                          }}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="편집"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            confirmDelete(permit)
+                          }}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -820,7 +1016,7 @@ export default function AirPermitManagementPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => window.open(`/admin/air-permit-detail?permitId=${selectedPermit.id}`, '_blank')}
+                      onClick={() => window.location.href = `/admin/air-permit-detail?permitId=${selectedPermit.id}`}
                       className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                     >
                       <Edit className="w-4 h-4" />
@@ -848,6 +1044,12 @@ export default function AirPermitManagementPage() {
                       <label className="block text-sm font-medium text-gray-700">업종</label>
                       <p className="mt-1 text-sm text-gray-900">
                         {selectedPermit.business_type || '미지정'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">종별</label>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {selectedPermit.additional_info?.category || '미지정'}
                       </p>
                     </div>
                     <div>
@@ -1028,46 +1230,405 @@ export default function AirPermitManagementPage() {
                   )}
                 </div>
 
-                {/* Additional Information */}
-                {selectedPermit.additional_info && Object.keys(selectedPermit.additional_info).length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-purple-600" />
-                      추가 정보
-                    </h3>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      {selectedPermit.additional_info.pollutants && selectedPermit.additional_info.pollutants.length > 0 && (
-                        <div className="mb-3">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">배출 오염물질</label>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedPermit.additional_info.pollutants.map((pollutant: string, index: number) => (
-                              <span key={index} className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
-                                {pollutant}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        {Object.entries(selectedPermit.additional_info).map(([key, value]) => {
-                          if (key === 'pollutants' || key === 'outlets') return null
-                          return (
-                            <div key={key}>
-                              <label className="block text-xs font-medium text-gray-600 uppercase tracking-wide">{key}</label>
-                              <p className="mt-1 text-gray-900">{JSON.stringify(value)}</p>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* 대기필증 추가 모달 */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-7xl w-full mx-4 max-h-[95vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">새 대기필증 추가</h2>
+                <p className="text-gray-600">새로운 대기필증 정보를 입력하고 등록하세요.</p>
+              </div>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => { e.preventDefault(); handleCreatePermit(); }} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* 사업장 선택 */}
+              <div className="relative business-dropdown-container">
+                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                  사업장 선택 <span className="text-red-500">*</span>
+                </label>
+                {isLoadingBusinesses ? (
+                  <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center">
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                    사업장 목록을 불러오는 중...
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={newPermitData.business_id ? selectedBusinessName : searchTerm}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setSearchTerm(value)
+                        setShowBusinessDropdown(true)
+                        
+                        // 사업장이 선택된 상태에서 수정하는 경우 선택 해제
+                        if (newPermitData.business_id) {
+                          setSelectedBusinessName('')
+                          setNewPermitData(prev => ({
+                            ...prev, 
+                            business_id: '',
+                            business_type: ''
+                          }))
+                        }
+                      }}
+                      onFocus={() => {
+                        setShowBusinessDropdown(true)
+                        // 포커스시 선택된 사업장이 있다면 검색어를 비워서 다시 검색할 수 있게 함
+                        if (newPermitData.business_id) {
+                          setSearchTerm('')
+                        }
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                      placeholder="사업장명 또는 지자체명으로 검색..."
+                      required={!newPermitData.business_id}
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    
+                    {showBusinessDropdown && (!newPermitData.business_id || searchTerm) && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {filteredBusinesses.length > 0 ? (
+                          <>
+                            <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-200 bg-gray-50">
+                              {searchTerm ? 
+                                `검색 결과: ${filteredBusinesses.length}개 사업장 ${filteredBusinesses.length === 50 ? '(최대 50개 표시)' : ''}` :
+                                `전체: ${filteredBusinesses.length}개 사업장 ${filteredBusinesses.length === 100 ? '(처음 100개 표시)' : ''}`
+                              }
+                            </div>
+                            {filteredBusinesses.map(business => (
+                              <div
+                                key={business.id}
+                                onClick={() => {
+                                  setSelectedBusinessName(`${business.business_name} - ${business.local_government}`)
+                                  setSearchTerm('')
+                                  setShowBusinessDropdown(false)
+                                  setNewPermitData(prev => ({
+                                    ...prev, 
+                                    business_id: business.id,
+                                    business_type: business.business_type || ''
+                                  }))
+                                }}
+                                className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                              >
+                                <div className="font-medium text-gray-900">{business.business_name}</div>
+                                <div className="text-sm text-gray-500">{business.local_government}</div>
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          <div className="px-3 py-4 text-gray-500 text-center">
+                            {isLoadingBusinesses ? (
+                              <div className="flex items-center justify-center">
+                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                사업장 목록을 불러오는 중...
+                              </div>
+                            ) : (
+                              searchTerm ? `"${searchTerm}"에 대한 검색 결과가 없습니다.` : '사업장 목록이 없습니다.'
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* 선택된 사업장 표시 */}
+                {newPermitData.business_id && !showBusinessDropdown && (
+                  <div className="mt-2 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    <div>
+                      <div className="font-medium text-blue-900">{selectedBusinessName.split(' - ')[0]}</div>
+                      <div className="text-sm text-blue-700">{selectedBusinessName.split(' - ')[1]}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBusinessName('')
+                        setSearchTerm('')
+                        setNewPermitData(prev => ({
+                          ...prev, 
+                          business_id: '',
+                          business_type: ''
+                        }))
+                      }}
+                      className="text-blue-600 hover:text-blue-800 ml-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 업종 */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                  업종
+                </label>
+                <input
+                  type="text"
+                  value={newPermitData.business_type}
+                  onChange={(e) => setNewPermitData(prev => ({...prev, business_type: e.target.value}))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="업종을 입력하세요"
+                />
+              </div>
+
+              {/* 종별 */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                  종별
+                </label>
+                <input
+                  type="text"
+                  value={newPermitData.category}
+                  onChange={(e) => setNewPermitData(prev => ({...prev, category: e.target.value}))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="종별을 입력하세요"
+                />
+              </div>
+
+              {/* 최초 신고일 */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                  최초 신고일
+                </label>
+                <DateInput
+                  value={newPermitData.first_report_date}
+                  onChange={(value) => setNewPermitData(prev => ({...prev, first_report_date: value}))}
+                  placeholder="YYYY-MM-DD"
+                />
+              </div>
+
+              {/* 가동 개시일 */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                  가동 개시일
+                </label>
+                <DateInput
+                  value={newPermitData.operation_start_date}
+                  onChange={(value) => setNewPermitData(prev => ({...prev, operation_start_date: value}))}
+                  placeholder="YYYY-MM-DD"
+                />
+              </div>
+              </div>
+
+
+              {/* 배출구 및 시설 정보 섹션 */}
+              <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    배출구 및 시설 정보
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={addOutlet}
+                    className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    배출구 추가
+                  </button>
+                </div>
+                
+                <div className="space-y-4 max-h-60 overflow-y-auto">
+                  {newPermitData.outlets.map((outlet, outletIndex) => (
+                    <div key={outletIndex} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-gray-900">
+                          배출구 {outlet.outlet_number}
+                        </h4>
+                        {newPermitData.outlets.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeOutlet(outletIndex)}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* 배출구명 */}
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          배출구명
+                        </label>
+                        <input
+                          type="text"
+                          value={outlet.outlet_name}
+                          onChange={(e) => setNewPermitData(prev => ({
+                            ...prev,
+                            outlets: prev.outlets.map((o, i) => 
+                              i === outletIndex ? {...o, outlet_name: e.target.value} : o
+                            )
+                          }))}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+
+                      {/* 배출시설 */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-xs font-medium text-gray-600">
+                            배출시설
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => addDischargeFacility(outletIndex)}
+                            className="text-xs text-blue-600 hover:text-blue-700"
+                          >
+                            + 추가
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {outlet.discharge_facilities.map((facility, facilityIndex) => (
+                            <div key={facilityIndex} className="flex gap-2 items-start">
+                              <input
+                                type="text"
+                                value={facility.name}
+                                onChange={(e) => updateFacility(outletIndex, 'discharge', facilityIndex, 'name', e.target.value)}
+                                placeholder="시설명"
+                                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                              />
+                              <input
+                                type="text"
+                                value={facility.capacity}
+                                onChange={(e) => updateFacility(outletIndex, 'discharge', facilityIndex, 'capacity', e.target.value)}
+                                placeholder="용량"
+                                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                              />
+                              <input
+                                type="number"
+                                value={facility.quantity}
+                                onChange={(e) => updateFacility(outletIndex, 'discharge', facilityIndex, 'quantity', parseInt(e.target.value) || 1)}
+                                placeholder="수량"
+                                min="1"
+                                className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                              />
+                              {outlet.discharge_facilities.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeDischargeFacility(outletIndex, facilityIndex)}
+                                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 방지시설 */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-xs font-medium text-gray-600">
+                            방지시설
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => addPreventionFacility(outletIndex)}
+                            className="text-xs text-blue-600 hover:text-blue-700"
+                          >
+                            + 추가
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {outlet.prevention_facilities.map((facility, facilityIndex) => (
+                            <div key={facilityIndex} className="flex gap-2 items-start">
+                              <input
+                                type="text"
+                                value={facility.name}
+                                onChange={(e) => updateFacility(outletIndex, 'prevention', facilityIndex, 'name', e.target.value)}
+                                placeholder="시설명"
+                                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                              />
+                              <input
+                                type="text"
+                                value={facility.capacity}
+                                onChange={(e) => updateFacility(outletIndex, 'prevention', facilityIndex, 'capacity', e.target.value)}
+                                placeholder="용량"
+                                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                              />
+                              <input
+                                type="number"
+                                value={facility.quantity}
+                                onChange={(e) => updateFacility(outletIndex, 'prevention', facilityIndex, 'quantity', parseInt(e.target.value) || 1)}
+                                placeholder="수량"
+                                min="1"
+                                className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                              />
+                              {outlet.prevention_facilities.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removePreventionFacility(outletIndex, facilityIndex)}
+                                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 버튼들 */}
+              <div className="flex justify-end gap-4 pt-8 mt-8 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+                >
+                  <span className="flex items-center gap-2">
+                    대기필증 생성
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="대기필증 삭제"
+        message={`정말로 대기필증 "${permitToDelete?.id}"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        variant="danger"
+      />
     </AdminLayout>
   );
 }

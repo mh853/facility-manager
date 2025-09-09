@@ -24,7 +24,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     
     // 쿼리 파라미터로 간단한 목록만 요청할 수 있도록 추가
     const { searchParams } = new URL(request.url);
-    const simpleList = searchParams.get('simple') === 'true';
+    const simpleList = searchParams.get('detailed') !== 'true'; // 기본값을 simple로 변경
     
     if (simpleList) {
       // 간단한 목록만 반환 (즉시 응답)
@@ -256,8 +256,6 @@ async function handleBatchBusinessUpload(businesses: any[]) {
             business_category: businessData.business_category || null,
             pollutants: businessData.pollutants || null,
             annual_emission_amount: businessData.annual_emission_amount || null,
-            first_report_date: businessData.first_report_date || null,
-            operation_start_date: businessData.operation_start_date || null,
             subsidy_approval_date: businessData.subsidy_approval_date || null,
             expansion_pack: businessData.expansion_pack || null,
             other_equipment: businessData.other_equipment || null,
@@ -486,8 +484,6 @@ function convertExcelToBusinessData(excelRow: any): Partial<BusinessInfo> {
     business_category: getExcelValue(excelRow, '종별')?.toString()?.trim() || null,
     pollutants: getExcelValue(excelRow, '오염물질')?.toString()?.trim() || null,
     annual_emission_amount: getExcelValue(excelRow, '발생량(톤/년)') ? Number(getExcelValue(excelRow, '발생량(톤/년)')) : null,
-    first_report_date: convertExcelDate(getExcelValue(excelRow, '최초신고일')),
-    operation_start_date: convertExcelDate(getExcelValue(excelRow, '가동개시일')),
     subsidy_approval_date: convertExcelDate(getExcelValue(excelRow, '보조금 승인일')),
     expansion_pack: getExcelValue(excelRow, '확장팩') ? Number(getExcelValue(excelRow, '확장팩')) : null,
     other_equipment: getExcelValue(excelRow, '기타')?.toString()?.trim() || null,
