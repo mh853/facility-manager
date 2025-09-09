@@ -19,18 +19,19 @@ interface FacilityPhotoUploadSectionProps {
 }
 
 const compressImage = async (file: File): Promise<File> => {
-  // 모바일 최적화: 2MB 이하 파일은 압축 건너뛰기 (즉시 반응성)
-  if (!file.type.startsWith('image/') || file.size <= 2 * 1024 * 1024) {
+  // 속도 최적화: 5MB 이하 파일은 압축 건너뛰기 (더 빠른 업로드)
+  if (!file.type.startsWith('image/') || file.size <= 5 * 1024 * 1024) {
+    console.log(`⚡ [COMPRESS-SKIP] ${file.name}: ${(file.size/1024/1024).toFixed(1)}MB - 압축 건너뛰기`);
     return file;
   }
 
   const options = {
-    maxSizeMB: 3, // 2MB → 3MB로 완화 (압축 시간 최소화)
-    maxWidthOrHeight: 1200, // 1440 → 1200으로 축소 (더 빠른 처리)
+    maxSizeMB: 4, // 더 큰 용량 허용으로 압축 시간 최소화
+    maxWidthOrHeight: 1600, // 더 높은 해상도 유지
     useWebWorker: true,
-    initialQuality: 0.9, // 0.8 → 0.9로 품질 향상 (압축 시간 단축)
+    initialQuality: 0.95, // 높은 품질로 압축 시간 단축
     alwaysKeepResolution: false,
-    fileType: 'image/jpeg' // JPEG 강제로 빠른 처리
+    fileType: 'image/webp' // WebP로 더 효율적인 압축
   };
 
   const startTime = Date.now();
@@ -254,19 +255,31 @@ export default function FacilityPhotoUploadSection({
         // 업로드 성공 시 미리보기를 실제 파일로 교체
         if (result.success && result.files && result.files.length > 0) {
           const newFile = result.files[0];
-          // 미리보기 파일을 실제 업로드된 파일로 즉시 교체
+          
+          // 미리보기 파일을 실제 업로드된 파일로 즉시 교체 (구조화된 파일명 유지)
           setUploadedFiles(prev => prev.map(f => {
-            if (f.name === originalFile.name && (f as any).isPreview) {
+            if (f.originalName === originalFile.name && (f as any).isPreview) {
               // 기존 Object URL 정리 (메모리 누수 방지)
-              if (f.thumbnailUrl.startsWith('blob:')) {
+              if (f.thumbnailUrl && f.thumbnailUrl.startsWith('blob:')) {
                 URL.revokeObjectURL(f.thumbnailUrl);
                 URL.revokeObjectURL(f.webViewLink);
                 URL.revokeObjectURL(f.downloadUrl);
+                if ((f as any).publicUrl) URL.revokeObjectURL((f as any).publicUrl);
+                if ((f as any).directUrl) URL.revokeObjectURL((f as any).directUrl);
               }
-              return { ...newFile, justUploaded: true, uploadedAt: Date.now() };
+              
+              // 구조화된 파일명과 모든 필수 URL 필드가 포함된 새 파일 객체 생성
+              return { 
+                ...newFile, 
+                justUploaded: true, 
+                uploadedAt: Date.now(),
+                isPreview: false // 더 이상 미리보기가 아님
+              };
             }
             return f;
           }));
+          
+          console.log(`✅ [UPLOAD-REPLACE] 미리보기를 실제 파일로 교체: ${originalFile.name} → ${newFile.name}`);
           
           // 즉시 업로드 상태 업데이트
           setUploadProgress(prev => ({ ...prev, [uploadKey]: 100 }));
@@ -279,8 +292,9 @@ export default function FacilityPhotoUploadSection({
           }, 500);
         } else {
           // 업로드 실패 시 미리보기 파일 제거
+          console.warn(`❌ [UPLOAD-FAILED] 미리보기 파일 제거: ${originalFile.name}`);
           setUploadedFiles(prev => prev.filter(f => 
-            !(f.name === originalFile.name && (f as any).isPreview)
+            !(f.originalName === originalFile.name && (f as any).isPreview)
           ));
         }
 
@@ -405,8 +419,9 @@ export default function FacilityPhotoUploadSection({
           }, 500);
         } else {
           // 업로드 실패 시 미리보기 파일 제거
+          console.warn(`❌ [BASIC-UPLOAD-FAILED] 기본사진 미리보기 파일 제거: ${file.name}`);
           setUploadedFiles(prev => prev.filter(f => 
-            !(f.name === file.name && (f as any).isPreview)
+            !(f.originalName === file.name && (f as any).isPreview)
           ));
         }
 

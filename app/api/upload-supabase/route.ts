@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { memoryCache } from '@/lib/cache';
 import { createHash } from 'crypto';
+import { generateFacilityFileName, generateBasicFileName } from '@/utils/filename-generator';
 
 // 파일 해시 계산
 async function calculateFileHash(file: File): Promise<string> {
@@ -207,6 +208,77 @@ function getFacilityIndex(facilityInfo: string): string {
   return index;
 }
 
+// 시설 정보 파싱 함수 (파일명 생성용)
+function parseFacilityInfo(facilityInfo: string, fileType: string): {
+  facilityName: string;
+  capacity: string;
+  outletNumber: string;
+  facilityNumber: string;
+  facilityIndex: number;
+} {
+  console.log('🔍 [PARSE-FACILITY] 시설 정보 파싱:', { facilityInfo, fileType });
+  
+  // 기본값
+  let facilityName = fileType === 'discharge' ? '배출시설' : '방지시설';
+  let capacity = '';
+  let outletNumber = '1';
+  let facilityNumber = '1';
+  let facilityIndex = 1;
+  
+  // 배출구 번호 추출
+  const outletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
+  if (outletMatch) {
+    outletNumber = outletMatch[1];
+  }
+  
+  // 시설명과 용량 추출
+  const facilityMatch = facilityInfo.match(/^([^(]+?)(\([^)]+\))?/);
+  if (facilityMatch) {
+    const fullFacilityName = facilityMatch[1].trim();
+    
+    // 시설명에서 숫자 추출 (예: "배출시설1" → "1")
+    const numberMatch = fullFacilityName.match(/(\d+)$/);
+    if (numberMatch) {
+      facilityNumber = numberMatch[1];
+      facilityIndex = parseInt(facilityNumber);
+      facilityName = fullFacilityName.replace(/\d+$/, ''); // 숫자 제거한 순수 시설명
+    }
+    
+    // 용량 정보 추출 (괄호 안의 내용)
+    if (facilityMatch[2]) {
+      capacity = facilityMatch[2].replace(/[()]/g, ''); // 괄호 제거
+    }
+  }
+  
+  // displayName에서 추가 정보 추출 시도
+  const displayMatch = facilityInfo.match(/용량:\s*([^,]+)/);
+  if (displayMatch && !capacity) {
+    capacity = displayMatch[1].trim();
+  }
+  
+  const result = {
+    facilityName,
+    capacity,
+    outletNumber,
+    facilityNumber,
+    facilityIndex
+  };
+  
+  console.log('✅ [PARSE-FACILITY] 파싱 결과:', result);
+  return result;
+}
+
+// 기본사진 카테고리 파싱 함수
+function parseCategoryFromFacilityInfo(facilityInfo: string): string {
+  const lowerInfo = facilityInfo.toLowerCase();
+  
+  if (lowerInfo.includes('게이트웨이') || lowerInfo.includes('gateway')) return 'gateway';
+  if (lowerInfo.includes('송풍기') || lowerInfo.includes('fan')) return 'fan';
+  if (lowerInfo.includes('배전함') || lowerInfo.includes('electrical')) return 'electrical';
+  
+  return 'others';
+}
+
 export async function POST(request: NextRequest) {
   const requestId = Math.random().toString(36).substr(2, 9);
   console.log(`🚀 [SUPABASE-UPLOAD] 업로드 시작: ${requestId}`);
@@ -295,10 +367,39 @@ export async function POST(request: NextRequest) {
 
     console.log(`📤 [UPLOAD] Supabase Storage 업로드 시작: ${validFiles.length}개 파일`);
 
-    // 4. Supabase Storage에 업로드 (병렬)
+    // 4. Supabase Storage에 업로드 (병렬) - 구조화된 파일명 사용
     const uploadPromises = validFiles.map(async ({ file, hash }, index) => {
       try {
-        const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', file.name, systemType, displayName || undefined);
+        // 구조화된 파일명 생성
+        let structuredFilename = file.name;
+        
+        if (fileType === 'discharge' || fileType === 'prevention') {
+          // 시설별 사진용 구조화된 파일명 생성
+          // facilityInfo에서 시설 정보 파싱
+          const facilityData = parseFacilityInfo(facilityInfo || '', fileType);
+          structuredFilename = generateFacilityFileName({
+            facility: {
+              name: facilityData.facilityName,
+              capacity: facilityData.capacity,
+              outlet: parseInt(facilityData.outletNumber) || 1,
+              number: parseInt(facilityData.facilityNumber) || 1,
+              quantity: 1,
+              displayName: `${facilityData.facilityName}${facilityData.facilityNumber}`
+            },
+            facilityType: fileType,
+            facilityIndex: facilityData.facilityIndex,
+            photoIndex: index + 1, // 현재 업로드에서의 순서
+            originalFileName: file.name
+          });
+        } else if (fileType === 'basic') {
+          // 기본사진용 구조화된 파일명 생성
+          const category = parseCategoryFromFacilityInfo(facilityInfo || '');
+          structuredFilename = generateBasicFileName(category, index + 1, file.name);
+        }
+
+        console.log(`📝 [FILENAME] 구조화된 파일명 생성: ${file.name} → ${structuredFilename}`);
+        
+        const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', structuredFilename, systemType, displayName || undefined);
         
         // Storage에 업로드
         const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
@@ -314,12 +415,12 @@ export async function POST(request: NextRequest) {
 
         console.log(`📁 [STORAGE] ${index + 1}/${validFiles.length} 업로드 완료: ${filePath}`);
 
-        // 5. DB에 파일 정보 저장
+        // 5. DB에 파일 정보 저장 - 구조화된 파일명으로 저장
         const { data: fileRecord, error: dbError } = await supabaseAdmin
           .from('uploaded_files')
           .insert({
             business_id: businessId,
-            filename: uploadData.path.split('/').pop() || file.name,
+            filename: structuredFilename, // 구조화된 파일명 사용
             original_filename: file.name,
             file_hash: hash,
             file_path: uploadData.path,
@@ -366,18 +467,25 @@ export async function POST(request: NextRequest) {
         
         return {
           id: fileRecord.id,
-          name: fileRecord.filename,
+          name: structuredFilename, // 구조화된 파일명 사용
           originalName: file.name,
           mimeType: file.type,
           size: file.size,
           createdTime: fileRecord.created_at,
+          modifiedTime: fileRecord.created_at,
           webViewLink: publicUrl.publicUrl,
           downloadUrl: publicUrl.publicUrl,
           thumbnailUrl: publicUrl.publicUrl,
+          publicUrl: publicUrl.publicUrl,
+          directUrl: publicUrl.publicUrl,
           folderName,
           uploadStatus: 'uploaded',
+          syncedAt: fileRecord.created_at,
+          googleFileId: null,
           facilityInfo: facilityInfo,
-          filePath: uploadData.path // 시설별 스토리지 경로 추가
+          filePath: uploadData.path, // 시설별 스토리지 경로 추가
+          justUploaded: true,
+          uploadedAt: Date.now()
         };
 
       } catch (error) {
