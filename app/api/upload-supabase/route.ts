@@ -367,11 +367,36 @@ export async function POST(request: NextRequest) {
 
     console.log(`📤 [UPLOAD] Supabase Storage 업로드 시작: ${validFiles.length}개 파일`);
 
-    // 4. Supabase Storage에 업로드 (병렬) - 구조화된 파일명 사용
+    // 4. 기존 파일 개수 조회하여 정확한 사진 순서 계산
+    let basePhotoIndex = 1;
+    try {
+      const countUrl = new URL('/api/file-count', `http://localhost:${process.env.PORT || 3000}`);
+      countUrl.searchParams.set('businessName', businessName);
+      countUrl.searchParams.set('fileType', fileType);
+      
+      if (fileType === 'discharge' || fileType === 'prevention') {
+        countUrl.searchParams.set('facilityInfo', facilityInfo || '');
+      } else if (fileType === 'basic') {
+        const category = parseCategoryFromFacilityInfo(facilityInfo || '');
+        countUrl.searchParams.set('category', category);
+      }
+      
+      const countResponse = await fetch(countUrl.toString());
+      if (countResponse.ok) {
+        const countData = await countResponse.json();
+        basePhotoIndex = countData.nextIndex || 1;
+        console.log(`🔢 [PHOTO-INDEX] 기존 파일 ${countData.count || 0}개, 다음 시작 순서: ${basePhotoIndex}`);
+      }
+    } catch (countError) {
+      console.warn('파일 개수 조회 실패, 기본값 사용:', countError);
+    }
+
+    // 5. Supabase Storage에 업로드 (병렬) - 구조화된 파일명 사용
     const uploadPromises = validFiles.map(async ({ file, hash }, index) => {
       try {
-        // 구조화된 파일명 생성
+        // 구조화된 파일명 생성 (정확한 사진 순서 반영)
         let structuredFilename = file.name;
+        const actualPhotoIndex = basePhotoIndex + index;
         
         if (fileType === 'discharge' || fileType === 'prevention') {
           // 시설별 사진용 구조화된 파일명 생성
@@ -388,13 +413,13 @@ export async function POST(request: NextRequest) {
             },
             facilityType: fileType,
             facilityIndex: facilityData.facilityIndex,
-            photoIndex: index + 1, // 현재 업로드에서의 순서
+            photoIndex: actualPhotoIndex, // 데이터베이스 기준 정확한 순서
             originalFileName: file.name
           });
         } else if (fileType === 'basic') {
           // 기본사진용 구조화된 파일명 생성
           const category = parseCategoryFromFacilityInfo(facilityInfo || '');
-          structuredFilename = generateBasicFileName(category, index + 1, file.name);
+          structuredFilename = generateBasicFileName(category, actualPhotoIndex, file.name);
         }
 
         console.log(`📝 [FILENAME] 구조화된 파일명 생성: ${file.name} → ${structuredFilename}`);
