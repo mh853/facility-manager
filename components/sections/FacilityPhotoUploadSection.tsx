@@ -5,6 +5,13 @@ import { Camera, Upload, Factory, Shield, Building2, AlertCircle, Eye, Download,
 import { FacilitiesData, Facility, UploadedFile } from '@/types';
 import imageCompression from 'browser-image-compression';
 import LazyImage from '@/components/ui/LazyImage';
+import { 
+  generateFacilityFileName, 
+  generateBasicFileName, 
+  calculateFacilityIndex, 
+  calculatePhotoIndex, 
+  calculateBasicPhotoIndex 
+} from '@/utils/filename-generator';
 
 interface FacilityPhotoUploadSectionProps {
   businessName: string;
@@ -152,30 +159,49 @@ export default function FacilityPhotoUploadSection({
 
     const uploadKey = `${facilityType}-${facility.outlet}-${facility.number}`;
     
-    // 모바일 즉시 반응: 파일 선택 즉시 미리보기 생성
-    const previewFiles = Array.from(files).map(file => ({
-      id: `preview-${Date.now()}-${Math.random()}`,
-      name: file.name,
-      originalName: file.name,
-      mimeType: file.type,
-      size: file.size,
-      createdTime: new Date().toISOString(),
-      modifiedTime: new Date().toISOString(),
-      webViewLink: URL.createObjectURL(file),
-      downloadUrl: URL.createObjectURL(file),
-      thumbnailUrl: URL.createObjectURL(file),
-      publicUrl: URL.createObjectURL(file),
-      directUrl: URL.createObjectURL(file),
-      folderName: facilityType === 'discharge' ? '배출시설' : '방지시설',
-      uploadStatus: 'uploading',
-      syncedAt: null,
-      googleFileId: null,
-      facilityInfo: `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`,
-      filePath: undefined,
-      justUploaded: true,
-      uploadedAt: Date.now(),
-      isPreview: true // 미리보기 표시
-    } as unknown as UploadedFile & { isPreview: boolean }));
+    // 시설 순번 계산
+    const allFacilities = facilityType === 'discharge' ? 
+      facilities?.discharge || [] : facilities?.prevention || [];
+    const facilityIndex = calculateFacilityIndex(allFacilities, facility, facilityType);
+    
+    // 현재 업로드된 파일들에서 해당 시설의 사진 개수 확인
+    const existingFacilityFiles = getFilesForFacility(facility, facilityType);
+    
+    // 모바일 즉시 반응: 파일 선택 즉시 미리보기 생성 (새로운 파일명 적용)
+    const previewFiles = Array.from(files).map((file, index) => {
+      const photoIndex = calculatePhotoIndex(existingFacilityFiles, facility, facilityType) + index;
+      const newFileName = generateFacilityFileName({
+        facility,
+        facilityType,
+        facilityIndex,
+        photoIndex,
+        originalFileName: file.name
+      });
+      
+      return {
+        id: `preview-${Date.now()}-${Math.random()}`,
+        name: newFileName, // 새로운 구조화된 파일명 적용
+        originalName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        createdTime: new Date().toISOString(),
+        modifiedTime: new Date().toISOString(),
+        webViewLink: URL.createObjectURL(file),
+        downloadUrl: URL.createObjectURL(file),
+        thumbnailUrl: URL.createObjectURL(file),
+        publicUrl: URL.createObjectURL(file),
+        directUrl: URL.createObjectURL(file),
+        folderName: facilityType === 'discharge' ? '배출시설' : '방지시설',
+        uploadStatus: 'uploading',
+        syncedAt: null,
+        googleFileId: null,
+        facilityInfo: `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`,
+        filePath: undefined,
+        justUploaded: true,
+        uploadedAt: Date.now(),
+        isPreview: true // 미리보기 표시
+      } as unknown as UploadedFile & { isPreview: boolean };
+    });
     
     // 즉시 미리보기 파일 추가
     setUploadedFiles(prev => [...previewFiles, ...prev]);
@@ -191,8 +217,24 @@ export default function FacilityPhotoUploadSection({
       const uploadPromises = compressedFiles.map(async (compressedFile, index) => {
         const originalFile = files[index];
         
+        // 새로운 파일명 생성
+        const photoIndex = calculatePhotoIndex(existingFacilityFiles, facility, facilityType) + index;
+        const newFileName = generateFacilityFileName({
+          facility,
+          facilityType,
+          facilityIndex,
+          photoIndex,
+          originalFileName: originalFile.name
+        });
+        
+        // 새로운 파일명으로 File 객체 재생성
+        const renamedFile = new File([compressedFile], newFileName, {
+          type: compressedFile.type,
+          lastModified: compressedFile.lastModified
+        });
+        
         const formData = new FormData();
-        formData.append('files', compressedFile);
+        formData.append('files', renamedFile); // 새로운 파일명이 적용된 파일 업로드
         formData.append('businessName', businessName);
         formData.append('fileType', facilityType);
         formData.append('type', 'completion');
@@ -274,31 +316,39 @@ export default function FacilityPhotoUploadSection({
 
     const uploadKey = `basic-photos-${category}`;
     
-    // 모바일 즉시 반응: 기본사진 선택 즉시 미리보기 생성
-    const previewFiles = Array.from(files).map(file => ({
-      id: `preview-basic-${Date.now()}-${Math.random()}`,
-      name: file.name,
-      originalName: file.name,
-      mimeType: file.type,
-      size: file.size,
-      createdTime: new Date().toISOString(),
-      modifiedTime: new Date().toISOString(),
-      webViewLink: URL.createObjectURL(file),
-      downloadUrl: URL.createObjectURL(file),
-      thumbnailUrl: URL.createObjectURL(file),
-      publicUrl: URL.createObjectURL(file),
-      directUrl: URL.createObjectURL(file),
-      folderName: '기본사진',
-      uploadStatus: 'uploading',
-      syncedAt: null,
-      googleFileId: null,
-      facilityInfo: category,
-      filePath: undefined,
-      justUploaded: true,
-      uploadedAt: Date.now(),
-      subcategory: category,
-      isPreview: true // 미리보기 표시
-    } as unknown as UploadedFile & { isPreview: boolean }));
+    // 기존 기본사진들 중 해당 카테고리의 개수 확인
+    const existingBasicFiles = getBasicFiles(category);
+    
+    // 모바일 즉시 반응: 기본사진 선택 즉시 미리보기 생성 (새로운 파일명 적용)
+    const previewFiles = Array.from(files).map((file, index) => {
+      const photoIndex = calculateBasicPhotoIndex(existingBasicFiles, category) + index;
+      const newFileName = generateBasicFileName(category, photoIndex, file.name);
+      
+      return {
+        id: `preview-basic-${Date.now()}-${Math.random()}`,
+        name: newFileName, // 새로운 구조화된 파일명 적용
+        originalName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        createdTime: new Date().toISOString(),
+        modifiedTime: new Date().toISOString(),
+        webViewLink: URL.createObjectURL(file),
+        downloadUrl: URL.createObjectURL(file),
+        thumbnailUrl: URL.createObjectURL(file),
+        publicUrl: URL.createObjectURL(file),
+        directUrl: URL.createObjectURL(file),
+        folderName: '기본사진',
+        uploadStatus: 'uploading',
+        syncedAt: null,
+        googleFileId: null,
+        facilityInfo: category,
+        filePath: undefined,
+        justUploaded: true,
+        uploadedAt: Date.now(),
+        subcategory: category,
+        isPreview: true // 미리보기 표시
+      } as unknown as UploadedFile & { isPreview: boolean };
+    });
     
     // 즉시 미리보기 파일 추가
     setUploadedFiles(prev => [...previewFiles, ...prev]);
@@ -309,8 +359,18 @@ export default function FacilityPhotoUploadSection({
       const uploadPromises = Array.from(files).map(async (file, index) => {
         const compressedFile = await compressImage(file);
         
+        // 새로운 파일명 생성
+        const photoIndex = calculateBasicPhotoIndex(existingBasicFiles, category) + index;
+        const newFileName = generateBasicFileName(category, photoIndex, file.name);
+        
+        // 새로운 파일명으로 File 객체 재생성
+        const renamedFile = new File([compressedFile], newFileName, {
+          type: compressedFile.type,
+          lastModified: compressedFile.lastModified
+        });
+        
         const formData = new FormData();
-        formData.append('files', compressedFile);
+        formData.append('files', renamedFile); // 새로운 파일명이 적용된 파일 업로드
         formData.append('businessName', businessName);
         formData.append('fileType', 'basic');
         formData.append('type', 'completion');
