@@ -75,8 +75,6 @@ export interface BusinessInfo {
   business_category: string | null
   pollutants: string | null
   annual_emission_amount: number | null
-  first_report_date: string | null
-  operation_start_date: string | null
   subsidy_approval_date: string | null
   expansion_pack: number | null
   other_equipment: string | null
@@ -142,8 +140,9 @@ export interface AirPermitInfo {
   updated_at: string
   business_type: string | null
   annual_emission_amount: number | null
-  first_report_date: string | null
-  operation_start_date: string | null
+  facility_number?: string | null // PDF 출력용 시설번호
+  green_link_code?: string | null // PDF 출력용 그린링크코드
+  memo?: string | null // PDF 출력용 메모
   additional_info: Record<string, any>
   is_active: boolean
   is_deleted: boolean
@@ -723,10 +722,28 @@ export class DatabaseService {
   }
 
   /**
+   * 특정 배출구 조회 (ID 기반)
+   */
+  static async getDischargeOutletById(outletId: string): Promise<DischargeOutlet | null> {
+    const { data, error } = await supabase
+      .from('discharge_outlets')
+      .select('*')
+      .eq('id', outletId)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return null // Not found
+      throw new Error(`배출구 조회 실패: ${error.message}`)
+    }
+
+    return data
+  }
+
+  /**
    * 배출구 생성
    */
   static async createDischargeOutlet(outletData: Omit<DischargeOutlet, 'id' | 'created_at' | 'updated_at'>): Promise<DischargeOutlet> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('discharge_outlets')
       .insert([outletData])
       .select()
@@ -768,7 +785,7 @@ export class DatabaseService {
    * 배출시설 생성
    */
   static async createDischargeFacility(facilityData: Omit<DischargeFacility, 'id' | 'created_at' | 'updated_at'>): Promise<DischargeFacility> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('discharge_facilities')
       .insert([facilityData])
       .select()
@@ -782,7 +799,7 @@ export class DatabaseService {
    * 방지시설 생성
    */
   static async createPreventionFacility(facilityData: Omit<PreventionFacility, 'id' | 'created_at' | 'updated_at'>): Promise<PreventionFacility> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('prevention_facilities')
       .insert([facilityData])
       .select()
@@ -897,7 +914,7 @@ export class DatabaseService {
    * 배출구 정보 업데이트
    */
   static async updateDischargeOutlet(id: string, outletData: Partial<DischargeOutlet>): Promise<DischargeOutlet> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('discharge_outlets')
       .update({ ...outletData, updated_at: new Date().toISOString() })
       .eq('id', id)
@@ -912,7 +929,7 @@ export class DatabaseService {
    * 배출시설 정보 업데이트
    */
   static async updateDischargeFacility(id: string, facilityData: Partial<DischargeFacility>): Promise<DischargeFacility> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('discharge_facilities')
       .update({ ...facilityData, updated_at: new Date().toISOString() })
       .eq('id', id)
@@ -927,7 +944,7 @@ export class DatabaseService {
    * 방지시설 정보 업데이트
    */
   static async updatePreventionFacility(id: string, facilityData: Partial<PreventionFacility>): Promise<PreventionFacility> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('prevention_facilities')
       .update({ ...facilityData, updated_at: new Date().toISOString() })
       .eq('id', id)
@@ -957,6 +974,63 @@ export class DatabaseService {
 
     if (error) throw new Error(`전체 대기필증 조회 실패: ${error.message}`)
     return data || []
+  }
+
+  // 배출구 삭제
+  static async deleteDischargeOutlet(outletId: string): Promise<void> {
+    // 먼저 해당 배출구의 모든 시설들을 삭제
+    await Promise.all([
+      this.deleteDischargeFacilitiesByOutlet(outletId),
+      this.deletePreventionFacilitiesByOutlet(outletId)
+    ])
+
+    // 배출구 삭제
+    const { error } = await supabaseAdmin
+      .from('discharge_outlets')
+      .delete()
+      .eq('id', outletId)
+
+    if (error) throw new Error(`배출구 삭제 실패: ${error.message}`)
+  }
+
+  // 배출시설 삭제
+  static async deleteDischargeFacility(facilityId: string): Promise<void> {
+    const { error } = await supabaseAdmin
+      .from('discharge_facilities')
+      .delete()
+      .eq('id', facilityId)
+
+    if (error) throw new Error(`배출시설 삭제 실패: ${error.message}`)
+  }
+
+  // 방지시설 삭제
+  static async deletePreventionFacility(facilityId: string): Promise<void> {
+    const { error } = await supabaseAdmin
+      .from('prevention_facilities')
+      .delete()
+      .eq('id', facilityId)
+
+    if (error) throw new Error(`방지시설 삭제 실패: ${error.message}`)
+  }
+
+  // 배출구별 모든 배출시설 삭제
+  static async deleteDischargeFacilitiesByOutlet(outletId: string): Promise<void> {
+    const { error } = await supabaseAdmin
+      .from('discharge_facilities')
+      .delete()
+      .eq('outlet_id', outletId)
+
+    if (error) throw new Error(`배출구별 배출시설 삭제 실패: ${error.message}`)
+  }
+
+  // 배출구별 모든 방지시설 삭제
+  static async deletePreventionFacilitiesByOutlet(outletId: string): Promise<void> {
+    const { error } = await supabaseAdmin
+      .from('prevention_facilities')
+      .delete()
+      .eq('outlet_id', outletId)
+
+    if (error) throw new Error(`배출구별 방지시설 삭제 실패: ${error.message}`)
   }
 }
 

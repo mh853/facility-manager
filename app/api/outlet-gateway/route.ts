@@ -17,9 +17,19 @@ export async function PUT(request: NextRequest) {
 
     console.log('🔧 게이트웨이 할당:', { outletId, gateway })
 
-    // 배출구의 additional_info에 게이트웨이 정보 저장
+    // 기존 배출구 정보 조회
+    const existingOutlet = await DatabaseService.getDischargeOutletById(outletId)
+    if (!existingOutlet) {
+      return NextResponse.json(
+        { error: '존재하지 않는 배출구입니다' },
+        { status: 404 }
+      )
+    }
+
+    // 기존 additional_info와 병합하여 게이트웨이 정보만 업데이트
     const updateData = {
       additional_info: {
+        ...existingOutlet.additional_info,
         gateway: gateway || null
       }
     }

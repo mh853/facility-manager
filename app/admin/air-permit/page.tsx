@@ -941,6 +941,7 @@ export default function AirPermitManagementPage() {
                               }
                             </div>
                           </div>
+                          {/*
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <span className="font-medium">최초신고일: </span>
@@ -957,6 +958,7 @@ export default function AirPermitManagementPage() {
                               }
                             </div>
                           </div>
+                          */}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1055,13 +1057,13 @@ export default function AirPermitManagementPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700">최초신고일</label>
                       <p className="mt-1 text-sm text-gray-900">
-                        {selectedPermit.first_report_date || '미지정'}
+                        {(selectedPermit as any).first_report_date || '미지정'}
                       </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">가동개시일</label>
                       <p className="mt-1 text-sm text-gray-900">
-                        {selectedPermit.operation_start_date || '미지정'}
+                        {(selectedPermit as any).operation_start_date || '미지정'}
                       </p>
                     </div>
                   </div>

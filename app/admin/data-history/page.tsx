@@ -130,6 +130,25 @@ export default function DataHistoryPage() {
     if (!selectedHistoryItem) return
 
     try {
+      // 낙관적 업데이트: 복구 작업을 즉시 기록
+      const restoreEntry = {
+        id: `restore-${Date.now()}`,
+        table_name: selectedHistoryItem.table_name,
+        record_id: selectedHistoryItem.record_id,
+        operation: 'RESTORE' as const,
+        old_data: null,
+        new_data: selectedHistoryItem.old_data,
+        changed_at: new Date().toISOString(),
+        metadata: {
+          restored_from: selectedHistoryItem.id,
+          restore_reason: restoreReason
+        }
+      }
+
+      // 즉시 UI에 복구 이력 추가
+      setHistory(prev => [restoreEntry, ...prev])
+      setIsRestoreModalOpen(false)
+
       const response = await fetch('/api/data-history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,14 +161,20 @@ export default function DataHistoryPage() {
       const result = await response.json()
 
       if (response.ok) {
-        setIsRestoreModalOpen(false)
-        loadHistory() // 이력 새로고침
+        // 실제 데이터로 교체
+        setHistory(prev => prev.map(item => 
+          item.id === restoreEntry.id ? result.historyEntry : item
+        ))
       } else {
-        alert(result.error)
+        // 실패 시 롤백
+        setHistory(prev => prev.filter(item => item.id !== restoreEntry.id))
+        alert(result.error || '데이터 복구에 실패했습니다')
       }
     } catch (error) {
       console.error('Error restoring data:', error)
-      alert('데이터 복구에 실패했습니다')
+      // 오류 시 롤백
+      setHistory(prev => prev.filter(item => !item.id.toString().startsWith('restore-')))
+      alert('데이터 복구 중 오류가 발생했습니다')
     }
   }
 

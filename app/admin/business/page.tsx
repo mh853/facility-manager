@@ -1384,7 +1384,7 @@ export default function BusinessManagementPage() {
             }
             
             const koreanKey = koreanKeyMap[key] || key
-            acc[koreanKey] = processedFormData[key]
+            acc[koreanKey] = (processedFormData as any)[key]
             return acc
           }, {} as any),
           수정일: new Date().toISOString()
@@ -1442,15 +1442,15 @@ export default function BusinessManagementPage() {
               생성일: serverData.created_at,
               수정일: serverData.updated_at,
               // 기존 통계 데이터 유지
-              fileStats: editingBusiness.fileStats
+              fileStats: (editingBusiness as any).fileStats
             }
             
             setAllBusinesses(prev => prev.map(business => 
-              business.id === editingBusiness.id ? updatedBusiness : business
+              business.id === editingBusiness.id ? updatedBusiness as unknown as UnifiedBusinessInfo : business
             ))
             
             if (selectedBusiness && selectedBusiness.id === editingBusiness.id) {
-              setSelectedBusiness(updatedBusiness)
+              setSelectedBusiness(updatedBusiness as unknown as UnifiedBusinessInfo)
             }
           } else {
             // 새 사업장 추가의 경우: 전체 목록 새로고침

@@ -9,6 +9,9 @@
   --primary-600: #2563eb;
   --primary-700: #1d4ed8;
   --primary-800: #1e40af;
+  
+  /* 한글 폰트 변수 */
+  --font-noto-sans-kr: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
 }
 
 /* 기본 최적화 */

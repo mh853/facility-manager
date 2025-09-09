@@ -13,7 +13,12 @@ export async function GET(request: NextRequest) {
     if (!airPermitId && !outletId) {
       return NextResponse.json(
         { error: '대기필증 ID 또는 배출구 ID는 필수입니다' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8'
+          }
+        }
       )
     }
 
@@ -21,10 +26,18 @@ export async function GET(request: NextRequest) {
     if (outletId) {
       if (type === 'discharge') {
         const facilities = await DatabaseService.getDischargeFacilities(outletId)
-        return NextResponse.json({ data: facilities })
+        return NextResponse.json({ data: facilities }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8'
+          }
+        })
       } else if (type === 'prevention') {
         const facilities = await DatabaseService.getPreventionFacilities(outletId)
-        return NextResponse.json({ data: facilities })
+        return NextResponse.json({ data: facilities }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8'
+          }
+        })
       }
       // 둘 다 조회
       const [dischargeFacilities, preventionFacilities] = await Promise.all([
@@ -36,6 +49,10 @@ export async function GET(request: NextRequest) {
           discharge_facilities: dischargeFacilities,
           prevention_facilities: preventionFacilities
         }
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        }
       })
     }
 
@@ -45,6 +62,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ 
         data: outlets,
         count: outlets.length 
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        }
       })
     }
 
@@ -52,7 +73,12 @@ export async function GET(request: NextRequest) {
     console.error('배출구/시설 조회 오류:', error)
     return NextResponse.json(
       { error: '배출구/시설 정보를 불러오는데 실패했습니다' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        }
+      }
     )
   }
 }
@@ -69,7 +95,12 @@ export async function POST(request: NextRequest) {
         if (!data.air_permit_id || data.outlet_number === undefined) {
           return NextResponse.json(
             { error: '대기필증 ID와 배출구 번호는 필수입니다' },
-            { status: 400 }
+            { 
+              status: 400,
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+              }
+            }
           )
         }
 
@@ -86,7 +117,12 @@ export async function POST(request: NextRequest) {
             message: '배출구가 성공적으로 생성되었습니다',
             data: newOutlet 
           },
-          { status: 201 }
+          { 
+            status: 201,
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8'
+            }
+          }
         )
 
       case 'discharge_facility':
@@ -94,7 +130,12 @@ export async function POST(request: NextRequest) {
         if (!data.outlet_id || !data.facility_name) {
           return NextResponse.json(
             { error: '배출구 ID와 시설명은 필수입니다' },
-            { status: 400 }
+            { 
+              status: 400,
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+              }
+            }
           )
         }
 
@@ -112,7 +153,12 @@ export async function POST(request: NextRequest) {
             message: '배출시설이 성공적으로 생성되었습니다',
             data: newDischargeFacility 
           },
-          { status: 201 }
+          { 
+            status: 201,
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8'
+            }
+          }
         )
 
       case 'prevention_facility':
@@ -120,7 +166,12 @@ export async function POST(request: NextRequest) {
         if (!data.outlet_id || !data.facility_name) {
           return NextResponse.json(
             { error: '배출구 ID와 시설명은 필수입니다' },
-            { status: 400 }
+            { 
+              status: 400,
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8'
+              }
+            }
           )
         }
 
@@ -138,7 +189,12 @@ export async function POST(request: NextRequest) {
             message: '방지시설이 성공적으로 생성되었습니다',
             data: newPreventionFacility 
           },
-          { status: 201 }
+          { 
+            status: 201,
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8'
+            }
+          }
         )
 
       default:
@@ -155,13 +211,23 @@ export async function POST(request: NextRequest) {
     if (error.message?.includes('duplicate') || error.message?.includes('unique')) {
       return NextResponse.json(
         { error: '이미 존재하는 배출구 번호입니다' },
-        { status: 409 }
+        { 
+          status: 409,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8'
+          }
+        }
       )
     }
 
     return NextResponse.json(
       { error: '배출구/시설 생성에 실패했습니다' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        }
+      }
     )
   }
 }
@@ -179,18 +245,62 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // 각 타입별 업데이트 로직은 DatabaseService에 추가 메서드가 필요
-    // 현재는 기본 응답만 제공
-    return NextResponse.json({
-      message: '업데이트 기능은 추후 구현 예정입니다',
-      data: { type, id, updateData }
-    })
+    // 각 타입별 업데이트 로직
+    let result
+    switch (type) {
+      case 'outlet':
+        // 배출구 업데이트
+        result = await DatabaseService.updateDischargeOutlet(id, updateData)
+        return NextResponse.json({
+          message: '배출구가 성공적으로 업데이트되었습니다',
+          data: result
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8'
+          }
+        })
+
+      case 'discharge_facility':
+        // 배출시설 업데이트
+        result = await DatabaseService.updateDischargeFacility(id, updateData)
+        return NextResponse.json({
+          message: '배출시설이 성공적으로 업데이트되었습니다',
+          data: result
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8'
+          }
+        })
+
+      case 'prevention_facility':
+        // 방지시설 업데이트
+        result = await DatabaseService.updatePreventionFacility(id, updateData)
+        return NextResponse.json({
+          message: '방지시설이 성공적으로 업데이트되었습니다',
+          data: result
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8'
+          }
+        })
+
+      default:
+        return NextResponse.json(
+          { error: '올바르지 않은 타입입니다. (outlet, discharge_facility, prevention_facility)' },
+          { status: 400 }
+        )
+    }
 
   } catch (error: any) {
     console.error('배출구/시설 업데이트 오류:', error)
     return NextResponse.json(
       { error: '배출구/시설 정보 업데이트에 실패했습니다' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        }
+      }
     )
   }
 }
@@ -209,18 +319,56 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // 각 타입별 삭제 로직은 DatabaseService에 추가 메서드가 필요
-    // 현재는 기본 응답만 제공
-    return NextResponse.json({
-      message: '삭제 기능은 추후 구현 예정입니다',
-      data: { type, id }
-    })
+    console.log('🗑️ 삭제 요청:', { type, id })
 
-  } catch (error) {
+    switch (type) {
+      case 'outlet':
+        await DatabaseService.deleteDischargeOutlet(id)
+        return NextResponse.json({
+          message: '배출구가 성공적으로 삭제되었습니다'
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8'
+          }
+        })
+
+      case 'discharge_facility':
+        await DatabaseService.deleteDischargeFacility(id)
+        return NextResponse.json({
+          message: '배출시설이 성공적으로 삭제되었습니다'
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8'
+          }
+        })
+
+      case 'prevention_facility':
+        await DatabaseService.deletePreventionFacility(id)
+        return NextResponse.json({
+          message: '방지시설이 성공적으로 삭제되었습니다'
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8'
+          }
+        })
+
+      default:
+        return NextResponse.json(
+          { error: '올바르지 않은 타입입니다. (outlet, discharge_facility, prevention_facility)' },
+          { status: 400 }
+        )
+    }
+
+  } catch (error: any) {
     console.error('배출구/시설 삭제 오류:', error)
     return NextResponse.json(
-      { error: '배출구/시설 삭제에 실패했습니다' },
-      { status: 500 }
+      { error: `삭제에 실패했습니다: ${error.message}` },
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        }
+      }
     )
   }
 }

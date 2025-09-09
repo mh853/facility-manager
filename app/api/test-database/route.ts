@@ -128,8 +128,6 @@ export async function GET(request: NextRequest) {
           business_category: null,
           pollutants: null,
           annual_emission_amount: null,
-          first_report_date: null,
-          operation_start_date: null,
           subsidy_approval_date: null,
           expansion_pack: null,
           other_equipment: null,

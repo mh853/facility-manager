@@ -1,4 +1,4 @@
-import { Inter } from 'next/font/google';
+import { Inter, Noto_Sans_KR } from 'next/font/google';
 import './globals.css';
 
 // 폰트 최적화
@@ -8,6 +8,16 @@ const inter = Inter({
   preload: true,
   variable: '--font-inter',
   fallback: ['system-ui', 'arial']
+});
+
+// 한글 폰트 추가
+const notoSansKR = Noto_Sans_KR({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '700'],
+  display: 'swap',
+  preload: true,
+  variable: '--font-noto-sans-kr',
+  fallback: ['Malgun Gothic', 'Apple SD Gothic Neo', 'sans-serif']
 });
 
 export const viewport = {
@@ -55,7 +65,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko" className={inter.variable}>
+    <html lang="ko" className={`${inter.variable} ${notoSansKR.variable}`}>
       <head>
         {/* DNS Prefetch 최적화 */}
         <link rel="dns-prefetch" href="//fonts.googleapis.com" />
@@ -112,7 +122,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} antialiased`}>
+      <body className={`${notoSansKR.className} antialiased`}>
         {/* 로딩 성능 모니터링 */}
         <script
           dangerouslySetInnerHTML={{
