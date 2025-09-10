@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Camera, Upload, Factory, Shield, Building2, AlertCircle, CheckCircle2, Eye, Download, Trash2, RefreshCw } from 'lucide-react';
+import { Camera, Upload, Factory, Shield, Building2, AlertCircle, CheckCircle2, Eye, Download, Trash2, RefreshCw, X } from 'lucide-react';
 import { FacilitiesData, Facility, UploadedFile } from '@/types';
 import imageCompression from 'browser-image-compression';
 
