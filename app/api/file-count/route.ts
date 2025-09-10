@@ -42,37 +42,23 @@ export async function GET(request: NextRequest) {
     // 파일 타입별 필터링
     if (fileType === 'discharge' || fileType === 'prevention') {
       // 시설별 사진 개수 계산
-      const folderName = fileType === 'discharge' ? '배출시설' : '방지시설';
-      
-      // 파일명 패턴으로 필터링 (구조화된 파일명 기준)
-      const facilityPrefix = fileType === 'prevention' ? '방' : '배';
-      
       if (facilityInfo) {
-        // facilityInfo에서 시설 정보 추출
-        const facilityMatch = facilityInfo.match(/^([^(]+?)(\([^)]+\))?/);
-        let facilityName = fileType === 'discharge' ? '배출시설' : '방지시설';
-        let capacity = '';
-        
-        if (facilityMatch) {
-          facilityName = facilityMatch[1].trim().replace(/\d+$/, '');
-          if (facilityMatch[2]) {
-            capacity = facilityMatch[2].replace(/[()]/g, '');
+        // facilityInfo가 "discharge_facilityId_number" 또는 "prevention_facilityId_number" 형태인 경우
+        if (facilityInfo.includes('_')) {
+          const parts = facilityInfo.split('_');
+          if (parts.length >= 2 && parts[0] === fileType) {
+            // 정확한 facilityInfo로 DB에서 필터링
+            query = query.eq('facility_info', facilityInfo);
+          } else {
+            // 호환성을 위해 facilityInfo가 포함된 모든 레코드 찾기
+            query = query.ilike('facility_info', `%${facilityInfo}%`);
           }
+        } else {
+          // 기존 형태의 facilityInfo (하위 호환성)
+          query = query.ilike('facility_info', `%${facilityInfo}%`);
         }
         
-        // 용량 정보 추출
-        const capacityMatch = facilityInfo.match(/용량:\s*([^,]+)/);
-        if (capacityMatch && !capacity) {
-          capacity = capacityMatch[1].trim();
-        }
-        
-        // 정리된 시설 정보 생성
-        const sanitizedFacilityInfo = `${facilityName}${capacity}`.replace(/\s+/g, '');
-        
-        // 구조화된 파일명 패턴으로 검색
-        query = query.like('filename', `${facilityPrefix}%${sanitizedFacilityInfo}%`);
-        
-        console.log(`🔍 [FILE-COUNT-PATTERN] 검색 패턴: ${facilityPrefix}%${sanitizedFacilityInfo}%`);
+        console.log(`🔍 [FILE-COUNT] ${fileType} 시설별 검색: ${facilityInfo}`);
       }
       
     } else if (fileType === 'basic' && category) {

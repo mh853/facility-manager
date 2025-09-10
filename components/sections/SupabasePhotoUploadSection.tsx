@@ -642,8 +642,23 @@ export default function SupabasePhotoUploadSection({
             let facilityGroups: { [key: string]: UploadedFile[] } = {};
             if (categoryId === 'discharge' || categoryId === 'prevention') {
               facilityGroups = files.reduce((acc, file) => {
-                // facilityInfo에서 시설 번호 정보 추출
-                const facilityKey = file.facilityInfo || 'unknown';
+                // facilityInfo에서 정확한 시설 키 생성
+                let facilityKey = 'unknown';
+                if (file.facilityInfo) {
+                  // facilityInfo 형태: "discharge_facilityId_number" 또는 "prevention_facilityId_number"
+                  const parts = file.facilityInfo.split('_');
+                  if (parts.length >= 3 && parts[0] === categoryId) {
+                    // 카테고리 + 시설ID + 번호로 고유한 키 생성
+                    facilityKey = `${parts[0]}_${parts[1]}_${parts[2]}`;
+                  } else if (parts.length >= 2 && parts[0] === categoryId) {
+                    // 카테고리 + 시설ID로 키 생성 (fallback)
+                    facilityKey = `${parts[0]}_${parts[1]}`;
+                  } else {
+                    // 전체 facilityInfo를 키로 사용 (안전장치)
+                    facilityKey = file.facilityInfo;
+                  }
+                }
+                
                 if (!acc[facilityKey]) acc[facilityKey] = [];
                 acc[facilityKey].push(file);
                 return acc;
@@ -672,8 +687,25 @@ export default function SupabasePhotoUploadSection({
                               // facilityInfo 파싱하여 시설 정보 표시
                               const parts = facilityKey.split('_');
                               if (parts.length >= 3) {
+                                const facilityType = parts[0];
                                 const facilityNumber = parts[2];
-                                return `시설 번호: ${facilityNumber}`;
+                                
+                                // 시설 타입별 접두어 설정
+                                const prefix = facilityType === 'discharge' ? '배' : 
+                                             facilityType === 'prevention' ? '방' : '';
+                                
+                                // 번호가 숫자인지 확인하여 적절히 표시
+                                if (/^\d+$/.test(facilityNumber)) {
+                                  return `${prefix}${facilityNumber} (${facilityType === 'discharge' ? '배출시설' : '방지시설'} ${facilityNumber}번)`;
+                                } else {
+                                  return `${prefix} (${facilityNumber})`;
+                                }
+                              } else if (parts.length >= 2) {
+                                const facilityType = parts[0];
+                                const facilityId = parts[1];
+                                const prefix = facilityType === 'discharge' ? '배' : 
+                                             facilityType === 'prevention' ? '방' : '';
+                                return `${prefix} (${facilityId})`;
                               }
                               return `시설: ${facilityKey}`;
                             })()}

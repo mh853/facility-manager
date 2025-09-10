@@ -438,9 +438,16 @@ export async function POST(request: NextRequest) {
 
     // 카테고리를 fileType으로 매핑
     const fileType = category; // 'basic', 'discharge', 'prevention' 등
-    const facilityInfo = category !== 'basic' ? `${facilityType || '시설'} ${facilityNumber || '1'}` : category;
     
-    console.log(`📋 [INFO] 업로드 정보: 사업장=${businessName}, 파일=${file.name}, 카테고리=${category}, fileType=${fileType}`);
+    // facilityInfo 표준화: "category_facilityId_facilityNumber" 형태로 생성
+    let facilityInfo = category;
+    if (category !== 'basic' && (category === 'discharge' || category === 'prevention')) {
+      const facilityId = formData.get('facilityId') as string || 'unknown';
+      const facilityNumber = formData.get('facilityNumber') as string || '1';
+      facilityInfo = `${category}_${facilityId}_${facilityNumber}`;
+    }
+    
+    console.log(`📋 [INFO] 업로드 정보: 사업장=${businessName}, 파일=${file.name}, 카테고리=${category}, fileType=${fileType}, facilityInfo=${facilityInfo}`);
 
     // 1. 사업장 ID 가져오기/생성
     const businessId = await getOrCreateBusiness(businessName);
