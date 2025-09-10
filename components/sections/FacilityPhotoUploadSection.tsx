@@ -808,7 +808,6 @@ export default function FacilityPhotoUploadSection({
                                   src={file.thumbnailUrl || file.webViewLink}
                                   alt={file.name}
                                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                  loading="lazy"
                                 />
                                 
                                 {/* 호버 오버레이 */}
@@ -934,7 +933,6 @@ export default function FacilityPhotoUploadSection({
                                   src={file.thumbnailUrl || file.webViewLink}
                                   alt={file.name}
                                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                  loading="lazy"
                                 />
                                 
                                 {/* 호버 오버레이 */}
