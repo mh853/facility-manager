@@ -582,7 +582,7 @@ export default function FacilityPhotoUploadSection({
       
       // 4차: JSON 형식 매칭 (새로운 방식)
       try {
-        const fileFacilityInfo = JSON.parse(file.facilityInfo);
+        const fileFacilityInfo = JSON.parse(file.facilityInfo || '{}');
         if (fileFacilityInfo.outlet === facility.outlet && 
             fileFacilityInfo.number === facility.number &&
             fileFacilityInfo.type === facilityType) {
