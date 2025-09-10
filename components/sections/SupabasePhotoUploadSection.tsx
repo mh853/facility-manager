@@ -578,11 +578,9 @@ export default function SupabasePhotoUploadSection({
                   }}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    // Fallback to other URLs if main fails
+                    // Fallback to download URL if main fails
                     if (target.src !== selectedFile.downloadUrl) {
                       target.src = selectedFile.downloadUrl;
-                    } else if (target.src !== selectedFile.publicUrl) {
-                      target.src = selectedFile.publicUrl || selectedFile.directUrl || '';
                     }
                   }}
                 />
