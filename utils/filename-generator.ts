@@ -73,9 +73,10 @@ export function generateFacilityFileName(params: FileNameParams): string {
     originalFileName = 'photo.jpg'
   } = params;
 
-  // 1. 시설 타입과 순번 (수량 기반 인스턴스 번호 사용)
+  // 1. 시설 타입과 순번 (데이터베이스 시설 번호 사용)
   const facilityPrefix = facilityType === 'prevention' ? '방' : '배';
-  const facilityNumber = facilityInstanceNumber;
+  const facilityNumber = facility.number; // 데이터베이스의 실제 시설 번호 사용
+  const quantitySuffix = facilityInstanceNumber && facilityInstanceNumber > 1 ? `-${facilityInstanceNumber}` : '';
 
   // 2. 시설명과 용량 조합
   const facilityInfo = sanitizeFacilityInfo(facility.name, facility.capacity);
@@ -89,8 +90,8 @@ export function generateFacilityFileName(params: FileNameParams): string {
   // 5. 확장자 (webp로 통일)
   const extension = getFileExtension(originalFileName);
 
-  // 6. 최종 파일명 조합
-  const fileName = `${facilityPrefix}${facilityNumber}_${facilityInfo}_${photoOrder}_${timestamp}.${extension}`;
+  // 6. 최종 파일명 조합 (시설번호 + 수량 접미사)
+  const fileName = `${facilityPrefix}${facilityNumber}${quantitySuffix}_${facilityInfo}_${photoOrder}_${timestamp}.${extension}`;
 
   console.log('📝 [FILENAME-GENERATOR] 파일명 생성:', {
     입력: params,
@@ -197,9 +198,10 @@ export function calculatePhotoIndex(
     }))
   );
 
-  // 1차: 정확한 패턴 매칭 (구조화된 파일명) - 시설 인스턴스 번호 포함
+  // 1차: 정확한 패턴 매칭 (구조화된 파일명) - 데이터베이스 시설 번호 + 수량 접미사
   const escapedFacilityInfo = facilityInfo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const exactPattern = new RegExp(`^${facilityPrefix}${facilityInstanceNumber}_${escapedFacilityInfo}_\\d+번째`);
+  const quantitySuffix = facilityInstanceNumber && facilityInstanceNumber > 1 ? `-${facilityInstanceNumber}` : '';
+  const exactPattern = new RegExp(`^${facilityPrefix}${facility.number}${quantitySuffix.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}_${escapedFacilityInfo}_\\d+번째`);
   
   const exactMatches = existingFiles.filter(file => {
     if (!file.name) return false;
