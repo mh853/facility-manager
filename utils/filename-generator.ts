@@ -171,10 +171,86 @@ export function calculatePhotoIndex(
   const facilityPrefix = facilityType === 'prevention' ? '방' : '배';
   const facilityInfo = sanitizeFacilityInfo(facility.name, facility.capacity);
 
-  // 같은 시설의 기존 파일 개수 계산
-  const existingCount = existingFiles.filter(file => 
-    file.name && file.name.includes(`${facilityPrefix}`) && file.name.includes(facilityInfo)
-  ).length;
+  console.log('🔍 [PHOTO-INDEX-DEBUG] 사진 순서 계산 시작:', {
+    시설정보: { 
+      이름: facility.name, 
+      용량: facility.capacity, 
+      배출구: facility.outlet,
+      시설타입: facilityType 
+    },
+    처리된시설정보: facilityInfo,
+    시설접두사: facilityPrefix,
+    전체파일수: existingFiles.length
+  });
+
+  // 디버깅용: 모든 파일명 출력
+  console.log('📋 [PHOTO-INDEX-DEBUG] 기존 파일 목록:', 
+    existingFiles.map(f => ({ 
+      name: f.name, 
+      originalName: f.originalName,
+      folderName: f.folderName,
+      facilityInfo: f.facilityInfo 
+    }))
+  );
+
+  // 1차: 정확한 패턴 매칭 (구조화된 파일명)
+  const escapedFacilityInfo = facilityInfo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const exactPattern = new RegExp(`^${facilityPrefix}\\d+_${escapedFacilityInfo}_\\d+번째`);
+  
+  const exactMatches = existingFiles.filter(file => {
+    if (!file.name) return false;
+    const matches = exactPattern.test(file.name);
+    if (matches) {
+      console.log('✅ [EXACT-MATCH]', file.name);
+    }
+    return matches;
+  });
+
+  // 2차: 느슨한 매칭 (시설 정보 포함)
+  const looseMatches = existingFiles.filter(file => {
+    if (!file.name) return false;
+    
+    // 구조화된 파일명이 아닌 경우 시설 정보로 매칭
+    const hasPrefix = file.name.includes(facilityPrefix);
+    const hasFacilityInfo = file.name.includes(facilityInfo) || 
+                           file.name.includes(facility.name);
+    
+    // 배출구 번호도 확인 (facilityInfo가 있는 경우)
+    let hasOutletMatch = false;
+    if (file.facilityInfo) {
+      const outletMatch = file.facilityInfo.match(/배출구[:\s]*(\d+)/);
+      if (outletMatch) {
+        const fileOutlet = parseInt(outletMatch[1]);
+        hasOutletMatch = fileOutlet === facility.outlet;
+      }
+    }
+
+    const isMatch = hasPrefix && (hasFacilityInfo || hasOutletMatch);
+    
+    if (isMatch) {
+      console.log('✅ [LOOSE-MATCH]', {
+        fileName: file.name,
+        hasPrefix,
+        hasFacilityInfo,
+        hasOutletMatch,
+        facilityInfo: file.facilityInfo
+      });
+    }
+    
+    return isMatch;
+  });
+
+  // 정확한 매칭이 있으면 우선 사용, 없으면 느슨한 매칭 사용
+  const matchedFiles = exactMatches.length > 0 ? exactMatches : looseMatches;
+  const existingCount = matchedFiles.length;
+
+  console.log('📊 [PHOTO-INDEX-RESULT] 계산 결과:', {
+    정확한매칭수: exactMatches.length,
+    느슨한매칭수: looseMatches.length,
+    최종사용매칭수: existingCount,
+    다음사진순서: existingCount + 1,
+    매칭된파일명들: matchedFiles.map(f => f.name)
+  });
 
   return existingCount + 1; // 다음 순서
 }

@@ -204,6 +204,19 @@ export default function FacilityPhotoUploadSection({
     // 현재 업로드된 파일들에서 해당 시설의 사진 개수 확인
     const existingFacilityFiles = getFilesForFacility(facility, facilityType);
     
+    console.log('🔍 [UPLOAD-HANDLER-DEBUG] 파일 업로드 처리 시작:', {
+      시설정보: { 
+        이름: facility.name, 
+        용량: facility.capacity, 
+        배출구: facility.outlet, 
+        번호: facility.number,
+        시설타입: facilityType 
+      },
+      업로드할파일수: files.length,
+      기존시설파일수: existingFacilityFiles.length,
+      시설인덱스: facilityIndex
+    });
+    
     // 모바일 즉시 반응: 파일 선택 즉시 미리보기 생성 (새로운 파일명 적용)
     const previewFiles = Array.from(files).map((file, index) => {
       const photoIndex = calculatePhotoIndex(existingFacilityFiles, facility, facilityType) + index;
@@ -553,9 +566,29 @@ export default function FacilityPhotoUploadSection({
   const getFilesForFacility = (facility: Facility, facilityType: 'discharge' | 'prevention') => {
     const expectedFolderName = facilityType === 'discharge' ? '배출시설' : '방지시설';
     
+    console.log('🔍 [FACILITY-FILTER-DEBUG] 시설별 파일 필터링 시작:', {
+      시설정보: { 
+        이름: facility.name, 
+        용량: facility.capacity, 
+        배출구: facility.outlet, 
+        번호: facility.number,
+        시설타입: facilityType 
+      },
+      기대폴더명: expectedFolderName,
+      전체파일수: uploadedFiles.length
+    });
+
     const filteredFiles = uploadedFiles.filter(file => {
+      console.log('📄 [FILE-CHECK]', {
+        fileName: file.name,
+        folderName: file.folderName,
+        facilityInfo: file.facilityInfo,
+        filePath: file.filePath
+      });
+
       // 1차: 폴더명이 맞는지 확인
       if (file.folderName !== expectedFolderName) {
+        console.log('❌ [1차-폴더매칭실패]', { expected: expectedFolderName, actual: file.folderName });
         return false;
       }
       
@@ -566,7 +599,10 @@ export default function FacilityPhotoUploadSection({
         if (outletMatch) {
           const fileOutlet = parseInt(outletMatch[1]);
           if (fileOutlet === facility.outlet) {
+            console.log('✅ [2차-배출구매칭성공]', { fileOutlet, facilityOutlet: facility.outlet });
             return true;
+          } else {
+            console.log('❌ [2차-배출구매칭실패]', { fileOutlet, facilityOutlet: facility.outlet });
           }
         }
       }
@@ -576,7 +612,10 @@ export default function FacilityPhotoUploadSection({
         const facilityPathType = facilityType === 'discharge' ? 'discharge' : 'prevention';
         const outletPattern = new RegExp(`outlet_${facility.outlet}_.*${facilityPathType}`);
         if (outletPattern.test(file.filePath)) {
+          console.log('✅ [3차-경로매칭성공]', { filePath: file.filePath, pattern: outletPattern.source });
           return true;
+        } else {
+          console.log('❌ [3차-경로매칭실패]', { filePath: file.filePath, pattern: outletPattern.source });
         }
       }
       
@@ -586,20 +625,62 @@ export default function FacilityPhotoUploadSection({
         if (fileFacilityInfo.outlet === facility.outlet && 
             fileFacilityInfo.number === facility.number &&
             fileFacilityInfo.type === facilityType) {
+          console.log('✅ [4차-JSON매칭성공]', fileFacilityInfo);
           return true;
+        } else {
+          console.log('❌ [4차-JSON매칭실패]', { 
+            파일정보: fileFacilityInfo, 
+            시설정보: { outlet: facility.outlet, number: facility.number, type: facilityType }
+          });
         }
       } catch (e) {
         // JSON 파싱 실패 시 기존 문자열 방식으로 매칭 (하위 호환성)
         const expectedFacilityInfo = `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`;
         if (file.facilityInfo === expectedFacilityInfo) {
+          console.log('✅ [5차-문자열매칭성공]', { expected: expectedFacilityInfo, actual: file.facilityInfo });
           return true;
+        } else {
+          console.log('❌ [5차-문자열매칭실패]', { expected: expectedFacilityInfo, actual: file.facilityInfo });
+        }
+      }
+
+      // 6차: 파일명 패턴 매칭 (최종 백업)
+      if (file.name) {
+        const facilityPrefix = facilityType === 'prevention' ? '방' : '배';
+        const facilityName = facility.name.replace(/[()]/g, '').replace(/\s+/g, '');
+        const facilityCapacity = facility.capacity.replace(/\s+/g, '');
+        
+        // 파일명에 시설 정보가 포함되어 있는지 확인
+        const hasPrefix = file.name.includes(facilityPrefix);
+        const hasName = file.name.includes(facilityName) || file.name.includes(facility.name);
+        const hasCapacity = file.name.includes(facilityCapacity) || file.name.includes(facility.capacity);
+        
+        if (hasPrefix && (hasName || hasCapacity)) {
+          console.log('✅ [6차-파일명패턴매칭성공]', { 
+            fileName: file.name,
+            hasPrefix,
+            hasName,
+            hasCapacity,
+            facilityName,
+            facilityCapacity
+          });
+          return true;
+        } else {
+          console.log('❌ [6차-파일명패턴매칭실패]', { 
+            fileName: file.name,
+            hasPrefix,
+            hasName,
+            hasCapacity
+          });
         }
       }
       
       return false;
     });
 
-    console.log(`[FACILITY-FILTER] ${facilityType}${facility.number} (outlet ${facility.outlet}): ${filteredFiles.length}개 파일 매칭`);
+    console.log(`📊 [FACILITY-FILTER-RESULT] ${facilityType}${facility.number} (outlet ${facility.outlet}): ${filteredFiles.length}개 파일 매칭`);
+    console.log('📋 [MATCHED-FILES]', filteredFiles.map(f => ({ name: f.name, facilityInfo: f.facilityInfo })));
+    
     return filteredFiles;
   };
 
