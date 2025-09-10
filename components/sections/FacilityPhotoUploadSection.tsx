@@ -1281,7 +1281,6 @@ export default function FacilityPhotoUploadSection({
                   src={selectedFile.webViewLink}
                   alt={selectedFile.name}
                   className="w-full max-h-96 object-contain"
-                  loading="eager"
                 />
               </div>
               
