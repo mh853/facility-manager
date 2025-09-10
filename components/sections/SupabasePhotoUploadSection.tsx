@@ -59,20 +59,30 @@ export default function SupabasePhotoUploadSection({
   const preventionCount = facilities?.prevention?.reduce((total, facility) => total + facility.quantity, 0) || 0;
   const outletCount = facilities ? [...new Set([...facilities.discharge.map(f => f.outlet), ...facilities.prevention.map(f => f.outlet)])].length : 0;
 
-  // 업로드된 파일 로드
+  // 업로드된 파일 로드 - 향상된 로딩 및 디버깅
   const loadUploadedFiles = useCallback(async () => {
     if (!businessName) return;
     
     setLoadingFiles(true);
+    console.log(`📂 [LOAD-FILES] 파일 로드 시작: ${businessName}`);
+    
     try {
-      const response = await fetch(`/api/uploaded-files-supabase?businessName=${encodeURIComponent(businessName)}&systemType=presurvey`);
+      const response = await fetch(`/api/uploaded-files-supabase?businessName=${encodeURIComponent(businessName)}&systemType=presurvey&refresh=true`);
       const result = await response.json();
       
+      console.log(`📂 [LOAD-FILES] API 응답:`, result);
+      
       if (result.success) {
-        setUploadedFiles(result.files || []);
+        const files = result.data?.files || result.files || [];
+        setUploadedFiles(files);
+        console.log(`✅ [LOAD-FILES] 파일 로드 완료: ${files.length}개`);
+      } else {
+        console.warn(`⚠️ [LOAD-FILES] API 오류: ${result.message}`);
+        setUploadedFiles([]);
       }
     } catch (error) {
-      console.error('파일 목록 로드 실패:', error);
+      console.error('❌ [LOAD-FILES] 파일 목록 로드 실패:', error);
+      setUploadedFiles([]);
     } finally {
       setLoadingFiles(false);
     }
@@ -157,6 +167,36 @@ export default function SupabasePhotoUploadSection({
     if (!files.length) return;
 
     const categoryKey = `${category}-${Date.now()}`;
+    
+    // 🎯 즉시 미리보기 파일 생성 (optimistic UI)
+    const previewFiles = Array.from(files).map((file) => {
+      const objectUrl = URL.createObjectURL(file);
+      return {
+        id: `preview-${Date.now()}-${Math.random()}`,
+        name: file.name,
+        originalName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        createdTime: new Date().toISOString(),
+        modifiedTime: new Date().toISOString(),
+        webViewLink: objectUrl,
+        downloadUrl: objectUrl,
+        thumbnailUrl: objectUrl,
+        publicUrl: objectUrl,
+        directUrl: objectUrl,
+        folderName: category === 'basic' ? '기본사진' : category === 'discharge' ? '배출시설' : '방지시설',
+        uploadStatus: 'uploading',
+        syncedAt: null,
+        googleFileId: null,
+        facilityInfo: category,
+        filePath: `preview/${category}/${file.name}`,
+        justUploaded: true,
+        isPreview: true
+      } as unknown as UploadedFile & { isPreview: boolean; justUploaded: boolean };
+    });
+    
+    // 즉시 미리보기 파일 추가 (깜빡거리는 효과와 함께)
+    setUploadedFiles(prev => [...previewFiles, ...prev]);
     setUploading(prev => ({ ...prev, [categoryKey]: true }));
     setUploadProgress(prev => ({ ...prev, [categoryKey]: 0 }));
 
@@ -181,6 +221,45 @@ export default function SupabasePhotoUploadSection({
           [categoryKey]: ((index + 1) / files.length) * 100 
         }));
 
+        // 업로드 성공 시 미리보기를 실제 파일로 교체
+        if (result.success && result.files && result.files.length > 0) {
+          const newFile = result.files[0];
+          
+          // 미리보기 파일을 실제 업로드된 파일로 교체
+          setUploadedFiles(prev => prev.map(f => {
+            if (f.originalName === file.name && (f as any).isPreview) {
+              // Object URL 정리 (메모리 누수 방지)
+              if (f.thumbnailUrl && f.thumbnailUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(f.thumbnailUrl);
+                URL.revokeObjectURL(f.webViewLink);
+                URL.revokeObjectURL(f.downloadUrl);
+              }
+              
+              return {
+                ...newFile,
+                justUploaded: true,
+                uploadedAt: Date.now()
+              };
+            }
+            return f;
+          }));
+          
+          console.log(`✅ [UPLOAD-SUCCESS] 미리보기를 실제 파일로 교체: ${file.name} → ${newFile.name}`);
+          
+          // 0.5초 후 깜빡임 효과 제거
+          setTimeout(() => {
+            setUploadedFiles(prev => prev.map(f => 
+              f.id === newFile.id ? { ...f, justUploaded: false } : f
+            ));
+          }, 500);
+        } else {
+          // 업로드 실패 시 미리보기 파일 제거
+          console.warn(`❌ [UPLOAD-FAILED] 미리보기 파일 제거: ${file.name}`);
+          setUploadedFiles(prev => prev.filter(f => 
+            !(f.originalName === file.name && (f as any).isPreview)
+          ));
+        }
+
         return result;
       });
 
@@ -192,13 +271,18 @@ export default function SupabasePhotoUploadSection({
         setTimeout(() => {
           setUploadSuccess(prev => ({ ...prev, [categoryKey]: false }));
         }, 3000);
-        
-        // 파일 목록 새로고침
-        loadUploadedFiles();
+      }
+
+      // 실패한 업로드가 있는 경우 미리보기 파일만 제거
+      if (successCount < files.length) {
+        console.log(`❌ [UPLOAD-PARTIAL] 부분 실패, 미리보기 파일 정리`);
+        setUploadedFiles(prev => prev.filter(f => !(f as any).isPreview));
       }
 
     } catch (error) {
       console.error('업로드 오류:', error);
+      // 오류 시 모든 미리보기 파일 제거
+      setUploadedFiles(prev => prev.filter(f => !(f as any).isPreview));
     } finally {
       setUploading(prev => ({ ...prev, [categoryKey]: false }));
       setTimeout(() => {
@@ -286,14 +370,17 @@ export default function SupabasePhotoUploadSection({
               </div>
 
               {isUploading && (
-                <div className="mb-3">
+                <div className="mb-3 animate-pulse">
                   <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                    <span>업로드 중...</span>
-                    <span>{Math.round(progress)}%</span>
+                    <span className="flex items-center gap-2">
+                      <div className="w-3 h-3 border border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                      업로드 중...
+                    </span>
+                    <span className="font-medium">{Math.round(progress)}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <div 
-                      className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-gradient-to-r from-purple-500 to-purple-600 h-2.5 rounded-full transition-all duration-500 ease-out shadow-sm"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -326,6 +413,16 @@ export default function SupabasePhotoUploadSection({
         })}
       </div>
 
+      {/* 로딩 상태 표시 */}
+      {loadingFiles && (
+        <div className="mt-6 bg-white rounded-lg p-4 border border-gray-200">
+          <div className="flex items-center justify-center gap-3 py-8">
+            <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-gray-600">업로드된 사진을 불러오는 중...</span>
+          </div>
+        </div>
+      )}
+
       {/* 업로드된 사진 표시 */}
       {!loadingFiles && uploadedFiles.length > 0 && (
         <div className="mt-6 bg-white rounded-lg p-4 border border-gray-200">
@@ -355,7 +452,9 @@ export default function SupabasePhotoUploadSection({
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                   {files.map((file) => (
-                    <div key={file.id} className="bg-white rounded-lg border border-gray-200 p-2 shadow-sm">
+                    <div key={file.id} className={`bg-white rounded-lg border p-2 shadow-sm transition-all duration-500 ${
+                      (file as any).justUploaded ? 'animate-pulse border-green-400 bg-green-50 shadow-lg' : 'border-gray-200 hover:border-gray-300'
+                    }`}>
                       <div 
                         className="relative aspect-square mb-2 bg-gray-100 rounded overflow-hidden cursor-pointer group"
                         onClick={() => setSelectedFile(file)}
@@ -369,6 +468,22 @@ export default function SupabasePhotoUploadSection({
                             target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f3f4f6"/><text x="50" y="50" text-anchor="middle" dy="0.3em" font-family="Arial" font-size="8" fill="%236b7280">이미지</text></svg>`;
                           }}
                         />
+                        
+                        {/* 🎉 업로드 완료 표시 (NEW 뱃지) */}
+                        {(file as any).justUploaded && (
+                          <div className="absolute top-1 right-1">
+                            <div className="bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium animate-pulse">
+                              NEW
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* 업로드 중 표시 (스피너) */}
+                        {(file as any).isPreview && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        )}
                       </div>
                       
                       <div className="text-xs">
@@ -407,49 +522,119 @@ export default function SupabasePhotoUploadSection({
         </span>
       </div>
 
-      {/* 이미지 미리보기 모달 */}
+      {/* 🎨 Popup-Style Photo Preview - Non-Intrusive Design */}
       {selectedFile && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-auto">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="font-bold text-lg">{selectedFile.name}</h3>
-              <button
-                onClick={() => setSelectedFile(null)}
-                className="p-1 hover:bg-gray-100 rounded"
-              >
-                ×
-              </button>
+        <div className="fixed inset-0 z-50 pointer-events-none">
+          {/* Subtle Backdrop Overlay - Optional dimming */}
+          <div 
+            className="absolute inset-0 bg-black/20 backdrop-blur-[1px] pointer-events-auto cursor-pointer animate-in fade-in duration-200" 
+            onClick={() => setSelectedFile(null)}
+          />
+          
+          {/* Popup Container - Positioned like a floating window */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl w-[90vw] max-w-2xl max-h-[85vh] pointer-events-auto animate-in zoom-in-95 slide-in-from-bottom-3 duration-300 overflow-hidden border border-gray-200/50">
+            
+            {/* 🎯 Compact Header - Popup style */}
+            <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Eye className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg text-gray-800 leading-tight">{selectedFile.originalName || selectedFile.name}</h3>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                      <span className="px-2 py-0.5 bg-purple-100 rounded-md text-purple-700 text-xs">
+                        {categories.find(c => c.id === selectedFile.folderName)?.name || selectedFile.folderName || '기본사진'}
+                      </span>
+                      <span>•</span>
+                      <span>{formatFileSize(selectedFile.size)}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Close Button */}
+                <button
+                  onClick={() => setSelectedFile(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 group"
+                  title="닫기 (ESC)"
+                >
+                  <X className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+                </button>
+              </div>
             </div>
             
-            <div className="p-4">
-              <img
-                src={selectedFile.thumbnailUrl}
-                alt={selectedFile.name}
-                className="max-w-full max-h-[60vh] mx-auto"
-              />
-              
-              <div className="mt-4 text-sm text-gray-600 space-y-1">
-                <p><strong>파일명:</strong> {selectedFile.name}</p>
-                <p><strong>크기:</strong> {formatFileSize(selectedFile.size)}</p>
-                <p><strong>카테고리:</strong> {categories.find(c => c.id === selectedFile.folderName)?.name || selectedFile.folderName}</p>
-                <p><strong>업로드:</strong> {new Date(selectedFile.createdTime).toLocaleString('ko-KR')}</p>
+            {/* 📷 Image Display Area - Popup optimized */}
+            <div className="p-3 flex justify-center items-center bg-gray-50 min-h-[250px] max-h-[40vh] overflow-hidden">              
+              {/* Main Image - Popup sized */}
+              <div className="relative">
+                <img
+                  src={selectedFile.webViewLink || selectedFile.thumbnailUrl}
+                  alt={selectedFile.name}
+                  className="max-w-full max-h-[35vh] rounded-lg shadow-md object-contain transition-transform duration-200 hover:scale-105 cursor-pointer"
+                  onClick={(e) => {
+                    // Optional: open in new tab for full size view
+                    window.open(selectedFile.webViewLink || selectedFile.downloadUrl, '_blank');
+                  }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    // Fallback to other URLs if main fails
+                    if (target.src !== selectedFile.downloadUrl) {
+                      target.src = selectedFile.downloadUrl;
+                    } else if (target.src !== selectedFile.publicUrl) {
+                      target.src = selectedFile.publicUrl || selectedFile.directUrl || '';
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            
+            {/* 📋 Action Panel - Popup style */}
+            <div className="p-3 bg-white border-t border-gray-100 rounded-b-2xl">
+              <div className="text-center text-xs text-gray-500 mb-3">
+                업로드: {new Date(selectedFile.createdTime).toLocaleDateString('ko-KR', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
               </div>
               
-              <div className="mt-4 flex gap-2">
+              {/* 🎬 Action Buttons - Popup optimized */}
+              <div className="flex gap-2 justify-center">
                 <a
                   href={selectedFile.downloadUrl}
-                  download={selectedFile.name}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  download={selectedFile.originalName || selectedFile.name}
+                  className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md font-medium transition-colors duration-200 text-sm"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className="w-3 h-3" />
                   다운로드
                 </a>
                 
                 <button
-                  onClick={() => deleteFile(selectedFile)}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedFile.webViewLink);
+                    // Show brief feedback
+                    const btn = document.activeElement as HTMLButtonElement;
+                    const originalText = btn.textContent;
+                    btn.textContent = '복사됨!';
+                    setTimeout(() => btn.textContent = originalText, 1000);
+                  }}
+                  className="flex items-center gap-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-1.5 rounded-md font-medium transition-colors duration-200 text-sm"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Eye className="w-3 h-3" />
+                  링크 복사
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (confirm(`"${selectedFile.name}" 파일을 삭제하시겠습니까?`)) {
+                      deleteFile(selectedFile);
+                    }
+                  }}
+                  className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-md font-medium transition-colors duration-200 text-sm"
+                >
+                  <Trash2 className="w-3 h-3" />
                   삭제
                 </button>
               </div>
