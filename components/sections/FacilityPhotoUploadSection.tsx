@@ -60,8 +60,34 @@ export default function FacilityPhotoUploadSection({
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [selectedFile, setSelectedFile] = useState<UploadedFile | null>(null);
-  const [basicPhotoCategory, setBasicPhotoCategory] = useState<'gateway' | 'fan' | 'electrical' | 'others'>('gateway');
+  const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // 파일 선택 시 클릭 위치 추적 (개별 시설 정보 기준)
+  const handleFileSelect = useCallback((file: UploadedFile, event: React.MouseEvent) => {
+    // 이벤트 버블링 방지 (정확한 클릭 위치 확보)
+    event.stopPropagation();
+    
+    // 클릭된 요소의 위치 계산 (개별 시설 카드 기준)
+    const target = event.currentTarget as HTMLElement;
+    const targetRect = target.getBoundingClientRect();
+    
+    // 시설 카드 중심에서 약간 우측으로 오프셋하여 모달 위치 계산
+    const centerX = targetRect.left + targetRect.width / 2 + 50;
+    const centerY = targetRect.top + targetRect.height / 2;
+    
+    // 모달이 화면 밖으로 나가지 않도록 조정
+    const modalWidth = 600; // 예상 모달 너비
+    const modalHeight = 500; // 예상 모달 높이
+    
+    const adjustedX = Math.min(Math.max(centerX - modalWidth/2, 20), window.innerWidth - modalWidth - 20);
+    const adjustedY = Math.min(Math.max(centerY - modalHeight/2, 20), window.innerHeight - modalHeight - 20);
+    
+    console.log(`[MODAL-POSITION] 시설 카드 기준 위치: ${centerX}, ${centerY} → 조정된 위치: ${adjustedX}, ${adjustedY}`);
+    
+    setModalPosition({ x: adjustedX, y: adjustedY });
+    setSelectedFile(file);
+  }, []);
 
   // 업로드된 파일 로드 - 스마트 캐싱 및 병렬 로딩 적용
   const loadUploadedFiles = useCallback(async (forceRefresh = false) => {
@@ -132,26 +158,36 @@ export default function FacilityPhotoUploadSection({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && selectedFile) {
         setSelectedFile(null);
+        setModalPosition(null);
       }
     };
 
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
         setSelectedFile(null);
+        setModalPosition(null);
       }
     };
 
     if (selectedFile) {
       document.addEventListener('keydown', handleKeyDown);
       document.addEventListener('mousedown', handleClickOutside);
-      document.body.style.overflow = 'hidden'; // 스크롤 방지
+      // 팝업 스타일에서는 배경 스크롤 허용
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mousedown', handleClickOutside);
-      document.body.style.overflow = 'unset';
+      // 팝업 스타일에서는 스크롤 상태 유지
     };
+  }, [selectedFile]);
+
+  // 모달 포커스 관리 (스크롤 강제 이동 제거)
+  useEffect(() => {
+    if (selectedFile && modalRef.current) {
+      // 모달에 포커스만 설정 (자동 스크롤 제거)
+      modalRef.current.focus();
+    }
   }, [selectedFile]);
 
   // 시설별 파일 업로드
@@ -196,7 +232,13 @@ export default function FacilityPhotoUploadSection({
         uploadStatus: 'uploading',
         syncedAt: null,
         googleFileId: null,
-        facilityInfo: `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`,
+        facilityInfo: JSON.stringify({
+          outlet: facility.outlet,
+          number: facility.number,
+          name: facility.name,
+          capacity: facility.capacity,
+          type: facilityType
+        }),
         filePath: undefined,
         justUploaded: true,
         uploadedAt: Date.now(),
@@ -239,7 +281,13 @@ export default function FacilityPhotoUploadSection({
         formData.append('businessName', businessName);
         formData.append('fileType', facilityType);
         formData.append('type', 'completion');
-        formData.append('facilityInfo', `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`);
+        formData.append('facilityInfo', JSON.stringify({
+          outlet: facility.outlet,
+          number: facility.number, 
+          name: facility.name,
+          capacity: facility.capacity,
+          type: facilityType
+        }));
 
         const response = await fetch('/api/upload-supabase', {
           method: 'POST',
@@ -328,7 +376,7 @@ export default function FacilityPhotoUploadSection({
   const handleBasicUpload = useCallback(async (files: FileList, category: string) => {
     if (!files.length) return;
 
-    const uploadKey = `basic-photos-${category}`;
+    const uploadKey = `basic-${category}`;
     
     // 기존 기본사진들 중 해당 카테고리의 개수 확인
     const existingBasicFiles = getBasicFiles(category);
@@ -532,10 +580,20 @@ export default function FacilityPhotoUploadSection({
         }
       }
       
-      // 4차: 기존 정확한 매칭 방식 (하위 호환성)
-      const expectedFacilityInfo = `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`;
-      if (file.facilityInfo === expectedFacilityInfo) {
-        return true;
+      // 4차: JSON 형식 매칭 (새로운 방식)
+      try {
+        const fileFacilityInfo = JSON.parse(file.facilityInfo);
+        if (fileFacilityInfo.outlet === facility.outlet && 
+            fileFacilityInfo.number === facility.number &&
+            fileFacilityInfo.type === facilityType) {
+          return true;
+        }
+      } catch (e) {
+        // JSON 파싱 실패 시 기존 문자열 방식으로 매칭 (하위 호환성)
+        const expectedFacilityInfo = `배출구${facility.outlet}-${facilityType === 'discharge' ? '배출시설' : '방지시설'}${facility.number}`;
+        if (file.facilityInfo === expectedFacilityInfo) {
+          return true;
+        }
       }
       
       return false;
@@ -718,63 +776,57 @@ export default function FacilityPhotoUploadSection({
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                           />
                           <div className={`
-                            flex items-center justify-center gap-3 p-3 border-2 border-dashed rounded-lg
-                            ${isUploading ? 'border-gray-300 bg-gray-50' : 'border-green-300 hover:bg-green-100'}
-                            transition-colors cursor-pointer
+                            border-2 border-dashed border-green-300 rounded-lg p-4 text-center transition-colors
+                            ${isUploading ? 'bg-green-100 border-green-400' : 'hover:border-green-400 hover:bg-green-50'}
+                            ${isUploading ? 'cursor-not-allowed' : 'cursor-pointer'}
                           `}>
-                            <Upload className={`w-4 h-4 ${isUploading ? 'text-gray-400' : 'text-green-600'}`} />
-                            <span className={`text-sm font-medium ${isUploading ? 'text-gray-400' : 'text-green-600'}`}>
-                              {isUploading ? '업로드 중...' : '방지시설 사진 선택'}
-                            </span>
+                            <Upload className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                            <p className="text-green-700 font-medium">
+                              {isUploading ? '업로드 중...' : '사진 업로드 (여러 장 선택 가능)'}
+                            </p>
+                            <p className="text-green-600 text-sm mt-1">
+                              클릭하거나 파일을 드래그하여 업로드
+                            </p>
                           </div>
                         </div>
 
-                        {/* 업로드된 사진 표시 */}
+                        {/* 업로드된 사진들 - 배출시설과 동일한 스타일 적용 */}
                         {facilityFiles.length > 0 && (
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                             {facilityFiles.map((file) => (
-                              <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
-                                file.justUploaded ? 'animate-pulse border-green-400 bg-green-50' : ''
-                              }`}>
-                                <div 
-                                  className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
-                                  onClick={() => setSelectedFile(file)}
-                                >
-                                  <LazyImage
-                                    src={file.thumbnailUrl}
-                                    alt={file.name}
-                                    className="w-full h-full object-cover hover:scale-105 transition-transform"
-                                    quality={75}
-                                    placeholder={true}
-                                    onLoad={() => {
-                                      console.log(`[IMAGE-SUCCESS] 이미지 로드 성공: ${file.name}`);
-                                    }}
-                                    onError={() => {
-                                      console.error(`[IMAGE-ERROR] 이미지 로드 실패:`, {
-                                        url: file.thumbnailUrl,
-                                        fileName: file.name,
-                                        filePath: file.filePath
-                                      });
-                                    }}
-                                  />
+                              <div 
+                                key={file.id} 
+                                className={`
+                                  relative group cursor-pointer bg-white rounded-lg border-2 border-gray-200 
+                                  overflow-hidden transition-all duration-300 hover:border-green-400 hover:shadow-md
+                                  aspect-[4/3]
+                                  ${(file as any).justUploaded ? 'animate-pulse border-green-400 shadow-lg' : ''}
+                                `}
+                                onClick={(e) => handleFileSelect(file, e)}
+                              >
+                                <LazyImage
+                                  src={file.thumbnailUrl || file.webViewLink}
+                                  alt={file.name}
+                                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                  loading="lazy"
+                                />
+                                
+                                {/* 호버 오버레이 */}
+                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center">
+                                  <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 </div>
-                                <div className="text-xs">
-                                  <p className="font-medium truncate" title={file.name}>{file.name}</p>
-                                  <div className="flex gap-1 mt-1">
-                                    <button
-                                      onClick={() => setSelectedFile(file)}
-                                      className="flex-1 bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-xs"
-                                    >
-                                      보기
-                                    </button>
-                                    <button
-                                      onClick={() => deleteFile(file)}
-                                      className="bg-red-100 text-red-800 px-1 py-0.5 rounded text-xs"
-                                    >
-                                      삭제
-                                    </button>
-                                  </div>
+                                
+                                {/* 파일명 오버레이 */}
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                                  <p className="text-white text-xs font-medium truncate">
+                                    {file.originalName || file.name}
+                                  </p>
                                 </div>
+                                
+                                {/* 업로드 직후 깜빡임 효과 */}
+                                {(file as any).justUploaded && (
+                                  <div className="absolute inset-0 bg-green-400 bg-opacity-20 animate-pulse" />
+                                )}
                               </div>
                             ))}
                           </div>
@@ -784,10 +836,10 @@ export default function FacilityPhotoUploadSection({
                   })}
                 </div>
               )}
-
+              
               {/* 배출시설 */}
               {outletDischarge.length > 0 && (
-                <div className="mb-6">
+                <div>
                   <h4 className="text-md font-medium text-orange-600 mb-3 flex items-center gap-2">
                     <Factory className="w-4 h-4" />
                     배출시설 ({outletDischarge.reduce((total, f) => total + f.quantity, 0)}개)
@@ -850,100 +902,59 @@ export default function FacilityPhotoUploadSection({
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                           />
                           <div className={`
-                            flex items-center justify-center gap-3 p-3 border-2 border-dashed rounded-lg
-                            ${isUploading ? 'border-gray-300 bg-gray-50' : 'border-orange-300 hover:bg-orange-100'}
-                            transition-colors cursor-pointer
+                            border-2 border-dashed border-orange-300 rounded-lg p-4 text-center transition-colors
+                            ${isUploading ? 'bg-orange-100 border-orange-400' : 'hover:border-orange-400 hover:bg-orange-50'}
+                            ${isUploading ? 'cursor-not-allowed' : 'cursor-pointer'}
                           `}>
-                            <Upload className={`w-4 h-4 ${isUploading ? 'text-gray-400' : 'text-orange-600'}`} />
-                            <span className={`text-sm font-medium ${isUploading ? 'text-gray-400' : 'text-orange-600'}`}>
-                              {isUploading ? '업로드 중...' : '배출시설 사진 선택'}
-                            </span>
+                            <Upload className="w-8 h-8 text-orange-600 mx-auto mb-2" />
+                            <p className="text-orange-700 font-medium">
+                              {isUploading ? '업로드 중...' : '사진 업로드 (여러 장 선택 가능)'}
+                            </p>
+                            <p className="text-orange-600 text-sm mt-1">
+                              클릭하거나 파일을 드래그하여 업로드
+                            </p>
                           </div>
                         </div>
 
-                        {/* 업로드된 사진 표시 - 향상된 즉시 미리보기 */}
+                        {/* 업로드된 사진들 */}
                         {facilityFiles.length > 0 && (
-                          <div className="mt-3">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-sm font-medium text-gray-700">
-                                업로드된 사진 ({facilityFiles.length}개)
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                              {facilityFiles.map((file) => (
-                                <div key={file.id} className={`bg-white rounded-lg border-2 p-3 transition-all duration-500 ${
-                                  file.justUploaded ? 'animate-pulse border-orange-400 bg-orange-50 shadow-lg' : 'border-gray-200 hover:border-gray-300'
-                                }`}>
-                                  {/* 즉시 보이는 미리보기 이미지 */}
-                                  <div 
-                                    className="relative aspect-[4/3] mb-2 bg-gray-100 rounded-lg overflow-hidden cursor-pointer group"
-                                    onClick={() => setSelectedFile(file)}
-                                  >
-                                    <LazyImage
-                                      src={file.thumbnailUrl || file.webViewLink || file.downloadUrl}
-                                      alt={file.name}
-                                      className="w-full h-full object-cover group-hover:scale-110 transition-all duration-300"
-                                      quality={80}
-                                      placeholder={true}
-                                      onLoad={() => {
-                                        console.log(`[IMAGE-SUCCESS] 이미지 로드 성공: ${file.name}`);
-                                      }}
-                                      onError={() => {
-                                        console.error(`[IMAGE-ERROR] 이미지 로드 실패:`, {
-                                          thumbnailUrl: file.thumbnailUrl,
-                                          webViewLink: file.webViewLink,
-                                          downloadUrl: file.downloadUrl,
-                                          fileName: file.name,
-                                          filePath: file.filePath
-                                        });
-                                      }}
-                                    />
-                                    {/* 호버 시 확대 아이콘 */}
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
-                                      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-2">
-                                        <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                                        </svg>
-                                      </div>
-                                    </div>
-                                    {/* 새 업로드 표시 */}
-                                    {file.justUploaded && (
-                                      <div className="absolute top-2 right-2">
-                                        <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                                          NEW
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                  
-                                  {/* 파일 정보 */}
-                                  <div className="text-xs space-y-1">
-                                    <p className="font-medium text-gray-800 truncate" title={file.name}>
-                                      {file.name}
-                                    </p>
-                                    <p className="text-gray-500">
-                                      {formatFileSize(file.size)} • {new Date(file.createdTime).toLocaleDateString('ko-KR')}
-                                    </p>
-                                  </div>
-                                  
-                                  {/* 액션 버튼 */}
-                                  <div className="flex gap-1 mt-2">
-                                    <button
-                                      onClick={() => setSelectedFile(file)}
-                                      className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-1.5 rounded-md text-xs font-medium transition-colors"
-                                    >
-                                      🔍 크게보기
-                                    </button>
-                                    <button
-                                      onClick={() => deleteFile(file)}
-                                      className="bg-red-50 hover:bg-red-100 text-red-700 px-2 py-1.5 rounded-md text-xs font-medium transition-colors"
-                                    >
-                                      🗑️ 삭제
-                                    </button>
-                                  </div>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {facilityFiles.map((file) => (
+                              <div 
+                                key={file.id} 
+                                className={`
+                                  relative group cursor-pointer bg-white rounded-lg border-2 border-gray-200 
+                                  overflow-hidden transition-all duration-300 hover:border-orange-400 hover:shadow-md
+                                  aspect-[4/3]
+                                  ${(file as any).justUploaded ? 'animate-pulse border-orange-400 shadow-lg' : ''}
+                                `}
+                                onClick={(e) => handleFileSelect(file, e)}
+                              >
+                                <LazyImage
+                                  src={file.thumbnailUrl || file.webViewLink}
+                                  alt={file.name}
+                                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                  loading="lazy"
+                                />
+                                
+                                {/* 호버 오버레이 */}
+                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center">
+                                  <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 </div>
-                              ))}
-                            </div>
+                                
+                                {/* 파일명 오버레이 */}
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                                  <p className="text-white text-xs font-medium truncate">
+                                    {file.originalName || file.name}
+                                  </p>
+                                </div>
+                                
+                                {/* 업로드 직후 깜빡임 효과 */}
+                                {(file as any).justUploaded && (
+                                  <div className="absolute inset-0 bg-orange-400 bg-opacity-20 animate-pulse" />
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -955,31 +966,32 @@ export default function FacilityPhotoUploadSection({
           );
         })}
 
-        {/* 기본사진 섹션 - 확장 형태 */}
+        {/* 기본사진 섹션 */}
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-blue-600" />
-            기본사진 (사업장 전경, 출입구 등)
+            기본사진
           </h3>
-
+          
           <div className="space-y-6">
-            {/* 게이트웨이 */}
+            {/* 게이트웨이 섹션 */}
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <h4 className="text-md font-medium text-purple-600 mb-3 flex items-center gap-2">
+              <h4 className="text-md font-medium text-purple-700 mb-3 flex items-center gap-2">
                 <Router className="w-4 h-4" />
-                게이트웨이 ({getBasicFiles('gateway').length}개)
+                게이트웨이
               </h4>
-
-              {uploading['basic-photos-gateway'] && (
+              
+              {/* 업로드 진행률 (게이트웨이) */}
+              {uploading['basic-gateway'] && (
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
                     <span>업로드 중...</span>
-                    <span>{Math.round(uploadProgress['basic-photos-gateway'] || 0)}%</span>
+                    <span>{Math.round(uploadProgress['basic-gateway'] || 0)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress['basic-photos-gateway'] || 0}%` }}
+                      style={{ width: `${uploadProgress['basic-gateway'] || 0}%` }}
                     />
                   </div>
                 </div>
@@ -988,93 +1000,86 @@ export default function FacilityPhotoUploadSection({
               <div className="relative mb-3">
                 <input
                   type="file"
-                  id="upload-basic-gateway"
+                  id="upload-gateway"
                   multiple
                   accept="image/*"
                   onChange={(e) => e.target.files && handleBasicUpload(e.target.files, 'gateway')}
-                  disabled={uploading['basic-photos-gateway']}
+                  disabled={uploading['basic-gateway']}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                 />
                 <div className={`
-                  flex items-center justify-center gap-3 p-3 border-2 border-dashed rounded-lg
-                  ${uploading['basic-photos-gateway'] ? 'border-gray-300 bg-gray-50' : 'border-purple-300 hover:bg-purple-100'}
-                  transition-colors cursor-pointer
+                  border-2 border-dashed border-purple-300 rounded-lg p-4 text-center transition-colors
+                  ${uploading['basic-gateway'] ? 'bg-purple-100 border-purple-400' : 'hover:border-purple-400 hover:bg-purple-50'}
+                  ${uploading['basic-gateway'] ? 'cursor-not-allowed' : 'cursor-pointer'}
                 `}>
-                  <Upload className={`w-4 h-4 ${uploading['basic-photos-gateway'] ? 'text-gray-400' : 'text-purple-600'}`} />
-                  <span className={`text-sm font-medium ${uploading['basic-photos-gateway'] ? 'text-gray-400' : 'text-purple-600'}`}>
-                    {uploading['basic-photos-gateway'] ? '업로드 중...' : '게이트웨이 사진 선택'}
-                  </span>
+                  <Upload className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                  <p className="text-purple-700 font-medium">
+                    {uploading['basic-gateway'] ? '업로드 중...' : '게이트웨이 사진 업로드'}
+                  </p>
+                  <p className="text-purple-600 text-sm mt-1">
+                    클릭하거나 파일을 드래그하여 업로드
+                  </p>
                 </div>
               </div>
 
+              {/* 게이트웨이 사진들 */}
               {getBasicFiles('gateway').length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {getBasicFiles('gateway').map((file) => (
-                    <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
-                      file.justUploaded ? 'animate-pulse border-purple-400 bg-purple-50' : ''
-                    }`}>
-                      <div 
-                        className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
-                        onClick={() => setSelectedFile(file)}
-                      >
-                        <LazyImage
-                          src={file.thumbnailUrl}
-                          alt={file.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
-                          quality={75}
-                          placeholder={true}
-                          onLoad={() => {
-                            console.log(`[IMAGE-SUCCESS] 기본사진 로드 성공: ${file.name}`);
-                          }}
-                          onError={() => {
-                            console.error(`[IMAGE-ERROR] 기본사진 로드 실패:`, {
-                              url: file.thumbnailUrl,
-                              fileName: file.name,
-                              category: extractCategoryFromFileName(file.name)
-                            });
-                          }}
-                        />
+                    <div 
+                      key={file.id} 
+                      className={`
+                        relative group cursor-pointer bg-white rounded-lg border-2 border-gray-200 
+                        overflow-hidden transition-all duration-300 hover:border-purple-400 hover:shadow-md
+                        aspect-[4/3]
+                        ${(file as any).justUploaded ? 'animate-pulse border-purple-400 shadow-lg' : ''}
+                      `}
+                      onClick={(e) => handleFileSelect(file, e)}
+                    >
+                      <LazyImage
+                        src={file.thumbnailUrl || file.webViewLink}
+                        alt={file.name}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        loading="lazy"
+                      />
+                      
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center">
+                        <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
-                      <div className="text-xs">
-                        <p className="font-medium truncate" title={file.name}>{file.name}</p>
-                        <div className="flex gap-1 mt-1">
-                          <button
-                            onClick={() => setSelectedFile(file)}
-                            className="flex-1 bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-xs"
-                          >
-                            보기
-                          </button>
-                          <button
-                            onClick={() => deleteFile(file)}
-                            className="bg-red-100 text-red-800 px-1 py-0.5 rounded text-xs"
-                          >
-                            삭제
-                          </button>
-                        </div>
+                      
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                        <p className="text-white text-xs font-medium truncate">
+                          {file.originalName || file.name}
+                        </p>
                       </div>
+                      
+                      {(file as any).justUploaded && (
+                        <div className="absolute inset-0 bg-purple-400 bg-opacity-20 animate-pulse" />
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* 송풍기 */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h4 className="text-md font-medium text-yellow-600 mb-3 flex items-center gap-2">
+            {/* 송풍팬 섹션 */}
+            <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-4">
+              <h4 className="text-md font-medium text-cyan-700 mb-3 flex items-center gap-2">
                 <Zap className="w-4 h-4" />
-                송풍기 ({getBasicFiles('fan').length}개)
+                송풍팬
               </h4>
-
-              {uploading['basic-photos-fan'] && (
+              
+              {/* 업로드 진행률 (송풍팬) */}
+              {uploading['basic-fan'] && (
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
                     <span>업로드 중...</span>
-                    <span>{Math.round(uploadProgress['basic-photos-fan'] || 0)}%</span>
+                    <span>{Math.round(uploadProgress['basic-fan'] || 0)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
-                      className="bg-yellow-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress['basic-photos-fan'] || 0}%` }}
+                      className="bg-cyan-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress['basic-fan'] || 0}%` }}
                     />
                   </div>
                 </div>
@@ -1083,188 +1088,86 @@ export default function FacilityPhotoUploadSection({
               <div className="relative mb-3">
                 <input
                   type="file"
-                  id="upload-basic-fan"
+                  id="upload-fan"
                   multiple
                   accept="image/*"
                   onChange={(e) => e.target.files && handleBasicUpload(e.target.files, 'fan')}
-                  disabled={uploading['basic-photos-fan']}
+                  disabled={uploading['basic-fan']}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                 />
                 <div className={`
-                  flex items-center justify-center gap-3 p-3 border-2 border-dashed rounded-lg
-                  ${uploading['basic-photos-fan'] ? 'border-gray-300 bg-gray-50' : 'border-yellow-300 hover:bg-yellow-100'}
-                  transition-colors cursor-pointer
+                  border-2 border-dashed border-cyan-300 rounded-lg p-4 text-center transition-colors
+                  ${uploading['basic-fan'] ? 'bg-cyan-100 border-cyan-400' : 'hover:border-cyan-400 hover:bg-cyan-50'}
+                  ${uploading['basic-fan'] ? 'cursor-not-allowed' : 'cursor-pointer'}
                 `}>
-                  <Upload className={`w-4 h-4 ${uploading['basic-photos-fan'] ? 'text-gray-400' : 'text-yellow-600'}`} />
-                  <span className={`text-sm font-medium ${uploading['basic-photos-fan'] ? 'text-gray-400' : 'text-yellow-600'}`}>
-                    {uploading['basic-photos-fan'] ? '업로드 중...' : '송풍기 사진 선택'}
-                  </span>
+                  <Upload className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
+                  <p className="text-cyan-700 font-medium">
+                    {uploading['basic-fan'] ? '업로드 중...' : '송풍팬 사진 업로드'}
+                  </p>
+                  <p className="text-cyan-600 text-sm mt-1">
+                    클릭하거나 파일을 드래그하여 업로드
+                  </p>
                 </div>
               </div>
 
+              {/* 송풍팬 사진들 */}
               {getBasicFiles('fan').length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {getBasicFiles('fan').map((file) => (
-                    <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
-                      file.justUploaded ? 'animate-pulse border-yellow-400 bg-yellow-50' : ''
-                    }`}>
-                      <div 
-                        className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
-                        onClick={() => setSelectedFile(file)}
-                      >
-                        <LazyImage
-                          src={file.thumbnailUrl}
-                          alt={file.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
-                          quality={75}
-                          placeholder={true}
-                          onLoad={() => {
-                            console.log(`[IMAGE-SUCCESS] 기본사진 로드 성공: ${file.name}`);
-                          }}
-                          onError={() => {
-                            console.error(`[IMAGE-ERROR] 기본사진 로드 실패:`, {
-                              url: file.thumbnailUrl,
-                              fileName: file.name,
-                              category: extractCategoryFromFileName(file.name)
-                            });
-                          }}
-                        />
-                      </div>
-                      <div className="text-xs">
-                        <p className="font-medium truncate" title={file.name}>{file.name}</p>
-                        <div className="flex gap-1 mt-1">
-                          <button
-                            onClick={() => setSelectedFile(file)}
-                            className="flex-1 bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-xs"
-                          >
-                            보기
-                          </button>
-                          <button
-                            onClick={() => deleteFile(file)}
-                            className="bg-red-100 text-red-800 px-1 py-0.5 rounded text-xs"
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 배전함 내,외부(차단기) */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-              <h4 className="text-md font-medium text-indigo-600 mb-3 flex items-center gap-2">
-                <Cpu className="w-4 h-4" />
-                배전함 내,외부(차단기) ({getBasicFiles('electrical').length}개)
-              </h4>
-
-              {uploading['basic-photos-electrical'] && (
-                <div className="mb-3">
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                    <span>업로드 중...</span>
-                    <span>{Math.round(uploadProgress['basic-photos-electrical'] || 0)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
-                      className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress['basic-photos-electrical'] || 0}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="relative mb-3">
-                <input
-                  type="file"
-                  id="upload-basic-electrical"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => e.target.files && handleBasicUpload(e.target.files, 'electrical')}
-                  disabled={uploading['basic-photos-electrical']}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                />
-                <div className={`
-                  flex items-center justify-center gap-3 p-3 border-2 border-dashed rounded-lg
-                  ${uploading['basic-photos-electrical'] ? 'border-gray-300 bg-gray-50' : 'border-indigo-300 hover:bg-indigo-100'}
-                  transition-colors cursor-pointer
-                `}>
-                  <Upload className={`w-4 h-4 ${uploading['basic-photos-electrical'] ? 'text-gray-400' : 'text-indigo-600'}`} />
-                  <span className={`text-sm font-medium ${uploading['basic-photos-electrical'] ? 'text-gray-400' : 'text-indigo-600'}`}>
-                    {uploading['basic-photos-electrical'] ? '업로드 중...' : '배전함 사진 선택'}
-                  </span>
-                </div>
-              </div>
-
-              {getBasicFiles('electrical').length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-                  {getBasicFiles('electrical').map((file) => (
-                    <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
-                      file.justUploaded ? 'animate-pulse border-indigo-400 bg-indigo-50' : ''
-                    }`}>
-                      <div 
-                        className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
-                        onClick={() => setSelectedFile(file)}
-                      >
-                        <LazyImage
-                          src={file.thumbnailUrl}
-                          alt={file.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
-                          quality={75}
-                          placeholder={true}
-                          onLoad={() => {
-                            console.log(`[IMAGE-SUCCESS] 기본사진 로드 성공: ${file.name}`);
-                          }}
-                          onError={() => {
-                            console.error(`[IMAGE-ERROR] 기본사진 로드 실패:`, {
-                              url: file.thumbnailUrl,
-                              fileName: file.name,
-                              category: extractCategoryFromFileName(file.name)
-                            });
-                          }}
-                        />
+                      key={file.id} 
+                      className={`
+                        relative group cursor-pointer bg-white rounded-lg border-2 border-gray-200 
+                        overflow-hidden transition-all duration-300 hover:border-cyan-400 hover:shadow-md
+                        aspect-[4/3]
+                        ${(file as any).justUploaded ? 'animate-pulse border-cyan-400 shadow-lg' : ''}
+                      `}
+                      onClick={(e) => handleFileSelect(file, e)}
+                    >
+                      <LazyImage
+                        src={file.thumbnailUrl || file.webViewLink}
+                        alt={file.name}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        loading="lazy"
+                      />
+                      
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center">
+                        <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
-                      <div className="text-xs">
-                        <p className="font-medium truncate" title={file.name}>{file.name}</p>
-                        <div className="flex gap-1 mt-1">
-                          <button
-                            onClick={() => setSelectedFile(file)}
-                            className="flex-1 bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-xs"
-                          >
-                            보기
-                          </button>
-                          <button
-                            onClick={() => deleteFile(file)}
-                            className="bg-red-100 text-red-800 px-1 py-0.5 rounded text-xs"
-                          >
-                            삭제
-                          </button>
-                        </div>
+                      
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                        <p className="text-white text-xs font-medium truncate">
+                          {file.originalName || file.name}
+                        </p>
                       </div>
+                      
+                      {(file as any).justUploaded && (
+                        <div className="absolute inset-0 bg-cyan-400 bg-opacity-20 animate-pulse" />
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* 기타시설 */}
+            {/* 기타 섹션 */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h4 className="text-md font-medium text-gray-600 mb-3 flex items-center gap-2">
+              <h4 className="text-md font-medium text-gray-700 mb-3 flex items-center gap-2">
                 <Building2 className="w-4 h-4" />
-                기타시설 ({getBasicFiles('others').length}개)
+                기타
               </h4>
-
-              {uploading['basic-photos-others'] && (
+              
+              {/* 업로드 진행률 (기타) */}
+              {uploading['basic-others'] && (
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
                     <span>업로드 중...</span>
-                    <span>{Math.round(uploadProgress['basic-photos-others'] || 0)}%</span>
+                    <span>{Math.round(uploadProgress['basic-others'] || 0)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-gray-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress['basic-photos-others'] || 0}%` }}
+                      style={{ width: `${uploadProgress['basic-others'] || 0}%` }}
                     />
                   </div>
                 </div>
@@ -1273,70 +1176,62 @@ export default function FacilityPhotoUploadSection({
               <div className="relative mb-3">
                 <input
                   type="file"
-                  id="upload-basic-others"
+                  id="upload-others"
                   multiple
                   accept="image/*"
                   onChange={(e) => e.target.files && handleBasicUpload(e.target.files, 'others')}
-                  disabled={uploading['basic-photos-others']}
+                  disabled={uploading['basic-others']}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                 />
                 <div className={`
-                  flex items-center justify-center gap-3 p-3 border-2 border-dashed rounded-lg
-                  ${uploading['basic-photos-others'] ? 'border-gray-300 bg-gray-50' : 'border-gray-300 hover:bg-gray-100'}
-                  transition-colors cursor-pointer
+                  border-2 border-dashed border-gray-300 rounded-lg p-4 text-center transition-colors
+                  ${uploading['basic-others'] ? 'bg-gray-100 border-gray-400' : 'hover:border-gray-400 hover:bg-gray-50'}
+                  ${uploading['basic-others'] ? 'cursor-not-allowed' : 'cursor-pointer'}
                 `}>
-                  <Upload className={`w-4 h-4 ${uploading['basic-photos-others'] ? 'text-gray-400' : 'text-gray-600'}`} />
-                  <span className={`text-sm font-medium ${uploading['basic-photos-others'] ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {uploading['basic-photos-others'] ? '업로드 중...' : '기타시설 사진 선택'}
-                  </span>
+                  <Upload className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                  <p className="text-gray-700 font-medium">
+                    {uploading['basic-others'] ? '업로드 중...' : '기타 사진 업로드'}
+                  </p>
+                  <p className="text-gray-600 text-sm mt-1">
+                    클릭하거나 파일을 드래그하여 업로드
+                  </p>
                 </div>
               </div>
 
+              {/* 기타 사진들 */}
               {getBasicFiles('others').length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {getBasicFiles('others').map((file) => (
-                    <div key={file.id} className={`bg-white rounded border p-2 transition-all duration-500 ${
-                      file.justUploaded ? 'animate-pulse border-gray-400 bg-gray-50' : ''
-                    }`}>
-                      <div 
-                        className="relative aspect-square mb-1 bg-gray-100 rounded overflow-hidden cursor-pointer"
-                        onClick={() => setSelectedFile(file)}
-                      >
-                        <LazyImage
-                          src={file.thumbnailUrl}
-                          alt={file.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
-                          quality={75}
-                          placeholder={true}
-                          onLoad={() => {
-                            console.log(`[IMAGE-SUCCESS] 기본사진 로드 성공: ${file.name}`);
-                          }}
-                          onError={() => {
-                            console.error(`[IMAGE-ERROR] 기본사진 로드 실패:`, {
-                              url: file.thumbnailUrl,
-                              fileName: file.name,
-                              category: extractCategoryFromFileName(file.name)
-                            });
-                          }}
-                        />
+                    <div 
+                      key={file.id} 
+                      className={`
+                        relative group cursor-pointer bg-white rounded-lg border-2 border-gray-200 
+                        overflow-hidden transition-all duration-300 hover:border-gray-400 hover:shadow-md
+                        aspect-[4/3]
+                        ${(file as any).justUploaded ? 'animate-pulse border-gray-400 shadow-lg' : ''}
+                      `}
+                      onClick={(e) => handleFileSelect(file, e)}
+                    >
+                      <LazyImage
+                        src={file.thumbnailUrl || file.webViewLink}
+                        alt={file.name}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        loading="lazy"
+                      />
+                      
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center">
+                        <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
-                      <div className="text-xs">
-                        <p className="font-medium truncate" title={file.name}>{file.name}</p>
-                        <div className="flex gap-1 mt-1">
-                          <button
-                            onClick={() => setSelectedFile(file)}
-                            className="flex-1 bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-xs"
-                          >
-                            보기
-                          </button>
-                          <button
-                            onClick={() => deleteFile(file)}
-                            className="bg-red-100 text-red-800 px-1 py-0.5 rounded text-xs"
-                          >
-                            삭제
-                          </button>
-                        </div>
+                      
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                        <p className="text-white text-xs font-medium truncate">
+                          {file.originalName || file.name}
+                        </p>
                       </div>
+                      
+                      {(file as any).justUploaded && (
+                        <div className="absolute inset-0 bg-gray-400 bg-opacity-20 animate-pulse" />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1346,80 +1241,57 @@ export default function FacilityPhotoUploadSection({
         </div>
       </div>
 
-      {/* 향상된 이미지 미리보기 모달 */}
-      {selectedFile && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4 animate-fade-in">
+      {/* 사진 미리보기 모달 */}
+      {selectedFile && modalPosition && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 animate-fade-in"
+          style={{ backdropFilter: 'blur(4px)' }}
+        >
           <div 
             ref={modalRef}
-            className="bg-white rounded-xl shadow-2xl max-w-5xl max-h-[95vh] overflow-hidden transform transition-all duration-300 scale-100"
+            tabIndex={-1}
+            className="fixed bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden focus:outline-none"
+            style={{
+              left: `${modalPosition.x}px`,
+              top: `${modalPosition.y}px`,
+              maxWidth: '600px',
+              maxHeight: '80vh',
+              minWidth: '400px',
+              transform: 'scale(0.95)',
+              animation: 'modalSlideIn 0.2s ease-out forwards'
+            }}
           >
             {/* 모달 헤더 */}
-            <div className="p-4 bg-white/90 backdrop-blur-sm border-b border-gray-100/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Eye className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg text-gray-800">{selectedFile.name}</h3>
-                  <p className="text-sm text-gray-600">{selectedFile.facilityInfo || '기본사진'}</p>
-                </div>
+            <div className="flex items-center justify-between p-4 bg-gray-50 border-b">
+              <div>
+                <h3 className="font-semibold text-gray-900 truncate">
+                  {selectedFile.originalName || selectedFile.name}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {selectedFile.folderName} • {(selectedFile.size / 1024 / 1024).toFixed(1)}MB
+                </p>
               </div>
               <button
                 onClick={() => setSelectedFile(null)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors group"
-                title="닫기 (ESC)"
+                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+                <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            
-            {/* 모달 바디 */}
-            <div className="p-6 overflow-auto max-h-[calc(95vh-140px)]">
-              {/* 이미지 영역 */}
-              <div className="flex justify-center mb-6">
+
+            {/* 모달 이미지 */}
+            <div className="p-4">
+              <div className="relative bg-gray-100 rounded-lg overflow-hidden">
                 <LazyImage
-                  src={selectedFile.thumbnailUrl}
+                  src={selectedFile.webViewLink}
                   alt={selectedFile.name}
-                  className="max-w-full max-h-[60vh] rounded-lg shadow-lg object-contain"
-                  priority={true}
-                  quality={90}
-                  onError={() => {
-                    console.error(`[MODAL-IMAGE-ERROR] 모달 이미지 로드 실패:`, {
-                      url: selectedFile.thumbnailUrl,
-                      fileName: selectedFile.name
-                    });
-                  }}
+                  className="w-full max-h-96 object-contain"
+                  loading="eager"
                 />
               </div>
               
-              {/* 파일 정보 */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <Building2 className="w-4 h-4" />
-                  파일 정보
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">파일명:</span>
-                    <span className="text-gray-900">{selectedFile.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">크기:</span>
-                    <span className="text-gray-900">{formatFileSize(selectedFile.size)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">시설정보:</span>
-                    <span className="text-gray-900">{selectedFile.facilityInfo || '기본사진'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">업로드:</span>
-                    <span className="text-gray-900">{new Date(selectedFile.createdTime).toLocaleString('ko-KR')}</span>
-                  </div>
-                </div>
-              </div>
-              
               {/* 액션 버튼 */}
-              <div className="flex gap-3 justify-center">
+              <div className="flex gap-3 justify-center mt-4">
                 <a
                   href={selectedFile.downloadUrl}
                   download={selectedFile.name}
@@ -1457,6 +1329,16 @@ export default function FacilityPhotoUploadSection({
           to { 
             opacity: 1; 
             backdrop-filter: blur(4px);
+          }
+        }
+        @keyframes modalSlideIn {
+          from { 
+            transform: scale(0.95) translateY(-10px);
+            opacity: 0;
+          }
+          to { 
+            transform: scale(1) translateY(0);
+            opacity: 1;
           }
         }
         .animate-fade-in {
