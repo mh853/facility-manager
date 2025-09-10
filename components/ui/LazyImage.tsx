@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { ImageOptimizer } from '@/utils/image-optimizer';
 
 interface LazyImageProps {
-  src: string;
+  src: string | string[];
   alt: string;
   className?: string;
   priority?: boolean;
@@ -27,8 +27,13 @@ const LazyImage = memo(function LazyImage({
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(priority);
   const [hasError, setHasError] = useState(false);
+  const [currentSrcIndex, setCurrentSrcIndex] = useState(0);
   const imgRef = useRef<HTMLImageElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // Convert src to array for consistent handling
+  const srcArray = Array.isArray(src) ? src : [src];
+  const currentSrc = srcArray[currentSrcIndex];
 
   useEffect(() => {
     if (priority) return; // Skip lazy loading for priority images
@@ -61,12 +66,22 @@ const LazyImage = memo(function LazyImage({
   };
 
   const handleError = () => {
-    setHasError(true);
-    onError?.();
+    console.log(`[LAZY-IMAGE] 이미지 로드 실패: ${currentSrc} (${currentSrcIndex + 1}/${srcArray.length})`);
+    
+    // Try next URL in array
+    if (currentSrcIndex < srcArray.length - 1) {
+      console.log(`[LAZY-IMAGE] 다음 URL 시도: ${srcArray[currentSrcIndex + 1]}`);
+      setCurrentSrcIndex(prev => prev + 1);
+      setIsLoaded(false); // Reset loaded state for new image
+    } else {
+      console.log('[LAZY-IMAGE] 모든 URL 실패, 에러 상태 설정');
+      setHasError(true);
+      onError?.();
+    }
   };
 
-  // Generate optimized image props
-  const imageProps = ImageOptimizer.getOptimizedImageProps(src, alt, {
+  // Generate optimized image props using current src
+  const imageProps = ImageOptimizer.getOptimizedImageProps(currentSrc, alt, {
     quality,
     priority,
   });
@@ -88,9 +103,9 @@ const LazyImage = memo(function LazyImage({
       )}
 
       {/* Actual Image */}
-      {shouldShowImage && !hasError && (
+      {shouldShowImage && !hasError && currentSrc && (
         <img
-          src={src}
+          src={currentSrc}
           alt={alt}
           className={`transition-opacity duration-300 ${
             isLoaded ? 'opacity-100' : 'opacity-0'

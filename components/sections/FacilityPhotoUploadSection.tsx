@@ -191,10 +191,10 @@ export default function FacilityPhotoUploadSection({
   }, [selectedFile]);
 
   // 시설별 파일 업로드
-  const handleFacilityUpload = useCallback(async (files: FileList, facility: Facility, facilityType: 'discharge' | 'prevention') => {
+  const handleFacilityUpload = useCallback(async (files: FileList, facility: Facility, facilityType: 'discharge' | 'prevention', facilityInstanceNumber: number = 1) => {
     if (!files.length) return;
 
-    const uploadKey = `${facilityType}-${facility.outlet}-${facility.number}`;
+    const uploadKey = `${facilityType}-${facility.outlet}-${facility.number}-${facilityInstanceNumber}`;
     
     // 시설 순번 계산
     const allFacilities = facilityType === 'discharge' ? 
@@ -202,7 +202,7 @@ export default function FacilityPhotoUploadSection({
     const facilityIndex = calculateFacilityIndex(allFacilities, facility, facilityType);
     
     // 현재 업로드된 파일들에서 해당 시설의 사진 개수 확인
-    const existingFacilityFiles = getFilesForFacility(facility, facilityType);
+    const existingFacilityFiles = getFilesForFacility(facility, facilityType, facilityInstanceNumber);
     
     console.log('🔍 [UPLOAD-HANDLER-DEBUG] 파일 업로드 처리 시작:', {
       시설정보: { 
@@ -219,11 +219,12 @@ export default function FacilityPhotoUploadSection({
     
     // 모바일 즉시 반응: 파일 선택 즉시 미리보기 생성 (새로운 파일명 적용)
     const previewFiles = Array.from(files).map((file, index) => {
-      const photoIndex = calculatePhotoIndex(existingFacilityFiles, facility, facilityType) + index;
+      const photoIndex = calculatePhotoIndex(existingFacilityFiles, facility, facilityType, facilityInstanceNumber) + index;
       const newFileName = generateFacilityFileName({
         facility,
         facilityType,
         facilityIndex,
+        facilityInstanceNumber,
         photoIndex,
         originalFileName: file.name
       });
@@ -274,11 +275,12 @@ export default function FacilityPhotoUploadSection({
         const originalFile = files[index];
         
         // 새로운 파일명 생성
-        const photoIndex = calculatePhotoIndex(existingFacilityFiles, facility, facilityType) + index;
+        const photoIndex = calculatePhotoIndex(existingFacilityFiles, facility, facilityType, facilityInstanceNumber) + index;
         const newFileName = generateFacilityFileName({
           facility,
           facilityType,
           facilityIndex,
+          facilityInstanceNumber,
           photoIndex,
           originalFileName: originalFile.name
         });
@@ -345,12 +347,12 @@ export default function FacilityPhotoUploadSection({
           // 즉시 업로드 상태 업데이트
           setUploadProgress(prev => ({ ...prev, [uploadKey]: 100 }));
           
-          // 0.5초 후 깜빡임 효과 제거
+          // 5초 후 깜빡임 효과 제거
           setTimeout(() => {
             setUploadedFiles(prev => prev.map(f => 
               f.id === newFile.id ? { ...f, justUploaded: false } : f
             ));
-          }, 500);
+          }, 5000);
         } else {
           // 업로드 실패 시 미리보기 파일 제거
           console.warn(`❌ [UPLOAD-FAILED] 미리보기 파일 제거: ${originalFile.name}`);
@@ -472,12 +474,12 @@ export default function FacilityPhotoUploadSection({
               : f
           ));
           
-          // 0.5초 후 깜빡임 효과 제거
+          // 5초 후 깜빡임 효과 제거
           setTimeout(() => {
             setUploadedFiles(prev => prev.map(f => 
               f.id === newFile.id ? { ...f, justUploaded: false } : f
             ));
-          }, 500);
+          }, 5000);
         } else {
           // 업로드 실패 시 미리보기 파일 제거
           console.warn(`❌ [BASIC-UPLOAD-FAILED] 기본사진 미리보기 파일 제거: ${file.name}`);
@@ -563,7 +565,7 @@ export default function FacilityPhotoUploadSection({
   };
 
   // 시설별 업로드된 파일 필터링 - 실제 API 데이터 형식에 맞춘 로직
-  const getFilesForFacility = (facility: Facility, facilityType: 'discharge' | 'prevention') => {
+  const getFilesForFacility = (facility: Facility, facilityType: 'discharge' | 'prevention', facilityInstanceNumber: number = 1) => {
     const expectedFolderName = facilityType === 'discharge' ? '배출시설' : '방지시설';
     
     console.log('🔍 [FACILITY-FILTER-DEBUG] 시설별 파일 필터링 시작:', {
@@ -655,12 +657,18 @@ export default function FacilityPhotoUploadSection({
         const hasName = file.name.includes(facilityName) || file.name.includes(facility.name);
         const hasCapacity = file.name.includes(facilityCapacity) || file.name.includes(facility.capacity);
         
-        if (hasPrefix && (hasName || hasCapacity)) {
+        // 시설 인스턴스 번호 매칭 (방1_, 배2_ 등)
+        const facilityInstancePattern = new RegExp(`${facilityPrefix}${facilityInstanceNumber}_`);
+        const hasInstanceNumber = facilityInstancePattern.test(file.name);
+        
+        if (hasPrefix && (hasName || hasCapacity) && hasInstanceNumber) {
           console.log('✅ [6차-파일명패턴매칭성공]', { 
             fileName: file.name,
             hasPrefix,
             hasName,
             hasCapacity,
+            hasInstanceNumber,
+            facilityInstanceNumber,
             facilityName,
             facilityCapacity
           });
@@ -670,7 +678,9 @@ export default function FacilityPhotoUploadSection({
             fileName: file.name,
             hasPrefix,
             hasName,
-            hasCapacity
+            hasCapacity,
+            hasInstanceNumber,
+            facilityInstanceNumber
           });
         }
       }
@@ -800,21 +810,29 @@ export default function FacilityPhotoUploadSection({
                     방지시설 ({outletPrevention.reduce((total, f) => total + f.quantity, 0)}개)
                   </h4>
                   
-                  {outletPrevention.map((facility) => {
-                    const uploadKey = `prevention-${facility.outlet}-${facility.number}`;
-                    const isUploading = uploading[uploadKey];
-                    const progress = uploadProgress[uploadKey] || 0;
-                    const facilityFiles = getFilesForFacility(facility, 'prevention');
+                  {outletPrevention.map((facility) => 
+                    // 시설 수량만큼 개별 시설 생성
+                    Array.from({ length: facility.quantity }, (_, quantityIndex) => {
+                      const facilityInstanceNumber = quantityIndex + 1;
+                      const uploadKey = `prevention-${facility.outlet}-${facility.number}-${facilityInstanceNumber}`;
+                      const isUploading = uploading[uploadKey];
+                      const progress = uploadProgress[uploadKey] || 0;
+                      const facilityFiles = getFilesForFacility(facility, 'prevention', facilityInstanceNumber);
 
-                    return (
-                      <div key={`prevention-${facility.number}`} className="bg-green-50 border border-green-200 rounded-lg p-4 mb-3">
-                        {/* 시설 정보 */}
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="bg-green-600 text-white px-2 py-1 rounded text-sm font-medium">
-                            방지시설 {facility.number}
-                          </span>
-                          <span className="text-gray-600 text-sm">배출구 {facility.outlet}</span>
-                        </div>
+                      return (
+                        <div key={`prevention-${facility.outlet}-${facility.number}-${facilityInstanceNumber}`} className="bg-green-50 border border-green-200 rounded-lg p-4 mb-3">
+                          {/* 시설 정보 */}
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="bg-green-600 text-white px-2 py-1 rounded text-sm font-medium">
+                              방지시설 {facilityInstanceNumber}
+                            </span>
+                            <span className="text-gray-600 text-sm">배출구 {facility.outlet}</span>
+                            {facility.quantity > 1 && (
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                {facilityInstanceNumber}/{facility.quantity}
+                              </span>
+                            )}
+                          </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                           <div>
                             <span className="text-sm text-gray-600 font-medium">시설명:</span>
@@ -849,10 +867,10 @@ export default function FacilityPhotoUploadSection({
                         <div className="relative mb-3">
                           <input
                             type="file"
-                            id={`upload-prevention-${facility.outlet}-${facility.number}`}
+                            id={`upload-prevention-${facility.outlet}-${facility.number}-${facilityInstanceNumber}`}
                             multiple
                             accept="image/*"
-                            onChange={(e) => e.target.files && handleFacilityUpload(e.target.files, facility, 'prevention')}
+                            onChange={(e) => e.target.files && handleFacilityUpload(e.target.files, facility, 'prevention', facilityInstanceNumber)}
                             disabled={isUploading}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                           />
@@ -913,7 +931,8 @@ export default function FacilityPhotoUploadSection({
                         )}
                       </div>
                     );
-                  })}
+                  })
+                ).flat()}
                 </div>
               )}
               
@@ -925,21 +944,29 @@ export default function FacilityPhotoUploadSection({
                     배출시설 ({outletDischarge.reduce((total, f) => total + f.quantity, 0)}개)
                   </h4>
                   
-                  {outletDischarge.map((facility) => {
-                    const uploadKey = `discharge-${facility.outlet}-${facility.number}`;
-                    const isUploading = uploading[uploadKey];
-                    const progress = uploadProgress[uploadKey] || 0;
-                    const facilityFiles = getFilesForFacility(facility, 'discharge');
+                  {outletDischarge.map((facility) => 
+                    // 시설 수량만큼 개별 시설 생성
+                    Array.from({ length: facility.quantity }, (_, quantityIndex) => {
+                      const facilityInstanceNumber = quantityIndex + 1;
+                      const uploadKey = `discharge-${facility.outlet}-${facility.number}-${facilityInstanceNumber}`;
+                      const isUploading = uploading[uploadKey];
+                      const progress = uploadProgress[uploadKey] || 0;
+                      const facilityFiles = getFilesForFacility(facility, 'discharge', facilityInstanceNumber);
 
-                    return (
-                      <div key={`discharge-${facility.number}`} className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-3">
-                        {/* 시설 정보 */}
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="bg-orange-600 text-white px-2 py-1 rounded text-sm font-medium">
-                            배출시설 {facility.number}
-                          </span>
-                          <span className="text-gray-600 text-sm">배출구 {facility.outlet}</span>
-                        </div>
+                      return (
+                        <div key={`discharge-${facility.outlet}-${facility.number}-${facilityInstanceNumber}`} className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-3">
+                          {/* 시설 정보 */}
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="bg-orange-600 text-white px-2 py-1 rounded text-sm font-medium">
+                              배출시설 {facilityInstanceNumber}
+                            </span>
+                            <span className="text-gray-600 text-sm">배출구 {facility.outlet}</span>
+                            {facility.quantity > 1 && (
+                              <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                                {facilityInstanceNumber}/{facility.quantity}
+                              </span>
+                            )}
+                          </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                           <div>
                             <span className="text-sm text-gray-600 font-medium">시설명:</span>
@@ -974,10 +1001,10 @@ export default function FacilityPhotoUploadSection({
                         <div className="relative mb-3">
                           <input
                             type="file"
-                            id={`upload-discharge-${facility.outlet}-${facility.number}`}
+                            id={`upload-discharge-${facility.outlet}-${facility.number}-${facilityInstanceNumber}`}
                             multiple
                             accept="image/*"
-                            onChange={(e) => e.target.files && handleFacilityUpload(e.target.files, facility, 'discharge')}
+                            onChange={(e) => e.target.files && handleFacilityUpload(e.target.files, facility, 'discharge', facilityInstanceNumber)}
                             disabled={isUploading}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                           />
@@ -1038,7 +1065,8 @@ export default function FacilityPhotoUploadSection({
                         )}
                       </div>
                     );
-                  })}
+                  })
+                ).flat()}
                 </div>
               )}
             </div>

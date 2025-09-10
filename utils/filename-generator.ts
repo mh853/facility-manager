@@ -15,6 +15,7 @@ interface FileNameParams {
   facility: Facility;
   facilityType: 'discharge' | 'prevention';
   facilityIndex: number; // 해당 시설 타입 내에서의 순번 (1, 2, 3...)
+  facilityInstanceNumber?: number; // 시설 수량 기반 인스턴스 번호 (1, 2, 3...)
   photoIndex: number; // 사진 순서 (1, 2, 3...)
   originalFileName?: string;
 }
@@ -67,13 +68,14 @@ export function generateFacilityFileName(params: FileNameParams): string {
     facility,
     facilityType,
     facilityIndex,
+    facilityInstanceNumber = 1,
     photoIndex,
     originalFileName = 'photo.jpg'
   } = params;
 
-  // 1. 시설 타입과 순번
+  // 1. 시설 타입과 순번 (수량 기반 인스턴스 번호 사용)
   const facilityPrefix = facilityType === 'prevention' ? '방' : '배';
-  const facilityNumber = facilityIndex;
+  const facilityNumber = facilityInstanceNumber;
 
   // 2. 시설명과 용량 조합
   const facilityInfo = sanitizeFacilityInfo(facility.name, facility.capacity);
@@ -166,7 +168,8 @@ export function calculateFacilityIndex(
 export function calculatePhotoIndex(
   existingFiles: any[], 
   facility: Facility, 
-  facilityType: 'discharge' | 'prevention'
+  facilityType: 'discharge' | 'prevention',
+  facilityInstanceNumber: number = 1
 ): number {
   const facilityPrefix = facilityType === 'prevention' ? '방' : '배';
   const facilityInfo = sanitizeFacilityInfo(facility.name, facility.capacity);
@@ -176,7 +179,8 @@ export function calculatePhotoIndex(
       이름: facility.name, 
       용량: facility.capacity, 
       배출구: facility.outlet,
-      시설타입: facilityType 
+      시설타입: facilityType,
+      인스턴스번호: facilityInstanceNumber
     },
     처리된시설정보: facilityInfo,
     시설접두사: facilityPrefix,
@@ -193,9 +197,9 @@ export function calculatePhotoIndex(
     }))
   );
 
-  // 1차: 정확한 패턴 매칭 (구조화된 파일명)
+  // 1차: 정확한 패턴 매칭 (구조화된 파일명) - 시설 인스턴스 번호 포함
   const escapedFacilityInfo = facilityInfo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const exactPattern = new RegExp(`^${facilityPrefix}\\d+_${escapedFacilityInfo}_\\d+번째`);
+  const exactPattern = new RegExp(`^${facilityPrefix}${facilityInstanceNumber}_${escapedFacilityInfo}_\\d+번째`);
   
   const exactMatches = existingFiles.filter(file => {
     if (!file.name) return false;
