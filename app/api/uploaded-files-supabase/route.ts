@@ -104,17 +104,30 @@ export async function GET(request: NextRequest) {
 
         const actualUrl = signedUrl?.signedUrl || publicUrl.publicUrl;
 
-        // 폴더명 추출 (새로운 시설별 구조 반영 - systemType 포함)
+        // 폴더명 추출 (신구 구조 모두 지원)
         const pathParts = file.file_path.split('/');
         let folderName = '기본사진';
         
-        // 새 구조: business/presurvey/discharge/ 또는 business/completion/discharge/
+        // 구조 감지: 신구버전 모두 지원
+        // 신규: business/presurvey/discharge/ 또는 구버전: 2/presurvey/discharge/
         if (pathParts.includes('discharge')) {
           folderName = '배출시설';
         } else if (pathParts.includes('prevention')) {
           folderName = '방지시설';
         } else if (pathParts.includes('basic')) {
           folderName = '기본사진';
+        } else {
+          // 폴더명이 명시적이지 않은 경우 파일명이나 facility_info로 추정
+          if (file.facility_info) {
+            const facilityInfo = file.facility_info.toLowerCase();
+            if (facilityInfo.includes('배출') || facilityInfo.includes('도장') || facilityInfo.includes('건조') || facilityInfo.includes('탈사')) {
+              folderName = '배출시설';
+            } else if (facilityInfo.includes('방지') || facilityInfo.includes('집진') || facilityInfo.includes('세정') || facilityInfo.includes('흡착')) {
+              folderName = '방지시설';
+            } else if (facilityInfo.includes('게이트웨이') || facilityInfo.includes('제어반') || facilityInfo.includes('기본') || facilityInfo.includes('기타')) {
+              folderName = '기본사진';
+            }
+          }
         }
 
         return {

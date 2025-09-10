@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, Suspense, useMemo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { AirPermitWithOutlets, DischargeOutlet } from '@/lib/database-service'
 import { createDefaultOutlet } from '@/lib/object-factories'
+import { generateFacilityNumbering, generateOutletFacilitySummary, getFacilityNumber, type FacilityNumberingResult } from '@/utils/facility-numbering'
 import AdminLayout from '@/components/ui/AdminLayout'
 import { 
   Factory, 
@@ -104,6 +105,7 @@ function AirPermitDetailContent() {
   const [gatewayAssignments, setGatewayAssignments] = useState<{[outletId: string]: string}>({})
   const [isSaving, setIsSaving] = useState(false)
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+  const [facilityNumbering, setFacilityNumbering] = useState<FacilityNumberingResult | null>(null)
 
   // 게이트웨이 색상 메모이제이션 - 동적 무한 게이트웨이 지원
   const getGatewayColorClass = useMemo(() => {
@@ -206,6 +208,12 @@ function AirPermitDetailContent() {
           }
 
           setPermitDetail(permitData)
+          
+          // 시설 번호 생성
+          if (permitData.outlets && permitData.outlets.length > 0) {
+            const numbering = generateFacilityNumbering(permitData)
+            setFacilityNumbering(numbering)
+          }
           
           // 게이트웨이 할당 정보 초기화
           const assignments: {[outletId: string]: string} = {}
@@ -1407,17 +1415,50 @@ function AirPermitDetailContent() {
                               
                               {/* 배출시설 추가 정보 */}
                               <td className="border border-gray-300 px-2 py-2">
-                                {dischargeFacility && isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={editedFacilities[`${outlet.id}_discharge_${dischargeFacility.id}`]?.facility_number ?? (dischargeFacility.additional_info?.facility_number || '')}
-                                    onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'facility_number', e.target.value)}
-                                    placeholder="시설번호"
-                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-                                  />
-                                ) : (
-                                  <span className="text-sm">{dischargeFacility?.additional_info?.facility_number || '-'}</span>
-                                )}
+                                {dischargeFacility ? (
+                                  <div className="space-y-1">
+                                    {/* 자동 생성 시설번호 */}
+                                    {(() => {
+                                      if (!facilityNumbering) return null
+                                      const facilityNumber = getFacilityNumber(facilityNumbering, dischargeFacility.id, 0)
+                                      if (!facilityNumber) return null
+                                      
+                                      const facilityNumbers = facilityNumbering.outlets
+                                        .find(o => o.outletId === outlet.id)?.dischargeFacilities
+                                        .filter(f => f.facilityId === dischargeFacility.id)
+                                        .map(f => f.displayNumber) || []
+                                      
+                                      const rangeDisplay = facilityNumbers.length === 1 
+                                        ? facilityNumbers[0] 
+                                        : facilityNumbers.length > 1 
+                                          ? `${facilityNumbers[0]}-${facilityNumbers[facilityNumbers.length - 1]}`
+                                          : null
+                                      
+                                      return rangeDisplay ? (
+                                        <div className="inline-block px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded">
+                                          {rangeDisplay}
+                                        </div>
+                                      ) : null
+                                    })()}
+                                    
+                                    {/* 수동 입력 시설번호 */}
+                                    {isEditing ? (
+                                      <input
+                                        type="text"
+                                        value={editedFacilities[`${outlet.id}_discharge_${dischargeFacility.id}`]?.facility_number ?? (dischargeFacility.additional_info?.facility_number || '')}
+                                        onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'facility_number', e.target.value)}
+                                        placeholder="수동 시설번호"
+                                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      />
+                                    ) : (
+                                      dischargeFacility.additional_info?.facility_number && (
+                                        <div className="text-xs text-gray-600">
+                                          수동: {dischargeFacility.additional_info.facility_number}
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                ) : '-'}
                               </td>
                               <td className="border border-gray-300 px-2 py-2">
                                 {dischargeFacility && isEditing ? (
@@ -1511,17 +1552,50 @@ function AirPermitDetailContent() {
                               
                               {/* 방지시설 추가 정보 */}
                               <td className="border border-gray-300 px-2 py-2">
-                                {preventionFacility && isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={editedFacilities[`${outlet.id}_prevention_${preventionFacility.id}`]?.facility_number ?? (preventionFacility.additional_info?.facility_number || '')}
-                                    onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'facility_number', e.target.value)}
-                                    placeholder="시설번호"
-                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-                                  />
-                                ) : (
-                                  <span className="text-sm">{preventionFacility?.additional_info?.facility_number || '-'}</span>
-                                )}
+                                {preventionFacility ? (
+                                  <div className="space-y-1">
+                                    {/* 자동 생성 시설번호 */}
+                                    {(() => {
+                                      if (!facilityNumbering) return null
+                                      const facilityNumber = getFacilityNumber(facilityNumbering, preventionFacility.id, 0)
+                                      if (!facilityNumber) return null
+                                      
+                                      const facilityNumbers = facilityNumbering.outlets
+                                        .find(o => o.outletId === outlet.id)?.preventionFacilities
+                                        .filter(f => f.facilityId === preventionFacility.id)
+                                        .map(f => f.displayNumber) || []
+                                      
+                                      const rangeDisplay = facilityNumbers.length === 1 
+                                        ? facilityNumbers[0] 
+                                        : facilityNumbers.length > 1 
+                                          ? `${facilityNumbers[0]}-${facilityNumbers[facilityNumbers.length - 1]}`
+                                          : null
+                                      
+                                      return rangeDisplay ? (
+                                        <div className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                                          {rangeDisplay}
+                                        </div>
+                                      ) : null
+                                    })()}
+                                    
+                                    {/* 수동 입력 시설번호 */}
+                                    {isEditing ? (
+                                      <input
+                                        type="text"
+                                        value={editedFacilities[`${outlet.id}_prevention_${preventionFacility.id}`]?.facility_number ?? (preventionFacility.additional_info?.facility_number || '')}
+                                        onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'facility_number', e.target.value)}
+                                        placeholder="수동 시설번호"
+                                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      />
+                                    ) : (
+                                      preventionFacility.additional_info?.facility_number && (
+                                        <div className="text-xs text-gray-600">
+                                          수동: {preventionFacility.additional_info.facility_number}
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                ) : '-'}
                               </td>
                               <td className="border border-gray-300 px-2 py-2">
                                 {preventionFacility && isEditing ? (

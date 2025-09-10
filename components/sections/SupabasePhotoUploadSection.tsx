@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Camera, Upload, Factory, Shield, Building2, AlertCircle, CheckCircle2, Eye, Download, Trash2, RefreshCw, X } from 'lucide-react';
 import { FacilitiesData, Facility, UploadedFile } from '@/types';
+import { generateFacilityNumbering, generateOutletFacilitySummary, type FacilityNumberingResult } from '@/utils/facility-numbering';
 import imageCompression from 'browser-image-compression';
 
 interface SupabasePhotoUploadSectionProps {
@@ -54,6 +55,10 @@ export default function SupabasePhotoUploadSection({
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [selectedFile, setSelectedFile] = useState<UploadedFile | null>(null);
+  const [selectedFacilityKey, setSelectedFacilityKey] = useState<string | null>(null); // 팝업이 표시될 시설 키
+  const [facilityNumbering, setFacilityNumbering] = useState<FacilityNumberingResult | null>(null);
+  const [selectedFacilityId, setSelectedFacilityId] = useState<string>('');
+  const [selectedFacilityType, setSelectedFacilityType] = useState<'discharge' | 'prevention' | ''>('');
 
   const dischargeCount = facilities?.discharge?.reduce((total, facility) => total + facility.quantity, 0) || 0;
   const preventionCount = facilities?.prevention?.reduce((total, facility) => total + facility.quantity, 0) || 0;
@@ -91,6 +96,91 @@ export default function SupabasePhotoUploadSection({
   useEffect(() => {
     loadUploadedFiles();
   }, [loadUploadedFiles]);
+
+  // ESC 키 핸들러
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && selectedFile && selectedFacilityKey) {
+        setSelectedFile(null);
+        setSelectedFacilityKey(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedFile, selectedFacilityKey]);
+
+  // 시설 정보가 변경될 때 시설 번호 생성
+  useEffect(() => {
+    if (facilities && (facilities.discharge.length > 0 || facilities.prevention.length > 0)) {
+      // Convert FacilitiesData to AirPermitWithOutlets format for facility numbering
+      const mockAirPermit = {
+        id: 'mock-permit',
+        business_id: 'mock-business',
+        business_type: '',
+        annual_emission_amount: null,
+        pollutants: [],
+        emission_limits: {},
+        additional_info: {},
+        is_active: true,
+        is_deleted: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        outlets: [...new Set([...facilities.discharge.map(f => f.outlet), ...facilities.prevention.map(f => f.outlet)])].map(outletNum => ({
+          id: `outlet-${outletNum}`,
+          air_permit_id: 'mock-permit',
+          outlet_number: outletNum,
+          outlet_name: `배출구 ${outletNum}`,
+          stack_height: null,
+          stack_diameter: null,
+          flow_rate: null,
+          additional_info: {},
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          discharge_facilities: facilities.discharge
+            .filter(f => f.outlet === outletNum)
+            .map(f => ({
+              id: `discharge-${f.outlet}-${f.number}`,
+              outlet_id: `outlet-${outletNum}`,
+              facility_name: f.name,
+              facility_code: null,
+              capacity: f.capacity || '',
+              quantity: f.quantity,
+              operating_conditions: {},
+              measurement_points: [],
+              device_ids: [],
+              additional_info: {},
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })),
+          prevention_facilities: facilities.prevention
+            .filter(f => f.outlet === outletNum)
+            .map(f => ({
+              id: `prevention-${f.outlet}-${f.number}`,
+              outlet_id: `outlet-${outletNum}`,
+              facility_name: f.name,
+              facility_code: null,
+              capacity: f.capacity || '',
+              quantity: f.quantity,
+              efficiency_rating: null,
+              media_type: null,
+              maintenance_interval: null,
+              operating_conditions: {},
+              measurement_points: [],
+              device_ids: [],
+              additional_info: {},
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }))
+        }))
+      };
+
+      const numbering = generateFacilityNumbering(mockAirPermit);
+      setFacilityNumbering(numbering);
+    }
+  }, [facilities]);
 
   // 파일 삭제
   const deleteFile = useCallback(async (file: UploadedFile) => {
@@ -163,14 +253,34 @@ export default function SupabasePhotoUploadSection({
     }
   ];
 
-  const handleFileUpload = useCallback(async (files: FileList, category: string) => {
+  const handleFileUpload = useCallback(async (files: FileList, category: string, facilityId?: string, facilityType?: string) => {
     if (!files.length) return;
 
     const categoryKey = `${category}-${Date.now()}`;
     
+    // 시설 번호 정보 가져오기
+    let facilityNumberInfo = '';
+    if (facilityNumbering && facilityId && facilityType) {
+      const outletData = facilityNumbering.outlets.find(outlet => {
+        const facilities = facilityType === 'discharge' ? outlet.dischargeFacilities : outlet.preventionFacilities;
+        return facilities.some(f => f.facilityId === facilityId);
+      });
+      
+      if (outletData) {
+        const facilities = facilityType === 'discharge' ? outletData.dischargeFacilities : outletData.preventionFacilities;
+        const facilityNumbers = facilities.filter(f => f.facilityId === facilityId).map(f => f.displayNumber);
+        facilityNumberInfo = facilityNumbers.length === 1 ? facilityNumbers[0] : 
+          facilityNumbers.length > 1 ? `${facilityNumbers[0]}-${facilityNumbers[facilityNumbers.length - 1]}` : '';
+      }
+    }
+    
     // 🎯 즉시 미리보기 파일 생성 (optimistic UI)
     const previewFiles = Array.from(files).map((file) => {
       const objectUrl = URL.createObjectURL(file);
+      const folderName = category === 'basic' ? '기본사진' : 
+        category === 'discharge' ? `배출시설${facilityNumberInfo ? `_${facilityNumberInfo}` : ''}` : 
+        `방지시설${facilityNumberInfo ? `_${facilityNumberInfo}` : ''}`;
+        
       return {
         id: `preview-${Date.now()}-${Math.random()}`,
         name: file.name,
@@ -184,12 +294,12 @@ export default function SupabasePhotoUploadSection({
         thumbnailUrl: objectUrl,
         publicUrl: objectUrl,
         directUrl: objectUrl,
-        folderName: category === 'basic' ? '기본사진' : category === 'discharge' ? '배출시설' : '방지시설',
+        folderName,
         uploadStatus: 'uploading',
         syncedAt: null,
         googleFileId: null,
-        facilityInfo: category,
-        filePath: `preview/${category}/${file.name}`,
+        facilityInfo: `${category}${facilityId ? `_${facilityId}` : ''}${facilityNumberInfo ? `_${facilityNumberInfo}` : ''}`,
+        filePath: `preview/${folderName}/${file.name}`,
         justUploaded: true,
         isPreview: true
       } as unknown as UploadedFile & { isPreview: boolean; justUploaded: boolean };
@@ -209,6 +319,17 @@ export default function SupabasePhotoUploadSection({
         formData.append('businessName', businessName);
         formData.append('category', category);
         formData.append('systemType', 'presurvey');
+        
+        // 시설 정보 추가
+        if (facilityId) {
+          formData.append('facilityId', facilityId);
+        }
+        if (facilityType) {
+          formData.append('facilityType', facilityType);
+        }
+        if (facilityNumberInfo) {
+          formData.append('facilityNumber', facilityNumberInfo);
+        }
 
         const response = await fetch('/api/upload-supabase', {
           method: 'POST',
@@ -387,27 +508,101 @@ export default function SupabasePhotoUploadSection({
                 </div>
               )}
 
-              <div className="relative">
-                <input
-                  type="file"
-                  id={`upload-${category.id}`}
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => e.target.files && handleFileUpload(e.target.files, category.id)}
-                  disabled={isUploading}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                />
-                <div className={`
-                  flex items-center justify-center gap-3 p-4 border-2 border-dashed rounded-lg
-                  ${isUploading ? 'border-gray-300 bg-gray-50' : `${category.borderColor} hover:bg-white`}
-                  transition-colors cursor-pointer
-                `}>
-                  <Upload className={`w-5 h-5 ${isUploading ? 'text-gray-400' : category.color}`} />
-                  <span className={`font-medium ${isUploading ? 'text-gray-400' : category.color}`}>
-                    {isUploading ? '업로드 중...' : `${category.name} 사진 선택`}
-                  </span>
+              {/* 시설별 사진 업로드 */}
+              {(category.id === 'discharge' || category.id === 'prevention') && facilityNumbering ? (
+                <div className="space-y-3">
+                  {/* 시설 선택 드롭다운 */}
+                  <select
+                    value={selectedFacilityType === category.id ? selectedFacilityId : ''}
+                    onChange={(e) => {
+                      setSelectedFacilityId(e.target.value);
+                      setSelectedFacilityType(e.target.value ? category.id as 'discharge' | 'prevention' : '');
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">시설을 선택하세요</option>
+                    {facilityNumbering.outlets.map(outlet => {
+                      const facilitiesOfType = category.id === 'discharge' ? outlet.dischargeFacilities : outlet.preventionFacilities;
+                      return facilitiesOfType.map(facility => {
+                        const facilityNumbers = facilitiesOfType
+                          .filter(f => f.facilityId === facility.facilityId)
+                          .map(f => f.displayNumber);
+                        const numberDisplay = facilityNumbers.length === 1 ? facilityNumbers[0] : 
+                          facilityNumbers.length > 1 ? `${facilityNumbers[0]}-${facilityNumbers[facilityNumbers.length - 1]}` : '';
+                        
+                        return (
+                          <option key={`${outlet.outletId}-${facility.facilityId}`} value={facility.facilityId}>
+                            배출구 {outlet.outletNumber} - {facility.facilityName} ({numberDisplay})
+                          </option>
+                        );
+                      });
+                    })}
+                  </select>
+                  
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id={`upload-${category.id}`}
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files && selectedFacilityId && selectedFacilityType === category.id) {
+                          handleFileUpload(e.target.files, category.id, selectedFacilityId, selectedFacilityType);
+                        } else if (e.target.files && !selectedFacilityId) {
+                          alert('시설을 먼저 선택해주세요.');
+                          e.target.value = '';
+                        }
+                      }}
+                      disabled={isUploading || !selectedFacilityId || selectedFacilityType !== category.id}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                    />
+                    <div className={`
+                      flex items-center justify-center gap-3 p-4 border-2 border-dashed rounded-lg
+                      ${isUploading || !selectedFacilityId || selectedFacilityType !== category.id ? 
+                        'border-gray-300 bg-gray-50' : 
+                        `${category.borderColor} hover:bg-white`}
+                      transition-colors ${selectedFacilityId && selectedFacilityType === category.id && !isUploading ? 'cursor-pointer' : 'cursor-not-allowed'}
+                    `}>
+                      <Upload className={`w-5 h-5 ${
+                        isUploading || !selectedFacilityId || selectedFacilityType !== category.id ? 
+                        'text-gray-400' : category.color
+                      }`} />
+                      <span className={`font-medium ${
+                        isUploading ? 'text-gray-400' : 
+                        !selectedFacilityId || selectedFacilityType !== category.id ? 'text-gray-400' : 
+                        category.color
+                      }`}>
+                        {isUploading ? '업로드 중...' : 
+                         !selectedFacilityId || selectedFacilityType !== category.id ? 
+                         '시설을 선택한 후 사진을 업로드하세요' : 
+                         `${category.name} 사진 선택`}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="file"
+                    id={`upload-${category.id}`}
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => e.target.files && handleFileUpload(e.target.files, category.id)}
+                    disabled={isUploading}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                  />
+                  <div className={`
+                    flex items-center justify-center gap-3 p-4 border-2 border-dashed rounded-lg
+                    ${isUploading ? 'border-gray-300 bg-gray-50' : `${category.borderColor} hover:bg-white`}
+                    transition-colors cursor-pointer
+                  `}>
+                    <Upload className={`w-5 h-5 ${isUploading ? 'text-gray-400' : category.color}`} />
+                    <span className={`font-medium ${isUploading ? 'text-gray-400' : category.color}`}>
+                      {isUploading ? '업로드 중...' : `${category.name} 사진 선택`}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -443,6 +638,20 @@ export default function SupabasePhotoUploadSection({
             const category = categories.find(c => c.id === categoryId);
             if (!category || !files.length) return null;
 
+            // 시설별로 파일 그룹화 (배출시설, 방지시설의 경우)
+            let facilityGroups: { [key: string]: UploadedFile[] } = {};
+            if (categoryId === 'discharge' || categoryId === 'prevention') {
+              facilityGroups = files.reduce((acc, file) => {
+                // facilityInfo에서 시설 번호 정보 추출
+                const facilityKey = file.facilityInfo || 'unknown';
+                if (!acc[facilityKey]) acc[facilityKey] = [];
+                acc[facilityKey].push(file);
+                return acc;
+              }, {} as { [key: string]: UploadedFile[] });
+            } else {
+              facilityGroups = { 'basic': files };
+            }
+
             return (
               <div key={categoryId} className={`mb-4 ${category.bgColor} rounded-lg p-3 border ${category.borderColor}`}>
                 <h4 className={`${category.color} font-medium mb-3 flex items-center gap-2`}>
@@ -450,14 +659,44 @@ export default function SupabasePhotoUploadSection({
                   {category.name} ({files.length}개)
                 </h4>
                 
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {files.map((file) => (
+                {/* 시설별 섹션 표시 */}
+                {Object.entries(facilityGroups).map(([facilityKey, facilityFiles]) => {
+                  const isFacilitySpecific = facilityKey !== 'basic' && facilityKey !== 'unknown';
+                  
+                  return (
+                    <div key={facilityKey} className={`${isFacilitySpecific ? 'mb-4 last:mb-0' : ''} relative`}>
+                      {isFacilitySpecific && (
+                        <div className="mb-2 pb-1 border-b border-gray-200">
+                          <span className="text-sm font-medium text-gray-600">
+                            {(() => {
+                              // facilityInfo 파싱하여 시설 정보 표시
+                              const parts = facilityKey.split('_');
+                              if (parts.length >= 3) {
+                                const facilityNumber = parts[2];
+                                return `시설 번호: ${facilityNumber}`;
+                              }
+                              return `시설: ${facilityKey}`;
+                            })()}
+                            ({facilityFiles.length}개)
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* 시설별 블러 처리 */}
+                      <div className={`transition-all duration-300 ${
+                        selectedFacilityKey === facilityKey ? 'blur-sm' : ''
+                      }`}>
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                          {facilityFiles.map((file) => (
                     <div key={file.id} className={`bg-white rounded-lg border p-2 shadow-sm transition-all duration-500 ${
                       (file as any).justUploaded ? 'animate-pulse border-green-400 bg-green-50 shadow-lg' : 'border-gray-200 hover:border-gray-300'
                     }`}>
                       <div 
                         className="relative aspect-square mb-2 bg-gray-100 rounded overflow-hidden cursor-pointer group"
-                        onClick={() => setSelectedFile(file)}
+                        onClick={() => {
+                          setSelectedFile(file);
+                          setSelectedFacilityKey(facilityKey);
+                        }}
                       >
                         <img
                           src={file.thumbnailUrl}
@@ -494,7 +733,10 @@ export default function SupabasePhotoUploadSection({
                         
                         <div className="flex gap-1 mt-1">
                           <button
-                            onClick={() => setSelectedFile(file)}
+                            onClick={() => {
+                              setSelectedFile(file);
+                              setSelectedFacilityKey(facilityKey);
+                            }}
                             className="flex-1 bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-xs hover:bg-blue-200 transition-colors"
                           >
                             보기
@@ -508,8 +750,112 @@ export default function SupabasePhotoUploadSection({
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* 시설별 상대 팝업 */}
+                      {selectedFile && selectedFacilityKey === facilityKey && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center p-4">
+                          {/* 팝업 컨테이너 */}
+                          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] border border-gray-200/50 animate-in zoom-in-95 fade-in duration-300 overflow-hidden">
+                            
+                            {/* 팝업 헤더 */}
+                            <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 rounded-t-2xl">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-purple-100 rounded-lg">
+                                    <Eye className="w-4 h-4 text-purple-600" />
+                                  </div>
+                                  <div>
+                                    <h3 className="font-semibold text-lg text-gray-800 leading-tight">{selectedFile.originalName || selectedFile.name}</h3>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                                      <span className="px-2 py-0.5 bg-purple-100 rounded-md text-purple-700 text-xs">
+                                        {(() => {
+                                          const parts = facilityKey.split('_');
+                                          if (parts.length >= 3) {
+                                            return `${parts[2]} 시설`;
+                                          }
+                                          return categories.find(c => c.id === selectedFile.folderName)?.name || selectedFile.folderName || '기본사진';
+                                        })()}
+                                      </span>
+                                      <span>•</span>
+                                      <span>{formatFileSize(selectedFile.size)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* 닫기 버튼 */}
+                                <button
+                                  onClick={() => {
+                                    setSelectedFile(null);
+                                    setSelectedFacilityKey(null);
+                                  }}
+                                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 group"
+                                  title="닫기 (ESC)"
+                                >
+                                  <X className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {/* 이미지 표시 영역 */}
+                            <div className="p-3 flex justify-center items-center bg-gray-50 min-h-[200px] max-h-[300px] overflow-hidden">              
+                              <div className="relative">
+                                <img
+                                  src={selectedFile.webViewLink || selectedFile.thumbnailUrl}
+                                  alt={selectedFile.name}
+                                  className="max-w-full max-h-[280px] rounded-lg shadow-md object-contain transition-transform duration-200 hover:scale-105 cursor-pointer"
+                                  onClick={(e) => {
+                                    window.open(selectedFile.webViewLink || selectedFile.downloadUrl, '_blank');
+                                  }}
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    if (target.src !== selectedFile.downloadUrl) {
+                                      target.src = selectedFile.downloadUrl;
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* 액션 패널 */}
+                            <div className="p-3 bg-white border-t border-gray-100 rounded-b-2xl">
+                              <div className="text-center text-xs text-gray-500 mb-3">
+                                업로드: {new Date(selectedFile.createdTime).toLocaleDateString('ko-KR', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                              
+                              {/* 액션 버튼들 */}
+                              <div className="flex gap-2 justify-center">
+                                <a
+                                  href={selectedFile.downloadUrl}
+                                  download={selectedFile.originalName || selectedFile.name}
+                                  className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md font-medium transition-colors duration-200 text-sm"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  다운로드
+                                </a>
+                                
+                                <button
+                                  onClick={() => deleteFile(selectedFile)}
+                                  className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-md font-medium transition-colors duration-200 text-sm"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  삭제
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -522,13 +868,16 @@ export default function SupabasePhotoUploadSection({
         </span>
       </div>
 
-      {/* 🎨 Popup-Style Photo Preview - Non-Intrusive Design */}
-      {selectedFile && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
+      {/* 기존 전체 화면 팝업 - 숨김 처리 */}
+      {false && selectedFile && (
+        <div className="fixed inset-0 z-0 pointer-events-none">
           {/* Subtle Backdrop Overlay - Optional dimming */}
           <div 
             className="absolute inset-0 bg-black/20 backdrop-blur-[1px] pointer-events-auto cursor-pointer animate-in fade-in duration-200" 
-            onClick={() => setSelectedFile(null)}
+            onClick={() => {
+              setSelectedFile(null);
+              setSelectedFacilityKey(null);
+            }}
           />
           
           {/* Popup Container - Positioned like a floating window */}
@@ -555,7 +904,10 @@ export default function SupabasePhotoUploadSection({
                 
                 {/* Close Button */}
                 <button
-                  onClick={() => setSelectedFile(null)}
+                  onClick={() => {
+              setSelectedFile(null);
+              setSelectedFacilityKey(null);
+            }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 group"
                   title="닫기 (ESC)"
                 >

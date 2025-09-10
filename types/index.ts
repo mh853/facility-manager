@@ -1,7 +1,8 @@
 // types/index.ts
 export interface Facility {
   outlet: number;
-  number: number;
+  number: number; // Per-outlet facility number (existing)
+  sequentialNumber?: number; // NEW: Sequential across all outlets (배1,배2,배3... or 방1,방2,방3...)
   name: string;
   capacity: string;
   quantity: number;

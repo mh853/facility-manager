@@ -208,14 +208,73 @@ function getFacilityIndex(facilityInfo: string): string {
   return index;
 }
 
-// 시설 정보 파싱 함수 (파일명 생성용)
-function parseFacilityInfo(facilityInfo: string, fileType: string): {
+// 데이터베이스에서 시설번호 조회 함수 (유연한 매칭)
+async function getFacilityNumberFromDB(
+  businessName: string,
+  facilityInfo: string,
+  fileType: string
+): Promise<{ facilityNumber: number; actualFacilityName: string; actualCapacity: string } | null> {
+  try {
+    console.log('🔍 [DB-FACILITY-NUMBER] 데이터베이스에서 시설번호 조회:', {
+      businessName,
+      facilityInfo,
+      fileType
+    });
+
+    const tableName = fileType === 'discharge' ? 'discharge_facilities' : 'prevention_facilities';
+    
+    // 배출구 번호 추출
+    const outletMatch = facilityInfo.match(/배출구(\d+)/);
+    const outletNumber = outletMatch ? parseInt(outletMatch[1]) : 1;
+
+    // 1차: 사업장명과 배출구 번호로 모든 시설 조회
+    const { data: facilities, error } = await supabaseAdmin
+      .from(tableName)
+      .select('facility_number, facility_name, capacity, outlet_number')
+      .eq('business_name', businessName)
+      .eq('outlet_number', outletNumber)
+      .order('facility_number');
+
+    if (error) {
+      console.log(`⚠️ [DB-FACILITY-NUMBER] DB 조회 실패: ${error.message}`);
+      return null;
+    }
+
+    if (!facilities || facilities.length === 0) {
+      console.log(`⚠️ [DB-FACILITY-NUMBER] 해당 배출구의 시설을 찾을 수 없음: 배출구${outletNumber}`);
+      return null;
+    }
+
+    // 2차: 시설 중에서 첫 번째 시설 선택 (facility_number 기준 정렬)
+    const firstFacility = facilities[0];
+    
+    console.log(`✅ [DB-FACILITY-NUMBER] DB에서 시설 정보 조회 성공:`, {
+      facility_number: firstFacility.facility_number,
+      facility_name: firstFacility.facility_name,
+      capacity: firstFacility.capacity,
+      outlet_number: firstFacility.outlet_number
+    });
+
+    return {
+      facilityNumber: firstFacility.facility_number,
+      actualFacilityName: firstFacility.facility_name,
+      actualCapacity: firstFacility.capacity || ''
+    };
+
+  } catch (error) {
+    console.error('❌ [DB-FACILITY-NUMBER] 예외 발생:', error);
+    return null;
+  }
+}
+
+// 시설 정보 파싱 함수 (파일명 생성용) - DB 조회 기능 추가
+async function parseFacilityInfo(facilityInfo: string, fileType: string, businessName: string): Promise<{
   facilityName: string;
   capacity: string;
   outletNumber: string;
   facilityNumber: string;
   facilityIndex: number;
-} {
+}> {
   console.log('🔍 [PARSE-FACILITY] 시설 정보 파싱:', { facilityInfo, fileType });
   
   // 기본값
@@ -225,35 +284,95 @@ function parseFacilityInfo(facilityInfo: string, fileType: string): {
   let facilityNumber = '1';
   let facilityIndex = 1;
   
-  // 배출구 번호 추출
-  const outletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
-  if (outletMatch) {
-    outletNumber = outletMatch[1];
-  }
-  
-  // 시설명과 용량 추출
-  const facilityMatch = facilityInfo.match(/^([^(]+?)(\([^)]+\))?/);
-  if (facilityMatch) {
-    const fullFacilityName = facilityMatch[1].trim();
-    
-    // 시설명에서 숫자 추출 (예: "배출시설1" → "1")
-    const numberMatch = fullFacilityName.match(/(\d+)$/);
-    if (numberMatch) {
-      facilityNumber = numberMatch[1];
-      facilityIndex = parseInt(facilityNumber);
-      facilityName = fullFacilityName.replace(/\d+$/, ''); // 숫자 제거한 순수 시설명
+  try {
+    // JSON 형식 파싱 시도 (새로운 방식)
+    const parsed = JSON.parse(facilityInfo);
+    if (parsed.name && parsed.capacity !== undefined && parsed.outlet) {
+      facilityName = parsed.name;
+      capacity = parsed.capacity || '';
+      outletNumber = parsed.outlet.toString();
+      
+      // 데이터베이스에서 실제 facility_number 조회 시도
+      const dbFacilityData = await getFacilityNumberFromDB(businessName, facilityInfo, fileType);
+      
+      if (dbFacilityData) {
+        facilityNumber = dbFacilityData.facilityNumber.toString();
+        facilityIndex = dbFacilityData.facilityNumber;
+        // DB에서 조회한 실제 시설명과 용량 사용
+        facilityName = dbFacilityData.actualFacilityName;
+        capacity = dbFacilityData.actualCapacity;
+        console.log('✅ [PARSE-FACILITY] DB에서 실제 시설 정보 조회 성공:', { 
+          facilityNumber: dbFacilityData.facilityNumber, 
+          actualFacilityName: dbFacilityData.actualFacilityName,
+          actualCapacity: dbFacilityData.actualCapacity
+        });
+      } else {
+        // DB에서 찾지 못한 경우 기본값 사용
+        facilityNumber = parsed.number ? parsed.number.toString() : '1';
+        facilityIndex = parsed.number ? parseInt(parsed.number) : 1;
+        console.log('⚠️ [PARSE-FACILITY] DB에서 facility_number 미발견, 기본값 사용:', { facilityNumber, facilityName, capacity });
+      }
+      
+      console.log('✅ [PARSE-FACILITY] JSON 파싱 성공:', { facilityName, capacity, outletNumber, facilityNumber, dbFacilityData });
     }
+  } catch (e) {
+    // 기존 문자열 방식 파싱 (하위 호환성)
+    console.log('🔍 [PARSE-FACILITY] JSON 파싱 실패, 문자열 방식과 DB 조회 병행');
     
-    // 용량 정보 추출 (괄호 안의 내용)
-    if (facilityMatch[2]) {
-      capacity = facilityMatch[2].replace(/[()]/g, ''); // 괄호 제거
+    // 먼저 데이터베이스에서 실제 시설 정보 조회 시도
+    const dbFacilityData = await getFacilityNumberFromDB(businessName, facilityInfo, fileType);
+    
+    if (dbFacilityData) {
+      facilityNumber = dbFacilityData.facilityNumber.toString();
+      facilityIndex = dbFacilityData.facilityNumber;
+      // DB에서 조회한 실제 시설명과 용량 사용
+      facilityName = dbFacilityData.actualFacilityName;
+      capacity = dbFacilityData.actualCapacity;
+      // 배출구 번호도 DB에서 추출 (facilityInfo에서)
+      const outletMatch = facilityInfo.match(/배출구(\d+)/);
+      outletNumber = outletMatch ? outletMatch[1] : '1';
+      
+      console.log('✅ [PARSE-FACILITY] 문자열 방식에서 DB 조회 성공:', { 
+        facilityNumber: dbFacilityData.facilityNumber, 
+        actualFacilityName: dbFacilityData.actualFacilityName,
+        actualCapacity: dbFacilityData.actualCapacity,
+        outletNumber
+      });
+    } else {
+      // DB 조회 실패 시 기존 문자열 파싱 방식 사용
+      console.log('⚠️ [PARSE-FACILITY] DB 조회 실패, 기존 문자열 파싱 사용');
+      
+      // 배출구 번호 추출
+      const outletMatch = facilityInfo.match(/배출구:\s*(\d+)번/);
+      if (outletMatch) {
+        outletNumber = outletMatch[1];
+      }
+      
+      // 시설명과 용량 추출
+      const facilityMatch = facilityInfo.match(/^([^(]+?)(\([^)]+\))?/);
+      if (facilityMatch) {
+        const fullFacilityName = facilityMatch[1].trim();
+        
+        // 시설명에서 숫자 추출 (예: "배출시설1" → "1")
+        const numberMatch = fullFacilityName.match(/(\d+)$/);
+        if (numberMatch) {
+          facilityNumber = numberMatch[1];
+          facilityIndex = parseInt(facilityNumber);
+          facilityName = fullFacilityName.replace(/\d+$/, ''); // 숫자 제거한 순수 시설명
+        }
+        
+        // 용량 정보 추출 (괄호 안의 내용)
+        if (facilityMatch[2]) {
+          capacity = facilityMatch[2].replace(/[()]/g, ''); // 괄호 제거
+        }
+      }
+      
+      // displayName에서 추가 정보 추출 시도
+      const displayMatch = facilityInfo.match(/용량:\s*([^,]+)/);
+      if (displayMatch && !capacity) {
+        capacity = displayMatch[1].trim();
+      }
     }
-  }
-  
-  // displayName에서 추가 정보 추출 시도
-  const displayMatch = facilityInfo.match(/용량:\s*([^,]+)/);
-  if (displayMatch && !capacity) {
-    capacity = displayMatch[1].trim();
   }
   
   const result = {
@@ -285,23 +404,25 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.formData();
-    const files = formData.getAll('files') as File[];
+    const file = formData.get('file') as File;
     const businessName = formData.get('businessName') as string;
-    const fileType = formData.get('fileType') as string;
-    const facilityInfo = formData.get('facilityInfo') as string | null;
-    const displayName = formData.get('displayName') as string | null; // 배출시설1, 배출시설2 등
-    const systemType = formData.get('type') as string || 'completion';
+    const category = formData.get('category') as string;
+    const systemType = formData.get('systemType') as string || 'presurvey';
+    const facilityId = formData.get('facilityId') as string | null;
+    const facilityType = formData.get('facilityType') as string | null;
+    const facilityNumber = formData.get('facilityNumber') as string | null;
 
     console.log('🔍 [UPLOAD-DEBUG] 받은 데이터:', {
       businessName,
-      fileType,
-      facilityInfo,
-      displayName,
+      category,
       systemType,
-      파일수: files.length
+      facilityId,
+      facilityType,
+      facilityNumber,
+      파일명: file?.name
     });
 
-    if (!files.length) {
+    if (!file) {
       return NextResponse.json({
         success: false,
         message: '업로드할 파일이 없습니다.'
@@ -315,21 +436,15 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log(`📋 [INFO] 업로드 정보: 사업장=${businessName}, 파일수=${files.length}, 타입=${fileType}`);
+    console.log(`📋 [INFO] 업로드 정보: 사업장=${businessName}, 파일=${file.name}, 카테고리=${category}`);
 
     // 1. 사업장 ID 가져오기/생성
     const businessId = await getOrCreateBusiness(businessName);
 
-    // 2. 파일 해시 계산 (병렬)
-    console.log(`🔐 [HASH] 해시 계산 시작: ${files.length}개 파일 (병렬)`);
-    const fileHashPromises = files.map(async (file, index) => {
-      const hash = await calculateFileHash(file);
-      console.log(`✅ [HASH] ${index + 1}/${files.length} 완료: ${hash.substring(0, 12)}...`);
-      return { file, hash };
-    });
-
-    const fileHashInfos = await Promise.all(fileHashPromises);
-    console.log(`✅ [HASH] 모든 해시 계산 완료`);
+    // 2. 파일 해시 계산
+    console.log(`🔐 [HASH] 해시 계산 시작: ${file.name}`);
+    const hash = await calculateFileHash(file);
+    console.log(`✅ [HASH] 해시 계산 완료: ${hash.substring(0, 12)}...`);
 
     // 3. 중복 파일 검사
     const duplicateFiles = [];
@@ -400,8 +515,8 @@ export async function POST(request: NextRequest) {
         
         if (fileType === 'discharge' || fileType === 'prevention') {
           // 시설별 사진용 구조화된 파일명 생성
-          // facilityInfo에서 시설 정보 파싱
-          const facilityData = parseFacilityInfo(facilityInfo || '', fileType);
+          // facilityInfo에서 시설 정보 파싱 (DB 조회 포함)
+          const facilityData = await parseFacilityInfo(facilityInfo || '', fileType, businessName);
           structuredFilename = generateFacilityFileName({
             facility: {
               name: facilityData.facilityName,
@@ -426,12 +541,16 @@ export async function POST(request: NextRequest) {
         
         const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', structuredFilename, systemType, displayName || undefined);
         
+        // File 객체를 ArrayBuffer로 변환하여 정확한 바이너리 데이터 업로드
+        const arrayBuffer = await file.arrayBuffer();
+        
         // Storage에 업로드
         const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
           .from('facility-files')
-          .upload(filePath, file, {
+          .upload(filePath, arrayBuffer, {
             cacheControl: '3600',
-            upsert: false
+            upsert: false,
+            contentType: file.type
           });
 
         if (uploadError) {

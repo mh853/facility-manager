@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { BusinessInfo, AirPermitInfo, AirPermitWithOutlets } from '@/lib/database-service'
 import AdminLayout from '@/components/ui/AdminLayout'
 import { ConfirmModal } from '@/components/ui/Modal'
+import { generateFacilityNumbering, generateOutletFacilitySummary, type FacilityNumberingResult } from '@/utils/facility-numbering'
 import { 
   FileText, 
   Plus,
@@ -159,6 +160,7 @@ export default function AirPermitManagementPage() {
   // 대기필증 검색 상태
   const [filteredAirPermits, setFilteredAirPermits] = useState<AirPermitInfo[]>([])
   const [permitSearchQuery, setPermitSearchQuery] = useState('')
+  const [facilityNumberingMap, setFacilityNumberingMap] = useState<Map<string, FacilityNumberingResult>>(new Map())
 
   // 대기필증이 등록된 사업장만 필터링 (선택 리스트용)
   const filteredBusinessesWithPermits = useMemo(() => {
@@ -397,6 +399,16 @@ export default function AirPermitManagementPage() {
         })
         
         setAirPermits(normalizedPermits)
+        
+        // 시설 번호 생성 및 캐싱
+        const newFacilityNumberingMap = new Map<string, FacilityNumberingResult>()
+        normalizedPermits.forEach(permit => {
+          if (permit.outlets && permit.outlets.length > 0) {
+            const facilityNumbering = generateFacilityNumbering(permit as AirPermitWithOutlets)
+            newFacilityNumberingMap.set(permit.id, facilityNumbering)
+          }
+        })
+        setFacilityNumberingMap(newFacilityNumberingMap)
         
         // 🎯 첫 번째 대기필증 자동 선택하여 상세페이지 바로 표시
         if (normalizedPermits.length > 0) {
@@ -941,24 +953,34 @@ export default function AirPermitManagementPage() {
                               }
                             </div>
                           </div>
-                          {/*
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <span className="font-medium">최초신고일: </span>
-                              {permit.first_report_date ? 
-                                new Date(permit.first_report_date).toLocaleDateString('ko-KR') : 
-                                '미지정'
-                              }
-                            </div>
-                            <div>
-                              <span className="font-medium">가동개시일: </span>
-                              {permit.operation_start_date ? 
-                                new Date(permit.operation_start_date).toLocaleDateString('ko-KR') : 
-                                '미지정'
-                              }
-                            </div>
-                          </div>
-                          */}
+                          
+                          {/* 시설 번호 정보 표시 */}
+                          {(() => {
+                            const facilityNumbering = facilityNumberingMap.get(permit.id)
+                            if (!facilityNumbering || facilityNumbering.outlets.length === 0) return null
+                            
+                            return (
+                              <div className="mt-2 p-2 bg-gray-50 rounded border">
+                                <div className="text-xs font-medium text-gray-600 mb-1">시설 번호 현황</div>
+                                <div className="space-y-1">
+                                  {facilityNumbering.outlets.map(outlet => {
+                                    const summary = generateOutletFacilitySummary(outlet)
+                                    if (!summary) return null
+                                    
+                                    return (
+                                      <div key={outlet.outletId} className="text-xs text-gray-700">
+                                        <span className="font-medium">배출구 {outlet.outletNumber}:</span> {summary}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  배출시설 {facilityNumbering.totalDischargeFacilities}개, 
+                                  방지시설 {facilityNumbering.totalPreventionFacilities}개
+                                </div>
+                              </div>
+                            )
+                          })()}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1124,9 +1146,11 @@ export default function AirPermitManagementPage() {
                                     <th className="px-3 py-2 text-left font-medium text-red-700 border-r">배출시설</th>
                                     <th className="px-3 py-2 text-center font-medium text-red-700 border-r">용량</th>
                                     <th className="px-3 py-2 text-center font-medium text-red-700 border-r">수량</th>
+                                    <th className="px-3 py-2 text-center font-medium text-red-700 border-r">시설번호</th>
                                     <th className="px-3 py-2 text-left font-medium text-blue-700 border-r">방지시설</th>
                                     <th className="px-3 py-2 text-center font-medium text-blue-700 border-r">용량</th>
-                                    <th className="px-3 py-2 text-center font-medium text-blue-700">수량</th>
+                                    <th className="px-3 py-2 text-center font-medium text-blue-700 border-r">수량</th>
+                                    <th className="px-3 py-2 text-center font-medium text-blue-700">시설번호</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1137,9 +1161,36 @@ export default function AirPermitManagementPage() {
                                       1
                                     )
                                     
+                                    // 시설 번호 정보 가져오기
+                                    const facilityNumbering = facilityNumberingMap.get(selectedPermit.id)
+                                    const outletNumbering = facilityNumbering?.outlets.find(o => o.outletId === outlet.id)
+                                    
                                     return Array.from({ length: maxRows }, (_, rowIndex) => {
                                       const dischargeFacility = outlet.discharge_facilities?.[rowIndex]
                                       const preventionFacility = outlet.prevention_facilities?.[rowIndex]
+                                      
+                                      // 시설별 번호 표시 로직
+                                      const getDischargeFacilityNumbers = () => {
+                                        if (!dischargeFacility || !outletNumbering) return '-'
+                                        const facilityNumbers = outletNumbering.dischargeFacilities
+                                          .filter(f => f.facilityId === dischargeFacility.id)
+                                          .map(f => f.displayNumber)
+                                        
+                                        if (facilityNumbers.length === 0) return '-'
+                                        if (facilityNumbers.length === 1) return facilityNumbers[0]
+                                        return `${facilityNumbers[0]}-${facilityNumbers[facilityNumbers.length - 1]}`
+                                      }
+                                      
+                                      const getPreventionFacilityNumbers = () => {
+                                        if (!preventionFacility || !outletNumbering) return '-'
+                                        const facilityNumbers = outletNumbering.preventionFacilities
+                                          .filter(f => f.facilityId === preventionFacility.id)
+                                          .map(f => f.displayNumber)
+                                        
+                                        if (facilityNumbers.length === 0) return '-'
+                                        if (facilityNumbers.length === 1) return facilityNumbers[0]
+                                        return `${facilityNumbers[0]}-${facilityNumbers[facilityNumbers.length - 1]}`
+                                      }
                                       
                                       return (
                                         <tr key={rowIndex} className="border-t hover:bg-gray-50">
@@ -1164,6 +1215,11 @@ export default function AirPermitManagementPage() {
                                           <td className="px-3 py-2 text-center border-r font-medium">
                                             {dischargeFacility?.quantity || '-'}
                                           </td>
+                                          <td className="px-3 py-2 text-center border-r">
+                                            <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded">
+                                              {getDischargeFacilityNumbers()}
+                                            </span>
+                                          </td>
                                           
                                           {/* 방지시설 정보 */}
                                           <td className="px-3 py-2 border-r">
@@ -1179,8 +1235,13 @@ export default function AirPermitManagementPage() {
                                           <td className="px-3 py-2 text-center border-r text-gray-700">
                                             {preventionFacility?.capacity || '-'}
                                           </td>
-                                          <td className="px-3 py-2 text-center font-medium">
+                                          <td className="px-3 py-2 text-center border-r font-medium">
                                             {preventionFacility?.quantity || '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-center">
+                                            <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                                              {getPreventionFacilityNumbers()}
+                                            </span>
                                           </td>
                                         </tr>
                                       )
