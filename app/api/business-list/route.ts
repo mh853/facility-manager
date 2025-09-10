@@ -37,7 +37,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     console.log(`🏢 [BUSINESS-LIST] 조회 결과:`, { 
       businesses: businessWithPermits?.length || 0, 
       error: businessError?.message,
-      sampleData: businessWithPermits?.slice(0, 3)?.map(b => ({ 
+      sampleData: businessWithPermits?.slice(0, 3)?.map((b: any) => ({ 
         name: b.business_name, 
         permits: b.air_permit_info?.length || 0 
       }))
