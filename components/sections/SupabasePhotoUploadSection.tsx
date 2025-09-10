@@ -768,7 +768,7 @@ export default function SupabasePhotoUploadSection({
                                     <Eye className="w-4 h-4 text-purple-600" />
                                   </div>
                                   <div>
-                                    <h3 className="font-semibold text-lg text-gray-800 leading-tight">{selectedFile.originalName || selectedFile.name}</h3>
+                                    <h3 className="font-semibold text-lg text-gray-800 leading-tight">{selectedFile?.originalName || selectedFile?.name}</h3>
                                     <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
                                       <span className="px-2 py-0.5 bg-purple-100 rounded-md text-purple-700 text-xs">
                                         {(() => {
@@ -776,11 +776,11 @@ export default function SupabasePhotoUploadSection({
                                           if (parts.length >= 3) {
                                             return `${parts[2]} 시설`;
                                           }
-                                          return categories.find(c => c.id === selectedFile.folderName)?.name || selectedFile.folderName || '기본사진';
+                                          return categories.find(c => c.id === selectedFile?.folderName)?.name || selectedFile?.folderName || '기본사진';
                                         })()}
                                       </span>
                                       <span>•</span>
-                                      <span>{formatFileSize(selectedFile.size)}</span>
+                                      <span>{formatFileSize(selectedFile?.size || 0)}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -803,15 +803,15 @@ export default function SupabasePhotoUploadSection({
                             <div className="p-3 flex justify-center items-center bg-gray-50 min-h-[200px] max-h-[300px] overflow-hidden">              
                               <div className="relative">
                                 <img
-                                  src={selectedFile.webViewLink || selectedFile.thumbnailUrl}
-                                  alt={selectedFile.name}
+                                  src={selectedFile?.webViewLink || selectedFile?.thumbnailUrl}
+                                  alt={selectedFile?.name}
                                   className="max-w-full max-h-[280px] rounded-lg shadow-md object-contain transition-transform duration-200 hover:scale-105 cursor-pointer"
                                   onClick={(e) => {
-                                    window.open(selectedFile.webViewLink || selectedFile.downloadUrl, '_blank');
+                                    window.open(selectedFile?.webViewLink || selectedFile?.downloadUrl, '_blank');
                                   }}
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
-                                    if (target.src !== selectedFile.downloadUrl) {
+                                    if (selectedFile?.downloadUrl && target.src !== selectedFile.downloadUrl) {
                                       target.src = selectedFile.downloadUrl;
                                     }
                                   }}
@@ -822,7 +822,7 @@ export default function SupabasePhotoUploadSection({
                             {/* 액션 패널 */}
                             <div className="p-3 bg-white border-t border-gray-100 rounded-b-2xl">
                               <div className="text-center text-xs text-gray-500 mb-3">
-                                업로드: {new Date(selectedFile.createdTime).toLocaleDateString('ko-KR', {
+                                업로드: {new Date(selectedFile?.createdTime || Date.now()).toLocaleDateString('ko-KR', {
                                   month: 'short',
                                   day: 'numeric',
                                   hour: '2-digit',
@@ -833,8 +833,8 @@ export default function SupabasePhotoUploadSection({
                               {/* 액션 버튼들 */}
                               <div className="flex gap-2 justify-center">
                                 <a
-                                  href={selectedFile.downloadUrl}
-                                  download={selectedFile.originalName || selectedFile.name}
+                                  href={selectedFile?.downloadUrl}
+                                  download={selectedFile?.originalName || selectedFile?.name}
                                   className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md font-medium transition-colors duration-200 text-sm"
                                 >
                                   <Download className="w-3 h-3" />
@@ -891,13 +891,13 @@ export default function SupabasePhotoUploadSection({
                     <Eye className="w-4 h-4 text-purple-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg text-gray-800 leading-tight">{selectedFile.originalName || selectedFile.name}</h3>
+                    <h3 className="font-semibold text-lg text-gray-800 leading-tight">{selectedFile?.originalName || selectedFile?.name}</h3>
                     <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
                       <span className="px-2 py-0.5 bg-purple-100 rounded-md text-purple-700 text-xs">
-                        {categories.find(c => c.id === selectedFile.folderName)?.name || selectedFile.folderName || '기본사진'}
+                        {categories.find(c => c.id === selectedFile?.folderName)?.name || selectedFile?.folderName || '기본사진'}
                       </span>
                       <span>•</span>
-                      <span>{formatFileSize(selectedFile.size)}</span>
+                      <span>{formatFileSize(selectedFile?.size || 0)}</span>
                     </div>
                   </div>
                 </div>
@@ -921,17 +921,17 @@ export default function SupabasePhotoUploadSection({
               {/* Main Image - Popup sized */}
               <div className="relative">
                 <img
-                  src={selectedFile.webViewLink || selectedFile.thumbnailUrl}
-                  alt={selectedFile.name}
+                  src={selectedFile?.webViewLink || selectedFile?.thumbnailUrl}
+                  alt={selectedFile?.name}
                   className="max-w-full max-h-[35vh] rounded-lg shadow-md object-contain transition-transform duration-200 hover:scale-105 cursor-pointer"
                   onClick={(e) => {
                     // Optional: open in new tab for full size view
-                    window.open(selectedFile.webViewLink || selectedFile.downloadUrl, '_blank');
+                    window.open(selectedFile?.webViewLink || selectedFile?.downloadUrl, '_blank');
                   }}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     // Fallback to download URL if main fails
-                    if (target.src !== selectedFile.downloadUrl) {
+                    if (selectedFile?.downloadUrl && target.src !== selectedFile.downloadUrl) {
                       target.src = selectedFile.downloadUrl;
                     }
                   }}
@@ -942,7 +942,7 @@ export default function SupabasePhotoUploadSection({
             {/* 📋 Action Panel - Popup style */}
             <div className="p-3 bg-white border-t border-gray-100 rounded-b-2xl">
               <div className="text-center text-xs text-gray-500 mb-3">
-                업로드: {new Date(selectedFile.createdTime).toLocaleDateString('ko-KR', {
+                업로드: {new Date(selectedFile?.createdTime || Date.now()).toLocaleDateString('ko-KR', {
                   month: 'short',
                   day: 'numeric',
                   hour: '2-digit',
@@ -953,8 +953,8 @@ export default function SupabasePhotoUploadSection({
               {/* 🎬 Action Buttons - Popup optimized */}
               <div className="flex gap-2 justify-center">
                 <a
-                  href={selectedFile.downloadUrl}
-                  download={selectedFile.originalName || selectedFile.name}
+                  href={selectedFile?.downloadUrl}
+                  download={selectedFile?.originalName || selectedFile?.name}
                   className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md font-medium transition-colors duration-200 text-sm"
                 >
                   <Download className="w-3 h-3" />
@@ -963,7 +963,7 @@ export default function SupabasePhotoUploadSection({
                 
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(selectedFile.webViewLink);
+                    navigator.clipboard.writeText(selectedFile?.webViewLink || '');
                     // Show brief feedback
                     const btn = document.activeElement as HTMLButtonElement;
                     const originalText = btn.textContent;
@@ -978,7 +978,7 @@ export default function SupabasePhotoUploadSection({
                 
                 <button
                   onClick={() => {
-                    if (confirm(`"${selectedFile.name}" 파일을 삭제하시겠습니까?`)) {
+                    if (selectedFile && confirm(`"${selectedFile.name}" 파일을 삭제하시겠습니까?`)) {
                       deleteFile(selectedFile);
                     }
                   }}

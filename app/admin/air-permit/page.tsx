@@ -2,7 +2,8 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { BusinessInfo, AirPermitInfo, AirPermitWithOutlets } from '@/lib/database-service'
+import { BusinessInfo, AirPermitInfo } from '@/lib/database-service'
+import { AirPermitWithOutlets } from '@/types/database'
 import AdminLayout from '@/components/ui/AdminLayout'
 import { ConfirmModal } from '@/components/ui/Modal'
 import { generateFacilityNumbering, generateOutletFacilitySummary, type FacilityNumberingResult } from '@/utils/facility-numbering'
@@ -402,7 +403,7 @@ export default function AirPermitManagementPage() {
         
         // 시설 번호 생성 및 캐싱
         const newFacilityNumberingMap = new Map<string, FacilityNumberingResult>()
-        normalizedPermits.forEach(permit => {
+        normalizedPermits.forEach((permit: AirPermitWithOutlets) => {
           if (permit.outlets && permit.outlets.length > 0) {
             const facilityNumbering = generateFacilityNumbering(permit as AirPermitWithOutlets)
             newFacilityNumberingMap.set(permit.id, facilityNumbering)

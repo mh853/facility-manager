@@ -1,7 +1,7 @@
 // utils/facility-numbering.ts - 시설 번호 자동 생성 유틸리티
 // 배출구별 시설 수량을 기반으로 연속 번호 할당
 
-import { AirPermitWithOutlets, DischargeOutlet, DischargeFacility, PreventionFacility } from '@/types/database'
+import { AirPermitWithOutlets, DischargeOutlet, DischargeFacility, PreventionFacility, OutletWithFacilities } from '@/types/database'
 
 /**
  * 시설 번호 정보
@@ -43,7 +43,7 @@ export interface FacilityNumberingResult {
  * 배출구 순서별로 연속 번호 할당 (배1, 배2, 배3...)
  */
 export function generateDischargeFacilityNumbers(
-  outlets: DischargeOutlet[]
+  outlets: OutletWithFacilities[]
 ): { facilityNumbers: Map<string, number>; totalCount: number } {
   const facilityNumbers = new Map<string, number>()
   let currentNumber = 1
@@ -73,7 +73,7 @@ export function generateDischargeFacilityNumbers(
  * 배출구 순서별로 연속 번호 할당 (방1, 방2, 방3...)
  */
 export function generatePreventionFacilityNumbers(
-  outlets: DischargeOutlet[]
+  outlets: OutletWithFacilities[]
 ): { facilityNumbers: Map<string, number>; totalCount: number } {
   const facilityNumbers = new Map<string, number>()
   let currentNumber = 1

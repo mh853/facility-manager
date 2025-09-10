@@ -3,7 +3,11 @@
     "allow": [
       "WebFetch(domain:localhost)",
       "Bash(rm:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(vercel:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": [],

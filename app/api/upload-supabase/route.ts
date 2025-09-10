@@ -436,7 +436,11 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log(`📋 [INFO] 업로드 정보: 사업장=${businessName}, 파일=${file.name}, 카테고리=${category}`);
+    // 카테고리를 fileType으로 매핑
+    const fileType = category; // 'basic', 'discharge', 'prevention' 등
+    const facilityInfo = category !== 'basic' ? `${facilityType || '시설'} ${facilityNumber || '1'}` : category;
+    
+    console.log(`📋 [INFO] 업로드 정보: 사업장=${businessName}, 파일=${file.name}, 카테고리=${category}, fileType=${fileType}`);
 
     // 1. 사업장 ID 가져오기/생성
     const businessId = await getOrCreateBusiness(businessName);
@@ -447,40 +451,29 @@ export async function POST(request: NextRequest) {
     console.log(`✅ [HASH] 해시 계산 완료: ${hash.substring(0, 12)}...`);
 
     // 3. 중복 파일 검사
-    const duplicateFiles = [];
-    const validFiles = [];
+    const { data: existing } = await supabaseAdmin
+      .from('uploaded_files')
+      .select('id, filename')
+      .eq('business_id', businessId)
+      .eq('file_hash', hash)
+      .single();
 
-    for (const { file, hash } of fileHashInfos) {
-      const { data: existing } = await supabaseAdmin
-        .from('uploaded_files')
-        .select('id, filename')
-        .eq('business_id', businessId)
-        .eq('file_hash', hash)
-        .single();
-
-      if (existing) {
-        duplicateFiles.push({
+    if (existing) {
+      return NextResponse.json({
+        success: false,
+        message: `파일이 중복입니다. 이미 업로드된 파일: ${existing.filename}`,
+        duplicateFiles: [{
           name: file.name,
           hash: hash.substring(0, 12) + '...',
           size: file.size
-        });
-      } else {
-        validFiles.push({ file, hash });
-      }
-    }
-
-    if (validFiles.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: `모든 파일이 중복입니다. ${duplicateFiles.length}개 파일이 이미 업로드되어 있습니다: ${duplicateFiles.map(f => f.name).join(', ')}`,
-        duplicateFiles,
-        totalFiles: files.length,
+        }],
+        totalFiles: 1,
         uploadedFiles: 0,
-        duplicatedFiles: duplicateFiles.length
+        duplicatedFiles: 1
       });
     }
 
-    console.log(`📤 [UPLOAD] Supabase Storage 업로드 시작: ${validFiles.length}개 파일`);
+    console.log(`📤 [UPLOAD] Supabase Storage 업로드 시작: 1개 파일`);
 
     // 4. 기존 파일 개수 조회하여 정확한 사진 순서 계산
     let basePhotoIndex = 1;
@@ -506,12 +499,11 @@ export async function POST(request: NextRequest) {
       console.warn('파일 개수 조회 실패, 기본값 사용:', countError);
     }
 
-    // 5. Supabase Storage에 업로드 (병렬) - 구조화된 파일명 사용
-    const uploadPromises = validFiles.map(async ({ file, hash }, index) => {
-      try {
-        // 구조화된 파일명 생성 (정확한 사진 순서 반영)
-        let structuredFilename = file.name;
-        const actualPhotoIndex = basePhotoIndex + index;
+    // 5. Supabase Storage에 업로드 - 구조화된 파일명 사용
+    try {
+      // 구조화된 파일명 생성 (정확한 사진 순서 반영)
+      let structuredFilename = file.name;
+      const actualPhotoIndex = basePhotoIndex;
         
         if (fileType === 'discharge' || fileType === 'prevention') {
           // 시설별 사진용 구조화된 파일명 생성
@@ -539,7 +531,7 @@ export async function POST(request: NextRequest) {
 
         console.log(`📝 [FILENAME] 구조화된 파일명 생성: ${file.name} → ${structuredFilename}`);
         
-        const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', structuredFilename, systemType, displayName || undefined);
+        const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', structuredFilename, systemType);
         
         // File 객체를 ArrayBuffer로 변환하여 정확한 바이너리 데이터 업로드
         const arrayBuffer = await file.arrayBuffer();
@@ -557,7 +549,7 @@ export async function POST(request: NextRequest) {
           throw new Error(`Storage 업로드 실패: ${uploadError.message}`);
         }
 
-        console.log(`📁 [STORAGE] ${index + 1}/${validFiles.length} 업로드 완료: ${filePath}`);
+        console.log(`📁 [STORAGE] 업로드 완료: ${filePath}`);
 
         // 5. DB에 파일 정보 저장 - 구조화된 파일명으로 저장
         const { data: fileRecord, error: dbError } = await supabaseAdmin
@@ -584,7 +576,7 @@ export async function POST(request: NextRequest) {
           throw new Error(`DB 저장 실패: ${dbError.message}`);
         }
 
-        console.log(`💾 [DATABASE] ${index + 1}/${validFiles.length} DB 저장 완료`);
+        console.log(`💾 [DATABASE] DB 저장 완료`);
 
         // 6. Google 동기화 큐에 추가
         await supabaseAdmin
@@ -609,82 +601,61 @@ export async function POST(request: NextRequest) {
         const folderName = filePath.includes('discharge') ? '배출시설' : 
                           filePath.includes('prevention') ? '방지시설' : '기본사진';
         
-        return {
-          id: fileRecord.id,
-          name: structuredFilename, // 구조화된 파일명 사용
-          originalName: file.name,
-          mimeType: file.type,
-          size: file.size,
-          createdTime: fileRecord.created_at,
-          modifiedTime: fileRecord.created_at,
-          webViewLink: publicUrl.publicUrl,
-          downloadUrl: publicUrl.publicUrl,
-          thumbnailUrl: publicUrl.publicUrl,
-          publicUrl: publicUrl.publicUrl,
-          directUrl: publicUrl.publicUrl,
-          folderName,
-          uploadStatus: 'uploaded',
-          syncedAt: fileRecord.created_at,
-          googleFileId: null,
-          facilityInfo: facilityInfo,
-          filePath: uploadData.path, // 시설별 스토리지 경로 추가
-          justUploaded: true,
-          uploadedAt: Date.now()
-        };
+      // 8. 업로드 성공 응답
+      const uploadedFile = {
+        id: fileRecord.id,
+        name: structuredFilename, // 구조화된 파일명 사용
+        originalName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        createdTime: fileRecord.created_at,
+        modifiedTime: fileRecord.created_at,
+        webViewLink: publicUrl.publicUrl,
+        downloadUrl: publicUrl.publicUrl,
+        thumbnailUrl: publicUrl.publicUrl,
+        publicUrl: publicUrl.publicUrl,
+        directUrl: publicUrl.publicUrl,
+        folderName,
+        uploadStatus: 'uploaded',
+        syncedAt: fileRecord.created_at,
+        googleFileId: null,
+        facilityInfo: facilityInfo,
+        filePath: uploadData.path, // 시설별 스토리지 경로 추가
+        justUploaded: true,
+        uploadedAt: Date.now()
+      };
 
-      } catch (error) {
-        console.error(`❌ [UPLOAD] 파일 업로드 실패 ${index + 1}:`, error);
-        throw error;
-      }
-    });
+      console.log('✅ [SUCCESS] 파일 업로드 완료:', uploadedFile.name);
 
-    // 모든 업로드 실행
-    const uploadResults = await Promise.allSettled(uploadPromises);
-    
-    const successfulUploads = uploadResults
-      .filter(result => result.status === 'fulfilled')
-      .map(result => (result as any).value);
-    
-    const failedUploads = uploadResults
-      .filter(result => result.status === 'rejected')
-      .map(result => (result as any).reason);
-
-    // 8. 응답 생성
-    let message = `${successfulUploads.length}장의 파일이 업로드되었습니다.`;
-    
-    if (duplicateFiles.length > 0) {
-      message += ` (${duplicateFiles.length}장 중복으로 제외됨)`;
-    }
-    
-    if (failedUploads.length > 0) {
-      message += ` (${failedUploads.length}장 실패)`;
-    }
-
-    message += ' Google Drive 동기화가 백그라운드에서 진행됩니다.';
-
-    // 업로드 성공 시 캐시 무효화 (즉시 새 데이터 반영)
-    if (successfulUploads.length > 0) {
+      // 캐시 무효화 (즉시 새 데이터 반영)
       memoryCache.delete(`files_${businessName}_completion`);
       memoryCache.delete(`files_${businessName}_presurvey`);
       console.log(`💾 [CACHE-INVALIDATE] 업로드 후 캐시 무효화: ${businessName}`);
+
+      console.log(`✅ [SUPABASE-UPLOAD] 완료: ${requestId}, 파일명=${uploadedFile.name}`);
+
+      return NextResponse.json({
+        success: true,
+        message: '1장의 파일이 업로드되었습니다. Google Drive 동기화가 백그라운드에서 진행됩니다.',
+        files: [uploadedFile],
+        totalUploaded: 1,
+        duplicateFiles: [],
+        stats: {
+          total: 1,
+          success: 1,
+          failed: 0,
+          duplicated: 0
+        }
+      });
+
+    } catch (error) {
+      console.error(`❌ [UPLOAD] 파일 업로드 실패:`, error);
+      return NextResponse.json({
+        success: false,
+        message: '업로드 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류'),
+        requestId
+      }, { status: 500 });
     }
-
-    console.log(`✅ [SUPABASE-UPLOAD] 완료: ${requestId}, 성공=${successfulUploads.length}, 실패=${failedUploads.length}, 중복=${duplicateFiles.length}`);
-
-    return NextResponse.json({
-      success: successfulUploads.length > 0,
-      message,
-      files: successfulUploads,
-      totalUploaded: successfulUploads.length,
-      duplicateFiles,
-      stats: {
-        total: files.length,
-        success: successfulUploads.length,
-        failed: failedUploads.length,
-        duplicated: duplicateFiles.length
-      },
-      errors: failedUploads.length > 0 ? failedUploads.map(e => e.message) : undefined
-    });
 
   } catch (error) {
     console.error(`❌ [SUPABASE-UPLOAD] 전체 실패: ${requestId}`, error);
