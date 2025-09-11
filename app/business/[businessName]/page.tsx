@@ -9,13 +9,14 @@ import { ArrowLeft, Factory, Shield, Zap, Router, Camera, FileText, AlertTriangl
 // Import new section components
 import BusinessInfoSection from '@/components/sections/BusinessInfoSection';
 import SupabaseFacilitiesSection from '@/components/sections/SupabaseFacilitiesSection';
-import FacilityPhotoUploadSection from '@/components/sections/FacilityPhotoUploadSection';
+import ImprovedFacilityPhotoSection from '@/components/ImprovedFacilityPhotoSection';
 import InspectorInfoSection from '@/components/sections/InspectorInfoSection';
 import SpecialNotesSection from '@/components/sections/SpecialNotesSection';
 import EnhancedFacilityInfoSection from '@/components/sections/EnhancedFacilityInfoSection';
 // Import original components  
 import FileUploadSection from '@/components/FileUploadSection';
 import { FileProvider } from '@/contexts/FileContext';
+import { ToastProvider } from '@/contexts/ToastContext';
 
 // Hydration-safe hook
 function useIsHydrated() {
@@ -463,8 +464,9 @@ export default function BusinessDetailPage() {
   }
 
   return (
-    <FileProvider>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+    <ToastProvider>
+      <FileProvider>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
         {/* Header with system type dropdown */}
         <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100/50">
           <div className="container mx-auto px-4 py-4">
@@ -567,7 +569,7 @@ export default function BusinessDetailPage() {
 
             {/* 시설별 사진 업로드 섹션 */}
             {systemType === 'presurvey' && (
-              <FacilityPhotoUploadSection 
+              <ImprovedFacilityPhotoSection 
                 businessName={businessName}
                 facilities={facilities}
               />
@@ -594,7 +596,7 @@ export default function BusinessDetailPage() {
 
 
                 {/* 4. 시설별 사진 업로드 섹션 (completion mode) */}
-                <FacilityPhotoUploadSection 
+                <ImprovedFacilityPhotoSection 
                   businessName={businessName}
                   facilities={facilities}
                 />
@@ -680,7 +682,7 @@ export default function BusinessDetailPage() {
             )}
 
             {/* 7. 시설별 사진 업로드 */}
-            <FacilityPhotoUploadSection 
+            <ImprovedFacilityPhotoSection 
               businessName={businessName}
               facilities={facilities}
             />
@@ -733,7 +735,8 @@ export default function BusinessDetailPage() {
             animation: fade-in 0.3s ease-out;
           }
         `}</style>
-      </div>
-    </FileProvider>
+        </div>
+      </FileProvider>
+    </ToastProvider>
   );
 }

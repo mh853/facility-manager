@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { memoryCache } from '@/lib/cache';
 import { FacilitiesData, Facility } from '@/types';
+import { generateFacilityNumbering, type FacilityNumberingResult } from '@/utils/facility-numbering';
+import { AirPermitWithOutlets } from '@/types/database';
 
 // HTTP 캐시 헤더 설정
 const CACHE_HEADERS = {
@@ -186,11 +188,11 @@ export async function GET(
       outlets: outlets?.length || 0
     });
 
-    // 시설 데이터 변환 (대기필증 관리 구조에서 변환)
+    // 🎯 시설 데이터 변환 (어드민과 동일한 데이터베이스 번호 사용)
     const facilities: FacilitiesData = {
       discharge: dischargeData.map(facility => ({
         outlet: facility.outlet_number,
-        number: facility.facility_number,
+        number: facility.facility_number, // 🔧 어드민과 동일한 데이터베이스 값 사용
         name: facility.facility_name,
         capacity: facility.capacity,
         quantity: facility.quantity,
@@ -199,7 +201,7 @@ export async function GET(
       })),
       prevention: preventionData.map(facility => ({
         outlet: facility.outlet_number,
-        number: facility.facility_number,
+        number: facility.facility_number, // 🔧 어드민과 동일한 데이터베이스 값 사용
         name: facility.facility_name,
         capacity: facility.capacity,
         quantity: facility.quantity,
@@ -208,9 +210,109 @@ export async function GET(
       }))
     };
 
+    // 🎯 어드민 시스템과 동일한 시설번호 생성 (AirPermitWithOutlets 구조 변환)
+    const airPermitData: AirPermitWithOutlets = {
+      id: airPermit.id,
+      business_id: business.id,
+      business_type: business.business_type || '',
+      annual_emission_amount: null,
+      pollutants: [],
+      emission_limits: {},
+      additional_info: {},
+      is_active: true,
+      is_deleted: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      outlets: outlets?.map(outlet => ({
+        id: outlet.id,
+        air_permit_id: airPermit.id,
+        outlet_number: outlet.outlet_number,
+        outlet_name: outlet.outlet_name || `배출구 ${outlet.outlet_number}`,
+        stack_height: null,
+        stack_diameter: null,
+        flow_rate: null,
+        additional_info: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        discharge_facilities: outlet.discharge_facilities?.map(facility => ({
+          id: facility.id,
+          outlet_id: outlet.id,
+          facility_name: facility.facility_name,
+          facility_code: null,
+          capacity: facility.capacity,
+          quantity: facility.quantity,
+          operating_conditions: {},
+          measurement_points: [],
+          device_ids: [],
+          additional_info: { notes: facility.notes },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })) || [],
+        prevention_facilities: outlet.prevention_facilities?.map(facility => ({
+          id: facility.id,
+          outlet_id: outlet.id,
+          facility_name: facility.facility_name,
+          facility_code: null,
+          capacity: facility.capacity,
+          quantity: facility.quantity,
+          efficiency_rating: null,
+          media_type: null,
+          maintenance_interval: null,
+          operating_conditions: {},
+          measurement_points: [],
+          device_ids: [],
+          additional_info: { notes: facility.notes },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })) || []
+      })) || []
+    };
+
+    // 🎯 어드민 시스템과 동일한 시설번호 생성
+    const facilityNumbering = generateFacilityNumbering(airPermitData);
+
+    // 🔧 생성된 번호로 null 값 보정 (모든 사업장에서 일관된 번호 표시)
+    facilities.discharge.forEach(facility => {
+      if (facility.number === null || facility.number === undefined) {
+        // 생성된 번호에서 해당 시설의 번호 찾기
+        const facilityInfo = facilityNumbering.outlets
+          .flatMap(outlet => outlet.dischargeFacilities)
+          .find(f => f.facilityId === facility.id || 
+                     (f.facilityName === facility.name && f.outletNumber === facility.outlet));
+        
+        if (facilityInfo) {
+          facility.number = facilityInfo.facilityNumber;
+          facility.displayName = `배출구${facility.outlet}-배출시설${facility.number}`;
+        }
+      }
+    });
+
+    facilities.prevention.forEach(facility => {
+      if (facility.number === null || facility.number === undefined) {
+        // 생성된 번호에서 해당 시설의 번호 찾기
+        const facilityInfo = facilityNumbering.outlets
+          .flatMap(outlet => outlet.preventionFacilities)
+          .find(f => f.facilityId === facility.id || 
+                     (f.facilityName === facility.name && f.outletNumber === facility.outlet));
+        
+        if (facilityInfo) {
+          facility.number = facilityInfo.facilityNumber;
+          facility.displayName = `배출구${facility.outlet}-방지시설${facility.number}`;
+        }
+      }
+    });
+
     console.log('🏭 [FACILITIES-SUPABASE] 변환 결과:', {
       discharge: facilities.discharge.length,
       prevention: facilities.prevention.length,
+      facilityNumbering: {
+        totalDischarge: facilityNumbering.totalDischargeFacilities,
+        totalPrevention: facilityNumbering.totalPreventionFacilities
+      },
+      번호보정: {
+        discharge: facilities.discharge.map(f => `${f.name}: ${f.number}`),
+        prevention: facilities.prevention.map(f => `${f.name}: ${f.number}`)
+      },
       시간: `${Date.now() - startTime}ms`
     });
     
@@ -232,13 +334,14 @@ export async function GET(
       업종: business.business_type || '정보 없음'
     };
     
-    // 결과 데이터 구성
+    // 🎯 결과 데이터 구성 (어드민 시설번호 정보 포함)
     const resultData = {
       facilities,
       outlets: analyzeOutlets(facilities),
       dischargeCount,
       preventionCount,
       businessInfo,
+      facilityNumbering, // 🎯 어드민과 동일한 시설번호 정보 포함
       lastUpdated: new Date().toISOString(),
       processingTime: Date.now() - startTime,
       source: 'air-permit-management'

@@ -1,17 +1,10 @@
 // lib/supabase.ts - Supabase 클라이언트 설정
 import { createClient } from '@supabase/supabase-js';
 
-// 환경변수 검증 (브라우저에서 안전하게)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl) {
-  console.error('NEXT_PUBLIC_SUPABASE_URL 환경변수가 설정되지 않았습니다');
-}
-
-if (!supabaseAnonKey) {
-  console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY 환경변수가 설정되지 않았습니다');
-}
+// 환경변수 가져오기
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 // 클라이언트용 (브라우저)
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
@@ -26,34 +19,22 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 });
 
 // 서버용 (관리자 권한) - 서버에서만 사용
-let supabaseAdminInstance: any = null;
-
-export const supabaseAdmin = (() => {
-  if (typeof window !== 'undefined') {
-    return supabase;
-  }
-  
-  if (!supabaseAdminInstance) {
-    supabaseAdminInstance = createClient(
-      supabaseUrl || '', 
-      process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey || '',
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-        global: {
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Accept-Charset': 'utf-8'
-          }
-        }
+export const supabaseAdmin = createClient(
+  supabaseUrl,
+  supabaseServiceKey || supabaseAnonKey,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept-Charset': 'utf-8'
       }
-    );
+    }
   }
-  
-  return supabaseAdminInstance;
-})();
+);
 
 // 데이터베이스 타입 정의
 export interface Database {
@@ -212,7 +193,7 @@ if (typeof window === 'undefined') {
   console.log('✅ [SUPABASE] 서버 클라이언트 초기화 완료:', {
     url: supabaseUrl,
     hasAnonKey: !!supabaseAnonKey,
-    hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    hasServiceKey: !!supabaseServiceKey,
     charset: 'UTF-8'
   });
 }

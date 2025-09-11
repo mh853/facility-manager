@@ -25,6 +25,7 @@
     "browser-image-compression": "^2.0.2",
     "dotenv": "^17.2.2",
     "html2canvas": "^1.4.1",
+    "jotai": "^2.14.0",
     "jspdf": "^3.0.2",
     "jspdf-autotable": "^5.0.2",
     "jszip": "^3.10.1",

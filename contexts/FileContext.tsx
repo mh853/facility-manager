@@ -27,7 +27,7 @@ export function FileProvider({ children }: FileProviderProps) {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [businessName, setBusinessNameState] = useState('');
-  const [systemType, setSystemTypeState] = useState('completion');
+  const [systemType, setSystemTypeState] = useState('presurvey');
   const loadingRef = useRef(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
 

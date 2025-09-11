@@ -5,6 +5,8 @@ import { Camera, Upload, Factory, Shield, Building2, AlertCircle, Eye, Download,
 import { FacilitiesData, Facility, UploadedFile } from '@/types';
 import imageCompression from 'browser-image-compression';
 import LazyImage from '@/components/ui/LazyImage';
+import { generateFacilityNumbering, type FacilityNumberingResult } from '@/utils/facility-numbering';
+import { AirPermitWithOutlets } from '@/types/database';
 import { 
   generateFacilityFileName, 
   generateBasicFileName, 
@@ -61,6 +63,7 @@ export default function FacilityPhotoUploadSection({
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [selectedFile, setSelectedFile] = useState<UploadedFile | null>(null);
   const [modalPosition, setModalPosition] = useState<{ x: number; y: number } | null>(null);
+  const [facilityNumbering, setFacilityNumbering] = useState<FacilityNumberingResult | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
   // 파일 선택 시 클릭 위치 추적 (개별 시설 정보 기준)
@@ -190,11 +193,82 @@ export default function FacilityPhotoUploadSection({
     }
   }, [selectedFile]);
 
+  // 시설 번호 생성 (admin 시스템과 동일한 방식)
+  useEffect(() => {
+    if (facilities && facilities.discharge && facilities.prevention) {
+      // facilities 데이터를 AirPermitWithOutlets 형태로 변환
+      const mockAirPermit: AirPermitWithOutlets = {
+        id: 'mock-permit',
+        business_id: 'mock-business',
+        business_type: '',
+        annual_emission_amount: null,
+        pollutants: [],
+        emission_limits: {},
+        additional_info: {},
+        is_active: true,
+        is_deleted: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        outlets: [...new Set([...facilities.discharge.map(f => f.outlet), ...facilities.prevention.map(f => f.outlet)])].map(outletNum => ({
+          id: `outlet-${outletNum}`,
+          air_permit_id: 'mock-permit',
+          outlet_number: outletNum,
+          outlet_name: `배출구 ${outletNum}`,
+          stack_height: null,
+          stack_diameter: null,
+          flow_rate: null,
+          additional_info: {},
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          discharge_facilities: facilities.discharge
+            .filter(f => f.outlet === outletNum)
+            .map(f => ({
+              id: `discharge-${f.outlet}-${f.number}`,
+              outlet_id: `outlet-${outletNum}`,
+              facility_name: f.name,
+              facility_code: null,
+              capacity: f.capacity || '',
+              quantity: f.quantity,
+              operating_conditions: {},
+              measurement_points: [],
+              device_ids: [],
+              additional_info: {},
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })),
+          prevention_facilities: facilities.prevention
+            .filter(f => f.outlet === outletNum)
+            .map(f => ({
+              id: `prevention-${f.outlet}-${f.number}`,
+              outlet_id: `outlet-${outletNum}`,
+              facility_name: f.name,
+              facility_code: null,
+              capacity: f.capacity || '',
+              quantity: f.quantity,
+              efficiency_rating: null,
+              media_type: null,
+              maintenance_interval: null,
+              operating_conditions: {},
+              measurement_points: [],
+              device_ids: [],
+              additional_info: {},
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }))
+        }))
+      };
+
+      const numbering = generateFacilityNumbering(mockAirPermit);
+      setFacilityNumbering(numbering);
+      console.log('🔢 [FACILITY-NUMBERING] 생성 완료:', numbering);
+    }
+  }, [facilities, businessName]);
+
   // 시설별 파일 업로드
   const handleFacilityUpload = useCallback(async (files: FileList, facility: Facility, facilityType: 'discharge' | 'prevention', facilityInstanceNumber: number = 1) => {
     if (!files.length) return;
 
-    const uploadKey = `${facilityType}-${facility.outlet}-${facility.number}-${facilityInstanceNumber}`;
+    const uploadKey = `${facilityType}-${facility.outlet}-${facility.number || 1}-${facilityInstanceNumber}`;
     
     // 시설 순번 계산
     const allFacilities = facilityType === 'discharge' ? 
@@ -218,8 +292,9 @@ export default function FacilityPhotoUploadSection({
     });
     
     // 모바일 즉시 반응: 파일 선택 즉시 미리보기 생성 (새로운 파일명 적용)
+    const basePhotoIndex = calculatePhotoIndex(existingFacilityFiles, facility, facilityType, facilityInstanceNumber);
     const previewFiles = Array.from(files).map((file, index) => {
-      const photoIndex = calculatePhotoIndex(existingFacilityFiles, facility, facilityType, facilityInstanceNumber) + index;
+      const photoIndex = basePhotoIndex + index;
       const newFileName = generateFacilityFileName({
         facility,
         facilityType,
@@ -229,19 +304,22 @@ export default function FacilityPhotoUploadSection({
         originalFileName: file.name
       });
       
+      // 각 파일별로 하나의 ObjectURL만 생성하여 메모리 효율성 향상
+      const objectUrl = URL.createObjectURL(file);
+      
       return {
-        id: `preview-${Date.now()}-${Math.random()}`,
+        id: `preview-${Date.now()}-${Math.random()}-${index}`, // 인덱스 추가로 고유성 보장
         name: newFileName, // 새로운 구조화된 파일명 적용
         originalName: file.name,
         mimeType: file.type,
         size: file.size,
         createdTime: new Date().toISOString(),
         modifiedTime: new Date().toISOString(),
-        webViewLink: URL.createObjectURL(file),
-        downloadUrl: URL.createObjectURL(file),
-        thumbnailUrl: URL.createObjectURL(file),
-        publicUrl: URL.createObjectURL(file),
-        directUrl: URL.createObjectURL(file),
+        webViewLink: objectUrl,
+        downloadUrl: objectUrl,
+        thumbnailUrl: objectUrl,
+        publicUrl: objectUrl,
+        directUrl: objectUrl,
         folderName: facilityType === 'discharge' ? '배출시설' : '방지시설',
         uploadStatus: 'uploading',
         syncedAt: null,
@@ -274,8 +352,8 @@ export default function FacilityPhotoUploadSection({
       const uploadPromises = compressedFiles.map(async (compressedFile, index) => {
         const originalFile = files[index];
         
-        // 새로운 파일명 생성
-        const photoIndex = calculatePhotoIndex(existingFacilityFiles, facility, facilityType, facilityInstanceNumber) + index;
+        // 새로운 파일명 생성 (순서 보장)
+        const photoIndex = basePhotoIndex + index;
         const newFileName = generateFacilityFileName({
           facility,
           facilityType,
@@ -294,8 +372,11 @@ export default function FacilityPhotoUploadSection({
         const formData = new FormData();
         formData.append('files', renamedFile); // 새로운 파일명이 적용된 파일 업로드
         formData.append('businessName', businessName);
-        formData.append('fileType', facilityType);
-        formData.append('type', 'completion');
+        formData.append('systemType', 'presurvey');
+        formData.append('category', facilityType === 'discharge' ? '배출시설' : '방지시설');
+        formData.append('facilityId', `${facilityType}-${facility.outlet}-${facility.number || 1}`);
+        formData.append('facilityType', facilityType);
+        formData.append('facilityNumber', (facility.number || 1).toString());
         formData.append('facilityInfo', JSON.stringify({
           outlet: facility.outlet,
           number: facility.number, 
@@ -397,23 +478,27 @@ export default function FacilityPhotoUploadSection({
     const existingBasicFiles = getBasicFiles(category);
     
     // 모바일 즉시 반응: 기본사진 선택 즉시 미리보기 생성 (새로운 파일명 적용)
+    const basePhotoIndex = calculateBasicPhotoIndex(existingBasicFiles, category);
     const previewFiles = Array.from(files).map((file, index) => {
-      const photoIndex = calculateBasicPhotoIndex(existingBasicFiles, category) + index;
+      const photoIndex = basePhotoIndex + index;
       const newFileName = generateBasicFileName(category, photoIndex, file.name);
       
+      // 각 파일별로 하나의 ObjectURL만 생성하여 메모리 효율성 향상
+      const objectUrl = URL.createObjectURL(file);
+      
       return {
-        id: `preview-basic-${Date.now()}-${Math.random()}`,
+        id: `preview-basic-${Date.now()}-${Math.random()}-${index}`, // 인덱스 추가로 고유성 보장
         name: newFileName, // 새로운 구조화된 파일명 적용
         originalName: file.name,
         mimeType: file.type,
         size: file.size,
         createdTime: new Date().toISOString(),
         modifiedTime: new Date().toISOString(),
-        webViewLink: URL.createObjectURL(file),
-        downloadUrl: URL.createObjectURL(file),
-        thumbnailUrl: URL.createObjectURL(file),
-        publicUrl: URL.createObjectURL(file),
-        directUrl: URL.createObjectURL(file),
+        webViewLink: objectUrl,
+        downloadUrl: objectUrl,
+        thumbnailUrl: objectUrl,
+        publicUrl: objectUrl,
+        directUrl: objectUrl,
         folderName: '기본사진',
         uploadStatus: 'uploading',
         syncedAt: null,
@@ -436,8 +521,8 @@ export default function FacilityPhotoUploadSection({
       const uploadPromises = Array.from(files).map(async (file, index) => {
         const compressedFile = await compressImage(file);
         
-        // 새로운 파일명 생성
-        const photoIndex = calculateBasicPhotoIndex(existingBasicFiles, category) + index;
+        // 새로운 파일명 생성 (순서 보장)
+        const photoIndex = basePhotoIndex + index;
         const newFileName = generateBasicFileName(category, photoIndex, file.name);
         
         // 새로운 파일명으로 File 객체 재생성
@@ -744,9 +829,21 @@ export default function FacilityPhotoUploadSection({
     );
   }
 
+  // 🎯 시설별 순번 표시 번호 가져오기 (어드민과 완전히 동일한 방식)
+  const getFacilityDisplayNumber = (facility: Facility, facilityType: 'discharge' | 'prevention') => {
+    // 🔧 어드민과 동일: 데이터베이스 facility.number 직접 사용
+    const facilityNumber = facility.number || 1;
+    const prefix = facilityType === 'discharge' ? '배' : '방';
+    return `${prefix}${facilityNumber}`;
+  };
+
   // 배출구별 시설 그룹화
   const facilitiesByOutlet = () => {
     const grouped: { [outlet: number]: { discharge: Facility[], prevention: Facility[] } } = {};
+    
+    if (!facilities || !facilities.discharge || !facilities.prevention) {
+      return grouped;
+    }
     
     facilities.discharge.forEach(facility => {
       if (!grouped[facility.outlet]) {
@@ -825,7 +922,7 @@ export default function FacilityPhotoUploadSection({
                           {/* 시설 정보 */}
                           <div className="flex items-center gap-2 mb-3">
                             <span className="bg-green-600 text-white px-2 py-1 rounded text-sm font-medium">
-                              방지시설 {facility.number}{facility.quantity > 1 ? `-${quantityInstanceIndex}` : ''}
+                              {getFacilityDisplayNumber(facility, 'prevention')}{facility.quantity > 1 ? `-${quantityInstanceIndex}` : ''}
                             </span>
                             <span className="text-gray-600 text-sm">배출구 {facility.outlet}</span>
                             {facility.quantity > 1 && (
@@ -893,7 +990,7 @@ export default function FacilityPhotoUploadSection({
                         {/* 업로드된 사진들 - 배출시설과 동일한 스타일 적용 */}
                         {facilityFiles.length > 0 && (
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {facilityFiles.map((file) => (
+                            {facilityFiles.map((file, fileIndex) => (
                               <div 
                                 key={file.id} 
                                 className={`
@@ -904,6 +1001,11 @@ export default function FacilityPhotoUploadSection({
                                 `}
                                 onClick={(e) => handleFileSelect(file, e)}
                               >
+                                {/* 사진 순번 배지 */}
+                                <div className="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center z-10">
+                                  {fileIndex + 1}
+                                </div>
+                                
                                 <LazyImage
                                   src={file.thumbnailUrl || file.webViewLink}
                                   alt={file.name}
@@ -915,10 +1017,10 @@ export default function FacilityPhotoUploadSection({
                                   <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 </div>
                                 
-                                {/* 파일명 오버레이 */}
+                                {/* 파일명과 순번 정보 오버레이 */}
                                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                                   <p className="text-white text-xs font-medium truncate">
-                                    {file.originalName || file.name}
+                                    {fileIndex + 1}번째 - {file.originalName || file.name}
                                   </p>
                                 </div>
                                 
@@ -960,7 +1062,7 @@ export default function FacilityPhotoUploadSection({
                           {/* 시설 정보 */}
                           <div className="flex items-center gap-2 mb-3">
                             <span className="bg-orange-600 text-white px-2 py-1 rounded text-sm font-medium">
-                              배출시설 {facility.number}{facility.quantity > 1 ? `-${quantityInstanceIndex}` : ''}
+                              {getFacilityDisplayNumber(facility, 'discharge')}{facility.quantity > 1 ? `-${quantityInstanceIndex}` : ''}
                             </span>
                             <span className="text-gray-600 text-sm">배출구 {facility.outlet}</span>
                             {facility.quantity > 1 && (
@@ -1028,7 +1130,7 @@ export default function FacilityPhotoUploadSection({
                         {/* 업로드된 사진들 */}
                         {facilityFiles.length > 0 && (
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {facilityFiles.map((file) => (
+                            {facilityFiles.map((file, fileIndex) => (
                               <div 
                                 key={file.id} 
                                 className={`
@@ -1039,6 +1141,11 @@ export default function FacilityPhotoUploadSection({
                                 `}
                                 onClick={(e) => handleFileSelect(file, e)}
                               >
+                                {/* 사진 순번 배지 */}
+                                <div className="absolute top-2 left-2 bg-orange-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center z-10">
+                                  {fileIndex + 1}
+                                </div>
+                                
                                 <LazyImage
                                   src={file.thumbnailUrl || file.webViewLink}
                                   alt={file.name}
@@ -1050,10 +1157,10 @@ export default function FacilityPhotoUploadSection({
                                   <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 </div>
                                 
-                                {/* 파일명 오버레이 */}
+                                {/* 파일명과 순번 정보 오버레이 */}
                                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                                   <p className="text-white text-xs font-medium truncate">
-                                    {file.originalName || file.name}
+                                    {fileIndex + 1}번째 - {file.originalName || file.name}
                                   </p>
                                 </div>
                                 

@@ -3,12 +3,12 @@
 import { Facility } from '@/types';
 
 /**
- * 시설별 파일명 생성 규칙
- * 구조: {시설타입}{순번}_{시설명}{용량}_{사진순서}번째_{yymmdd}.webp
+ * 시설별 파일명 생성 규칙 (개선된 형식)
+ * 구조: {시설명}{용량}_{순번}_{yymmdd}.webp
  * 
  * 예시:
- * - 방1_흡착에의한시설250㎥/분_1번째_250109.webp
- * - 배2_혼합시설3.5㎥_2번째_250109.webp
+ * - 배출시설1호2.5MB_001_250109.webp
+ * - 방지시설2호250㎥_002_250109.webp
  */
 
 interface FileNameParams {
@@ -40,25 +40,34 @@ function getFileExtension(filename: string): string {
 }
 
 /**
- * 시설명과 용량을 정리하여 파일명에 적합한 형태로 변환
+ * 시설명과 용량을 파일명 호환 형태로 변환 (ASCII 전용)
  */
-function sanitizeFacilityInfo(name: string, capacity: string): string {
-  // 시설명에서 불필요한 문자 제거 및 정리
-  let cleanName = name
-    .replace(/\s+/g, '') // 공백 제거
-    .replace(/[()]/g, '') // 괄호 제거
-    .trim();
+function createFacilityDisplayName(facilityType: 'discharge' | 'prevention', facilityNumber: number, capacity: string): string {
+  // 시설 타입을 영어로 표시 (Supabase Storage 호환)
+  const typeMap = {
+    'discharge': 'discharge',
+    'prevention': 'prevention'
+  };
 
-  // 용량 정보 정리 (특수문자 유지)
+  // 용량 정보에서 한글과 특수문자 제거, ASCII만 유지
   let cleanCapacity = capacity
-    .replace(/\s+/g, '') // 공백만 제거
+    .replace(/\s+/g, '') // 공백 제거
+    .replace(/[^a-zA-Z0-9]/g, '') // 한글, 특수문자 제거
     .trim();
 
-  return `${cleanName}${cleanCapacity}`;
+  // 용량 단위를 영어로 통일
+  if (!cleanCapacity.match(/\d/)) {
+    cleanCapacity = ''; // 숫자가 없으면 용량 정보 제거
+  } else {
+    cleanCapacity += 'MB'; // MB 단위 추가
+  }
+
+  return `${typeMap[facilityType]}${facilityNumber}${cleanCapacity ? '_' + cleanCapacity : ''}`;
 }
 
 /**
- * 시설별 구조화된 파일명 생성
+ * 시설별 구조화된 파일명 생성 (개선된 형식)
+ * 구조: {시설명용량}_{순번}_{yymmdd}.webp
  * 
  * @param params 파일명 생성에 필요한 파라미터
  * @returns 구조화된 파일명
@@ -73,34 +82,31 @@ export function generateFacilityFileName(params: FileNameParams): string {
     originalFileName = 'photo.jpg'
   } = params;
 
-  // 1. 시설 타입과 순번 (데이터베이스 시설 번호 사용)
-  const facilityPrefix = facilityType === 'prevention' ? '방' : '배';
-  const facilityNumber = facility.number; // 데이터베이스의 실제 시설 번호 사용
-  const quantitySuffix = facilityInstanceNumber && facilityInstanceNumber > 1 ? `-${facilityInstanceNumber}` : '';
+  // 1. 시설명과 용량 조합 (한글 표시)
+  const facilityDisplayName = createFacilityDisplayName(
+    facilityType, 
+    facility.number, 
+    facility.capacity
+  );
 
-  // 2. 시설명과 용량 조합
-  const facilityInfo = sanitizeFacilityInfo(facility.name, facility.capacity);
+  // 2. 사진 순번 (3자리 0 패딩)
+  const photoSequence = photoIndex.toString().padStart(3, '0');
 
-  // 3. 사진 순서
-  const photoOrder = `${photoIndex}번째`;
-
-  // 4. 타임스탬프
+  // 3. 타임스탬프 (yymmdd)
   const timestamp = generateTimestamp();
 
-  // 5. 확장자 (webp로 통일)
+  // 4. 확장자 (webp로 통일)
   const extension = getFileExtension(originalFileName);
 
-  // 6. 최종 파일명 조합 (시설번호 + 수량 접미사)
-  const fileName = `${facilityPrefix}${facilityNumber}${quantitySuffix}_${facilityInfo}_${photoOrder}_${timestamp}.${extension}`;
+  // 5. 최종 파일명 조합
+  const fileName = `${facilityDisplayName}_${photoSequence}_${timestamp}.${extension}`;
 
   console.log('📝 [FILENAME-GENERATOR] 파일명 생성:', {
     입력: params,
     생성된파일명: fileName,
     구조분석: {
-      시설타입: `${facilityPrefix} (${facilityType})`,
-      시설순번: facilityNumber,
-      시설정보: facilityInfo,
-      사진순서: photoOrder,
+      시설표시명: facilityDisplayName,
+      사진순번: photoSequence,
       타임스탬프: timestamp,
       확장자: extension
     }
@@ -110,8 +116,8 @@ export function generateFacilityFileName(params: FileNameParams): string {
 }
 
 /**
- * 기본사진용 파일명 생성
- * 구조: 기본_{카테고리}_{순서}번째_{yymmdd}.webp
+ * 기본사진용 파일명 생성 (개선된 형식)
+ * 구조: {카테고리명}_{순번}_{yymmdd}.webp
  */
 export function generateBasicFileName(
   category: string, 
@@ -120,22 +126,25 @@ export function generateBasicFileName(
 ): string {
   const timestamp = generateTimestamp();
   const extension = getFileExtension(originalFileName);
-  const photoOrder = `${photoIndex}번째`;
+  
+  // 사진 순번 (3자리 0 패딩)
+  const photoSequence = photoIndex.toString().padStart(3, '0');
 
-  // 카테고리명 매핑
+  // 카테고리명 매핑 (ASCII 호환)
   const categoryMap: { [key: string]: string } = {
-    'gateway': '게이트웨이',
-    'fan': '송풍기',
-    'electrical': '배전함',
-    'others': '기타시설'
+    'gateway': 'gateway',
+    'fan': 'fan',
+    'electrical': 'electrical',
+    'others': 'others'
   };
 
   const categoryName = categoryMap[category] || category;
-  const fileName = `기본_${categoryName}_${photoOrder}_${timestamp}.${extension}`;
+  const fileName = `${categoryName}_${photoSequence}_${timestamp}.${extension}`;
 
   console.log('📝 [BASIC-FILENAME-GENERATOR] 기본사진 파일명 생성:', {
     카테고리: category,
-    사진순서: photoIndex,
+    카테고리명: categoryName,
+    사진순번: photoSequence,
     생성된파일명: fileName
   });
 
@@ -166,14 +175,24 @@ export function calculateFacilityIndex(
 /**
  * 업로드된 파일들 중에서 같은 시설의 사진 개수 계산 (사진 순서 결정용)
  */
+// 하위 호환성을 위한 sanitizeFacilityInfo 함수 유지
+function sanitizeFacilityInfo(name: string, capacity: string): string {
+  let cleanName = name.replace(/\s+/g, '').replace(/[()]/g, '').trim();
+  let cleanCapacity = capacity.replace(/\s+/g, '').replace(/[가-힣]/g, '').replace(/[^0-9.,\/]/g, '').trim();
+  return `${cleanName}${cleanCapacity ? '_' + cleanCapacity : ''}`;
+}
+
 export function calculatePhotoIndex(
   existingFiles: any[], 
   facility: Facility, 
   facilityType: 'discharge' | 'prevention',
   facilityInstanceNumber: number = 1
 ): number {
-  const facilityPrefix = facilityType === 'prevention' ? '방' : '배';
+  const facilityPrefix = facilityType === 'prevention' ? 'prev' : 'disc';
   const facilityInfo = sanitizeFacilityInfo(facility.name, facility.capacity);
+
+  // 새로운 파일명 형식용 시설 표시명 생성
+  const facilityDisplayName = createFacilityDisplayName(facilityType, facility.number, facility.capacity);
 
   console.log('🔍 [PHOTO-INDEX-DEBUG] 사진 순서 계산 시작:', {
     시설정보: { 
@@ -181,10 +200,9 @@ export function calculatePhotoIndex(
       용량: facility.capacity, 
       배출구: facility.outlet,
       시설타입: facilityType,
-      인스턴스번호: facilityInstanceNumber
+      시설번호: facility.number
     },
-    처리된시설정보: facilityInfo,
-    시설접두사: facilityPrefix,
+    시설표시명: facilityDisplayName,
     전체파일수: existingFiles.length
   });
 
@@ -198,16 +216,28 @@ export function calculatePhotoIndex(
     }))
   );
 
-  // 1차: 정확한 패턴 매칭 (구조화된 파일명) - 데이터베이스 시설 번호 + 수량 접미사
-  const escapedFacilityInfo = facilityInfo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const quantitySuffix = facilityInstanceNumber && facilityInstanceNumber > 1 ? `-${facilityInstanceNumber}` : '';
-  const exactPattern = new RegExp(`^${facilityPrefix}${facility.number}${quantitySuffix.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}_${escapedFacilityInfo}_\\d+번째`);
+  // 1차: 새로운 파일명 형식 매칭 (시설명용량_순번_yymmdd.webp)
+  const escapedDisplayName = facilityDisplayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const newFormatPattern = new RegExp(`^${escapedDisplayName}_\\d{3}_\\d{6}\\.webp$`);
   
-  const exactMatches = existingFiles.filter(file => {
+  // 2차: 기존 형식 매칭 (하위 호환성)
+  const escapedFacilityInfo = facilityInfo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const oldFormatPattern = new RegExp(`^${facilityPrefix}${facility.number}_${escapedFacilityInfo}_`);
+  
+  const newFormatMatches = existingFiles.filter(file => {
     if (!file.name) return false;
-    const matches = exactPattern.test(file.name);
+    const matches = newFormatPattern.test(file.name);
     if (matches) {
-      console.log('✅ [EXACT-MATCH]', file.name);
+      console.log('✅ [NEW-FORMAT-MATCH]', file.name);
+    }
+    return matches;
+  });
+
+  const oldFormatMatches = existingFiles.filter(file => {
+    if (!file.name) return false;
+    const matches = oldFormatPattern.test(file.name);
+    if (matches) {
+      console.log('✅ [OLD-FORMAT-MATCH]', file.name);
     }
     return matches;
   });
@@ -246,13 +276,28 @@ export function calculatePhotoIndex(
     return isMatch;
   });
 
-  // 정확한 매칭이 있으면 우선 사용, 없으면 느슨한 매칭 사용
-  const matchedFiles = exactMatches.length > 0 ? exactMatches : looseMatches;
+  // 우선순위: 새 형식 > 기존 형식 > 느슨한 매칭
+  let matchedFiles: any[] = [];
+  let matchType = '';
+  
+  if (newFormatMatches.length > 0) {
+    matchedFiles = newFormatMatches;
+    matchType = '새로운형식';
+  } else if (oldFormatMatches.length > 0) {
+    matchedFiles = oldFormatMatches;
+    matchType = '기존형식';
+  } else {
+    matchedFiles = looseMatches;
+    matchType = '느슨한매칭';
+  }
+  
   const existingCount = matchedFiles.length;
 
   console.log('📊 [PHOTO-INDEX-RESULT] 계산 결과:', {
-    정확한매칭수: exactMatches.length,
+    새로운형식매칭수: newFormatMatches.length,
+    기존형식매칭수: oldFormatMatches.length,
     느슨한매칭수: looseMatches.length,
+    사용된매칭타입: matchType,
     최종사용매칭수: existingCount,
     다음사진순서: existingCount + 1,
     매칭된파일명들: matchedFiles.map(f => f.name)
@@ -262,25 +307,41 @@ export function calculatePhotoIndex(
 }
 
 /**
- * 기본사진의 사진 순서 계산
+ * 기본사진의 사진 순서 계산 (새로운 형식 지원)
  */
 export function calculateBasicPhotoIndex(
   existingFiles: any[], 
   category: string
 ): number {
   const categoryMap: { [key: string]: string } = {
-    'gateway': '게이트웨이',
-    'fan': '송풍기', 
-    'electrical': '배전함',
-    'others': '기타시설'
+    'gateway': 'gateway',
+    'fan': 'fan', 
+    'electrical': 'electrical',
+    'others': 'others'
   };
 
   const categoryName = categoryMap[category] || category;
 
-  // 같은 카테고리의 기존 파일 개수 계산
-  const existingCount = existingFiles.filter(file =>
-    file.name && file.name.includes(`기본_${categoryName}`)
-  ).length;
+  // 새로운 형식과 기존 형식 모두 지원
+  const existingCount = existingFiles.filter(file => {
+    if (!file.name) return false;
+    
+    // 새로운 형식: {카테고리명}_{순번}_{yymmdd}.webp
+    const newFormatMatch = file.name.startsWith(`${categoryName}_`);
+    
+    // 기존 형식: basic_{category}_
+    const oldFormatMatch = file.name.includes(`기본_${categoryName}`) || 
+                          file.name.includes(`basic_${category}`);
+    
+    return newFormatMatch || oldFormatMatch;
+  }).length;
+
+  console.log('📝 [BASIC-PHOTO-INDEX] 기본사진 순서 계산:', {
+    카테고리: category,
+    카테고리명: categoryName,
+    기존파일수: existingCount,
+    다음순서: existingCount + 1
+  });
 
   return existingCount + 1; // 다음 순서
 }

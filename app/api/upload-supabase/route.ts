@@ -508,13 +508,22 @@ export async function POST(request: NextRequest) {
 
     // 5. Supabase Storage에 업로드 - 구조화된 파일명 사용
     try {
-      // 구조화된 파일명 생성 (정확한 사진 순서 반영)
+      // 프론트엔드에서 생성한 파일명을 그대로 사용 (순서 보장)
       let structuredFilename = file.name;
-      const actualPhotoIndex = basePhotoIndex;
+      
+      // 파일명이 이미 구조화되어 있는지 확인
+      const isStructuredFilename = file.name.match(/_(001|002|003|004|005|006|007|008|009|\d{3})_\d{6}\.(webp|jpg|jpeg|png)$/i);
+      
+      if (isStructuredFilename) {
+        // 프론트엔드에서 이미 순서가 적용된 파일명 사용
+        structuredFilename = file.name;
+        console.log(`✅ [FILENAME] 프론트엔드 생성 파일명 사용: ${structuredFilename} (순서 보장됨)`);
+      } else {
+        // 구조화되지 않은 파일명인 경우 기존 로직 사용 (fallback)
+        const actualPhotoIndex = basePhotoIndex;
         
         if (fileType === 'discharge' || fileType === 'prevention') {
           // 시설별 사진용 구조화된 파일명 생성
-          // facilityInfo에서 시설 정보 파싱 (DB 조회 포함)
           const facilityData = await parseFacilityInfo(facilityInfo || '', fileType, businessName);
           structuredFilename = generateFacilityFileName({
             facility: {
@@ -527,7 +536,7 @@ export async function POST(request: NextRequest) {
             },
             facilityType: fileType,
             facilityIndex: facilityData.facilityIndex,
-            photoIndex: actualPhotoIndex, // 데이터베이스 기준 정확한 순서
+            photoIndex: actualPhotoIndex,
             originalFileName: file.name
           });
         } else if (fileType === 'basic') {
@@ -536,7 +545,8 @@ export async function POST(request: NextRequest) {
           structuredFilename = generateBasicFileName(category, actualPhotoIndex, file.name);
         }
 
-        console.log(`📝 [FILENAME] 구조화된 파일명 생성: ${file.name} → ${structuredFilename}`);
+        console.log(`📝 [FILENAME] 서버 생성 파일명 (fallback): ${file.name} → ${structuredFilename}`);
+      }
         
         const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', structuredFilename, systemType);
         

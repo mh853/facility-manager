@@ -12,6 +12,7 @@ interface LazyImageProps {
   placeholder?: boolean;
   onLoad?: () => void;
   onError?: () => void;
+  filePath?: string; // Supabase 파일 경로 (URL 재생성용)
 }
 
 const LazyImage = memo(function LazyImage({
@@ -23,17 +24,46 @@ const LazyImage = memo(function LazyImage({
   placeholder = true,
   onLoad,
   onError,
+  filePath,
 }: LazyImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(priority);
   const [hasError, setHasError] = useState(false);
   const [currentSrcIndex, setCurrentSrcIndex] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
+  const [refreshedUrl, setRefreshedUrl] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Convert src to array for consistent handling
   const srcArray = Array.isArray(src) ? src : [src];
-  const currentSrc = srcArray[currentSrcIndex];
+  const currentSrc = refreshedUrl || srcArray[currentSrcIndex];
+
+  // Supabase URL 새로고침 함수
+  const refreshSupabaseUrl = async (path: string): Promise<string | null> => {
+    try {
+      console.log('[LAZY-IMAGE] URL 새로고침 시도:', path);
+      const response = await fetch('/api/supabase-url-refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: path })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.url) {
+          console.log('[LAZY-IMAGE] 새 URL 획득:', result.url);
+          return result.url;
+        }
+      }
+      
+      console.log('[LAZY-IMAGE] URL 새로고침 실패');
+      return null;
+    } catch (error) {
+      console.error('[LAZY-IMAGE] URL 새로고침 오류:', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     if (priority) return; // Skip lazy loading for priority images
@@ -65,8 +95,20 @@ const LazyImage = memo(function LazyImage({
     onLoad?.();
   };
 
-  const handleError = () => {
+  const handleError = async () => {
     console.log(`[LAZY-IMAGE] 이미지 로드 실패: ${currentSrc} (${currentSrcIndex + 1}/${srcArray.length})`);
+    
+    // Supabase URL 새로고침 시도 (filePath가 있고 재시도 횟수가 1회 미만인 경우)
+    if (filePath && retryCount < 1 && !refreshedUrl) {
+      console.log('[LAZY-IMAGE] Supabase URL 새로고침 시도...');
+      const newUrl = await refreshSupabaseUrl(filePath);
+      if (newUrl) {
+        setRefreshedUrl(newUrl);
+        setRetryCount(prev => prev + 1);
+        setIsLoaded(false);
+        return;
+      }
+    }
     
     // Try next URL in array
     if (currentSrcIndex < srcArray.length - 1) {
