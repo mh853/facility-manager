@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
     console.log(`🎉 [ZIP-DOWNLOAD] 완료: ${successCount}장 성공, ${errorCount}장 실패`);
 
     // ZIP 파일 응답
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(new Uint8Array(zipBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/zip',

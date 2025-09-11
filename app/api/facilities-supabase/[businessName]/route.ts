@@ -277,8 +277,7 @@ export async function GET(
         // 생성된 번호에서 해당 시설의 번호 찾기
         const facilityInfo = facilityNumbering.outlets
           .flatMap(outlet => outlet.dischargeFacilities)
-          .find(f => f.facilityId === facility.id || 
-                     (f.facilityName === facility.name && f.outletNumber === facility.outlet));
+          .find(f => (f.facilityName === facility.name && f.outletNumber === facility.outlet));
         
         if (facilityInfo) {
           facility.number = facilityInfo.facilityNumber;
@@ -292,8 +291,7 @@ export async function GET(
         // 생성된 번호에서 해당 시설의 번호 찾기
         const facilityInfo = facilityNumbering.outlets
           .flatMap(outlet => outlet.preventionFacilities)
-          .find(f => f.facilityId === facility.id || 
-                     (f.facilityName === facility.name && f.outletNumber === facility.outlet));
+          .find(f => (f.facilityName === facility.name && f.outletNumber === facility.outlet));
         
         if (facilityInfo) {
           facility.number = facilityInfo.facilityNumber;

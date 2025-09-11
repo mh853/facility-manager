@@ -1357,7 +1357,12 @@ interface FacilityCardProps {
   onUpload: (files: FileList) => void;
   onPhotoSelect: (photo: FacilityPhoto, event: React.MouseEvent) => void;
   viewMode: ViewMode;
-  dragHandlers: ReturnType<typeof createDragHandlers>;
+  dragHandlers: {
+    onDragEnter: (e: React.DragEvent) => void;
+    onDragLeave: (e: React.DragEvent) => void;
+    onDragOver: (e: React.DragEvent) => void;
+    onDrop: (e: React.DragEvent) => void;
+  };
   dragZoneStyles: (zoneId: string, baseStyles?: string) => string;
   recentPhotoIds?: Set<string>;
   businessName: string;
@@ -1494,7 +1499,12 @@ interface BasicPhotoCategoryProps {
   onUpload: (files: FileList) => void;
   onPhotoSelect: (photo: FacilityPhoto, event: React.MouseEvent) => void;
   viewMode: ViewMode;
-  dragHandlers: ReturnType<typeof createDragHandlers>;
+  dragHandlers: {
+    onDragEnter: (e: React.DragEvent) => void;
+    onDragLeave: (e: React.DragEvent) => void;
+    onDragOver: (e: React.DragEvent) => void;
+    onDrop: (e: React.DragEvent) => void;
+  };
   dragZoneStyles: (zoneId: string, baseStyles?: string) => string;
   recentPhotoIds?: Set<string>;
   businessName: string;

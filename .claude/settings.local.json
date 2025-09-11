@@ -25,7 +25,8 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(lsof:*)",
-      "Bash(ss:*)"
+      "Bash(ss:*)",
+      "Bash(npm run type-check:*)"
     ],
     "deny": [],
     "ask": [],

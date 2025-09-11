@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       console.error('❌ [SETUP-DB] 테이블 생성 실패:', createTableError);
       return NextResponse.json({
         success: false,
-        message: '테이블 생성 실패: ' + createTableError.message
+        message: '테이블 생성 실패: ' + (createTableError as any).message
       }, { status: 500 });
     }
 

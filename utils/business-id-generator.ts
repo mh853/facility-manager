@@ -35,8 +35,13 @@ export function generateBusinessId(businessName: string): string {
   // 캐시 크기 관리
   if (businessIdCache.size >= MAX_CACHE_SIZE) {
     const firstKey = businessIdCache.keys().next().value;
-    businessIdCache.delete(firstKey);
-    reverseIdCache.delete(businessIdCache.get(firstKey)!);
+    if (firstKey) {
+      const businessId = businessIdCache.get(firstKey);
+      businessIdCache.delete(firstKey);
+      if (businessId) {
+        reverseIdCache.delete(businessId);
+      }
+    }
   }
 
   // SHA-256 해시 생성 (8자리)

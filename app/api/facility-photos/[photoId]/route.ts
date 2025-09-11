@@ -146,7 +146,7 @@ export async function GET(
           // 사업장명을 추출하여 다양한 경로 패턴 시도
           const pathParts = fileData.file_path.split('/');
           const fileName = pathParts[pathParts.length - 1];
-          const facilityType = pathParts.find(part => 
+          const facilityType = pathParts.find((part: string) => 
             part === 'discharge' || part === 'prevention' || part === 'basic'
           ) || 'unknown';
 
