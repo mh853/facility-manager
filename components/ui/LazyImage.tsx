@@ -13,6 +13,25 @@ interface LazyImageProps {
   onLoad?: () => void;
   onError?: () => void;
   filePath?: string; // Supabase 파일 경로 (URL 재생성용)
+  preloadNext?: string[]; // URLs to preload when this image enters viewport
+  width?: number;
+  height?: number;
+  sizes?: string;
+}
+
+// Global preload cache to prevent duplicate preloads
+const preloadCache = new Set<string>();
+
+// Preload function using resource hints
+function preloadImage(url: string) {
+  if (preloadCache.has(url)) return;
+  preloadCache.add(url);
+  
+  const link = document.createElement('link');
+  link.rel = 'preload';
+  link.as = 'image';
+  link.href = url;
+  document.head.appendChild(link);
 }
 
 const LazyImage = memo(function LazyImage({
@@ -25,6 +44,10 @@ const LazyImage = memo(function LazyImage({
   onLoad,
   onError,
   filePath,
+  preloadNext = [],
+  width,
+  height,
+  sizes = '(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw',
 }: LazyImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(priority);
@@ -72,6 +95,14 @@ const LazyImage = memo(function LazyImage({
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           setIsInView(true);
+          
+          // Preload next images when this one enters viewport
+          preloadNext.forEach(url => {
+            if (url && !url.includes('undefined')) {
+              preloadImage(url);
+            }
+          });
+          
           observer?.unobserve(entry.target);
         }
       });
@@ -88,7 +119,7 @@ const LazyImage = memo(function LazyImage({
         observerRef.current.disconnect();
       }
     };
-  }, [priority]);
+  }, [priority, preloadNext]);
 
   const handleLoad = () => {
     setIsLoaded(true);
@@ -123,10 +154,37 @@ const LazyImage = memo(function LazyImage({
   };
 
   // Generate optimized image props using current src
-  const imageProps = ImageOptimizer.getOptimizedImageProps(currentSrc, alt, {
+  const [imageProps, setImageProps] = useState<any>({
+    src: currentSrc,
+    alt,
     quality,
+    format: 'webp',
+    sizes: sizes,
     priority,
+    placeholder: 'blur',
+    blurDataURL: ImageOptimizer.generateBlurDataURL(),
+    style: { maxWidth: '100%', height: 'auto' }
   });
+
+  // 이미지 속성 최적화
+  useEffect(() => {
+    const optimizeProps = async () => {
+      try {
+        const optimized = await ImageOptimizer.getOptimizedImageProps(currentSrc, alt, {
+          quality,
+          priority,
+          sizes: [320, 640, 750, 828, 1080, 1200, 1600, 1920],
+        });
+        setImageProps(optimized);
+      } catch (error) {
+        console.warn('[LAZY-IMAGE] 이미지 최적화 실패, 기본 설정 사용:', error);
+      }
+    };
+
+    if (currentSrc) {
+      optimizeProps();
+    }
+  }, [currentSrc, alt, quality, priority, sizes]);
 
   const shouldShowImage = priority || isInView;
 
@@ -149,14 +207,22 @@ const LazyImage = memo(function LazyImage({
         <img
           src={currentSrc}
           alt={alt}
-          className={`transition-opacity duration-300 ${
+          width={width}
+          height={height}
+          sizes={imageProps.sizes}
+          className={`transition-all duration-300 ${
             isLoaded ? 'opacity-100' : 'opacity-0'
           } ${className}`}
           loading={priority ? 'eager' : 'lazy'}
           decoding={priority ? 'sync' : 'async'}
+          fetchPriority={priority ? 'high' : 'auto'}
           onLoad={handleLoad}
           onError={handleError}
-          style={imageProps.style}
+          style={{
+            ...imageProps.style,
+            filter: isLoaded ? 'none' : 'blur(3px)',
+            transform: isLoaded ? 'scale(1)' : 'scale(1.02)',
+          }}
         />
       )}
 

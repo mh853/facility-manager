@@ -4,29 +4,56 @@ interface ImageOptimizationConfig {
   format: 'webp' | 'avif' | 'jpeg' | 'png';
   sizes: number[];
   priority?: boolean;
+  fallbackFormat?: 'webp' | 'jpeg';
 }
 
 export class ImageOptimizer {
   private static defaultConfig: ImageOptimizationConfig = {
-    quality: 85,
+    quality: 88, // 향상된 품질 (85 → 88)
     format: 'webp',
-    sizes: [640, 750, 828, 1080, 1200, 1920],
-    priority: false
+    sizes: [320, 640, 750, 828, 1080, 1200, 1600, 1920], // 더 세밀한 반응형 크기
+    priority: false,
+    fallbackFormat: 'webp'
   };
 
-  static getOptimizedImageProps(
+  // AVIF 지원 감지
+  private static avifSupport: boolean | null = null;
+  
+  static async detectAVIFSupport(): Promise<boolean> {
+    if (this.avifSupport !== null) return this.avifSupport;
+    
+    return new Promise((resolve) => {
+      const avifTest = new Image();
+      avifTest.onload = avifTest.onerror = () => {
+        this.avifSupport = avifTest.height === 2;
+        resolve(this.avifSupport);
+      };
+      avifTest.src = 'data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAADybWV0YQAAAAAAAAAoaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAGxpYmF2aWYAAAAADnBpdG0AAAAAAAEAAAAeaWxvYwAAAABEAAABAAEAAAABAAABGgAAAB0AAAAoaWluZgAAAAAAAQAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAamlwcnAAAABLaXBjbwAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAAAxhdjFDgQ0MAAAAABNjb2xybmNseAACAAIAAYAAAAAXaXBtYQAAAAAAAAABAAEEAQKDBAAAACVtZGF0EgAKCBgABogQEAwgMg8f8D///8WfhwB8+ErK42A=';
+    });
+  }
+
+  static async getOptimizedImageProps(
     src: string, 
     alt: string, 
     config: Partial<ImageOptimizationConfig> = {}
   ) {
     const finalConfig = { ...this.defaultConfig, ...config };
+    const avifSupported = await this.detectAVIFSupport();
+    
+    // 최적 포맷 결정 (AVIF > WebP > JPEG)
+    let optimalFormat = finalConfig.format;
+    if (avifSupported && finalConfig.format !== 'png') {
+      optimalFormat = 'avif';
+    } else if (finalConfig.format === 'avif' && !avifSupported) {
+      optimalFormat = finalConfig.fallbackFormat || 'webp';
+    }
     
     return {
       src,
       alt,
-      quality: finalConfig.quality,
-      format: finalConfig.format,
-      sizes: `(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw`,
+      quality: this.getOptimalQuality(optimalFormat, finalConfig.quality),
+      format: optimalFormat,
+      sizes: this.generateResponsiveSizes(finalConfig.sizes),
       priority: finalConfig.priority,
       placeholder: 'blur' as const,
       blurDataURL: this.generateBlurDataURL(),
@@ -35,6 +62,37 @@ export class ImageOptimizer {
         height: 'auto',
       }
     };
+  }
+
+  // 포맷별 최적 품질 설정
+  private static getOptimalQuality(format: string, baseQuality: number): number {
+    switch (format) {
+      case 'avif':
+        return Math.max(baseQuality - 5, 70); // AVIF는 더 효율적이므로 품질 약간 낮춤
+      case 'webp':
+        return baseQuality;
+      case 'jpeg':
+        return Math.min(baseQuality + 5, 95); // JPEG는 품질 약간 높임
+      default:
+        return baseQuality;
+    }
+  }
+
+  // 반응형 sizes 속성 생성
+  private static generateResponsiveSizes(sizes: number[]): string {
+    const sortedSizes = [...sizes].sort((a, b) => a - b);
+    const sizeQueries = [];
+    
+    for (let i = 0; i < sortedSizes.length; i++) {
+      const size = sortedSizes[i];
+      if (i === sortedSizes.length - 1) {
+        sizeQueries.push(`${size}px`);
+      } else {
+        sizeQueries.push(`(max-width: ${size}px) ${size}px`);
+      }
+    }
+    
+    return sizeQueries.join(', ');
   }
 
   static generateBlurDataURL(): string {
@@ -52,49 +110,91 @@ export class ImageOptimizer {
     `)}`;
   }
 
-  // 파일 업로드 시 클라이언트 사이드 압축 - 성능 개선
+  // 파일 업로드 시 클라이언트 사이드 압축 - 성능 개선 (WebP/AVIF 지원)
   static async compressImage(file: File, maxSize: number = 1024 * 1024): Promise<File> {
     if (file.size <= maxSize) return file;
 
+    const avifSupported = await this.detectAVIFSupport();
+    
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
       const img = new Image();
 
-      img.onload = () => {
-        // 썸네일 크기로 압축 (200x200px 최대)
-        const thumbnailSize = 400;
-        const ratio = Math.min(thumbnailSize / img.width, thumbnailSize / img.height);
+      img.onload = async () => {
+        // 더 큰 썸네일 크기 (800px 최대)
+        const maxDimension = 800;
+        const ratio = Math.min(maxDimension / img.width, maxDimension / img.height, 1);
         canvas.width = img.width * ratio;
         canvas.height = img.height * ratio;
 
-        // 이미지 품질 최적화
+        // 고품질 이미지 처리
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        // Progressive JPEG 대신 WebP로 변환 (더 나은 압축)
+        // 포맷과 품질 선택
+        let format = 'image/webp';
+        let quality = 0.82; // WebP 품질 82% (향상된 품질)
+        let extension = '.webp';
+
+        if (avifSupported) {
+          format = 'image/avif';
+          quality = 0.75; // AVIF는 더 효율적이므로 75%도 충분
+          extension = '.avif';
+        }
+
+        // 압축 시도
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              const compressedFile = new File([blob], file.name.replace(/\.(jpg|jpeg|png)$/i, '.webp'), {
-                type: 'image/webp',
+              const originalExt = file.name.match(/\.(jpg|jpeg|png|webp|avif)$/i)?.[0] || '';
+              const newName = file.name.replace(/\.(jpg|jpeg|png|webp|avif)$/i, extension);
+              
+              const compressedFile = new File([blob], newName, {
+                type: format,
                 lastModified: Date.now()
               });
-              console.log(`⚡ [COMPRESS] ${file.name}: ${(file.size/1024).toFixed(1)}KB → ${(compressedFile.size/1024).toFixed(1)}KB`);
+              
+              const originalSize = (file.size / 1024).toFixed(1);
+              const compressedSize = (compressedFile.size / 1024).toFixed(1);
+              const compressionRatio = ((1 - compressedFile.size / file.size) * 100).toFixed(1);
+              
+              console.log(`🎨 [COMPRESS] ${file.name}: ${originalSize}KB → ${compressedSize}KB (${compressionRatio}% 감소, ${format.split('/')[1].toUpperCase()})`);
               resolve(compressedFile);
             } else {
-              resolve(file);
+              // Blob 생성 실패시 WebP로 폴백
+              this.fallbackToWebP(canvas, file, resolve);
             }
           },
-          'image/webp',
-          0.75 // 품질 75% (빠른 로딩과 품질의 균형)
+          format,
+          quality
         );
       };
 
       img.onerror = () => resolve(file);
       img.src = URL.createObjectURL(file);
     });
+  }
+
+  // WebP 폴백 압축
+  private static fallbackToWebP(canvas: HTMLCanvasElement, originalFile: File, resolve: (file: File) => void) {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          const compressedFile = new File([blob], originalFile.name.replace(/\.(jpg|jpeg|png|avif)$/i, '.webp'), {
+            type: 'image/webp',
+            lastModified: Date.now()
+          });
+          console.log(`🔄 [FALLBACK] WebP 압축: ${(originalFile.size/1024).toFixed(1)}KB → ${(compressedFile.size/1024).toFixed(1)}KB`);
+          resolve(compressedFile);
+        } else {
+          resolve(originalFile);
+        }
+      },
+      'image/webp',
+      0.82
+    );
   }
 
   // 레이지 로딩 옵저버

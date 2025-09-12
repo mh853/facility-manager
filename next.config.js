@@ -39,7 +39,7 @@ const nextConfig = {
     unoptimized: false,
   },
   
-  // 성능 헤더
+  // 성능 헤더 - 🚀 최적화 강화
   async headers() {
     return [
       {
@@ -59,30 +59,52 @@ const nextConfig = {
           }
         ],
       },
+      // 🔥 사진 조회 API - 장시간 캐싱
+      {
+        source: '/api/facility-photos',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=600, stale-while-revalidate=1800, max-age=300'
+          }
+        ],
+      },
       {
         source: '/api/uploaded-files-supabase',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, s-maxage=300, stale-while-revalidate=600'
+            value: 'public, s-maxage=600, stale-while-revalidate=1800, max-age=300'
           }
         ],
       },
+      // 🔥 일반 API - 적당한 캐싱
       {
         source: '/api/(.*)',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, s-maxage=60, stale-while-revalidate=300'
+            value: 'public, s-maxage=180, stale-while-revalidate=600, max-age=60'
           }
         ],
       },
+      // 🔥 정적 파일 - 무제한 캐싱
       {
         source: '/_next/static/(.*)',
         headers: [
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable'
+          }
+        ],
+      },
+      // 🔥 이미지 파일 - 장시간 캐싱
+      {
+        source: '/(.*)\\.(jpg|jpeg|png|webp|avif|gif|svg)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800'
           }
         ],
       },

@@ -20,6 +20,9 @@
     },
     "app/api/generate-report/route.ts": {
       "maxDuration": 60
+    },
+    "api/_edge/image-optimizer.ts": {
+      "runtime": "@vercel/edge"
     }
   },
   "headers": [
@@ -70,12 +73,33 @@
           "value": "no-cache, no-store, must-revalidate"
         }
       ]
+    },
+    {
+      "source": "/img/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, stale-while-revalidate=86400"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Vary",
+          "value": "Accept"
+        }
+      ]
     }
   ],
   "rewrites": [
     {
       "source": "/healthz",
       "destination": "/api/health"
+    },
+    {
+      "source": "/img/:path*",
+      "destination": "/api/_edge/image-optimizer?url=:path*"
     }
   ],
   "cleanUrls": true,
