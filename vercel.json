@@ -20,9 +20,6 @@
     },
     "app/api/generate-report/route.ts": {
       "maxDuration": 60
-    },
-    "app/api/edge/route.ts": {
-      "runtime": "edge"
     }
   },
   "headers": [

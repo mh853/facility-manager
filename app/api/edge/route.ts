@@ -1,10 +1,8 @@
-// api/_edge/image-optimizer.ts - Vercel Edge Function for image optimization
+// app/api/edge/route.ts - Vercel Edge Function for image optimization
 import { NextRequest, NextResponse } from 'next/server';
 
-export const config = {
-  runtime: 'edge',
-  regions: ['icn1', 'hnd1'], // 한국/일본 리전 우선
-};
+export const runtime = 'edge';
+export const preferredRegion = ['icn1', 'hnd1']; // 한국/일본 리전 우선
 
 // 지원되는 이미지 포맷 및 품질 설정
 const IMAGE_CONFIGS = {
@@ -18,7 +16,7 @@ const DEFAULT_WIDTHS = [320, 640, 750, 828, 1080, 1200, 1600, 1920];
 const MAX_AGE = 31536000; // 1년
 const STALE_WHILE_REVALIDATE = 86400; // 1일
 
-export default async function handler(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     
