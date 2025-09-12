@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
         'X-Optimized': 'true',
         'X-Original-Format': contentType,
         'X-Target-Format': targetFormat,
-        'X-Optimization-Savings': `${Math.round((1 - optimizedImage.buffer.byteLength / imageResponse.headers.get('content-length')!) * 100)}%`,
+        'X-Optimization-Savings': `${Math.round((1 - optimizedImage.buffer.byteLength / Number(imageResponse.headers.get('content-length') || optimizedImage.buffer.byteLength)) * 100)}%`,
       }
     });
 
@@ -205,15 +205,15 @@ function calculateDimensions(
   };
 }
 
-// 응답형 srcset 생성
-export function generateSrcSet(baseUrl: string, widths: number[] = DEFAULT_WIDTHS): string {
+// 응답형 srcset 생성 (내부 함수로 변경)
+function generateSrcSet(baseUrl: string, widths: number[] = DEFAULT_WIDTHS): string {
   return widths
     .map(width => `${baseUrl}?w=${width} ${width}w`)
     .join(', ');
 }
 
-// Picture 엘리먼트용 소스 생성
-export function generatePictureSources(baseUrl: string): Array<{
+// Picture 엘리먼트용 소스 생성 (내부 함수로 변경)
+function generatePictureSources(baseUrl: string): Array<{
   srcSet: string;
   type: string;
   media?: string;

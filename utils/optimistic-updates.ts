@@ -289,7 +289,7 @@ export function useOptimisticUpdates<T>(initialData: T[] = []): {
         id, 
         updates, 
         updateFn,
-        (itemId) => data.find(item => manager.getItemId(item) === itemId)
+        (itemId) => data.find(item => (item as any).id === itemId || String(item) === itemId)
       );
     },
     [manager, data]
@@ -300,7 +300,7 @@ export function useOptimisticUpdates<T>(initialData: T[] = []): {
       return manager.optimisticDelete(
         id, 
         deleteFn,
-        (itemId) => data.find(item => manager.getItemId(item) === itemId)
+        (itemId) => data.find(item => (item as any).id === itemId || String(item) === itemId)
       );
     },
     [manager, data]

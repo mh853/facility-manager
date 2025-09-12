@@ -185,12 +185,8 @@ export async function cachedFetch<T>(
   }
 
   try {
-    // 조건부 요청 (If-None-Match)
+    // 조건부 요청 (If-None-Match) - 현재 비활성화
     const headers = { ...fetchOptions.headers };
-    const cachedEntry = cached ? APICache.cache.get(cacheKey) : null;
-    if (cachedEntry?.etag) {
-      headers['If-None-Match'] = cachedEntry.etag;
-    }
 
     const response = await fetch(url, {
       ...fetchOptions,

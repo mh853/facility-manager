@@ -65,14 +65,10 @@ export function useOptimizedFetch<T>(
       setState(prev => ({ ...prev, loading: true, error: null }));
       lastFetchTime.current = now;
 
+      // Temporarily simplified for deployment
       const data = await cachedFetch<T>(url, {
         ...options,
-        signal: abortControllerRef.current.signal,
-        cache: {
-          ttl: staleTime,
-          staleWhileRevalidate: cacheTime,
-          ...options.cache
-        }
+        signal: abortControllerRef.current.signal
       });
 
       setState({
@@ -84,7 +80,7 @@ export function useOptimizedFetch<T>(
 
       onSuccess?.(data);
     } catch (error) {
-      if (error.name === 'AbortError') return;
+      if (error instanceof Error && error.name === 'AbortError') return;
 
       const err = error instanceof Error ? error : new Error(String(error));
       setState(prev => ({ ...prev, loading: false, error: err }));

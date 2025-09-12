@@ -113,10 +113,10 @@ export function StatusIcon({
   showText?: boolean;
 }) {
   const configs = {
-    idle: { icon: null, color: 'text-gray-400', text: '대기' },
+    idle: { icon: null, color: 'text-gray-400', text: '대기', animate: '' },
     pending: { icon: Loader2, color: 'text-blue-500', text: '처리 중', animate: 'animate-spin' },
-    success: { icon: Check, color: 'text-green-500', text: '완료' },
-    error: { icon: X, color: 'text-red-500', text: '실패' }
+    success: { icon: Check, color: 'text-green-500', text: '완료', animate: '' },
+    error: { icon: X, color: 'text-red-500', text: '실패', animate: '' }
   };
 
   const config = configs[state];
