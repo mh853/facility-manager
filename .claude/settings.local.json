@@ -27,7 +27,9 @@
       "Bash(lsof:*)",
       "Bash(ss:*)",
       "Bash(npm run type-check:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(npx vercel:*)",
+      "Bash(del:*)"
     ],
     "deny": [],
     "ask": [],

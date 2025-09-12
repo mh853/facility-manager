@@ -291,8 +291,13 @@ export default function ImprovedFacilityPhotoSection({
   }, [businessName, photoTracker]);
 
   useEffect(() => {
-    loadUploadedFiles();
-  }, [loadUploadedFiles]);
+    if (businessName && businessName.length > 0) {
+      console.log(`🔄 [LOAD] businessName 설정됨, 파일 로딩 시작: ${businessName}`);
+      loadUploadedFiles();
+    } else {
+      console.log(`⏳ [LOAD] businessName 대기 중:`, businessName);
+    }
+  }, [businessName, loadUploadedFiles]);
 
   // 백그라운드 새로고침 (새 사진 하이라이트 포함)
   useEffect(() => {

@@ -22,6 +22,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/sharp": "^0.31.1",
     "browser-image-compression": "^2.0.2",
     "dotenv": "^17.2.2",
     "html2canvas": "^1.4.1",
@@ -36,8 +37,10 @@
     "pg": "^8.16.3",
     "react": "^18",
     "react-dom": "^18",
+    "sharp": "^0.34.3",
     "typescript": "^5",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@types/nodemailer": "^7.0.0",

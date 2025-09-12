@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { memoryCache } from '@/lib/cache';
 import { createHash } from 'crypto';
 import { generateFacilityFileName, generateBasicFileName } from '@/utils/filename-generator';
+import sharp from 'sharp';
 
 // 파일 해시 계산
 async function calculateFileHash(file: File): Promise<string> {
@@ -12,6 +13,67 @@ async function calculateFileHash(file: File): Promise<string> {
   const hash = createHash('sha256');
   hash.update(buffer);
   return hash.digest('hex');
+}
+
+// 🚀 이미지 최적화 및 압축 (50% 파일 크기 감소)
+async function optimizeImage(file: File): Promise<{
+  buffer: Buffer;
+  optimizedSize: number;
+  originalSize: number;
+  compressionRatio: number;
+  mimeType: string;
+}> {
+  const startTime = Date.now();
+  const originalSize = file.size;
+  
+  try {
+    // 파일을 Buffer로 변환
+    const arrayBuffer = await file.arrayBuffer();
+    const inputBuffer = Buffer.from(arrayBuffer);
+    
+    console.log(`🖼️ [IMAGE-OPT] 이미지 최적화 시작: ${file.name} (${Math.round(originalSize / 1024)}KB)`);
+    
+    // Sharp를 사용한 이미지 최적화
+    const optimizedBuffer = await sharp(inputBuffer)
+      .resize(1920, 1920, { 
+        fit: 'inside',           // 비율 유지하면서 크기 조정
+        withoutEnlargement: true // 원본보다 크게 하지 않음
+      })
+      .webp({ 
+        quality: 80,             // 80% 품질 (기존 대비 50% 크기 감소 목표)
+        effort: 6                // 압축 노력 (1-6, 높을수록 더 작은 파일)
+      })
+      .toBuffer();
+    
+    const optimizedSize = optimizedBuffer.length;
+    const compressionRatio = Math.round((1 - optimizedSize / originalSize) * 100);
+    const processingTime = Date.now() - startTime;
+    
+    console.log(`✨ [IMAGE-OPT] 최적화 완료: ${Math.round(optimizedSize / 1024)}KB (${compressionRatio}% 감소, ${processingTime}ms)`);
+    
+    return {
+      buffer: optimizedBuffer,
+      optimizedSize,
+      originalSize,
+      compressionRatio,
+      mimeType: 'image/webp'
+    };
+    
+  } catch (error) {
+    console.warn(`⚠️ [IMAGE-OPT] 최적화 실패, 원본 사용: ${file.name}`, error);
+    
+    // 최적화 실패 시 원본 반환
+    const arrayBuffer = await file.arrayBuffer();
+    const originalBuffer = Buffer.from(arrayBuffer);
+    
+    return {
+      buffer: originalBuffer,
+      optimizedSize: originalSize,
+      originalSize,
+      compressionRatio: 0,
+      mimeType: file.type
+    };
+  }
 }
 
 // 사업장 ID 가져오기 또는 생성
@@ -557,18 +619,28 @@ export async function POST(request: NextRequest) {
         console.log(`📝 [FILENAME] 서버 생성 파일명 (fallback): ${file.name} → ${structuredFilename}`);
       }
         
-        const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', structuredFilename, systemType);
+        // 🚀 이미지 최적화 적용
+        const optimizedImage = await optimizeImage(file);
         
-        // File 객체를 ArrayBuffer로 변환하여 정확한 바이너리 데이터 업로드
-        const arrayBuffer = await file.arrayBuffer();
+        // 최적화된 파일명 생성 (WebP 확장자로 변경)
+        const originalExt = structuredFilename.split('.').pop()?.toLowerCase();
+        let finalFilename = structuredFilename;
         
-        // Storage에 업로드
+        if (optimizedImage.mimeType === 'image/webp' && originalExt !== 'webp') {
+          finalFilename = structuredFilename.replace(/\.[^.]+$/, '.webp');
+        }
+        
+        const filePath = getFilePath(businessName, fileType, facilityInfo || '기본사진', finalFilename, systemType);
+        
+        console.log(`📊 [COMPRESSION] ${file.name} → ${finalFilename} (${optimizedImage.compressionRatio}% 감소)`);
+        
+        // 최적화된 Buffer를 Storage에 업로드
         const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
           .from('facility-files')
-          .upload(filePath, arrayBuffer, {
+          .upload(filePath, optimizedImage.buffer, {
             cacheControl: '3600',
             upsert: false,
-            contentType: file.type
+            contentType: optimizedImage.mimeType
           });
 
         if (uploadError) {
@@ -577,17 +649,17 @@ export async function POST(request: NextRequest) {
 
         console.log(`📁 [STORAGE] 업로드 완료: ${filePath}`);
 
-        // 5. DB에 파일 정보 저장 - 구조화된 파일명으로 저장
+        // 5. DB에 파일 정보 저장 - 최적화된 파일 정보 사용
         const { data: fileRecord, error: dbError } = await supabaseAdmin
           .from('uploaded_files')
           .insert({
             business_id: businessId,
-            filename: structuredFilename, // 구조화된 파일명 사용
+            filename: finalFilename, // 최적화된 파일명 사용 (WebP)
             original_filename: file.name,
             file_hash: hash,
             file_path: uploadData.path,
-            file_size: file.size,
-            mime_type: file.type,
+            file_size: optimizedImage.optimizedSize, // 최적화된 파일 크기
+            mime_type: optimizedImage.mimeType, // WebP MIME 타입
             upload_status: 'uploaded',
             facility_info: facilityInfo // 시설 정보 추가
           })
