@@ -1656,8 +1656,12 @@ export default function BusinessManagementPage() {
                 <Building2 className="w-5 h-5 text-blue-600" />
                 사업장 목록
               </h2>
-              <span className="text-sm text-gray-500">
-                {allBusinesses.length}개 사업장
+              <span className="text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                {searchQuery ? (
+                  `검색결과 ${filteredBusinesses.length}개 (전체 ${allBusinesses.length}개 중)`
+                ) : (
+                  `전체 ${allBusinesses.length}개 사업장`
+                )}
               </span>
             </div>
             

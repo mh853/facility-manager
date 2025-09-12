@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Upload, FileImage, AlertTriangle, Clock, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, FileImage, AlertTriangle, Clock, XCircle, ChevronDown, ChevronUp, X } from 'lucide-react';
 
 interface SmartFloatingProgressProps {
   // 표시 여부
@@ -28,6 +28,8 @@ interface SmartFloatingProgressProps {
     error: string;
     timestamp: number;
   }>;
+  // 수동 닫기 기능
+  onClose?: () => void; // 닫기 콜백
 }
 
 export function SmartFloatingProgress({
@@ -41,7 +43,8 @@ export function SmartFloatingProgress({
   errorMessage,
   isStuck = false,
   stuckReason,
-  detailedErrors = []
+  detailedErrors = [],
+  onClose
 }: SmartFloatingProgressProps) {
   const [mounted, setMounted] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
@@ -53,22 +56,39 @@ export function SmartFloatingProgress({
     setMounted(true);
   }, []);
 
-  // 표시 상태 관리
+  // 수동 닫기 처리
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
+    setShouldShow(false);
+    setIsCompleted(false);
+  };
+
+  // 표시 상태 관리 (스마트 자동 숨김)
   useEffect(() => {
     if (isVisible && totalFiles > 0) {
       setShouldShow(true);
       setIsCompleted(false);
     } else if (!isVisible && shouldShow) {
-      // 업로드 완료 시 자동 숨김 처리
       setIsCompleted(true);
-      const timeout = setTimeout(() => {
-        setShouldShow(false);
-        setIsCompleted(false);
-      }, autoHideDelay);
+      
+      // 에러나 경고가 있으면 자동 숨김 하지 않음 (수동 닫기만 가능)
+      const hasErrors = failedFiles > 0 || errorMessage || detailedErrors.length > 0;
+      const hasWarnings = isStuck && stuckReason;
+      
+      if (!hasErrors && !hasWarnings) {
+        // 성공적으로 완료된 경우에만 자동 숨김
+        const timeout = setTimeout(() => {
+          setShouldShow(false);
+          setIsCompleted(false);
+        }, autoHideDelay);
 
-      return () => clearTimeout(timeout);
+        return () => clearTimeout(timeout);
+      }
+      // 에러/경고가 있으면 사용자가 수동으로 닫을 때까지 유지
     }
-  }, [isVisible, totalFiles, shouldShow, autoHideDelay]);
+  }, [isVisible, totalFiles, shouldShow, autoHideDelay, failedFiles, errorMessage, detailedErrors.length, isStuck, stuckReason]);
 
   // 현재 파일명 단축 (너무 길면 줄임)
   const truncatedFileName = currentFileName && currentFileName.length > 25 
@@ -137,7 +157,7 @@ export function SmartFloatingProgress({
       `}
       onClick={hasErrors || hasWarnings ? () => setShowDetails(!showDetails) : undefined}
       >
-        {/* 헤더: 업로드 상태 + 파일 개수 + 에러 표시 */}
+        {/* 헤더: 업로드 상태 + 파일 개수 + 에러 표시 + 닫기 버튼 */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             {hasErrors ? (
@@ -165,10 +185,25 @@ export function SmartFloatingProgress({
               </button>
             )}
           </div>
-          <div className="text-sm text-gray-500 flex items-center gap-2">
-            <span>{completedFiles}/{totalFiles} files</span>
-            {failedFiles > 0 && (
-              <span className="text-red-500">({failedFiles} 실패)</span>
+          
+          <div className="flex items-center gap-2">
+            {/* 파일 개수 및 실패 표시 */}
+            <div className="text-sm text-gray-500 flex items-center gap-2">
+              <span>{completedFiles}/{totalFiles} files</span>
+              {failedFiles > 0 && (
+                <span className="text-red-500">({failedFiles} 실패)</span>
+              )}
+            </div>
+            
+            {/* 닫기 버튼 - 에러/경고가 있거나 완료된 경우에 표시 */}
+            {(hasErrors || hasWarnings || isCompleted) && (
+              <button
+                onClick={handleClose}
+                className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                title="닫기"
+              >
+                <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+              </button>
             )}
           </div>
         </div>
@@ -183,8 +218,16 @@ export function SmartFloatingProgress({
           </div>
         )}
 
-        {/* 에러 메시지 또는 멈춤 이유 */}
-        {(errorMessage || stuckReason) && !showDetails && (
+        {/* 실패한 파일명 표시 (핵심 정보) */}
+        {detailedErrors.length > 0 && !showDetails && (
+          <div className="mb-3 text-xs text-red-600 bg-red-50 rounded px-2 py-1">
+            <strong>실패:</strong> {detailedErrors.slice(0, 2).map(e => e.fileName).join(', ')}
+            {detailedErrors.length > 2 && ` +${detailedErrors.length - 2}개`}
+          </div>
+        )}
+
+        {/* 에러 메시지 또는 멈춤 이유 (실패 파일명이 없는 경우만) */}
+        {(errorMessage || stuckReason) && !showDetails && detailedErrors.length === 0 && (
           <div className="mb-3 text-xs text-gray-600 bg-gray-100 rounded px-2 py-1">
             {errorMessage || stuckReason}
           </div>

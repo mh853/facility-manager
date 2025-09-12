@@ -443,9 +443,9 @@ export class FacilityPhotoTracker {
     return {
       totalFacilities: facilities.length,
       totalPhotos,
-      dischargeFacilities: facilities.filter(f => f.facilityType === 'discharge').length,
-      preventionFacilities: facilities.filter(f => f.facilityType === 'prevention').length,
-      basicCategories: facilities.filter(f => f.facilityType === 'basic').length,
+      dischargeFacilities: facilities.filter(f => f.facilityType === 'discharge').reduce((sum, f) => sum + f.totalPhotoCount, 0),
+      preventionFacilities: facilities.filter(f => f.facilityType === 'prevention').reduce((sum, f) => sum + f.totalPhotoCount, 0),
+      basicCategories: facilities.filter(f => f.facilityType === 'basic').reduce((sum, f) => sum + f.totalPhotoCount, 0),
       averagePhotosPerFacility: facilities.length > 0 ? Math.round((totalPhotos / facilities.length) * 10) / 10 : 0
     }
   }

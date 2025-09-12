@@ -125,10 +125,32 @@ export function uploadWithProgress(
  * @param onFileProgress 개별 파일 진행률 콜백
  * @returns Promise<UploadResponse[]>
  */
+/**
+ * 네트워크 상태 기반 최적 동시성 계산
+ */
+function getOptimalConcurrency(): number {
+  // 브라우저 연결 정보 확인
+  const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+  
+  if (connection) {
+    const { effectiveType, downlink } = connection;
+    
+    // 네트워크 타입별 최적 동시성
+    if (effectiveType === '4g' && downlink > 10) return 8; // 고속 4G
+    if (effectiveType === '4g') return 6; // 일반 4G
+    if (effectiveType === '3g') return 4; // 3G
+    if (effectiveType === '2g') return 2; // 저속 연결
+  }
+  
+  // CPU 코어 기반 fallback (최대 8개로 제한)
+  const cores = navigator.hardwareConcurrency || 4;
+  return Math.min(Math.max(cores - 1, 3), 8);
+}
+
 export async function uploadMultipleWithProgress(
   files: File[],
   additionalDataFactory: (file: File, index: number) => Record<string, string>,
-  concurrency: number = 3,
+  concurrency?: number,
   onFileProgress?: (fileIndex: number, progress: UploadProgress) => void,
   onFileComplete?: (fileIndex: number, response: UploadResponse) => void,
   onFileError?: (fileIndex: number, error: Error) => void
@@ -136,11 +158,14 @@ export async function uploadMultipleWithProgress(
   const results: UploadResponse[] = [];
   const errors: Error[] = [];
   
-  console.log(`🔥 [BATCH-UPLOAD] ${files.length}개 파일 병렬 업로드 시작 (동시: ${concurrency}개)`);
+  // 동적 동시성 계산
+  const optimalConcurrency = concurrency || getOptimalConcurrency();
+  
+  console.log(`🔥 [BATCH-UPLOAD] ${files.length}개 파일 병렬 업로드 시작 (동시: ${optimalConcurrency}개)`);
   
   // 병렬 처리를 위한 청크 단위 처리
-  for (let i = 0; i < files.length; i += concurrency) {
-    const chunk = files.slice(i, i + concurrency);
+  for (let i = 0; i < files.length; i += optimalConcurrency) {
+    const chunk = files.slice(i, i + optimalConcurrency);
     const chunkPromises = chunk.map(async (file, chunkIndex) => {
       const globalIndex = i + chunkIndex;
       
