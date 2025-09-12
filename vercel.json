@@ -21,8 +21,8 @@
     "app/api/generate-report/route.ts": {
       "maxDuration": 60
     },
-    "api/_edge/image-optimizer.ts": {
-      "runtime": "@vercel/edge"
+    "app/api/edge/route.ts": {
+      "runtime": "edge"
     }
   },
   "headers": [
@@ -99,7 +99,7 @@
     },
     {
       "source": "/img/:path*",
-      "destination": "/api/_edge/image-optimizer?url=:path*"
+      "destination": "/api/edge?url=:path*"
     }
   ],
   "cleanUrls": true,
