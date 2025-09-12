@@ -146,7 +146,7 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
     }, 10); // 10ms 후 시작으로 UI 렌더링 완료 후 처리
     
     return newPhotos.map(p => p.id);
-  }, [generateId, createPreview, updatePhoto, processQueue]);
+  }, [generateId, createPreview]);
 
   // 큐 처리 (병렬 업로드)
   const processQueue = useCallback(async (
