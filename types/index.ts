@@ -110,6 +110,9 @@ export interface UploadedFiles {
 
 export type SystemType = 'completion' | 'presurvey';
 
+// 새로운 사진 단계별 구분 타입 (3단계 확장)
+export type SystemPhase = 'presurvey' | 'postinstall' | 'aftersales';
+
 export interface SystemConfig {
   sheetName: string;
   folderId: string;

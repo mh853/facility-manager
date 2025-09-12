@@ -6,13 +6,14 @@
 
 import React, { useState, useCallback, useEffect, useRef, forwardRef } from 'react';
 import { Camera, Upload, Factory, Shield, Building2, AlertCircle, Eye, Download, Trash2, RefreshCw, X, Zap, Router, Cpu, Plus, Grid, List, ChevronLeft, ChevronRight, Archive } from 'lucide-react';
-import { FacilitiesData, Facility, UploadedFile } from '@/types';
+import { FacilitiesData, Facility, UploadedFile, SystemPhase } from '@/types';
 import { createFacilityPhotoTracker, FacilityPhotoInfo, FacilityPhoto } from '@/utils/facility-photo-tracker';
 import LazyImage from '@/components/ui/LazyImage';
 import { useToast } from '@/contexts/ToastContext';
 import { useFileContext } from '@/contexts/FileContext';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { deletedPhotoIdsAtom, deletePhotoAtom, undeletePhotoAtom, clearDeletedPhotosAtom } from '../stores/photo-atoms';
+import { getPhaseConfig, mapPhaseToSystemType } from '@/lib/system-config';
 import { useOptimisticUpload } from '@/hooks/useOptimisticUpload';
 import UploadQueue from '@/components/ui/UploadQueue';
 import SmartFloatingProgress from '@/components/ui/SmartFloatingProgress';
@@ -20,6 +21,7 @@ import SmartFloatingProgress from '@/components/ui/SmartFloatingProgress';
 interface ImprovedFacilityPhotoSectionProps {
   businessName: string;
   facilities: FacilitiesData | null;
+  currentPhase: SystemPhase;
 }
 
 type ViewMode = 'grid' | 'list';
@@ -115,7 +117,8 @@ const getCategoryDisplayName = (category: string): string => {
 
 export default function ImprovedFacilityPhotoSection({ 
   businessName, 
-  facilities 
+  facilities,
+  currentPhase 
 }: ImprovedFacilityPhotoSectionProps) {
   const toast = useToast();
   const { addFiles } = useFileContext();
@@ -236,7 +239,8 @@ export default function ImprovedFacilityPhotoSection({
     setLoadingFiles(true);
     try {
       const refreshParam = forceRefresh ? '&refresh=true' : '';
-      const response = await fetch(`/api/facility-photos?businessName=${encodeURIComponent(businessName)}${refreshParam}`);
+      const phaseParam = `&phase=${currentPhase}`;
+      const response = await fetch(`/api/facility-photos?businessName=${encodeURIComponent(businessName)}${refreshParam}${phaseParam}`);
       
       if (response.ok) {
         const result = await response.json();
@@ -288,7 +292,7 @@ export default function ImprovedFacilityPhotoSection({
     } finally {
       setLoadingFiles(false);
     }
-  }, [businessName, photoTracker]);
+  }, [businessName, currentPhase, photoTracker]);
 
   useEffect(() => {
     if (businessName && businessName.length > 0) {
@@ -512,7 +516,8 @@ export default function ImprovedFacilityPhotoSection({
       const data: Record<string, string> = {
         businessName,
         category: facilityType === 'basic' ? 'basic' : facilityType,
-        systemType: 'presurvey'
+        systemType: mapPhaseToSystemType(currentPhase),
+        phase: currentPhase
       };
       
       if (facility && facilityType !== 'basic') {

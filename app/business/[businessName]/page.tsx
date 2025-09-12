@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { FacilitiesData, BusinessInfo, SystemType } from '@/types';
+import { FacilitiesData, BusinessInfo, SystemType, SystemPhase } from '@/types';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { ArrowLeft, Factory, Shield, Zap, Router, Camera, FileText, AlertTriangle, Building2, User, Save, ChevronDown, Wifi, WifiOff } from 'lucide-react';
 
@@ -34,6 +34,7 @@ export default function BusinessDetailPage() {
   const router = useRouter();
   const businessName = useMemo(() => decodeURIComponent(params.businessName as string), [params.businessName]);
   const [systemType, setSystemType] = useState<SystemType>('presurvey');
+  const [currentPhase, setCurrentPhase] = useState<SystemPhase>('presurvey');
   const isHydrated = useIsHydrated();
   
   const [facilities, setFacilities] = useState<FacilitiesData | null>(null);
@@ -480,13 +481,15 @@ export default function BusinessDetailPage() {
                   시설 관리 및 보고서 작성
                 </p>
                 
-                {/* System type selection dropdown */}
+                {/* System Phase selection dropdown */}
                 <div className="relative system-type-dropdown">
                   <button
                     onClick={() => setShowSystemTypeDropdown(!showSystemTypeDropdown)}
                     className="bg-gray-700 hover:bg-gray-800 text-white px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs md:text-sm font-medium flex items-center gap-2 transition-colors"
                   >
-                    {systemType === 'presurvey' ? '🔍 설치 전 실사' : '📸 설치 후 사진'}
+                    {currentPhase === 'presurvey' && '🔍 설치 전 실사'}
+                    {currentPhase === 'postinstall' && '📸 설치 후 사진'}
+                    {currentPhase === 'aftersales' && '🔧 AS 사진'}
                     <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${showSystemTypeDropdown ? 'rotate-180' : ''}`} />
                   </button>
                   
@@ -494,25 +497,39 @@ export default function BusinessDetailPage() {
                     <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-10 min-w-[140px] md:min-w-[160px]">
                       <button
                         onClick={() => {
+                          setCurrentPhase('presurvey');
                           setSystemType('presurvey');
                           setShowSystemTypeDropdown(false);
                         }}
                         className={`w-full px-3 py-2 md:px-4 md:py-3 text-left hover:bg-gray-50 transition-colors text-xs md:text-sm ${
-                          systemType === 'presurvey' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                          currentPhase === 'presurvey' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                         }`}
                       >
                         🔍 설치 전 실사
                       </button>
                       <button
                         onClick={() => {
+                          setCurrentPhase('postinstall');
                           setSystemType('completion');
                           setShowSystemTypeDropdown(false);
                         }}
                         className={`w-full px-3 py-2 md:px-4 md:py-3 text-left hover:bg-gray-50 transition-colors text-xs md:text-sm ${
-                          systemType === 'completion' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                          currentPhase === 'postinstall' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                         }`}
                       >
                         📸 설치 후 사진
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCurrentPhase('aftersales');
+                          setSystemType('completion');
+                          setShowSystemTypeDropdown(false);
+                        }}
+                        className={`w-full px-3 py-2 md:px-4 md:py-3 text-left hover:bg-gray-50 transition-colors text-xs md:text-sm ${
+                          currentPhase === 'aftersales' ? 'bg-orange-50 text-orange-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        🔧 AS 사진
                       </button>
                     </div>
                   )}
@@ -572,6 +589,7 @@ export default function BusinessDetailPage() {
               <ImprovedFacilityPhotoSection 
                 businessName={businessName}
                 facilities={facilities}
+                currentPhase={currentPhase}
               />
             )}
 
@@ -599,6 +617,7 @@ export default function BusinessDetailPage() {
                 <ImprovedFacilityPhotoSection 
                   businessName={businessName}
                   facilities={facilities}
+                  currentPhase={currentPhase}
                 />
 
 
@@ -685,6 +704,7 @@ export default function BusinessDetailPage() {
             <ImprovedFacilityPhotoSection 
               businessName={businessName}
               facilities={facilities}
+              currentPhase={currentPhase}
             />
 
                 {/* 8. 특이사항 - Special Notes */}

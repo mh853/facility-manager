@@ -118,7 +118,8 @@ function generateFacilityPath(
   filename: string,
   facilityNumber?: number,
   outletNumber?: number,
-  category?: string
+  category?: string,
+  phase?: string
 ): string {
   // 해시 기반 사업장 ID 생성
   const businessId = generateBusinessId(businessName);
@@ -130,15 +131,16 @@ function generateFacilityPath(
   });
 
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+  const phasePrefix = phase || 'presurvey'; // phase가 없으면 기본값으로 presurvey
   
   let folderPath: string;
   
   if (facilityType === 'basic') {
-    folderPath = `${businessId}/basic/${category || 'others'}`;
+    folderPath = `${businessId}/${phasePrefix}/basic/${category || 'others'}`;
   } else {
     const outletFolder = outletNumber ? `outlet_${outletNumber}` : 'outlet_1';
     const facilityFolder = `${facilityType}_${facilityNumber || 1}`;
-    folderPath = `${businessId}/${facilityType}/${outletFolder}/${facilityFolder}`;
+    folderPath = `${businessId}/${phasePrefix}/${facilityType}/${outletFolder}/${facilityFolder}`;
   }
 
   const finalPath = `${folderPath}/${timestamp}_${filename}`;
@@ -146,6 +148,7 @@ function generateFacilityPath(
   console.log('🛣️ [HASH-PATH] 최종 경로 생성:', {
     사업장ID: businessId,
     시설유형: facilityType,
+    단계: phasePrefix,
     최종경로: finalPath
   });
   
@@ -166,6 +169,7 @@ export async function POST(request: NextRequest) {
     const facilityNumber = formData.get('facilityNumber') ? parseInt(formData.get('facilityNumber') as string) : undefined;
     const outletNumber = formData.get('outletNumber') ? parseInt(formData.get('outletNumber') as string) : undefined;
     const category = formData.get('category') as string;
+    const phase = formData.get('phase') as string || 'presurvey'; // 새로운 phase 파라미터
     
     const files = formData.getAll('files') as File[];
 
@@ -173,6 +177,7 @@ export async function POST(request: NextRequest) {
       businessName,
       facilityType,
       facilityNumber,
+      phase,
       outletNumber,
       category,
       fileCount: files.length
@@ -304,7 +309,8 @@ export async function POST(request: NextRequest) {
           structuredFilename,
           facilityNumber,
           outletNumber,
-          category
+          category,
+          phase
         );
 
         // Supabase Storage 업로드
@@ -435,6 +441,7 @@ export async function GET(request: NextRequest) {
     const facilityNumber = searchParams.get('facilityNumber') ? parseInt(searchParams.get('facilityNumber')!) : undefined;
     const outletNumber = searchParams.get('outletNumber') ? parseInt(searchParams.get('outletNumber')!) : undefined;
     const category = searchParams.get('category');
+    const phase = searchParams.get('phase') || 'presurvey'; // 새로운 phase 파라미터
 
     if (!businessName) {
       return NextResponse.json({
@@ -448,6 +455,7 @@ export async function GET(request: NextRequest) {
       businessName,
       facilityType,
       facilityNumber,
+      phase,
       outletNumber,
       category
     });
@@ -472,6 +480,10 @@ export async function GET(request: NextRequest) {
       .from('uploaded_files')
       .select('*')
       .eq('business_id', business.id);
+
+    // Phase 필터링 추가 (phase에 따른 스토리지 경로 필터링)
+    const phasePrefix = phase === 'aftersales' ? 'aftersales' : (phase === 'postinstall' ? 'postinstall' : 'presurvey');
+    query = query.like('file_path', `%/${phasePrefix}/%`);
 
     // 필터 적용
     if (facilityType) {
