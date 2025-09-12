@@ -10,6 +10,7 @@ import { FacilitiesData, Facility, UploadedFile } from '@/types';
 import { createFacilityPhotoTracker, FacilityPhotoInfo, FacilityPhoto } from '@/utils/facility-photo-tracker';
 import LazyImage from '@/components/ui/LazyImage';
 import { useToast } from '@/contexts/ToastContext';
+import { useFileContext } from '@/contexts/FileContext';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { deletedPhotoIdsAtom, deletePhotoAtom, undeletePhotoAtom, clearDeletedPhotosAtom } from '../stores/photo-atoms';
 
@@ -114,6 +115,7 @@ export default function ImprovedFacilityPhotoSection({
   facilities 
 }: ImprovedFacilityPhotoSectionProps) {
   const toast = useToast();
+  const { addFiles } = useFileContext();
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   
@@ -578,8 +580,10 @@ export default function ImprovedFacilityPhotoSection({
         body: formData
       });
 
+      let result: any;
+      
       if (response.ok) {
-        const result = await response.json();
+        result = await response.json();
         
         console.log(`📥 [BATCH-UPLOAD-RESPONSE] 서버 응답:`, result);
         
