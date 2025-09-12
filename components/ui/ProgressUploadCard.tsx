@@ -2,7 +2,7 @@
 // 진행률을 표시하는 업로드 카드 컴포넌트
 
 import React from 'react';
-import { X, RefreshCw, CheckCircle, AlertCircle, Upload, Pause, Play } from 'lucide-react';
+import { X, RefreshCw, CheckCircle, AlertCircle, Upload, Pause, Play, Copy } from 'lucide-react';
 import { OptimisticPhoto } from '@/hooks/useOptimisticUpload';
 import { formatFileSize } from '@/utils/upload-with-progress';
 
@@ -11,6 +11,7 @@ interface ProgressUploadCardProps {
   onCancel?: (id: string) => void;
   onRetry?: (id: string) => void;
   onRemove?: (id: string) => void;
+  onForceUpload?: (id: string) => void;
   showPreview?: boolean;
   compact?: boolean;
 }
@@ -20,6 +21,7 @@ export default function ProgressUploadCard({
   onCancel,
   onRetry,
   onRemove,
+  onForceUpload,
   showPreview = true,
   compact = false
 }: ProgressUploadCardProps) {
@@ -35,6 +37,8 @@ export default function ProgressUploadCard({
         return <AlertCircle className="w-4 h-4 text-red-500" />;
       case 'cancelled':
         return <Pause className="w-4 h-4 text-gray-500" />;
+      case 'duplicate':
+        return <Copy className="w-4 h-4 text-orange-500" />;
       default:
         return <Upload className="w-4 h-4 text-gray-400" />;
     }
@@ -47,6 +51,7 @@ export default function ProgressUploadCard({
       case 'uploaded': return 'border-green-200 bg-green-50';
       case 'error': return 'border-red-200 bg-red-50';
       case 'cancelled': return 'border-gray-200 bg-gray-50';
+      case 'duplicate': return 'border-orange-200 bg-orange-50';
       default: return 'border-gray-200 bg-white';
     }
   };
@@ -67,6 +72,7 @@ export default function ProgressUploadCard({
       case 'uploaded': return '업로드 완료';
       case 'error': return photo.error || '업로드 실패';
       case 'cancelled': return '취소됨';
+      case 'duplicate': return '중복 파일 감지됨';
       default: return '대기 중';
     }
   };
@@ -127,8 +133,18 @@ export default function ProgressUploadCard({
               <RefreshCw className="w-3 h-3" />
             </button>
           )}
+          
+          {photo.status === 'duplicate' && onForceUpload && (
+            <button
+              onClick={() => onForceUpload(photo.id)}
+              className="p-1 text-gray-400 hover:text-green-500 transition-colors"
+              title="강제 업로드"
+            >
+              <Upload className="w-3 h-3" />
+            </button>
+          )}
 
-          {(photo.status === 'uploaded' || photo.status === 'error' || photo.status === 'cancelled') && onRemove && (
+          {(photo.status === 'uploaded' || photo.status === 'error' || photo.status === 'cancelled' || photo.status === 'duplicate') && onRemove && (
             <button
               onClick={() => onRemove(photo.id)}
               className="p-1 text-gray-400 hover:text-red-500 transition-colors"
@@ -208,6 +224,17 @@ export default function ProgressUploadCard({
               {photo.error}
             </div>
           )}
+          
+          {/* 중복 파일 정보 */}
+          {photo.status === 'duplicate' && photo.duplicateInfo && (
+            <div className="text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded p-2 mb-3">
+              <div className="font-medium">동일한 파일이 이미 존재합니다</div>
+              <div className="mt-1">
+                기존 파일: {photo.duplicateInfo.existingFile}<br/>
+                업로드 날짜: {new Date(photo.duplicateInfo.uploadDate).toLocaleString()}
+              </div>
+            </div>
+          )}
 
           {/* 액션 버튼 */}
           <div className="flex space-x-2">
@@ -231,7 +258,17 @@ export default function ProgressUploadCard({
               </button>
             )}
 
-            {(photo.status === 'uploaded' || photo.status === 'error' || photo.status === 'cancelled') && onRemove && (
+            {photo.status === 'duplicate' && onForceUpload && (
+              <button
+                onClick={() => onForceUpload(photo.id)}
+                className="flex items-center space-x-1 px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+              >
+                <Upload className="w-3 h-3" />
+                <span>강제 업로드</span>
+              </button>
+            )}
+
+            {(photo.status === 'uploaded' || photo.status === 'error' || photo.status === 'cancelled' || photo.status === 'duplicate') && onRemove && (
               <button
                 onClick={() => onRemove(photo.id)}
                 className="flex items-center space-x-1 px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"

@@ -13,6 +13,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { useFileContext } from '@/contexts/FileContext';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { deletedPhotoIdsAtom, deletePhotoAtom, undeletePhotoAtom, clearDeletedPhotosAtom } from '../stores/photo-atoms';
+import { useOptimisticUpload } from '@/hooks/useOptimisticUpload';
+import UploadQueue from '@/components/ui/UploadQueue';
 
 interface ImprovedFacilityPhotoSectionProps {
   businessName: string;
@@ -118,6 +120,24 @@ export default function ImprovedFacilityPhotoSection({
   const { addFiles } = useFileContext();
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+  
+  // Progressive Upload 시스템 초기화
+  const {
+    photos: optimisticPhotos,
+    queueStats,
+    isProcessing,
+    addFiles: addOptimisticFiles,
+    retryUpload,
+    cancelUpload,
+    removePhoto,
+    clearCompleted,
+    cancelAll,
+    forceUpload
+  } = useOptimisticUpload({
+    maxConcurrency: 3,
+    maxRetries: 2,
+    autoRetry: false
+  });
   
   // Individual file upload tracking and cancellation
   const [fileUploadStates, setFileUploadStates] = useState<{ 
@@ -474,8 +494,129 @@ export default function ImprovedFacilityPhotoSection({
     );
   };
 
-  // 시설별 파일 업로드
+  // Progressive Upload용 추가 데이터 팩토리
+  const createAdditionalDataFactory = useCallback((
+    facilityType: 'discharge' | 'prevention' | 'basic',
+    facility?: Facility,
+    instanceIndex?: number,
+    category?: string
+  ) => {
+    return (file: File, index: number) => {
+      const data: Record<string, string> = {
+        businessName,
+        category: facilityType === 'basic' ? 'basic' : facilityType,
+        systemType: 'presurvey'
+      };
+      
+      if (facility && facilityType !== 'basic') {
+        data.facilityId = `${facility.number}`;
+        data.facilityType = facilityType;
+        data.facilityNumber = `${facility.number}`;
+      }
+      
+      if (category && facilityType === 'basic') {
+        data.category = category;
+      }
+      
+      return data;
+    };
+  }, [businessName]);
+
+  // Progressive Upload 핸들러들
+  const handleProgressiveFacilityUpload = useCallback(async (
+    files: FileList,
+    facilityType: 'discharge' | 'prevention',
+    facility: Facility,
+    instanceIndex: number = 1
+  ) => {
+    if (!files.length) return;
+
+    console.log(`🚀 [PROGRESSIVE-FACILITY] ${facilityType} 업로드 시작: ${files.length}개 파일`);
+    
+    const fileArray = Array.from(files);
+    const additionalDataFactory = createAdditionalDataFactory(facilityType, facility, instanceIndex);
+    
+    try {
+      // Optimistic UI로 즉시 파일 추가 + 실제 업로드 백그라운드 시작
+      const uploadIds = await addOptimisticFiles(fileArray, additionalDataFactory);
+      
+      // 성공된 파일들을 FileContext에도 추가 (기존 시스템과 호환성)
+      setTimeout(async () => {
+        try {
+          await loadUploadedFiles();
+        } catch (error) {
+          console.warn('파일 목록 새로고침 실패:', error);
+        }
+      }, 1000);
+      
+      toast.success(
+        '업로드 시작', 
+        `${fileArray.length}장의 사진 업로드를 시작했습니다. 진행 상황을 확인하세요.`,
+        { duration: 3000 }
+      );
+      
+      console.log(`✅ [PROGRESSIVE-FACILITY] 업로드 ID: ${uploadIds.join(', ')}`);
+      
+    } catch (error) {
+      console.error('Progressive Upload 실패:', error);
+      toast.error('업로드 시작 실패', error instanceof Error ? error.message : '알 수 없는 오류');
+    }
+  }, [addOptimisticFiles, createAdditionalDataFactory, loadUploadedFiles, toast]);
+
+  // 기본사진용 Progressive Upload
+  const handleProgressiveBasicUpload = useCallback(async (files: FileList, category: string) => {
+    if (!files.length) return;
+
+    console.log(`🚀 [PROGRESSIVE-BASIC] ${category} 업로드 시작: ${files.length}개 파일`);
+    
+    const fileArray = Array.from(files);
+    const additionalDataFactory = createAdditionalDataFactory('basic', undefined, undefined, category);
+    
+    try {
+      const uploadIds = await addOptimisticFiles(fileArray, additionalDataFactory);
+      
+      // 기존 시스템과 호환성을 위한 새로고침
+      setTimeout(async () => {
+        try {
+          await loadUploadedFiles();
+        } catch (error) {
+          console.warn('파일 목록 새로고침 실패:', error);
+        }
+      }, 1000);
+      
+      toast.success(
+        '업로드 시작', 
+        `${fileArray.length}장의 기본사진 업로드를 시작했습니다.`,
+        { duration: 3000 }
+      );
+      
+      console.log(`✅ [PROGRESSIVE-BASIC] 업로드 ID: ${uploadIds.join(', ')}`);
+      
+    } catch (error) {
+      console.error('Progressive Basic Upload 실패:', error);
+      toast.error('업로드 시작 실패', error instanceof Error ? error.message : '알 수 없는 오류');
+    }
+  }, [addOptimisticFiles, createAdditionalDataFactory, loadUploadedFiles, toast]);
+
+  // 기존 업로드 핸들러 (Progressive Upload로 교체)
   const handleFacilityUpload = useCallback(async (
+    files: FileList, 
+    facilityType: 'discharge' | 'prevention',
+    facility: Facility,
+    instanceIndex: number = 1
+  ) => {
+    // Progressive Upload로 리다이렉트
+    return handleProgressiveFacilityUpload(files, facilityType, facility, instanceIndex);
+  }, [handleProgressiveFacilityUpload]);
+
+  // 기존 기본사진 업로드 핸들러도 교체
+  const handleBasicUpload = useCallback(async (files: FileList, category: string) => {
+    // Progressive Upload로 리다이렉트
+    return handleProgressiveBasicUpload(files, category);
+  }, [handleProgressiveBasicUpload]);
+
+  // 원본 업로드 핸들러 (백업용 - 필요시 사용)
+  const handleOriginalFacilityUpload = useCallback(async (
     files: FileList, 
     facilityType: 'discharge' | 'prevention',
     facility: Facility,
@@ -717,110 +858,6 @@ export default function ImprovedFacilityPhotoSection({
     }
   }, [businessName, loadUploadedFiles]);
 
-  // 기본사진 업로드
-  const handleBasicUpload = useCallback(async (files: FileList, category: string) => {
-    if (!files.length) return;
-
-    const uploadKey = `basic-${category}`;
-    
-    setUploading(prev => ({ ...prev, [uploadKey]: true }));
-    setUploadProgress(prev => ({ ...prev, [uploadKey]: 0 }));
-
-    try {
-      const formData = new FormData();
-      
-      Array.from(files).forEach(file => {
-        formData.append('files', file);
-      });
-      
-      formData.append('businessName', businessName);
-      formData.append('facilityType', 'basic');
-      formData.append('category', category);
-
-      const response = await fetch('/api/facility-photos', {
-        method: 'POST',
-        body: formData
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        console.log(`✅ [BASIC-UPLOAD-SUCCESS] ${category} ${result.data?.uploadedPhotos?.length || 0}장 업로드 완료`);
-        
-        // 🚀 즉시 UI 반영: 업로드된 파일들을 즉시 추가
-        if (result.data?.uploadedPhotos && result.data.uploadedPhotos.length > 0) {
-          console.log(`➕ [BASIC-INSTANT-ADD] ${result.data.uploadedPhotos.length}개 기본사진을 즉시 UI에 추가`);
-          addFiles(result.data.uploadedPhotos);
-          
-          // 실시간 성공 알림 (기본사진용)
-          if (typeof window !== 'undefined') {
-            const basicToast = document.createElement('div');
-            basicToast.className = 'basic-upload-toast fixed top-16 left-4 bg-gradient-to-r from-purple-400 to-pink-500 text-white px-4 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-500 scale-100';
-            basicToast.innerHTML = `
-              <div class="flex items-center space-x-3">
-                <div class="animate-pulse">📷</div>
-                <div>
-                  <div class="font-bold text-sm">${getCategoryDisplayName(category)} 업로드!</div>
-                  <div class="text-xs opacity-90">${result.data.uploadedPhotos.length}장 즉시 반영</div>
-                </div>
-              </div>
-            `;
-            document.body.appendChild(basicToast);
-            
-            setTimeout(() => {
-              basicToast.style.transform = 'scale(0) translateX(-20px)';
-              setTimeout(() => basicToast.remove(), 200);
-            }, 2500);
-          }
-        }
-        
-        // ⚡ 성능 최적화: 즉시 UI 업데이트 완료
-        setUploadProgress(prev => ({ ...prev, [uploadKey]: 100 }));
-        
-        // 조건부 폴백 새로고침
-        if (!result.data?.uploadedPhotos || result.data.uploadedPhotos.length === 0) {
-          console.log(`🔄 [BASIC-FALLBACK] uploadedPhotos 없음, 폴백 새로고침`);
-          setTimeout(() => {
-            loadUploadedFiles(true, true).catch(error => {
-              console.warn('기본사진 폴백 새로고침 실패:', error);
-            });
-          }, 100);
-        } else {
-          console.log(`⚡ [BASIC-SKIP-REFRESH] 즉시 반영 완료, 새로고침 생략`);
-        }
-      } else {
-        console.error('❌ [BASIC-UPLOAD-ERROR]', result.message);
-        
-        // 사용자 친화적 에러 메시지와 재시도 버튼
-        toast.error(
-          '업로드 실패', 
-          getUserFriendlyErrorMessage(result.message), 
-          {
-            duration: 0,
-            onRetry: () => handleBasicUpload(files, category)
-          }
-        );
-      }
-
-    } catch (error) {
-      console.error('기본사진 업로드 오류:', error);
-      
-      // 네트워크 오류에 대한 사용자 친화적 메시지
-      toast.error(
-        '연결 오류', 
-        '네트워크 연결을 확인하고 다시 시도해주세요.', 
-        {
-          duration: 0,
-          onRetry: () => handleBasicUpload(files, category)
-        }
-      );
-    } finally {
-      setUploading(prev => ({ ...prev, [uploadKey]: false }));
-      setTimeout(() => {
-        setUploadProgress(prev => ({ ...prev, [uploadKey]: 0 }));
-      }, 2000);
-    }
-  }, [businessName, loadUploadedFiles]);
 
   // 🔧 개선된 사진 삭제 - 즉시 UI 업데이트 + 백그라운드 동기화 + 롤백 처리
   const deletePhoto = useCallback(async (photo: FacilityPhoto) => {
@@ -1111,6 +1148,23 @@ export default function ImprovedFacilityPhotoSection({
     <>
       {/* Global drag overlay */}
       <DragOverlay />
+      
+      {/* Progressive Upload Queue */}
+      {optimisticPhotos.length > 0 && (
+        <div className="mb-6">
+          <UploadQueue
+            photos={optimisticPhotos}
+            stats={queueStats}
+            isProcessing={isProcessing}
+            onCancel={cancelUpload}
+            onRetry={(id) => retryUpload(id)}
+            onRemove={removePhoto}
+            onForceUpload={(id) => forceUpload(id, createAdditionalDataFactory('basic'))}
+            onClearCompleted={clearCompleted}
+            onCancelAll={cancelAll}
+          />
+        </div>
+      )}
       
       <div className="bg-white/95 backdrop-blur-sm rounded-xl p-6 shadow-xl border-2 border-gray-200/80">
         {/* File upload status tracker */}

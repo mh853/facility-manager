@@ -13,6 +13,7 @@ interface UploadQueueProps {
   onCancel?: (id: string) => void;
   onRetry?: (id: string) => void;
   onRemove?: (id: string) => void;
+  onForceUpload?: (id: string) => void;
   onClearCompleted?: () => void;
   onCancelAll?: () => void;
   className?: string;
@@ -25,6 +26,7 @@ export default function UploadQueue({
   onCancel,
   onRetry,
   onRemove,
+  onForceUpload,
   onClearCompleted,
   onCancelAll,
   className = ''
@@ -184,6 +186,7 @@ export default function UploadQueue({
                     onCancel={onCancel}
                     onRetry={onRetry}
                     onRemove={onRemove}
+                    onForceUpload={onForceUpload}
                     compact={true}
                     showPreview={false}
                   />
@@ -221,6 +224,7 @@ export default function UploadQueue({
                       key={photo.id}
                       photo={photo}
                       onRemove={onRemove}
+                      onForceUpload={onForceUpload}
                       compact={true}
                       showPreview={false}
                     />

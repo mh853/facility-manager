@@ -6,7 +6,7 @@ import { uploadWithProgress, uploadMultipleWithProgress, createImagePreview, Upl
 
 export interface OptimisticPhoto {
   id: string; // temp-${timestamp}-${random}
-  status: 'preparing' | 'uploading' | 'uploaded' | 'error' | 'cancelled';
+  status: 'preparing' | 'uploading' | 'uploaded' | 'error' | 'cancelled' | 'duplicate';
   progress: number; // 0-100
   file: File;
   localPreview?: string; // data URL or blob URL
@@ -16,6 +16,11 @@ export interface OptimisticPhoto {
   startTime: number;
   endTime?: number;
   abortController?: AbortController;
+  duplicateInfo?: {
+    existingFile: string;
+    uploadDate: string;
+    hash: string;
+  };
 }
 
 export interface UploadQueueStats {
@@ -25,6 +30,7 @@ export interface UploadQueueStats {
   pending: number;
   failed: number;
   cancelled: number;
+  duplicates: number;
 }
 
 interface UseOptimisticUploadOptions {
@@ -58,8 +64,9 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
     const pending = photos.filter(p => p.status === 'preparing').length;
     const failed = photos.filter(p => p.status === 'error').length;
     const cancelled = photos.filter(p => p.status === 'cancelled').length;
+    const duplicates = photos.filter(p => p.status === 'duplicate').length;
 
-    return { total, completed, uploading, pending, failed, cancelled };
+    return { total, completed, uploading, pending, failed, cancelled, duplicates };
   }, [photos]);
 
   // 사진 미리보기 생성
@@ -172,14 +179,46 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
       } catch (error) {
         const uploadError = error instanceof Error ? error : new Error(String(error));
         
-        // 에러 상태 업데이트
-        updatePhoto(photo.id, {
-          status: 'error',
-          error: uploadError.message,
-          endTime: Date.now()
-        });
+        // 응답 파싱하여 중복 파일 확인
+        let isDuplicate = false;
+        let duplicateInfo = null;
         
-        console.error(`❌ [UPLOAD-ERROR] ${photo.file.name}:`, uploadError.message);
+        try {
+          if (uploadError.message.includes('동일한 파일이')) {
+            const response = await fetch('/api/upload-supabase', {
+              method: 'POST', 
+              body: new FormData() // 임시로 빈 폼데이터
+            });
+            const result = await response.json();
+            if (result.isDuplicate) {
+              isDuplicate = true;
+              duplicateInfo = result.duplicateInfo;
+            }
+          }
+        } catch (parseError) {
+          // 파싱 실패 시 일반 에러로 처리
+        }
+        
+        if (isDuplicate) {
+          // 중복 파일 상태 업데이트
+          updatePhoto(photo.id, {
+            status: 'duplicate',
+            error: undefined,
+            duplicateInfo,
+            endTime: Date.now()
+          });
+          
+          console.log(`🔄 [DUPLICATE] ${photo.file.name} 중복 파일 감지`);
+        } else {
+          // 일반 에러 상태 업데이트
+          updatePhoto(photo.id, {
+            status: 'error',
+            error: uploadError.message,
+            endTime: Date.now()
+          });
+          
+          console.error(`❌ [UPLOAD-ERROR] ${photo.file.name}:`, uploadError.message);
+        }
         
         // 자동 재시도 로직
         if (autoRetry && photo.retryCount < maxRetries) {
@@ -268,6 +307,55 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
     setIsProcessing(false);
   }, [photos]);
 
+  // 강제 업로드 (중복 파일을 무시하고 업로드)
+  const forceUpload = useCallback(async (id: string, additionalDataFactory: (file: File, index: number) => Record<string, string>) => {
+    const photo = photos.find(p => p.id === id);
+    if (!photo || photo.status !== 'duplicate') return;
+    
+    console.log(`🚀 [FORCE-UPLOAD] ${photo.file.name} 강제 업로드 시작`);
+    
+    updatePhoto(id, {
+      status: 'uploading',
+      progress: 0,
+      error: undefined,
+      duplicateInfo: undefined,
+      abortController: new AbortController()
+    });
+    
+    try {
+      const response = await uploadWithProgress(
+        photo.file,
+        { ...additionalDataFactory(photo.file, 0), forceUpload: 'true' },
+        {
+          onProgress: (progress) => {
+            updatePhoto(id, { progress: progress.percent });
+          },
+          signal: photo.abortController?.signal
+        }
+      );
+      
+      // 성공 시 상태 업데이트
+      updatePhoto(id, {
+        status: 'uploaded',
+        progress: 100,
+        uploadedData: response,
+        endTime: Date.now()
+      });
+      
+      console.log(`✅ [FORCE-UPLOAD-SUCCESS] ${photo.file.name} 강제 업로드 완료`);
+    } catch (error) {
+      const uploadError = error instanceof Error ? error : new Error(String(error));
+      
+      updatePhoto(id, {
+        status: 'error',
+        error: uploadError.message,
+        endTime: Date.now()
+      });
+      
+      console.error(`❌ [FORCE-UPLOAD-ERROR] ${photo.file.name}:`, uploadError.message);
+    }
+  }, [photos, updatePhoto]);
+
   // 즉시 삭제 (UI에서 제거)
   const removePhoto = useCallback((id: string) => {
     const photo = photos.find(p => p.id === id);
@@ -299,6 +387,7 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
     cancelUpload,
     removePhoto,
     clearCompleted,
-    cancelAll
+    cancelAll,
+    forceUpload
   };
 }

@@ -12,6 +12,12 @@ export interface UploadResponse {
   message?: string;
   uploadedFiles?: any[];
   error?: string;
+  isDuplicate?: boolean;
+  duplicateInfo?: {
+    existingFile: string;
+    uploadDate: string;
+    hash: string;
+  };
 }
 
 export interface UploadOptions {

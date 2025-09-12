@@ -460,15 +460,24 @@ export async function POST(request: NextRequest) {
     // 3. 중복 파일 검사
     const { data: existing } = await supabaseAdmin
       .from('uploaded_files')
-      .select('id, filename')
+      .select('id, filename, created_at')
       .eq('business_id', businessId)
       .eq('file_hash', hash)
       .single();
 
-    if (existing) {
+    // 중복 파일 처리 개선: 강제 업로드 옵션 제공
+    const forceUpload = formData.get('forceUpload') === 'true';
+    
+    if (existing && !forceUpload) {
       return NextResponse.json({
         success: false,
-        message: `파일이 중복입니다. 이미 업로드된 파일: ${existing.filename}`,
+        isDuplicate: true,
+        message: `동일한 파일이 이미 존재합니다. 그래도 업로드하시겠습니까?`,
+        duplicateInfo: {
+          existingFile: existing.filename,
+          uploadDate: existing.created_at,
+          hash: hash.substring(0, 12) + '...'
+        },
         duplicateFiles: [{
           name: file.name,
           hash: hash.substring(0, 12) + '...',
