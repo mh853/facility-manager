@@ -30,6 +30,17 @@ export function FileProvider({ children }: FileProviderProps) {
   const [systemType, setSystemTypeState] = useState('presurvey');
   const loadingRef = useRef(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  
+  // 모바일 최적화: 네트워크 상태 감지
+  const [networkState, setNetworkState] = useState<{
+    online: boolean;
+    effectiveType: string;
+    downlink: number;
+  }>({
+    online: true,
+    effectiveType: '4g',
+    downlink: 10
+  });
 
   // 파일 목록 새로고침 (스마트 머지 방식)
   const refreshFiles = useCallback(async () => {
@@ -160,30 +171,37 @@ export function FileProvider({ children }: FileProviderProps) {
     });
   }, []);
 
-  // Realtime 구독 설정
+  // 개선된 Realtime 구독 설정
   const setupRealtimeSubscription = useCallback(async () => {
-    if (!businessName) return;
+    if (!businessName) {
+      throw new Error('사업장명이 필요합니다');
+    }
 
     // 기존 구독 해제
     if (channelRef.current) {
-      channelRef.current.unsubscribe();
+      await channelRef.current.unsubscribe();
+      channelRef.current = null;
     }
 
     console.log(`🔥 [REALTIME] 구독 시작: ${businessName}`);
 
     try {
-      // 사업장 ID 조회 (Admin 클라이언트 사용)
-      const response = await fetch('/api/business-id', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessName })
-      });
+      // 사업장 ID 조회 (타임아웃 설정)
+      const response = await Promise.race([
+        fetch('/api/business-id', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ businessName })
+        }),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('API 타임아웃')), 5000)
+        )
+      ]);
       
       const result = await response.json();
       
       if (!result.success || !result.businessId) {
-        console.warn(`🔥 [REALTIME] 사업장 ID 조회 실패: ${businessName}`);
-        return;
+        throw new Error(`사업장 ID 조회 실패: ${result.message || 'Unknown error'}`);
       }
 
       const businessId = result.businessId;
@@ -201,69 +219,103 @@ export function FileProvider({ children }: FileProviderProps) {
             filter: `business_id=eq.${businessId}`
           },
         (payload) => {
-          console.log('🔥 [REALTIME] 변경 감지:', payload);
+          console.log('🔥 [REALTIME] 변경 감지:', payload.eventType, payload);
           
           if (payload.eventType === 'INSERT') {
-            // 새 파일 추가
+            // 새 파일 추가 - 강화된 처리
             const newFile = payload.new as any;
-            console.log(`➕ [REALTIME] INSERT 이벤트:`, newFile);
-            
-            // businessId는 이미 필터링되어 있으므로 조건 체크 불필요
-            // 시설별 폴더 구조에 맞는 파일 정보 변환
-            const pathParts = newFile.file_path.split('/');
-            let folderName = '기본사진';
-            let facilitySpecificPath = '';
-            
-            // 새로운 시설별 구조 인식
-            if (pathParts.length > 2) {
-              const folderType = pathParts[1]; // discharge, prevention, basic
-              const facilityFolder = pathParts[2]; // outlet_1_prev_facility1 등
-              
-              if (folderType === 'discharge') folderName = '배출시설';
-              else if (folderType === 'prevention') folderName = '방지시설';
-              else folderName = '기본사진';
-              
-              facilitySpecificPath = `${folderType}/${facilityFolder}`;
-            } else {
-              // 기존 구조 호환
-              if (newFile.file_path.includes('/discharge/')) folderName = '배출시설';
-              else if (newFile.file_path.includes('/prevention/')) folderName = '방지시설';
-              else folderName = '기본사진';
-            }
-
-            const formattedFile: UploadedFile = {
+            console.log(`➕ [REALTIME] INSERT 이벤트:`, {
               id: newFile.id,
-              name: newFile.filename,
-              originalName: newFile.original_filename,
-              mimeType: newFile.mime_type,
-              size: newFile.file_size,
-              createdTime: newFile.created_at,
-              webViewLink: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
-              downloadUrl: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
-              thumbnailUrl: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
-              folderName,
-              uploadStatus: newFile.upload_status,
-              facilityInfo: newFile.facility_info,
-              filePath: newFile.file_path // 시설별 경로 추가
-            };
-
-            setUploadedFiles(prev => {
-              // 중복 방지
-              if (prev.some(f => f.id === formattedFile.id)) {
-                console.log(`➕ [REALTIME] 중복 파일 무시: ${formattedFile.originalName}`);
-                return prev;
-              }
-              console.log(`➕ [REALTIME] 새 파일 추가: ${formattedFile.originalName}`);
-              return [...prev, formattedFile];
+              filename: newFile.original_filename,
+              path: newFile.file_path,
+              timestamp: new Date().toISOString()
             });
+            
+            try {
+              // 파일 정보 검증
+              if (!newFile.id || !newFile.file_path || !newFile.original_filename) {
+                console.warn('⚠️ [REALTIME] 불완전한 파일 데이터:', newFile);
+                return;
+              }
+              
+              // 시설별 폴더 구조 파싱
+              const pathParts = newFile.file_path.split('/');
+              let folderName = '기본사진';
+              
+              if (pathParts.length > 2) {
+                const folderType = pathParts[1];
+                if (folderType === 'discharge') folderName = '배출시설';
+                else if (folderType === 'prevention') folderName = '방지시설';
+                else folderName = '기본사진';
+              } else {
+                if (newFile.file_path.includes('/discharge/')) folderName = '배출시설';
+                else if (newFile.file_path.includes('/prevention/')) folderName = '방지시설';
+              }
 
-            // 토스트 알림
-            if (typeof window !== 'undefined') {
-              const toast = document.createElement('div');
-              toast.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
-              toast.textContent = `📁 새 파일이 업로드되었습니다: ${formattedFile.originalName}`;
-              document.body.appendChild(toast);
-              setTimeout(() => toast.remove(), 3000);
+              const formattedFile: UploadedFile = {
+                id: newFile.id,
+                name: newFile.filename || newFile.original_filename,
+                originalName: newFile.original_filename,
+                mimeType: newFile.mime_type || 'image/webp',
+                size: newFile.file_size || 0,
+                createdTime: newFile.created_at,
+                webViewLink: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
+                downloadUrl: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
+                thumbnailUrl: supabase.storage.from('facility-files').getPublicUrl(newFile.file_path).data.publicUrl,
+                folderName,
+                uploadStatus: newFile.upload_status || 'uploaded',
+                facilityInfo: newFile.facility_info || '',
+                filePath: newFile.file_path
+              };
+
+              // 중복 체크 및 추가
+              setUploadedFiles(prev => {
+                const existingIndex = prev.findIndex(f => f.id === formattedFile.id);
+                if (existingIndex !== -1) {
+                  console.log(`🔄 [REALTIME] 파일 업데이트: ${formattedFile.originalName}`);
+                  // 기존 파일 업데이트
+                  const updated = [...prev];
+                  updated[existingIndex] = formattedFile;
+                  return updated;
+                } else {
+                  console.log(`➕ [REALTIME] 새 파일 추가: ${formattedFile.originalName}`);
+                  return [...prev, formattedFile];
+                }
+              });
+
+              // 향상된 실시간 알림 (모바일 친화적)
+              if (typeof window !== 'undefined') {
+                // 기존 토스트 제거
+                const existingToasts = document.querySelectorAll('.realtime-toast');
+                existingToasts.forEach(toast => toast.remove());
+                
+                const toast = document.createElement('div');
+                toast.className = 'realtime-toast fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-0';
+                toast.innerHTML = `
+                  <div class="flex items-center space-x-2">
+                    <span>🎉</span>
+                    <div>
+                      <div class="font-medium">업로드 완료!</div>
+                      <div class="text-sm opacity-90">${formattedFile.originalName}</div>
+                    </div>
+                  </div>
+                `;
+                document.body.appendChild(toast);
+                
+                // 애니메이션 효과
+                setTimeout(() => {
+                  toast.style.transform = 'translateX(100%)';
+                  setTimeout(() => toast.remove(), 300);
+                }, 3000);
+                
+                // 모바일에서 햅틱 피드백 (지원되는 경우)
+                if (navigator.vibrate) {
+                  navigator.vibrate([100, 50, 100]);
+                }
+              }
+              
+            } catch (error) {
+              console.error('❌ [REALTIME] INSERT 처리 실패:', error, newFile);
             }
           } 
           else if (payload.eventType === 'DELETE') {
@@ -315,25 +367,40 @@ export function FileProvider({ children }: FileProviderProps) {
         }
       )
       .subscribe((status, err) => {
-        console.log(`🔥 [REALTIME] 구독 상태: ${status}`);
+        console.log(`🔥 [REALTIME] 구독 상태 변경: ${status}`, { businessId, timestamp: new Date().toISOString() });
+        
         if (err) {
           console.error(`🔥 [REALTIME] 구독 에러:`, err);
         }
         
-        // 구독 상태별 로그
+        // 향상된 구독 상태별 처리
         switch (status) {
           case 'SUBSCRIBED':
-            console.log(`✅ [REALTIME] 성공적으로 구독됨: uploaded_files_${businessId}`);
+            console.log(`✅ [REALTIME] 실시간 구독 성공! 채널: files_${businessName.replace(/\s+/g, '_')}`);
+            // 연결 성공 시 기본 토스트 (개발 모드에서만)
+            if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+              const devToast = document.createElement('div');
+              devToast.className = 'fixed bottom-4 left-4 bg-blue-600 text-white px-3 py-1 rounded text-sm z-50';
+              devToast.textContent = '🔥 실시간 동기화 활성화됨';
+              document.body.appendChild(devToast);
+              setTimeout(() => devToast.remove(), 2000);
+            }
             break;
+            
           case 'CHANNEL_ERROR':
-            console.error(`❌ [REALTIME] 채널 에러: uploaded_files_${businessId}`);
-            break;
+            console.error(`❌ [REALTIME] 채널 에러 - 폴링 모드로 전환됩니다`);
+            throw new Error(`채널 연결 실패: ${businessName}`);
+            
           case 'TIMED_OUT':
-            console.warn(`⏰ [REALTIME] 구독 타임아웃: uploaded_files_${businessId}`);
-            break;
+            console.warn(`⏰ [REALTIME] 구독 타임아웃 - 재시도가 필요할 수 있습니다`);
+            throw new Error(`구독 타임아웃: ${businessName}`);
+            
           case 'CLOSED':
-            console.log(`🔒 [REALTIME] 연결 종료: uploaded_files_${businessId}`);
+            console.log(`🔒 [REALTIME] 연결 정상 종료: ${businessName}`);
             break;
+            
+          default:
+            console.log(`🔄 [REALTIME] 알 수 없는 상태: ${status}`);
         }
       });
 
@@ -345,37 +412,136 @@ export function FileProvider({ children }: FileProviderProps) {
   }, [businessName]);
 
   // 사업장 정보 설정
+  // 네트워크 상태 모니터링
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const updateNetworkState = () => {
+      const connection = (navigator as any).connection;
+      setNetworkState({
+        online: navigator.onLine,
+        effectiveType: connection?.effectiveType || '4g',
+        downlink: connection?.downlink || 10
+      });
+    };
+    
+    // 초기 상태 설정
+    updateNetworkState();
+    
+    // 이벤트 리스너 설정
+    window.addEventListener('online', updateNetworkState);
+    window.addEventListener('offline', updateNetworkState);
+    
+    const connection = (navigator as any).connection;
+    if (connection) {
+      connection.addEventListener('change', updateNetworkState);
+    }
+    
+    return () => {
+      window.removeEventListener('online', updateNetworkState);
+      window.removeEventListener('offline', updateNetworkState);
+      if (connection) {
+        connection.removeEventListener('change', updateNetworkState);
+      }
+    };
+  }, []);
+
   const setBusinessInfo = useCallback((name: string, type: string) => {
     setBusinessNameState(name);
     setSystemTypeState(type);
   }, []);
 
-  // 사업장 변경 시 Realtime 구독 재설정 (에러 대비 fallback 추가)
+  // 사업장 변경 시 하이브리드 동기화 설정 (Realtime + 폴링 백업)
   useEffect(() => {
     let pollingInterval: NodeJS.Timeout | null = null;
+    let realtimeConnected = false;
     
     if (businessName) {
-      console.log('🔄 [POLLING] WebSocket 대신 폴링 모드로 직접 시작');
+      console.log('🚀 [HYBRID-SYNC] 실시간 + 폴링 하이브리드 동기화 시작');
       
-      // WebSocket 연결 문제로 인해 바로 폴링 모드 시작
-      pollingInterval = setInterval(async () => {
+      // Phase 1: 실시간 구독 시도
+      const setupRealtime = async () => {
+        try {
+          await setupRealtimeSubscription();
+          realtimeConnected = true;
+          console.log('✅ [HYBRID-SYNC] 실시간 구독 성공');
+          
+          // 실시간 연결 성공 시 폴링 주기를 길게 (백업용, 네트워크 상태 고려)
+          if (pollingInterval) clearInterval(pollingInterval);
+          
+          const getBackupPollingInterval = () => {
+            if (!networkState.online) return 60000; // 오프라인: 1분
+            
+            switch (networkState.effectiveType) {
+              case 'slow-2g':
+              case '2g': return 45000; // 느린 네트워크: 45초
+              case '3g': return 35000; // 3G: 35초
+              case '4g': return 30000; // 4G: 30초 (기본)
+              default: return 30000;
+            }
+          };
+          
+          pollingInterval = setInterval(async () => {
+            try {
+              await refreshFiles();
+              console.log(`🔄 [BACKUP-POLLING] 백업 폴링 실행 (${networkState.effectiveType})`);
+            } catch (error) {
+              console.error('🔄 [BACKUP-POLLING] 백업 폴링 실패:', error);
+            }
+          }, getBackupPollingInterval());
+          
+        } catch (error) {
+          console.warn('⚠️ [HYBRID-SYNC] 실시간 구독 실패, 폴링 모드로 전환:', error);
+          realtimeConnected = false;
+          
+          // 실시간 실패 시 적극적 폴링 (네트워크 상태 적응형)
+          if (pollingInterval) clearInterval(pollingInterval);
+          
+          const getActivePollingInterval = () => {
+            if (!networkState.online) return 10000; // 오프라인: 10초
+            
+            switch (networkState.effectiveType) {
+              case 'slow-2g': return 8000;  // 매우 느림: 8초
+              case '2g': return 6000;       // 2G: 6초
+              case '3g': return 4000;       // 3G: 4초
+              case '4g': return 3000;       // 4G: 3초 (기본)
+              default: return 3000;
+            }
+          };
+          
+          pollingInterval = setInterval(async () => {
+            try {
+              await refreshFiles();
+              console.log(`🔄 [ACTIVE-POLLING] 적극적 폴링 실행 (${networkState.effectiveType})`);
+            } catch (error) {
+              console.error('🔄 [ACTIVE-POLLING] 폴링 실패:', error);
+            }
+          }, getActivePollingInterval());
+        }
+      };
+      
+      // Phase 2: 초기 데이터 로드 후 실시간 설정
+      const initializeSync = async () => {
+        // 즉시 초기 데이터 로드
         try {
           await refreshFiles();
-          console.log('🔄 [POLLING] 정기 파일 목록 업데이트');
+          console.log('📊 [HYBRID-SYNC] 초기 데이터 로드 완료');
         } catch (error) {
-          console.error('🔄 [POLLING] 폴링 실패:', error);
+          console.error('📊 [HYBRID-SYNC] 초기 데이터 로드 실패:', error);
         }
-      }, 5000); // 5초마다 폴링 (깜빡임 방지)
+        
+        // 그 다음 실시간 설정
+        setTimeout(() => {
+          setupRealtime();
+        }, 500);
+      };
       
-      // 초기 로드
-      setTimeout(() => {
-        refreshFiles();
-      }, 100);
+      initializeSync();
       
       return () => {
         if (pollingInterval) {
           clearInterval(pollingInterval);
-          console.log('🔄 [POLLING] 폴링 정리 완료');
+          console.log('🔄 [HYBRID-SYNC] 폴링 정리 완료');
         }
       };
     }

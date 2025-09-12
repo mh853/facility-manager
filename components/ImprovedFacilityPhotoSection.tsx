@@ -584,6 +584,8 @@ export default function ImprovedFacilityPhotoSection({
         console.log(`📥 [BATCH-UPLOAD-RESPONSE] 서버 응답:`, result);
         
         if (result.success) {
+          console.log(`🎯 [INSTANT-UI-UPDATE] 업로드 성공, 즉시 UI 반영 시작`, result);
+          
           // 모든 파일을 성공 상태로 업데이트
           setFileUploadStates(prev => {
             const newStates = { ...prev };
@@ -604,6 +606,40 @@ export default function ImprovedFacilityPhotoSection({
             return newStates;
           });
           
+          // 🚀 핵심 개선: 업로드 성공 시 FileContext에 즉시 파일 추가
+          if (result.uploadedFiles && result.uploadedFiles.length > 0) {
+            console.log(`➕ [INSTANT-ADD] ${result.uploadedFiles.length}개 파일을 즉시 UI에 추가`);
+            addFiles(result.uploadedFiles);
+            
+            // 실시간 성공 알림 (향상된 모바일 지원)
+            if (typeof window !== 'undefined') {
+              const instantToast = document.createElement('div');
+              instantToast.className = 'instant-upload-toast fixed top-16 right-4 bg-gradient-to-r from-green-400 to-blue-500 text-white px-4 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-500 scale-100';
+              instantToast.innerHTML = `
+                <div class="flex items-center space-x-3">
+                  <div class="animate-bounce">🎉</div>
+                  <div>
+                    <div class="font-bold text-sm">실시간 업로드!</div>
+                    <div class="text-xs opacity-90">${result.uploadedFiles.length}장 즉시 반영됨</div>
+                  </div>
+                </div>
+              `;
+              document.body.appendChild(instantToast);
+              
+              setTimeout(() => {
+                instantToast.style.transform = 'scale(0) translateY(-20px)';
+                setTimeout(() => instantToast.remove(), 200);
+              }, 2500);
+              
+              // 모바일 햅틱 피드백
+              if (navigator.vibrate) {
+                navigator.vibrate([100, 100, 200]);
+              }
+            }
+          } else {
+            console.warn(`⚠️ [NO-FILES-RETURNED] 서버에서 uploadedFiles 반환되지 않음, 폴백 새로고침 사용`);
+          }
+          
         } else {
           throw new Error(result.message || '업로드 실패');
         }
@@ -615,11 +651,15 @@ export default function ImprovedFacilityPhotoSection({
       const successCount = files.length;
       console.log(`✅ [UPLOAD-COMPLETE] ${successCount}/${files.length}장 업로드 완료`);
       
-      // 추적기 새로고침 (새 사진 하이라이트 포함) - 약간의 지연 후 새로고침
-      console.log(`🔄 [REFRESH-TRIGGER] 업로드 완료 후 사진 목록 새로고침 시작`);
-      await new Promise(resolve => setTimeout(resolve, 200)); // 서버 업데이트 대기
-      await loadUploadedFiles(true, true);
-      console.log(`✅ [REFRESH-COMPLETE] 사진 목록 새로고침 완료`);
+      // 폴백 새로고침: result.uploadedFiles가 없는 경우에만 실행
+      if (!result.uploadedFiles || result.uploadedFiles.length === 0) {
+        console.log(`🔄 [FALLBACK-REFRESH] uploadedFiles 없음, 폴백 새로고침 실행`);
+        await new Promise(resolve => setTimeout(resolve, 200)); // 서버 업데이트 대기
+        await loadUploadedFiles(true, true);
+        console.log(`✅ [FALLBACK-COMPLETE] 폴백 새로고침 완료`);
+      } else {
+        console.log(`⚡ [SKIP-REFRESH] 즉시 UI 반영 완료, 새로고침 생략`);
+      }
       
       // 업로드 진행률 업데이트
       setUploadProgress(prev => ({ ...prev, [uploadKey]: 100 }));
@@ -703,18 +743,47 @@ export default function ImprovedFacilityPhotoSection({
       if (result.success) {
         console.log(`✅ [BASIC-UPLOAD-SUCCESS] ${category} ${result.data?.uploadedPhotos?.length || 0}장 업로드 완료`);
         
-        // ⚡ 성능 최적화: 즉시 UI 업데이트, 백그라운드 검증
+        // 🚀 즉시 UI 반영: 업로드된 파일들을 즉시 추가
+        if (result.data?.uploadedPhotos && result.data.uploadedPhotos.length > 0) {
+          console.log(`➕ [BASIC-INSTANT-ADD] ${result.data.uploadedPhotos.length}개 기본사진을 즉시 UI에 추가`);
+          addFiles(result.data.uploadedPhotos);
+          
+          // 실시간 성공 알림 (기본사진용)
+          if (typeof window !== 'undefined') {
+            const basicToast = document.createElement('div');
+            basicToast.className = 'basic-upload-toast fixed top-16 left-4 bg-gradient-to-r from-purple-400 to-pink-500 text-white px-4 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-500 scale-100';
+            basicToast.innerHTML = `
+              <div class="flex items-center space-x-3">
+                <div class="animate-pulse">📷</div>
+                <div>
+                  <div class="font-bold text-sm">${getCategoryDisplayName(category)} 업로드!</div>
+                  <div class="text-xs opacity-90">${result.data.uploadedPhotos.length}장 즉시 반영</div>
+                </div>
+              </div>
+            `;
+            document.body.appendChild(basicToast);
+            
+            setTimeout(() => {
+              basicToast.style.transform = 'scale(0) translateX(-20px)';
+              setTimeout(() => basicToast.remove(), 200);
+            }, 2500);
+          }
+        }
+        
+        // ⚡ 성능 최적화: 즉시 UI 업데이트 완료
         setUploadProgress(prev => ({ ...prev, [uploadKey]: 100 }));
         
-        // ✅ 업로드 완료 알림 (즉시 표시)
-        toast.success(`업로드 완료`, `${getCategoryDisplayName(category)} ${result.data?.uploadedPhotos?.length || 0}장의 사진이 업로드되었습니다.`);
-        
-        // 🔄 백그라운드에서 새로고침 (사용자는 기다리지 않음)
-        setTimeout(() => {
-          loadUploadedFiles(true, true).catch(error => {
-            console.warn('백그라운드 새로고침 실패:', error);
-          });
-        }, 100);
+        // 조건부 폴백 새로고침
+        if (!result.data?.uploadedPhotos || result.data.uploadedPhotos.length === 0) {
+          console.log(`🔄 [BASIC-FALLBACK] uploadedPhotos 없음, 폴백 새로고침`);
+          setTimeout(() => {
+            loadUploadedFiles(true, true).catch(error => {
+              console.warn('기본사진 폴백 새로고침 실패:', error);
+            });
+          }, 100);
+        } else {
+          console.log(`⚡ [BASIC-SKIP-REFRESH] 즉시 반영 완료, 새로고침 생략`);
+        }
       } else {
         console.error('❌ [BASIC-UPLOAD-ERROR]', result.message);
         
