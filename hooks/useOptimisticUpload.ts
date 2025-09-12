@@ -174,6 +174,24 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
         });
         
         console.log(`✅ [UPLOAD-SUCCESS] ${photo.file.name} 완료`);
+        
+        // 🚀 즉시 FileContext 업데이트 - 모바일 동기화 지연 해결
+        if (response.files && response.files.length > 0) {
+          try {
+            // window에서 FileContext addFiles 함수에 접근
+            const fileContextEvent = new CustomEvent('progressiveUploadComplete', {
+              detail: {
+                uploadedFiles: response.files,
+                photoId: photo.id
+              }
+            });
+            window.dispatchEvent(fileContextEvent);
+            console.log(`🔄 [INSTANT-SYNC] FileContext 즉시 업데이트 이벤트 발송: ${photo.file.name}`);
+          } catch (error) {
+            console.warn('⚠️ [INSTANT-SYNC] 즉시 동기화 실패:', error);
+          }
+        }
+        
         return { photo, response, error: null };
         
       } catch (error) {

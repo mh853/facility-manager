@@ -414,6 +414,27 @@ export function FileProvider({ children }: FileProviderProps) {
   }, [businessName]);
 
   // 사업장 정보 설정
+  // Progressive Upload 즉시 동기화 이벤트 리스너
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handleProgressiveUploadComplete = (event: CustomEvent) => {
+      const { uploadedFiles, photoId } = event.detail;
+      console.log(`🚀 [INSTANT-SYNC] Progressive Upload 완료 수신:`, { uploadedFiles: uploadedFiles?.length, photoId });
+      
+      if (uploadedFiles && uploadedFiles.length > 0) {
+        addFiles(uploadedFiles);
+        console.log(`✅ [INSTANT-SYNC] ${uploadedFiles.length}개 파일 즉시 FileContext에 추가`);
+      }
+    };
+    
+    window.addEventListener('progressiveUploadComplete', handleProgressiveUploadComplete as EventListener);
+    
+    return () => {
+      window.removeEventListener('progressiveUploadComplete', handleProgressiveUploadComplete as EventListener);
+    };
+  }, [addFiles]);
+
   // 네트워크 상태 모니터링
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -481,15 +502,15 @@ export function FileProvider({ children }: FileProviderProps) {
           const getBackupPollingInterval = () => {
             if (!networkState.online) return 60000; // 오프라인: 1분
             
-            // 모바일 우선 실시간성 강화
+            // 모바일 초적극적 백업 폴링 (실시간 보완)
             if (networkState.isMobile) {
               console.log('📱 [MOBILE-PRIORITY] 모바일 감지 - 초적극적 백업 폴링 모드');
               switch (networkState.effectiveType) {
-                case 'slow-2g': return 8000;  // 느린 2G: 8초
-                case '2g': return 5000;       // 2G: 5초
-                case '3g': return 3000;       // 3G: 3초
-                case '4g': return 2000;       // 4G: 2초 (매우 적극적)
-                default: return 2000;
+                case 'slow-2g': return 5000;  // 느린 2G: 5초
+                case '2g': return 3000;       // 2G: 3초
+                case '3g': return 2000;       // 3G: 2초
+                case '4g': return 1500;       // 4G: 1.5초 (매우 적극적)
+                default: return 1500;        // 기본: 1.5초
               }
             }
             
@@ -522,15 +543,15 @@ export function FileProvider({ children }: FileProviderProps) {
           const getActivePollingInterval = () => {
             if (!networkState.online) return 10000; // 오프라인: 10초
             
-            // 모바일 초적극적 폴링 (실시간 실패 시)
+            // 모바일 초적극적 폴링 (실시간 실패 시 - 더욱 적극적)
             if (networkState.isMobile) {
-              console.log('📱 [MOBILE-PRIORITY] 모바일 감지 - 초적극적 폴링 모드 (실시간 대체)');
+              console.log('📱 [MOBILE-CRITICAL] 모바일 감지 - 실시간 실패로 인한 극적극적 폴링 모드');
               switch (networkState.effectiveType) {
-                case 'slow-2g': return 6000;  // 느린 2G: 6초
-                case '2g': return 4000;       // 2G: 4초
-                case '3g': return 2500;       // 3G: 2.5초
-                case '4g': return 1500;       // 4G: 1.5초 (매우 적극적)
-                default: return 1500;
+                case 'slow-2g': return 4000;  // 느린 2G: 4초
+                case '2g': return 2500;       // 2G: 2.5초
+                case '3g': return 1500;       // 3G: 1.5초
+                case '4g': return 1000;       // 4G: 1초 (극적극적)
+                default: return 1000;        // 기본: 1초
               }
             }
             

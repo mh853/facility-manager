@@ -11,6 +11,7 @@ export interface UploadResponse {
   success: boolean;
   message?: string;
   uploadedFiles?: any[];
+  files?: any[]; // 추가: API 응답에서 files 속성도 지원
   error?: string;
   isDuplicate?: boolean;
   duplicateInfo?: {
