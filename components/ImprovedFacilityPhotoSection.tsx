@@ -17,6 +17,7 @@ import { useOptimisticUpload } from '@/hooks/useOptimisticUpload';
 import UploadQueue from '@/components/ui/UploadQueue';
 import InlineProgressIndicator from '@/components/ui/InlineProgressIndicator';
 import MobileStickyProgress from '@/components/ui/MobileStickyProgress';
+import SmartFloatingProgress from '@/components/ui/SmartFloatingProgress';
 
 interface ImprovedFacilityPhotoSectionProps {
   businessName: string;
@@ -134,7 +135,8 @@ export default function ImprovedFacilityPhotoSection({
     removePhoto,
     clearCompleted,
     cancelAll,
-    forceUpload
+    forceUpload,
+    getSmartProgressData
   } = useOptimisticUpload({
     maxConcurrency: 3,
     maxRetries: 2,
@@ -1155,6 +1157,12 @@ export default function ImprovedFacilityPhotoSection({
     <>
       {/* Global drag overlay */}
       <DragOverlay />
+      
+      {/* Smart Floating Progress - 스마트 호버 진행상황 표시 */}
+      <SmartFloatingProgress
+        {...getSmartProgressData()}
+        autoHideDelay={2000}
+      />
       
       {/* Progressive Upload Queue */}
       {optimisticPhotos.length > 0 && (

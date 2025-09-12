@@ -428,6 +428,23 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
     processingRef.current.delete(id);
   }, [photos]);
 
+  // SmartFloatingProgress를 위한 데이터 제공
+  const getSmartProgressData = useCallback(() => {
+    const stats = getQueueStats();
+    const uploadingPhoto = photos.find(p => p.status === 'uploading');
+    const overallProgress = stats.total > 0 
+      ? Math.round((stats.completed / stats.total) * 100)
+      : 0;
+
+    return {
+      isVisible: isProcessing || stats.total > 0,
+      totalFiles: stats.total,
+      completedFiles: stats.completed,
+      currentFileName: uploadingPhoto?.file.name,
+      overallProgress: overallProgress
+    };
+  }, [photos, isProcessing, getQueueStats]);
+
   return {
     photos,
     queueStats: getQueueStats(),
@@ -438,6 +455,8 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
     removePhoto,
     clearCompleted,
     cancelAll,
-    forceUpload
+    forceUpload,
+    // SmartFloatingProgress를 위한 데이터
+    getSmartProgressData
   };
 }
