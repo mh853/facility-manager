@@ -75,7 +75,10 @@ export default function SimpleProgressDemo({ businessName }: SimpleProgressDemoP
         stats={optimisticUpload.queueStats}
         isProcessing={optimisticUpload.isProcessing}
         onCancel={optimisticUpload.cancelUpload}
-        onRetry={optimisticUpload.retryUpload}
+        onRetry={(id) => optimisticUpload.retryUpload(id, (file) => ({ 
+          category: 'basic',
+          systemType: 'presurvey'
+        }))}
         onRemove={optimisticUpload.removePhoto}
         onClearCompleted={optimisticUpload.clearCompleted}
         onCancelAll={optimisticUpload.cancelAll}
@@ -93,7 +96,10 @@ export default function SimpleProgressDemo({ businessName }: SimpleProgressDemoP
                   key={photo.id}
                   photo={photo}
                   onCancel={optimisticUpload.cancelUpload}
-                  onRetry={optimisticUpload.retryUpload}
+                  onRetry={(id) => optimisticUpload.retryUpload(id, (file) => ({ 
+          category: 'basic',
+          systemType: 'presurvey'
+        }))}
                   onRemove={optimisticUpload.removePhoto}
                   showPreview={true}
                   compact={false}

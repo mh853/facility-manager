@@ -165,20 +165,12 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
           }
         );
         
-        // 성공 시 상태 업데이트
-        updatePhoto(photo.id, {
-          status: 'uploaded',
-          progress: 100,
-          uploadedData: response,
-          endTime: Date.now()
-        });
+        // 🚀 FIX: FileContext 업데이트 성공 후에만 완료 상태 설정
+        let syncSuccess = false;
         
-        console.log(`✅ [UPLOAD-SUCCESS] ${photo.file.name} 완료`);
-        
-        // 🚀 즉시 FileContext 업데이트 - 모바일 동기화 지연 해결
+        // FileContext 즉시 업데이트 시도
         if (response.files && response.files.length > 0) {
           try {
-            // window에서 FileContext addFiles 함수에 접근
             const fileContextEvent = new CustomEvent('progressiveUploadComplete', {
               detail: {
                 uploadedFiles: response.files,
@@ -187,9 +179,46 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
             });
             window.dispatchEvent(fileContextEvent);
             console.log(`🔄 [INSTANT-SYNC] FileContext 즉시 업데이트 이벤트 발송: ${photo.file.name}`);
+            syncSuccess = true;
           } catch (error) {
             console.warn('⚠️ [INSTANT-SYNC] 즉시 동기화 실패:', error);
           }
+        }
+        
+        // 성공 시 상태 업데이트 - FileContext 동기화 성공 여부에 따라
+        updatePhoto(photo.id, {
+          status: syncSuccess ? 'uploaded' : 'error',
+          progress: syncSuccess ? 100 : 95, // 동기화 실패 시 95%로 표시
+          uploadedData: response,
+          endTime: Date.now(),
+          error: syncSuccess ? undefined : '이미지 동기화 대기 중...'
+        });
+        
+        console.log(`${syncSuccess ? '✅' : '⚠️'} [UPLOAD-${syncSuccess ? 'SUCCESS' : 'SYNC-PENDING'}] ${photo.file.name} ${syncSuccess ? '완료' : '동기화 대기'}`);
+        
+        // 동기화 실패 시 재시도 메커니즘 (3초 후)
+        if (!syncSuccess && response.files && response.files.length > 0) {
+          setTimeout(() => {
+            try {
+              const retryEvent = new CustomEvent('progressiveUploadComplete', {
+                detail: {
+                  uploadedFiles: response.files,
+                  photoId: photo.id
+                }
+              });
+              window.dispatchEvent(retryEvent);
+              
+              // 재시도 성공으로 간주하고 완료 상태로 변경
+              updatePhoto(photo.id, {
+                status: 'uploaded',
+                progress: 100,
+                error: undefined
+              });
+              console.log(`✅ [SYNC-RETRY-SUCCESS] ${photo.file.name} 재시도 동기화 완료`);
+            } catch (retryError) {
+              console.warn('⚠️ [SYNC-RETRY-FAILED] 재시도 동기화 실패:', retryError);
+            }
+          }, 3000);
         }
         
         return { photo, response, error: null };
@@ -241,7 +270,7 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
         // 자동 재시도 로직
         if (autoRetry && photo.retryCount < maxRetries) {
           setTimeout(() => {
-            retryUpload(photo.id);
+            retryUpload(photo.id, additionalDataFactory);
           }, Math.pow(2, photo.retryCount) * 1000); // 지수 백오프
         }
         
@@ -272,7 +301,7 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
   }, []);
 
   // 업로드 재시도
-  const retryUpload = useCallback((id: string) => {
+  const retryUpload = useCallback((id: string, additionalDataFactory: (file: File, index: number) => Record<string, string>) => {
     const photo = photos.find(p => p.id === id);
     if (!photo || photo.retryCount >= maxRetries) return;
     
@@ -287,7 +316,10 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
     });
     
     queueRef.current.push(photo);
-  }, [photos, maxRetries, updatePhoto]);
+    
+    // 🚀 FIX: 재시도 시 큐 프로세싱 시작
+    processQueue(additionalDataFactory);
+  }, [photos, maxRetries, updatePhoto, processQueue]);
 
   // 업로드 취소
   const cancelUpload = useCallback((id: string) => {
