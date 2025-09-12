@@ -15,8 +15,6 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { deletedPhotoIdsAtom, deletePhotoAtom, undeletePhotoAtom, clearDeletedPhotosAtom } from '../stores/photo-atoms';
 import { useOptimisticUpload } from '@/hooks/useOptimisticUpload';
 import UploadQueue from '@/components/ui/UploadQueue';
-import InlineProgressIndicator from '@/components/ui/InlineProgressIndicator';
-import MobileStickyProgress from '@/components/ui/MobileStickyProgress';
 import SmartFloatingProgress from '@/components/ui/SmartFloatingProgress';
 
 interface ImprovedFacilityPhotoSectionProps {
@@ -1164,22 +1162,7 @@ export default function ImprovedFacilityPhotoSection({
         autoHideDelay={2000}
       />
       
-      {/* Progressive Upload Queue */}
-      {optimisticPhotos.length > 0 && (
-        <div className="mb-6">
-          <UploadQueue
-            photos={optimisticPhotos}
-            stats={queueStats}
-            isProcessing={isProcessing}
-            onCancel={cancelUpload}
-            onRetry={(id) => retryUpload(id, createAdditionalDataFactory('basic'))}
-            onRemove={removePhoto}
-            onForceUpload={(id) => forceUpload(id, createAdditionalDataFactory('basic'))}
-            onClearCompleted={clearCompleted}
-            onCancelAll={cancelAll}
-          />
-        </div>
-      )}
+      {/* Progressive Upload Queue - REMOVED: 중복 UI 제거, SmartFloatingProgress로 대체 */}
       
       <div className="bg-white/95 backdrop-blur-sm rounded-xl p-6 shadow-xl border-2 border-gray-200/80">
         {/* File upload status tracker */}
@@ -1310,13 +1293,7 @@ export default function ImprovedFacilityPhotoSection({
                     방지시설 ({outletPrevention.reduce((total, f) => total + f.quantity, 0)}개)
                   </h4>
                   
-                  {/* 🚀 방지시설 인라인 진행률 표시기 */}
-                  <InlineProgressIndicator
-                    photos={optimisticPhotos}
-                    facilityType="prevention"
-                    facilityId={`prevention-outlet-${outlet}`}
-                    className="mb-3"
-                  />
+                  {/* 방지시설 인라인 진행률 표시기 - REMOVED: SmartFloatingProgress로 대체 */}
                   
                   {outletPrevention.map((facility) => 
                     Array.from({ length: facility.quantity }, (_, quantityIndex) => {
@@ -1364,13 +1341,7 @@ export default function ImprovedFacilityPhotoSection({
                     배출시설 ({outletDischarge.reduce((total, f) => total + f.quantity, 0)}개)
                   </h4>
                   
-                  {/* 🚀 배출시설 인라인 진행률 표시기 */}
-                  <InlineProgressIndicator
-                    photos={optimisticPhotos}
-                    facilityType="discharge"
-                    facilityId={`discharge-outlet-${outlet}`}
-                    className="mb-3"
-                  />
+                  {/* 배출시설 인라인 진행률 표시기 - REMOVED: SmartFloatingProgress로 대체 */}
                   
                   {outletDischarge.map((facility) => 
                     Array.from({ length: facility.quantity }, (_, quantityIndex) => {
@@ -1419,13 +1390,7 @@ export default function ImprovedFacilityPhotoSection({
             기본사진
           </h3>
           
-          {/* 🚀 기본사진 인라인 진행률 표시기 */}
-          <InlineProgressIndicator
-            photos={optimisticPhotos}
-            facilityType="basic"
-            facilityId="basic-photos"
-            className="mb-4"
-          />
+          {/* 기본사진 인라인 진행률 표시기 - REMOVED: SmartFloatingProgress로 대체 */}
           
           <div className="space-y-3 md:space-y-6">
             {/* 게이트웨이 */}
@@ -1508,12 +1473,7 @@ export default function ImprovedFacilityPhotoSection({
         />
       )}
       
-      {/* 🚀 모바일 스티키 진행률 표시기 */}
-      <MobileStickyProgress
-        photos={optimisticPhotos}
-        stats={queueStats}
-        isProcessing={isProcessing}
-      />
+      {/* 모바일 스티키 진행률 표시기 - REMOVED: SmartFloatingProgress로 대체 */}
     </div>
     </>
   );

@@ -432,16 +432,45 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
   const getSmartProgressData = useCallback(() => {
     const stats = getQueueStats();
     const uploadingPhoto = photos.find(p => p.status === 'uploading');
+    const failedPhotos = photos.filter(p => p.status === 'error');
+    const duplicatePhotos = photos.filter(p => p.status === 'duplicate');
     const overallProgress = stats.total > 0 
       ? Math.round((stats.completed / stats.total) * 100)
       : 0;
+
+    // 에러 상세 정보 수집
+    const detailedErrors = failedPhotos.map(photo => ({
+      fileName: photo.file.name,
+      error: photo.error || '알 수 없는 오류',
+      timestamp: photo.endTime || Date.now()
+    }));
+
+    // 진행 멈춤 감지 (5초 이상 진행이 없는 경우)
+    const stuckPhoto = photos.find(p => 
+      p.status === 'uploading' && 
+      Date.now() - p.startTime > 5000 && 
+      p.progress < 100
+    );
+
+    // 일반적인 에러 메시지
+    let errorMessage = '';
+    if (failedPhotos.length > 0) {
+      errorMessage = failedPhotos.length === 1 
+        ? failedPhotos[0].error || '업로드 실패'
+        : `${failedPhotos.length}개 파일 업로드 실패`;
+    }
 
     return {
       isVisible: isProcessing || stats.total > 0,
       totalFiles: stats.total,
       completedFiles: stats.completed,
       currentFileName: uploadingPhoto?.file.name,
-      overallProgress: overallProgress
+      overallProgress: overallProgress,
+      failedFiles: stats.failed,
+      errorMessage: errorMessage,
+      isStuck: !!stuckPhoto,
+      stuckReason: stuckPhoto ? `${stuckPhoto.file.name} 업로드가 지연되고 있습니다` : undefined,
+      detailedErrors: detailedErrors
     };
   }, [photos, isProcessing, getQueueStats]);
 

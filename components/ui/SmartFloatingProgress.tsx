@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Upload, FileImage } from 'lucide-react';
+import { Upload, FileImage, AlertTriangle, Clock, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface SmartFloatingProgressProps {
   // 표시 여부
@@ -18,6 +18,16 @@ interface SmartFloatingProgressProps {
   overallProgress: number;
   // 자동 숨김 설정
   autoHideDelay?: number; // 완료 후 자동 숨김 딜레이 (ms)
+  // 에러 정보 추가
+  failedFiles?: number;
+  errorMessage?: string;
+  isStuck?: boolean; // 진행이 멈춤
+  stuckReason?: string; // 멈춤 이유
+  detailedErrors?: Array<{
+    fileName: string;
+    error: string;
+    timestamp: number;
+  }>;
 }
 
 export function SmartFloatingProgress({
@@ -26,11 +36,17 @@ export function SmartFloatingProgress({
   completedFiles,
   currentFileName,
   overallProgress,
-  autoHideDelay = 2000
+  autoHideDelay = 2000,
+  failedFiles = 0,
+  errorMessage,
+  isStuck = false,
+  stuckReason,
+  detailedErrors = []
 }: SmartFloatingProgressProps) {
   const [mounted, setMounted] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   // 클라이언트 사이드에서만 Portal 렌더링
   useEffect(() => {
@@ -59,6 +75,50 @@ export function SmartFloatingProgress({
     ? `${currentFileName.substring(0, 22)}...` 
     : currentFileName;
 
+  // 상태 판단 로직
+  const hasErrors = failedFiles > 0 || errorMessage || detailedErrors.length > 0;
+  const hasWarnings = isStuck && stuckReason;
+  const isInProgress = !isCompleted && (totalFiles > completedFiles);
+  
+  // 상태별 스타일링
+  const getStatusConfig = () => {
+    if (isCompleted && !hasErrors) {
+      return {
+        bgColor: 'bg-green-50 border-green-200',
+        iconColor: 'text-green-500',
+        barColor: 'bg-green-500',
+        status: '업로드 완료!'
+      };
+    }
+    
+    if (hasErrors) {
+      return {
+        bgColor: 'bg-red-50 border-red-200',
+        iconColor: 'text-red-500',
+        barColor: 'bg-red-500',
+        status: '업로드 실패'
+      };
+    }
+    
+    if (hasWarnings || isStuck) {
+      return {
+        bgColor: 'bg-yellow-50 border-yellow-200',
+        iconColor: 'text-yellow-500',
+        barColor: 'bg-yellow-500',
+        status: '업로드 지연'
+      };
+    }
+    
+    return {
+      bgColor: 'bg-white border-gray-200',
+      iconColor: 'text-blue-500',
+      barColor: 'bg-gradient-to-r from-blue-500 to-blue-600',
+      status: '업로드 중...'
+    };
+  };
+
+  const statusConfig = getStatusConfig();
+
   // Portal로 body에 직접 렌더링
   if (!mounted || !shouldShow) return null;
 
@@ -68,30 +128,49 @@ export function SmartFloatingProgress({
       transition-all duration-300 ease-in-out
       ${shouldShow ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}
     `}>
-      <div className="
-        bg-white border border-gray-200 rounded-lg shadow-lg
+      <div className={`
+        ${statusConfig.bgColor} rounded-lg shadow-lg
         px-4 py-3 mx-4
-        min-w-[320px] max-w-[400px] w-full
-        backdrop-blur-sm bg-white/95
-      ">
-        {/* 헤더: 업로드 상태 + 파일 개수 */}
+        min-w-[320px] max-w-[450px] w-full
+        backdrop-blur-sm transition-all duration-300
+        ${hasErrors || hasWarnings ? 'cursor-pointer' : ''}
+      `}
+      onClick={hasErrors || hasWarnings ? () => setShowDetails(!showDetails) : undefined}
+      >
+        {/* 헤더: 업로드 상태 + 파일 개수 + 에러 표시 */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Upload className={`
-              w-4 h-4 
-              ${isCompleted ? 'text-green-500' : 'text-blue-500'}
-              ${!isCompleted ? 'animate-pulse' : ''}
-            `} />
+            {hasErrors ? (
+              <XCircle className={`w-4 h-4 ${statusConfig.iconColor}`} />
+            ) : hasWarnings ? (
+              <AlertTriangle className={`w-4 h-4 ${statusConfig.iconColor}`} />
+            ) : isStuck ? (
+              <Clock className={`w-4 h-4 ${statusConfig.iconColor}`} />
+            ) : (
+              <Upload className={`
+                w-4 h-4 ${statusConfig.iconColor}
+                ${isInProgress ? 'animate-pulse' : ''}
+              `} />
+            )}
             <span className="text-sm font-medium text-gray-700">
-              {isCompleted 
-                ? '업로드 완료!' 
-                : '업로드 중...'
-              }
+              {statusConfig.status}
             </span>
+            {(hasErrors || hasWarnings) && (
+              <button className="ml-1">
+                {showDetails ? (
+                  <ChevronUp className="w-3 h-3 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-3 h-3 text-gray-400" />
+                )}
+              </button>
+            )}
           </div>
-          <span className="text-sm text-gray-500">
-            {completedFiles}/{totalFiles} files
-          </span>
+          <div className="text-sm text-gray-500 flex items-center gap-2">
+            <span>{completedFiles}/{totalFiles} files</span>
+            {failedFiles > 0 && (
+              <span className="text-red-500">({failedFiles} 실패)</span>
+            )}
+          </div>
         </div>
 
         {/* 현재 파일명 표시 */}
@@ -104,16 +183,20 @@ export function SmartFloatingProgress({
           </div>
         )}
 
+        {/* 에러 메시지 또는 멈춤 이유 */}
+        {(errorMessage || stuckReason) && !showDetails && (
+          <div className="mb-3 text-xs text-gray-600 bg-gray-100 rounded px-2 py-1">
+            {errorMessage || stuckReason}
+          </div>
+        )}
+
         {/* 진행률 바 */}
         <div className="space-y-2">
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
               className={`
                 h-2 rounded-full transition-all duration-300 ease-out
-                ${isCompleted 
-                  ? 'bg-green-500' 
-                  : 'bg-gradient-to-r from-blue-500 to-blue-600'
-                }
+                ${statusConfig.barColor}
               `}
               style={{ width: `${Math.min(overallProgress, 100)}%` }}
             />
@@ -126,6 +209,47 @@ export function SmartFloatingProgress({
             </span>
           </div>
         </div>
+
+        {/* 상세 에러 정보 (확장 가능) */}
+        {showDetails && (hasErrors || hasWarnings) && (
+          <div className="mt-3 space-y-2 border-t pt-3">
+            {/* 일반 에러 메시지 */}
+            {errorMessage && (
+              <div className="text-xs text-red-600 bg-red-50 rounded px-2 py-1">
+                <strong>에러:</strong> {errorMessage}
+              </div>
+            )}
+            
+            {/* 멈춤 이유 */}
+            {stuckReason && (
+              <div className="text-xs text-yellow-600 bg-yellow-50 rounded px-2 py-1">
+                <strong>지연 사유:</strong> {stuckReason}
+              </div>
+            )}
+            
+            {/* 개별 파일 에러 목록 */}
+            {detailedErrors.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-gray-700">
+                  파일별 에러 ({detailedErrors.length}개):
+                </div>
+                <div className="max-h-24 overflow-y-auto space-y-1">
+                  {detailedErrors.slice(0, 3).map((error, index) => (
+                    <div key={index} className="text-xs text-red-600 bg-red-50 rounded px-2 py-1">
+                      <div className="font-medium truncate">{error.fileName}</div>
+                      <div className="text-red-500">{error.error}</div>
+                    </div>
+                  ))}
+                  {detailedErrors.length > 3 && (
+                    <div className="text-xs text-gray-500 text-center">
+                      +{detailedErrors.length - 3}개 더...
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 완료 후 추가 정보 */}
         {isCompleted && (
