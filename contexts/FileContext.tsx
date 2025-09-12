@@ -31,15 +31,17 @@ export function FileProvider({ children }: FileProviderProps) {
   const loadingRef = useRef(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   
-  // 모바일 최적화: 네트워크 상태 감지
+  // 모바일 최적화: 네트워크 상태 감지 + 모바일 디바이스 감지
   const [networkState, setNetworkState] = useState<{
     online: boolean;
     effectiveType: string;
     downlink: number;
+    isMobile: boolean;
   }>({
     online: true,
     effectiveType: '4g',
-    downlink: 10
+    downlink: 10,
+    isMobile: false
   });
 
   // 파일 목록 새로고침 (스마트 머지 방식)
@@ -418,11 +420,18 @@ export function FileProvider({ children }: FileProviderProps) {
     
     const updateNetworkState = () => {
       const connection = (navigator as any).connection;
+      const isMobile = /iPhone|iPad|iPod|Android|BlackBerry|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent) ||
+                       ('ontouchstart' in window) ||
+                       (navigator.maxTouchPoints > 0);
+      
       setNetworkState({
         online: navigator.onLine,
         effectiveType: connection?.effectiveType || '4g',
-        downlink: connection?.downlink || 10
+        downlink: connection?.downlink || 10,
+        isMobile
       });
+      
+      console.log(`📱 [MOBILE-DETECT] 모바일 기기: ${isMobile ? 'YES' : 'NO'}, 네트워크: ${connection?.effectiveType || '4g'}`);
     };
     
     // 초기 상태 설정
@@ -472,6 +481,19 @@ export function FileProvider({ children }: FileProviderProps) {
           const getBackupPollingInterval = () => {
             if (!networkState.online) return 60000; // 오프라인: 1분
             
+            // 모바일 우선 실시간성 강화
+            if (networkState.isMobile) {
+              console.log('📱 [MOBILE-PRIORITY] 모바일 감지 - 초적극적 백업 폴링 모드');
+              switch (networkState.effectiveType) {
+                case 'slow-2g': return 8000;  // 느린 2G: 8초
+                case '2g': return 5000;       // 2G: 5초
+                case '3g': return 3000;       // 3G: 3초
+                case '4g': return 2000;       // 4G: 2초 (매우 적극적)
+                default: return 2000;
+              }
+            }
+            
+            // 데스크탑: 기존 로직 유지
             switch (networkState.effectiveType) {
               case 'slow-2g':
               case '2g': return 45000; // 느린 네트워크: 45초
@@ -500,6 +522,19 @@ export function FileProvider({ children }: FileProviderProps) {
           const getActivePollingInterval = () => {
             if (!networkState.online) return 10000; // 오프라인: 10초
             
+            // 모바일 초적극적 폴링 (실시간 실패 시)
+            if (networkState.isMobile) {
+              console.log('📱 [MOBILE-PRIORITY] 모바일 감지 - 초적극적 폴링 모드 (실시간 대체)');
+              switch (networkState.effectiveType) {
+                case 'slow-2g': return 6000;  // 느린 2G: 6초
+                case '2g': return 4000;       // 2G: 4초
+                case '3g': return 2500;       // 3G: 2.5초
+                case '4g': return 1500;       // 4G: 1.5초 (매우 적극적)
+                default: return 1500;
+              }
+            }
+            
+            // 데스크탑: 기존 로직
             switch (networkState.effectiveType) {
               case 'slow-2g': return 8000;  // 매우 느림: 8초
               case '2g': return 6000;       // 2G: 6초
