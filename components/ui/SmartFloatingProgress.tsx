@@ -144,14 +144,15 @@ export function SmartFloatingProgress({
 
   return createPortal(
     <div className={`
-      fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50
+      fixed bottom-4 md:bottom-6 left-1/2 transform -translate-x-1/2 z-50
       transition-all duration-300 ease-in-out
       ${shouldShow ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}
+      touch-manipulation
     `}>
       <div className={`
         ${statusConfig.bgColor} rounded-lg shadow-lg
-        px-4 py-3 mx-4
-        min-w-[320px] max-w-[450px] w-full
+        px-4 py-3 mx-3 md:mx-4
+        min-w-[300px] md:min-w-[320px] max-w-[400px] md:max-w-[450px] w-full
         backdrop-blur-sm transition-all duration-300
         ${hasErrors || hasWarnings ? 'cursor-pointer' : ''}
       `}
@@ -195,16 +196,14 @@ export function SmartFloatingProgress({
               )}
             </div>
             
-            {/* 닫기 버튼 - 에러/경고가 있거나 완료된 경우에 표시 */}
-            {(hasErrors || hasWarnings || isCompleted) && (
-              <button
-                onClick={handleClose}
-                className="p-1 hover:bg-gray-200 rounded-full transition-colors"
-                title="닫기"
-              >
-                <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-              </button>
-            )}
+            {/* 닫기 버튼 - 조건에 상관없이 항상 표시 (모바일 터치 최적화) */}
+            <button
+              onClick={handleClose}
+              className="p-2 md:p-1 hover:bg-gray-200 active:bg-gray-300 active:scale-95 rounded-full transition-all duration-200 touch-manipulation min-w-[40px] min-h-[40px] md:min-w-[32px] md:min-h-[32px] flex items-center justify-center"
+              title="닫기"
+            >
+              <X className="w-5 h-5 md:w-4 md:h-4 text-gray-400 hover:text-gray-600" />
+            </button>
           </div>
         </div>
 

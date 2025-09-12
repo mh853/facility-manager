@@ -1218,7 +1218,7 @@ export default function ImprovedFacilityPhotoSection({
 
       {/* 통계 대시보드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
-        <div className="bg-orange-50 p-2 md:p-4 rounded-lg border border-orange-200 hover:bg-orange-100 hover:border-orange-300 transition-all duration-200 transform hover:scale-105">
+        <div className="bg-orange-50 p-3 md:p-4 rounded-lg border border-orange-200 hover:bg-orange-100 hover:border-orange-300 active:bg-orange-200 active:border-orange-400 transition-all duration-200 transform hover:scale-105 active:scale-102 touch-manipulation shadow-sm hover:shadow-md">
           <div className="flex items-center gap-2">
             <Factory className="w-5 h-5 text-orange-600" />
             <span className="font-medium text-orange-800">배출시설</span>
@@ -1232,7 +1232,7 @@ export default function ImprovedFacilityPhotoSection({
           </div>
         </div>
 
-        <div className="bg-green-50 p-2 md:p-4 rounded-lg border border-green-200 hover:bg-green-100 hover:border-green-300 transition-all duration-200 transform hover:scale-105">
+        <div className="bg-green-50 p-3 md:p-4 rounded-lg border border-green-200 hover:bg-green-100 hover:border-green-300 active:bg-green-200 active:border-green-400 transition-all duration-200 transform hover:scale-105 active:scale-102 touch-manipulation shadow-sm hover:shadow-md">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-green-600" />
             <span className="font-medium text-green-800">방지시설</span>
@@ -1246,7 +1246,7 @@ export default function ImprovedFacilityPhotoSection({
           </div>
         </div>
 
-        <div className="bg-blue-50 p-2 md:p-4 rounded-lg border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-all duration-200 transform hover:scale-105">
+        <div className="bg-blue-50 p-3 md:p-4 rounded-lg border border-blue-200 hover:bg-blue-100 hover:border-blue-300 active:bg-blue-200 active:border-blue-400 transition-all duration-200 transform hover:scale-105 active:scale-102 touch-manipulation shadow-sm hover:shadow-md">
           <div className="flex items-center gap-2">
             <Building2 className="w-5 h-5 text-blue-600" />
             <span className="font-medium text-blue-800">기본사진</span>
@@ -1260,7 +1260,7 @@ export default function ImprovedFacilityPhotoSection({
           </div>
         </div>
 
-        <div className="bg-purple-50 p-2 md:p-4 rounded-lg border border-purple-200 hover:bg-purple-100 hover:border-purple-300 transition-all duration-200 transform hover:scale-105">
+        <div className="bg-purple-50 p-3 md:p-4 rounded-lg border border-purple-200 hover:bg-purple-100 hover:border-purple-300 active:bg-purple-200 active:border-purple-400 transition-all duration-200 transform hover:scale-105 active:scale-102 touch-manipulation shadow-sm hover:shadow-md">
           <div className="flex items-center gap-2">
             <Camera className="w-5 h-5 text-purple-600" />
             <span className="font-medium text-purple-800">총 사진</span>
@@ -1590,17 +1590,21 @@ function FacilityCard({
           className={dragZoneStyles(
             `${facilityType}-${facility.outlet}-${facility.number}-${instanceIndex}`,
             `border-2 border-dashed border-${colorScheme}-300 rounded-lg p-4 text-center transition-all duration-200
-            ${isUploading ? `bg-${colorScheme}-100 border-${colorScheme}-400` : `hover:border-${colorScheme}-400 hover:bg-${colorScheme}-50`}
-            ${isUploading ? 'cursor-not-allowed' : 'cursor-pointer'}`
+            ${isUploading ? `bg-${colorScheme}-100 border-${colorScheme}-400` : `hover:border-${colorScheme}-400 hover:bg-${colorScheme}-50 active:bg-${colorScheme}-100 active:border-${colorScheme}-500 active:scale-98`}
+            ${isUploading ? 'cursor-not-allowed' : 'cursor-pointer'}
+            touch-manipulation select-none
+            min-h-[120px] md:min-h-[100px]
+            shadow-sm hover:shadow-md active:shadow-lg
+            transform-gpu`
           )}
           {...dragHandlers}
         >
-          <Upload className={`w-8 h-8 text-${colorScheme}-600 mx-auto mb-2 transition-transform duration-200`} />
-          <p className={`text-${colorScheme}-700 font-medium`}>
-            {isUploading ? '업로드 중...' : '사진 업로드 (여러 장 선택 가능)'}
+          <Upload className={`w-10 h-10 md:w-8 md:h-8 text-${colorScheme}-600 mx-auto mb-2 transition-transform duration-200 ${isUploading ? 'animate-pulse' : ''}`} />
+          <p className={`text-${colorScheme}-700 font-medium text-base md:text-sm`}>
+            {isUploading ? '업로드 중...' : '사진 업로드'}
           </p>
-          <p className={`text-${colorScheme}-600 text-sm mt-1`}>
-            클릭하거나 파일을 드래그하여 업로드
+          <p className={`text-${colorScheme}-600 text-sm mt-1 leading-relaxed`}>
+            {isUploading ? '잠시만 기다려주세요...' : '터치하거나 파일을 끌어다 놓으세요'}
           </p>
         </div>
       </div>
@@ -2248,7 +2252,7 @@ function ExpandedPhotoSection({
       <div className="flex flex-col md:flex-row gap-2 md:gap-3 justify-center pt-4 border-t">
         <button
           onClick={handleDownload}
-          className={`bg-${colorScheme}-600 text-white px-3 md:px-4 py-2 rounded-lg hover:bg-${colorScheme}-700 transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base font-medium`}
+          className={`bg-${colorScheme}-600 text-white px-4 md:px-4 py-3 md:py-2 rounded-lg hover:bg-${colorScheme}-700 active:bg-${colorScheme}-800 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 text-sm md:text-base font-medium touch-manipulation min-h-[44px] shadow-md hover:shadow-lg`}
         >
           <Download className="w-3 md:w-4 h-3 md:h-4" />
           개별 다운로드
@@ -2256,7 +2260,7 @@ function ExpandedPhotoSection({
         
         <button
           onClick={handleDownloadAll}
-          className="bg-blue-600 text-white px-3 md:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base font-medium"
+          className="bg-blue-600 text-white px-4 md:px-4 py-3 md:py-2 rounded-lg hover:bg-blue-700 active:bg-blue-800 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 text-sm md:text-base font-medium touch-manipulation min-h-[44px] shadow-md hover:shadow-lg"
         >
           <Archive className="w-3 md:w-4 h-3 md:h-4" />
           전체 ZIP
@@ -2307,7 +2311,7 @@ function ExpandedPhotoSection({
               }
             }
           }}
-          className="bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base font-medium"
+          className="bg-red-600 text-white px-4 md:px-4 py-3 md:py-2 rounded-lg hover:bg-red-700 active:bg-red-800 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 text-sm md:text-base font-medium touch-manipulation min-h-[44px] shadow-md hover:shadow-lg"
         >
           <Trash2 className="w-3 md:w-4 h-3 md:h-4" />
           삭제
@@ -2380,7 +2384,7 @@ const PhotoDetailModal = forwardRef<HTMLDivElement, PhotoDetailModalProps>(
               <a
                 href={photo.downloadUrl}
                 download={photo.originalFileName}
-                className="bg-blue-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base font-medium"
+                className="bg-blue-600 text-white px-6 md:px-6 py-3 md:py-3 rounded-lg hover:bg-blue-700 active:bg-blue-800 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 text-sm md:text-base font-medium touch-manipulation min-h-[48px] shadow-md hover:shadow-lg"
               >
                 <Download className="w-3 md:w-4 h-3 md:h-4" />
                 다운로드
@@ -2391,7 +2395,7 @@ const PhotoDetailModal = forwardRef<HTMLDivElement, PhotoDetailModalProps>(
                   console.log('🔥 [DEBUG] 삭제 버튼이 클릭되었습니다!');
                   onDelete();
                 }}
-                className="bg-red-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base font-medium"
+                className="bg-red-600 text-white px-6 md:px-6 py-3 md:py-3 rounded-lg hover:bg-red-700 active:bg-red-800 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 text-sm md:text-base font-medium touch-manipulation min-h-[48px] shadow-md hover:shadow-lg"
               >
                 <Trash2 className="w-3 md:w-4 h-3 md:h-4" />
                 삭제
