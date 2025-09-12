@@ -298,7 +298,26 @@ export class FacilityPhotoTracker {
         }
       }
     } catch (e) {
-      // JSON 파싱 실패 시 기존 로직 사용
+      // JSON 파싱 실패 시 facilityInfo 문자열 파싱 시도
+      if (file.facilityInfo) {
+        // "prevention_1_1" 형식 파싱
+        const facilityInfoMatch = file.facilityInfo.match(/^(discharge|prevention)_(\d+)_(\d+)$/)
+        if (facilityInfoMatch) {
+          const [, type, outletStr, numberStr] = facilityInfoMatch
+          const outlet = parseInt(outletStr)
+          const number = parseInt(numberStr)
+          const facilityTypeFromInfo = type as 'discharge' | 'prevention'
+          
+          return {
+            facilityId: `${type}-${outlet}-${number}`,
+            facilityType: facilityTypeFromInfo,
+            facilityNumber: number, // Use actual facility number from facilityInfo
+            outletNumber: outlet,
+            displayName: `${type === 'discharge' ? '배' : '방'}${number}`,
+            category: undefined
+          }
+        }
+      }
     }
 
     // 기본사진인 경우 카테고리 추출
