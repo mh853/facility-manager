@@ -1165,6 +1165,12 @@ export default function ImprovedFacilityPhotoSection({
       <SmartFloatingProgress
         {...getSmartProgressData()}
         autoHideDelay={2000}
+        onClose={() => {
+          // 🚀 프로그래스 바 수동 닫기 핸들러
+          console.log('🔥 [PROGRESS-CLOSE] 사용자가 수동으로 프로그래스 바 닫기');
+          // 업로드 큐 강제 숨김 처리
+          cancelAll();
+        }}
       />
       
       {/* Progressive Upload Queue - REMOVED: 중복 UI 제거, SmartFloatingProgress로 대체 */}
