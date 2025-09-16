@@ -48,7 +48,7 @@ function LoginSection() {
 
       <div className="mt-6 text-center text-sm text-gray-500">
         <p>등록된 사용자만 로그인할 수 있습니다.</p>
-        <p>문의: facility@blueon-iot.com</p>
+        <p>문의: blueon@blueon-iot.com</p>
       </div>
     </div>
   );

@@ -66,8 +66,21 @@ export async function GET(
     // 토큰 생성
     const token = await createToken(user);
 
-    // 로그인 성공 후 리다이렉트
-    const successUrl = new URL('/', request.url);
+    // 권한에 따른 리다이렉트 페이지 결정
+    let redirectPath = '/';
+
+    if (user.permissionLevel === 3) {
+      // 관리자: 관리자 페이지로
+      redirectPath = '/admin';
+    } else if (user.permissionLevel >= 2) {
+      // 운영자: 업무 페이지로
+      redirectPath = '/business';
+    } else {
+      // 일반 사용자: 메인 페이지로
+      redirectPath = '/';
+    }
+
+    const successUrl = new URL(redirectPath, request.url);
     successUrl.searchParams.set('login', 'success');
 
     const response = NextResponse.redirect(successUrl);
