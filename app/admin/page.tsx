@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import AdminLayout from '@/components/ui/AdminLayout'
-import StatsCard from '@/components/ui/StatsCard'
 import {
   Building2,
   Users,
@@ -387,8 +385,8 @@ export default function AdminDashboard() {
     }
   }
 
-  // Mock AdminLayout component if not available
-  const AdminLayoutComponent = AdminLayout || (({ children, title, description }: any) => (
+  // AdminLayout component
+  const AdminLayoutComponent = ({ children, title, description }: any) => (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-6 px-4">
         <div className="mb-8">
@@ -398,10 +396,10 @@ export default function AdminDashboard() {
         {children}
       </div>
     </div>
-  ))
+  )
 
-  // Mock StatsCard component if not available
-  const StatsCardComponent = StatsCard || (({ title, value, icon: Icon, color, description, trend }: any) => (
+  // StatsCard component
+  const StatsCardComponent = ({ title, value, icon: Icon, color, description, trend }: any) => (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       <div className="flex items-center">
         <div className={`p-2 rounded-lg ${color === 'blue' ? 'bg-blue-100' : color === 'green' ? 'bg-green-100' : color === 'orange' ? 'bg-orange-100' : 'bg-purple-100'}`}>
@@ -419,7 +417,7 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
-  ))
+  )
 
   return (
     <AdminLayoutComponent
