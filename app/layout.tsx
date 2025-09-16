@@ -1,5 +1,6 @@
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 // 폰트 최적화
 const inter = Inter({ 
@@ -131,8 +132,10 @@ export default function RootLayout({
             `,
           }}
         />
-        
-        {children}
+
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

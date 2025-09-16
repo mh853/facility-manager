@@ -50,3 +50,54 @@ export interface SystemConfig {
   title: string;
   urlParam: string;
 }
+
+// 인증 관련 타입 정의
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  avatar?: string;
+  department?: string;
+  isActive: boolean;
+  createdAt: Date;
+  lastLoginAt?: Date;
+}
+
+export type UserRole = 1 | 2 | 3; // 1,2: 일반 사용자, 3: 관리자
+
+export interface AuthSession {
+  user: User;
+  token: string;
+  expiresAt: Date;
+  provider: SocialProvider;
+}
+
+export type SocialProvider = 'kakao' | 'naver' | 'google';
+
+export interface SocialAuthConfig {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+export interface LoginRequest {
+  provider: SocialProvider;
+  code: string;
+  state?: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  token?: string;
+  user?: User;
+  error?: string;
+}
+
+export interface TokenPayload {
+  userId: string;
+  email: string;
+  role: UserRole;
+  iat: number;
+  exp: number;
+}

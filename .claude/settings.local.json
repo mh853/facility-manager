@@ -7,7 +7,8 @@
       "Bash(touch:*)",
       "Bash(npm run build:*)",
       "Bash(rm:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(git branch:*)"
     ],
     "deny": [],
     "ask": []

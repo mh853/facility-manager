@@ -12,7 +12,10 @@ import FacilityStats from '@/components/FacilityStats';
 
 export default function BusinessPage() {
   const params = useParams();
-  const businessName = useMemo(() => decodeURIComponent(params.businessName as string), [params.businessName]);
+  const businessName = useMemo(() => {
+    if (!params?.businessName) return '';
+    return decodeURIComponent(params.businessName as string);
+  }, [params?.businessName]);
   const [systemType, setSystemType] = useState<SystemType>('presurvey'); // 기본값을 presurvey로 변경
   
   const [facilities, setFacilities] = useState<FacilitiesData | null>(null);

@@ -1,9 +1,18 @@
-// app/api/business-list/route.ts - 최적화된 버전
+// app/api/business-list/route.ts - 인증이 적용된 최적화된 버전
 import { NextRequest } from 'next/server';
 import { sheets } from '@/lib/google-client';
 import { withApiHandler, createSuccessResponse, withTimeout } from '@/lib/api-utils';
 
 export const GET = withApiHandler(async (request: NextRequest) => {
+  // 인증 정보 확인 (미들웨어에서 설정된 헤더)
+  const userId = request.headers.get('x-user-id');
+  const userRole = request.headers.get('x-user-role');
+
+  console.log('🔐 [AUTH] Business list access:', { userId, userRole });
+
+  if (!userId || !userRole) {
+    throw new Error('인증 정보가 없습니다. 로그인이 필요합니다.');
+  }
   // 대기필증 DB가 포함된 스프레드시트 사용 (UPLOAD_SPREADSHEET_ID 우선)
   const uploadSpreadsheetId = process.env.UPLOAD_SPREADSHEET_ID || process.env.DATA_COLLECTION_SPREADSHEET_ID || process.env.MAIN_SPREADSHEET_ID;
   
@@ -37,11 +46,11 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
   // 시트 메타데이터 조회 (타임아웃 적용)
   const metadata = await withTimeout(
-    sheets.spreadsheets.get({ spreadsheetId: uploadSpreadsheetId }), 
+    sheets.spreadsheets.get({ spreadsheetId: uploadSpreadsheetId }),
     5000
   );
-  
-  const availableSheets = metadata.data.sheets?.map(sheet => sheet.properties?.title).filter(Boolean) || [];
+
+  const availableSheets = (metadata as any).data.sheets?.map((sheet: any) => sheet.properties?.title).filter(Boolean) || [];
   const possibleSheets = ['대기필증 DB', '설치 전 실사', '실사 데이터', '실사관리', '실사', 'Sheet1', '시트1'];
   
   const targetSheet = possibleSheets.find(sheet => availableSheets.includes(sheet)) || availableSheets[0];
@@ -58,19 +67,19 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     }),
     8000
   );
-  
-  const values = response.data.values || [];
+
+  const values = (response as any).data.values || [];
   if (values.length === 0) {
     throw new Error('B열에 데이터가 없습니다');
   }
   
   // 사업장명 추출 및 정제
   const businessNames = values
-    .map(row => row?.[0])
-    .filter((name): name is string => 
-      typeof name === 'string' && 
+    .map((row: any) => row?.[0])
+    .filter((name: any): name is string =>
+      typeof name === 'string' &&
       name.trim() !== '' &&
-      name !== '사업장명' && 
+      name !== '사업장명' &&
       !name.includes('사업장') &&
       !name.startsWith('#REF!') &&
       !name.startsWith('#') &&
@@ -79,7 +88,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   
   // 중복 제거 및 정렬
   const uniqueBusinesses = [...new Set(businessNames)]
-    .filter(name => name.trim() !== '')
+    .filter((name: any): name is string => typeof name === 'string' && name.trim() !== '')
     .sort();
   
   if (uniqueBusinesses.length === 0) {
