@@ -722,33 +722,69 @@ export default function BusinessManagementPage() {
     }
   }, [])
 
+  // 콤마 기반 다중 검색 키워드 파싱
+  const searchTerms = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    return searchQuery
+      .split(',')
+      .map(term => term.trim())
+      .filter(term => term.length > 0)
+  }, [searchQuery])
+
   // 검색 필터링 (useMemo 사용으로 자동 필터링)
   const filteredBusinesses = useMemo(() => {
-    console.log('🔍 useMemo 필터링 실행:', searchQuery, 'allBusinesses 수:', allBusinesses.length)
-    
-    if (!searchQuery.trim()) {
+    console.log('🔍 useMemo 필터링 실행:', searchTerms, 'allBusinesses 수:', allBusinesses.length)
+
+    if (searchTerms.length === 0) {
       console.log('📋 검색어 없음 - 전체 목록 표시:', allBusinesses.length)
       return allBusinesses
     }
 
-    const searchTerm = searchQuery.toLowerCase()
     const filtered = allBusinesses.filter(business => {
-      const businessName = (business.사업장명 || business.business_name || '').toLowerCase()
-      const address = (business.주소 || business.local_government || '').toLowerCase()
-      const contactName = (business.담당자명 || business.manager_name || '').toLowerCase()
-      const phone = (business.담당자연락처 || business.manager_contact || '').toLowerCase()
-      const businessType = (business.업종 || business.business_type || '').toLowerCase()
+      // 모든 검색 가능한 필드들을 하나의 문자열로 결합
+      const searchableText = [
+        // 기본 정보
+        business.사업장명 || business.business_name || '',
+        business.주소 || business.address || business.local_government || '',
+        business.담당자명 || business.manager_name || '',
+        business.담당자연락처 || business.manager_contact || business.business_contact || '',
+        business.업종 || business.business_type || '',
+        business.사업장분류 || business.business_category || '',
 
-      return businessName.includes(searchTerm) ||
-             address.includes(searchTerm) ||
-             contactName.includes(searchTerm) ||
-             phone.includes(searchTerm) ||
-             businessType.includes(searchTerm)
+        // 프로젝트 관리 정보
+        business.진행상태 || business.progress_status || '',
+        business.발주담당자 || business.order_manager || '',
+        business.설치팀 || business.installation_team || '',
+        business.계약서류 || business.contract_document || '',
+        business.부무선서류 || business.wireless_document || '',
+        business.설치지원 || business.installation_support || '',
+
+        // 시설 정보
+        business.오염물질 || business.pollutants || '',
+        business.기타장비 || business.other_equipment || '',
+        business.협의사항 || business.negotiation || '',
+
+        // 시스템 정보
+        business.제조사 || business.manufacturer || '',
+        business.vpn방식 || business.vpn || '',
+        business.그린링크아이디 || business.greenlink_id || '',
+
+        // 대표자 정보
+        business.대표자명 || business.representative_name || '',
+        business.사업자등록번호 || business.business_registration_number || '',
+        business.팩스번호 || business.fax_number || '',
+        business.이메일 || business.email || ''
+      ].join(' ').toLowerCase()
+
+      // 모든 검색어가 포함되어야 함 (AND 조건)
+      return searchTerms.every(term =>
+        searchableText.includes(term.toLowerCase())
+      )
     })
 
-    console.log('🎯 필터링 결과:', filtered.length, '개 사업장')
+    console.log('🎯 필터링 결과:', filtered.length, '개 사업장 (검색어:', searchTerms.length, '개)')
     return filtered
-  }, [searchQuery, allBusinesses])
+  }, [searchTerms, allBusinesses])
 
   // 검색어 하이라이팅 함수
   const highlightSearchTerm = useCallback((text: string, searchTerm: string) => {
@@ -1666,24 +1702,53 @@ export default function BusinessManagementPage() {
             </div>
             
             {/* 실시간 검색창 */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+            <div className="space-y-3">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="콤마로 구분하여 다중 검색: 청주, 보조금, 에코센스 (사업장명, 주소, 담당자, 제조사, 진행상태 등)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                  </button>
+                )}
               </div>
-              <input
-                type="text"
-                placeholder="사업장명, 주소, 담당자명, 연락처, 업종으로 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-                </button>
+
+              {/* 검색 태그 표시 */}
+              {searchTerms.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <span className="text-sm text-gray-600 font-medium">활성 필터:</span>
+                  {searchTerms.map((term, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-blue-700 bg-blue-100 border border-blue-200"
+                    >
+                      {term}
+                      <button
+                        onClick={() => {
+                          const newTerms = searchTerms.filter((_, i) => i !== index)
+                          setSearchQuery(newTerms.join(', '))
+                        }}
+                        className="ml-2 text-blue-500 hover:text-blue-700"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <span className="text-sm text-gray-500">
+                    총 {filteredBusinesses.length}개 사업장
+                  </span>
+                </div>
               )}
             </div>
             
