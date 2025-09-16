@@ -63,7 +63,7 @@ interface Notification {
 
 export default function AdminDashboard() {
   const router = useRouter()
-  const { user, socialAccounts, permissions, loading: authLoading } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({
     totalBusinesses: 0,
@@ -368,18 +368,14 @@ export default function AdminDashboard() {
   const formatAccountInfo = () => {
     if (!user) return null
 
-    const primarySocialAccount = socialAccounts?.find(acc => acc.is_primary)
-    const loginMethod = primarySocialAccount ?
-      `${primarySocialAccount.provider.charAt(0).toUpperCase() + primarySocialAccount.provider.slice(1)} 소셜 로그인` :
-      '이메일 로그인'
+    // 소셜 로그인 방식은 user 객체에서 추정
+    const loginMethod = '소셜 로그인'
 
     return {
       name: user.name,
       email: user.email,
-      employeeId: user.employeeId,
       department: user.department || '미설정',
-      position: user.position || '미설정',
-      permissionLevel: user.role || user.permissionLevel,
+      permissionLevel: user.role,
       loginMethod,
       lastLoginAt: user.lastLoginAt
     }
@@ -492,7 +488,7 @@ export default function AdminDashboard() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900">{formatAccountInfo()?.name}</h4>
-                    <p className="text-sm text-gray-600">{formatAccountInfo()?.position}</p>
+                    <p className="text-sm text-gray-600">{formatAccountInfo()?.department}</p>
                   </div>
                 </div>
 
