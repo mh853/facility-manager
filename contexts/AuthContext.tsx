@@ -1,8 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, SocialProvider } from '@/types';
-import { apiClient } from '@/lib/api-client';
+import { User, SocialProvider, UserRole } from '@/types';
+import { authAPI } from '@/lib/api-client';
 import { getTokenFromCookie } from '@/utils/auth';
 
 interface AuthContextType {
@@ -35,8 +35,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return;
       }
 
-      const currentUser = await apiClient.getCurrentUser();
-      setUser(currentUser);
+      const response = await authAPI.verify();
+      if (response.success && response.data) {
+        const employee = response.data.user;
+        // Map Employee to User type
+        const user: User = {
+          id: employee.id,
+          email: employee.email,
+          name: employee.name,
+          role: employee.permissionLevel as UserRole,
+          isActive: employee.isActive,
+          createdAt: new Date(employee.createdAt),
+          lastLoginAt: employee.lastLoginAt ? new Date(employee.lastLoginAt) : undefined,
+          department: employee.department
+        };
+        setUser(user);
+      } else {
+        setUser(null);
+      }
     } catch (error) {
       console.error('Failed to load user:', error);
       setUser(null);
@@ -48,8 +64,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // 소셜 로그인 시작
   const login = (provider: SocialProvider) => {
     try {
-      const loginUrl = apiClient.getSocialLoginUrl(provider);
-      window.location.href = loginUrl;
+      // For Kakao login, redirect to existing auth URL
+      if (provider === 'kakao') {
+        window.location.href = '/api/auth/kakao';
+      } else {
+        console.warn('Unsupported social provider:', provider);
+      }
     } catch (error) {
       console.error('Login initiation failed:', error);
     }
@@ -58,7 +78,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // 로그아웃
   const logout = async () => {
     try {
-      await apiClient.logout();
+      await authAPI.logout();
       setUser(null);
     } catch (error) {
       console.error('Logout failed:', error);
@@ -70,8 +90,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // 사용자 정보 새로고침
   const refreshUser = async () => {
     try {
-      const currentUser = await apiClient.getCurrentUser();
-      setUser(currentUser);
+      const response = await authAPI.verify();
+      if (response.success && response.data) {
+        const employee = response.data.user;
+        // Map Employee to User type
+        const user: User = {
+          id: employee.id,
+          email: employee.email,
+          name: employee.name,
+          role: employee.permissionLevel as UserRole,
+          isActive: employee.isActive,
+          createdAt: new Date(employee.createdAt),
+          lastLoginAt: employee.lastLoginAt ? new Date(employee.lastLoginAt) : undefined,
+          department: employee.department
+        };
+        setUser(user);
+      } else {
+        setUser(null);
+      }
     } catch (error) {
       console.error('Failed to refresh user:', error);
       setUser(null);
@@ -100,14 +136,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!user || !isAuthenticated) return;
 
     const checkTokenExpiry = async () => {
+      // Token refresh not implemented for current system
+      // If token is invalid, the API will return 401 and trigger logout
       try {
-        const refreshed = await apiClient.refreshToken();
-        if (!refreshed) {
-          // 토큰 갱신 실패 시 로그아웃
-          setUser(null);
-        }
+        await refreshUser();
       } catch (error) {
-        console.error('Token refresh check failed:', error);
+        console.error('Token validation failed:', error);
         setUser(null);
       }
     };

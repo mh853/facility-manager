@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import AdminLayout from '@/components/ui/AdminLayout'
+import StatsCard from '@/components/ui/StatsCard'
 import {
   Building2,
   Users,
@@ -381,49 +383,31 @@ export default function AdminDashboard() {
     }
   }
 
-  // AdminLayout component
-  const AdminLayoutComponent = ({ children, title, description }: any) => (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-          <p className="text-gray-600 mt-2">{description}</p>
+  if (!mounted) {
+    return (
+      <AdminLayout
+        title="관리자 대시보드"
+        description="시설 관리 시스템 종합 현황"
+      >
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">대시보드를 로딩하는 중...</p>
+          </div>
         </div>
-        {children}
-      </div>
-    </div>
-  )
-
-  // StatsCard component
-  const StatsCardComponent = ({ title, value, icon: Icon, color, description, trend }: any) => (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      <div className="flex items-center">
-        <div className={`p-2 rounded-lg ${color === 'blue' ? 'bg-blue-100' : color === 'green' ? 'bg-green-100' : color === 'orange' ? 'bg-orange-100' : 'bg-purple-100'}`}>
-          <Icon className={`w-6 h-6 ${color === 'blue' ? 'text-blue-600' : color === 'green' ? 'text-green-600' : color === 'orange' ? 'text-orange-600' : 'text-purple-600'}`} />
-        </div>
-        <div className="ml-4 flex-1">
-          <p className="text-sm text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-          {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
-          {trend && (
-            <div className="flex items-center mt-1">
-              <span className="text-xs text-green-600">↗ {trend.value} {trend.label}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+      </AdminLayout>
+    )
+  }
 
   return (
-    <AdminLayoutComponent
+    <AdminLayout
       title="관리자 대시보드"
       description="시설 관리 시스템 종합 현황"
     >
       <div className="space-y-8">
         {/* 핵심 KPI 카드들 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatsCardComponent
+          <StatsCard
             title="전체 사업장"
             value={stats.totalBusinesses}
             icon={Building2}
@@ -436,7 +420,7 @@ export default function AdminDashboard() {
             }}
           />
 
-          <StatsCardComponent
+          <StatsCard
             title="이번 달 매출"
             value={`${(stats.monthlyRevenue / 10000).toFixed(0)}만원`}
             icon={CreditCard}
@@ -449,7 +433,7 @@ export default function AdminDashboard() {
             }}
           />
 
-          <StatsCardComponent
+          <StatsCard
             title="설치 진행중"
             value={stats.installationsInProgress}
             icon={Wrench}
@@ -462,7 +446,7 @@ export default function AdminDashboard() {
             }}
           />
 
-          <StatsCardComponent
+          <StatsCard
             title="예정된 설치"
             value={stats.upcomingInstallations}
             icon={Calendar}
@@ -822,6 +806,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
-    </AdminLayoutComponent>
+    </AdminLayout>
   )
 }
