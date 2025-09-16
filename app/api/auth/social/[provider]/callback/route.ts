@@ -69,10 +69,10 @@ export async function GET(
     // 권한에 따른 리다이렉트 페이지 결정
     let redirectPath = '/';
 
-    if (user.permissionLevel === 3) {
+    if (user.role === 3) {
       // 관리자: 관리자 페이지로
       redirectPath = '/admin';
-    } else if (user.permissionLevel >= 2) {
+    } else if (user.role >= 2) {
       // 운영자: 업무 페이지로
       redirectPath = '/business';
     } else {
