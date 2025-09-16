@@ -291,11 +291,41 @@ function AuthenticatedHomePage() {
 // URL 매개변수를 사용하는 컴포넌트
 function HomePageContent() {
   const searchParams = useSearchParams();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const router = useRouter();
 
   // URL 매개변수에서 메시지 확인
   const loginSuccess = searchParams?.get('login') === 'success';
   const errorMessage = searchParams?.get('error');
+
+  // 로그인 성공 시 권한에 따른 자동 리다이렉트
+  useEffect(() => {
+    if (loginSuccess && isAuthenticated && user) {
+      console.log('🔄 [REDIRECT] 로그인 성공 감지, 리다이렉트 준비:', {
+        role: user.role,
+        name: user.name,
+        loginSuccess,
+        isAuthenticated
+      });
+
+      const timer = setTimeout(() => {
+        if (user.role === 3) {
+          // 관리자: 관리자 페이지로
+          console.log('🎯 [REDIRECT] 관리자 페이지로 이동');
+          router.push('/admin');
+        } else if (user.role >= 2) {
+          // 운영자: 업무 페이지로
+          console.log('🎯 [REDIRECT] 업무 페이지로 이동');
+          router.push('/business');
+        } else {
+          // 일반 사용자(role: 1)는 홈페이지에 유지
+          console.log('🎯 [REDIRECT] 일반 사용자, 홈페이지 유지');
+        }
+      }, 2000); // 2초 후 리다이렉트
+
+      return () => clearTimeout(timer);
+    }
+  }, [loginSuccess, isAuthenticated, user, router]);
 
   if (isLoading) {
     return (
