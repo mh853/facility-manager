@@ -57,6 +57,7 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 ### Key Components
 - **Business Selection**: Homepage with searchable business list from Supabase
 - **File Upload System**: Multi-category file upload with Supabase storage integration
+- **Task Management**: Kanban-style workflow for facility installation tasks
 - **Reporting System**: PDF generation and email notifications
 - **Performance Monitoring**: Built-in performance tracking and optimization
 
@@ -74,12 +75,24 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 
 ## Important Files
 
+### Core Infrastructure
 - `/lib/supabase.ts` - Supabase client setup and authentication
-- `/app/api/business-list/route.ts` - Business data retrieval from Supabase
-- `/app/api/uploaded-files-supabase/route.ts` - File management with Supabase storage
 - `/types/index.ts` - TypeScript interfaces for Facility, BusinessInfo, FileInfo
 - `/app/layout.tsx` - Global layout with PWA setup and performance monitoring
 - `/utils/` - Utility functions for email, validation, and performance tracking
+
+### API Endpoints
+- `/app/api/business-list/route.ts` - Business data retrieval from Supabase
+- `/app/api/business-info/route.ts` - Individual business details for task creation
+- `/app/api/facility-tasks/route.ts` - **🎯 시설 업무 관리 API (CRUD)** - 칸반보드 업무 관리용
+- `/app/api/tasks/route.ts` - 프로젝트 관리 API (별도 시스템, 혼동 주의)
+- `/app/api/uploaded-files-supabase/route.ts` - File management with Supabase storage
+
+### Database Schema
+- `/sql/tasks_table.sql` - 시설 업무 관리용 데이터베이스 스키마 (facility_tasks 테이블)
+
+### Admin Pages
+- `/app/admin/tasks/page.tsx` - 시설 업무 관리 칸반보드 UI
 
 ## System URLs
 

@@ -4,18 +4,19 @@
 import { useState, useEffect, ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { 
-  Home, 
-  Building2, 
-  FileText, 
-  History, 
+import {
+  Home,
+  Building2,
+  FileText,
+  History,
   Settings,
   Menu,
   X,
   ChevronRight,
   User,
   Clock,
-  Activity
+  Activity,
+  ClipboardList
 } from 'lucide-react'
 
 interface AdminLayoutProps {
@@ -31,6 +32,12 @@ const navigationItems = [
     href: '/admin',
     icon: Activity,
     description: '관리자 종합 현황 대시보드'
+  },
+  {
+    name: '업무 관리',
+    href: '/admin/tasks',
+    icon: ClipboardList,
+    description: '업무 흐름 및 진행 상황 관리'
   },
   {
     name: '실사관리',
