@@ -34,7 +34,7 @@ const navigationItems = [
   },
   {
     name: '실사관리',
-    href: '/',
+    href: '/facility',
     icon: Home,
     description: '사업장 실사 및 파일 관리'
   },
@@ -81,19 +81,19 @@ function NavigationItems({ pathname, onItemClick }: { pathname: string, onItemCl
               onItemClick()
             }}
             className={`
-              group flex items-center px-4 py-3 lg:px-3 lg:py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer
-              ${isActive 
-                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 lg:bg-gradient-to-br lg:from-blue-100 lg:to-indigo-100 text-blue-700 shadow-sm border border-blue-200' 
+              group flex items-center px-4 py-3 lg:px-4 lg:py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer
+              ${isActive
+                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 lg:bg-gradient-to-br lg:from-blue-100 lg:to-indigo-100 text-blue-700 shadow-sm border border-blue-200'
                 : 'text-gray-600 hover:bg-gray-50 lg:hover:bg-gray-100 hover:text-gray-900'
               }
             `}
           >
-            <Icon className={`w-5 h-5 lg:w-4 lg:h-4 mr-3 lg:mr-2.5 ${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
-            <div className="flex-1">
-              <div className={`font-medium lg:text-sm ${isActive ? 'text-blue-900' : ''}`}>
+            <Icon className={`w-5 h-5 lg:w-5 lg:h-5 mr-3 lg:mr-3 ${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+            <div className="flex-1 min-w-0">
+              <div className={`font-medium text-sm lg:text-base ${isActive ? 'text-blue-900' : ''}`}>
                 {item.name}
               </div>
-              <div className={`text-xs lg:text-xs mt-0.5 lg:hidden ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
+              <div className={`text-xs lg:text-sm mt-0.5 ${isActive ? 'text-blue-600' : 'text-gray-400'} truncate`}>
                 {item.description}
               </div>
             </div>
@@ -152,14 +152,14 @@ export default function AdminLayout({ children, title, description, actions }: A
         />
       )}
 
-      {/* Container with integrated layout */}
-      <div className="lg:flex lg:gap-6 lg:p-6 lg:h-screen">
-        {/* Sidebar - Integrated Card Design */}
+      {/* Container with improved layout */}
+      <div className="lg:flex lg:gap-4 lg:p-4 lg:h-screen">
+        {/* Sidebar - Improved responsive design */}
         <div className={`
-          fixed inset-y-0 left-0 z-50 w-72 bg-white/95 lg:bg-white/90 backdrop-blur-md 
-          shadow-xl lg:shadow-sm lg:border lg:border-gray-200 lg:rounded-2xl transform transition-all duration-300 ease-in-out 
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-          lg:translate-x-0 lg:static lg:z-0 lg:flex lg:flex-col lg:h-full lg:max-h-[calc(100vh-3rem)]
+          fixed inset-y-0 left-0 z-50 w-80 lg:w-64 xl:w-80 bg-white/95 lg:bg-white backdrop-blur-md
+          shadow-xl lg:shadow-lg lg:border lg:border-gray-200 lg:rounded-xl transform transition-all duration-300 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0 lg:static lg:z-0 lg:flex lg:flex-col lg:h-full lg:min-w-0 lg:flex-shrink-0
         `}>
           <div className="flex flex-col h-full lg:p-2">
             {/* Logo/Header - Integrated with main design */}
@@ -182,7 +182,7 @@ export default function AdminLayout({ children, title, description, actions }: A
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 px-3 lg:px-2 py-4 lg:py-2 space-y-1 lg:overflow-y-auto">
+            <nav className="flex-1 px-4 lg:px-3 py-4 lg:py-3 space-y-2 lg:space-y-1 lg:overflow-y-auto">
               <NavigationItems pathname={pathname} onItemClick={() => setSidebarOpen(false)} />
             </nav>
 
@@ -201,9 +201,9 @@ export default function AdminLayout({ children, title, description, actions }: A
           </div>
         </div>
 
-        {/* Main content - Integrated Card Design */}
-        <div className="flex-1 lg:flex lg:flex-col lg:min-h-0">
-          <div className="lg:bg-white lg:shadow-sm lg:border lg:border-gray-200 lg:rounded-2xl lg:flex lg:flex-col lg:h-full lg:overflow-hidden">
+        {/* Main content - Improved layout */}
+        <div className="flex-1 lg:flex lg:flex-col lg:min-h-0 lg:min-w-0">
+          <div className="lg:bg-white lg:shadow-lg lg:border lg:border-gray-200 lg:rounded-xl lg:flex lg:flex-col lg:h-full lg:overflow-hidden">
             {/* Top bar - Mobile optimized */}
             <header className="bg-white lg:bg-transparent border-b border-gray-200 lg:border-gray-300 shadow-sm lg:shadow-none">
               <div className="px-4 py-3 lg:px-8 lg:py-6">

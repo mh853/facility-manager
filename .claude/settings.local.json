@@ -29,7 +29,11 @@
       "Bash(npm run type-check:*)",
       "Bash(git restore:*)",
       "Bash(npx vercel:*)",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(npm outdated)",
+      "Bash(npm audit:*)",
+      "Bash(tasklist)",
+      "Bash(cmd /c:*)"
     ],
     "deny": [],
     "ask": [],
