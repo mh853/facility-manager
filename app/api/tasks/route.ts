@@ -1,336 +1,232 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import jwt from 'jsonwebtoken';
+import { verifyAuth } from '@/lib/auth/middleware';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
-
-// 업무 목록 조회
+// 작업 목록 조회 (GET)
 export async function GET(request: NextRequest) {
   try {
-    console.log('🟡 [TASKS] API 시작:', {
-      method: request.method,
-      url: request.url,
-      timestamp: new Date().toISOString()
-    });
-
-    // JWT 토큰 검증
-    const authHeader = request.headers.get('authorization');
-    const cookieToken = request.cookies.get('auth-token')?.value;
-    const token = authHeader?.replace('Bearer ', '') || cookieToken;
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, message: '인증 토큰이 필요합니다.' },
-        { status: 401 }
-      );
+    const { user, error: authError } = await verifyAuth(request);
+    if (authError) {
+      return NextResponse.json({ success: false, error: authError }, { status: 401 });
     }
 
-    let decodedToken;
-    try {
-      decodedToken = jwt.verify(token, JWT_SECRET) as any;
-    } catch (jwtError) {
-      return NextResponse.json(
-        { success: false, message: '유효하지 않은 토큰입니다.' },
-        { status: 401 }
-      );
-    }
-
-    // URL 파라미터 추출
     const { searchParams } = new URL(request.url);
+    const project_id = searchParams.get('project_id');
+    const status = searchParams.get('status');
+    const priority = searchParams.get('priority');
+    const assigned_to = searchParams.get('assigned_to');
+    const department_id = searchParams.get('department_id');
+    const due_soon = searchParams.get('due_soon'); // 마감 임박 작업
+    const my_tasks = searchParams.get('my_tasks'); // 내 작업만
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
-    const status = searchParams.get('status'); // 상태 필터
-    const priority = searchParams.get('priority'); // 우선순위 필터
-    const category = searchParams.get('category'); // 카테고리 필터
-    const assignee = searchParams.get('assignee'); // 담당자 필터
-    const search = searchParams.get('search'); // 검색어
-    const sortBy = searchParams.get('sortBy') || 'created_at'; // 정렬 기준
-    const sortOrder = searchParams.get('sortOrder') || 'desc'; // 정렬 순서
-
     const offset = (page - 1) * limit;
 
-    console.log('🔍 [TASKS] 조회 조건:', {
-      userId: decodedToken.userId,
-      permissionLevel: decodedToken.permissionLevel,
-      page,
-      limit,
-      filters: { status, priority, category, assignee, search },
-      sort: { sortBy, sortOrder }
-    });
+    const supabase = supabaseAdmin;
 
-    // 기본 쿼리 구성
-    let query = supabaseAdmin
-      .from('task_details')
-      .select(`
-        id,
-        title,
-        description,
-        priority,
-        start_date,
-        due_date,
-        estimated_hours,
-        actual_hours,
-        progress_percentage,
-        is_urgent,
-        created_at,
-        updated_at,
-        category_name,
-        category_color,
-        category_icon,
-        status_name,
-        status_color,
-        status_icon,
-        status_type,
-        status_is_final,
-        created_by_name,
-        created_by_email,
-        assigned_to_name,
-        assigned_to_email,
-        assigned_to_department,
-        assigned_to_position,
-        attachment_count,
-        subtask_count,
-        tags
-      `, { count: 'exact' });
-
-    // 권한에 따른 필터링
-    if (decodedToken.permissionLevel === 1) {
-      // 일반 사용자: 자신이 담당하거나 생성한 업무만
-      query = query.or(`assigned_to.eq.${decodedToken.userId},created_by.eq.${decodedToken.userId}`);
-    } else if (decodedToken.permissionLevel === 2) {
-      // 매니저: 팀 업무도 포함 (현재는 모든 업무, 추후 부서별 필터 추가 가능)
-      // 추가 필터링 로직 필요시 여기에 구현
-    }
-    // 관리자(레벨 3)는 모든 업무 조회 가능
+    // 기본 쿼리 빌드
+    let query = supabase
+      .from('task_dashboard')
+      .select('*');
 
     // 필터 적용
+    if (project_id) {
+      query = query.eq('project_id', project_id);
+    }
     if (status) {
-      query = query.eq('status_name', status);
+      query = query.eq('status', status);
     }
-
     if (priority) {
-      query = query.eq('priority', parseInt(priority));
+      query = query.eq('priority', priority);
+    }
+    if (assigned_to) {
+      query = query.eq('assigned_to', assigned_to);
+    }
+    if (department_id) {
+      query = query.eq('department_id', department_id);
     }
 
-    if (category) {
-      query = query.eq('category_name', category);
+    // 내 작업만 필터
+    if (my_tasks === 'true') {
+      query = query.eq('assigned_to', user.id);
     }
 
-    if (assignee) {
-      query = query.eq('assigned_to', assignee);
+    // 마감 임박 작업 (7일 이내)
+    if (due_soon === 'true') {
+      const sevenDaysFromNow = new Date();
+      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+      query = query
+        .not('due_date', 'is', null)
+        .lte('due_date', sevenDaysFromNow.toISOString().split('T')[0])
+        .neq('status', '완료');
     }
 
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,assigned_to_name.ilike.%${search}%`);
+    // 권한별 필터링
+    if (user.permission_level === 2) {
+      query = query.eq('department_id', user.department_id);
+    } else if (user.permission_level === 3) {
+      // 권한 3: 자신이 담당하거나 소속 프로젝트의 작업만
+      query = query.or(`assigned_to.eq.${user.id},project_id.in.(select id from projects where manager_id = ${user.id})`);
     }
 
-    // 정렬 적용
-    const validSortFields = ['created_at', 'updated_at', 'due_date', 'priority', 'title', 'status_name'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'created_at';
-    const ascending = sortOrder === 'asc';
+    // 페이징 및 정렬
+    query = query
+      .order('priority', { ascending: false }) // 우선순위 순
+      .order('due_date', { ascending: true, nullsLast: true }) // 마감일 순
+      .range(offset, offset + limit - 1);
 
-    query = query.order(sortField, { ascending });
+    const { data: tasks, error: tasksError } = await query;
 
-    // 페이지네이션 적용
-    query = query.range(offset, offset + limit - 1);
-
-    const { data: tasks, error, count } = await query;
-
-    if (error) {
-      console.error('업무 목록 조회 오류:', error);
-      return NextResponse.json(
-        { success: false, message: '업무 목록 조회에 실패했습니다.' },
-        { status: 500 }
-      );
+    if (tasksError) {
+      console.error('작업 조회 오류:', tasksError);
+      return NextResponse.json({
+        success: false,
+        error: '작업 목록을 불러오는데 실패했습니다.'
+      }, { status: 500 });
     }
 
-    console.log('✅ [TASKS] 조회 성공:', {
-      count: tasks?.length || 0,
-      totalCount: count,
-      page,
-      totalPages: Math.ceil((count || 0) / limit)
-    });
+    // 전체 개수 조회 (페이징용)
+    let countQuery = supabase
+      .from('tasks')
+      .select('*', { count: 'exact', head: true });
+
+    if (project_id) countQuery = countQuery.eq('project_id', project_id);
+    if (status) countQuery = countQuery.eq('status', status);
+    if (priority) countQuery = countQuery.eq('priority', priority);
+    if (assigned_to) countQuery = countQuery.eq('assigned_to', assigned_to);
+    if (department_id) countQuery = countQuery.eq('department_id', department_id);
+    if (my_tasks === 'true') countQuery = countQuery.eq('assigned_to', user.id);
+    if (user.permission_level === 2) countQuery = countQuery.eq('department_id', user.department_id);
+
+    const { count } = await countQuery;
 
     return NextResponse.json({
       success: true,
       data: {
-        data: tasks || [],
+        tasks,
         pagination: {
-          page,
-          limit,
-          total: count || 0,
-          totalPages: Math.ceil((count || 0) / limit),
-          hasNext: offset + limit < (count || 0),
-          hasPrev: page > 1
+          current_page: page,
+          total_pages: Math.ceil((count || 0) / limit),
+          total_count: count || 0,
+          limit
         }
       }
     });
 
   } catch (error) {
-    console.error('업무 목록 API 오류:', error);
-    return NextResponse.json(
-      { success: false, message: '서버 오류가 발생했습니다.' },
-      { status: 500 }
-    );
+    console.error('작업 API 오류:', error);
+    return NextResponse.json({
+      success: false,
+      error: '서버 오류가 발생했습니다.'
+    }, { status: 500 });
   }
 }
 
-// 업무 생성
+// 새 작업 생성 (POST)
 export async function POST(request: NextRequest) {
   try {
-    console.log('🟡 [TASKS-CREATE] API 시작');
-
-    // JWT 토큰 검증
-    const authHeader = request.headers.get('authorization');
-    const cookieToken = request.cookies.get('auth-token')?.value;
-    const token = authHeader?.replace('Bearer ', '') || cookieToken;
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, message: '인증 토큰이 필요합니다.' },
-        { status: 401 }
-      );
-    }
-
-    let decodedToken;
-    try {
-      decodedToken = jwt.verify(token, JWT_SECRET) as any;
-    } catch (jwtError) {
-      return NextResponse.json(
-        { success: false, message: '유효하지 않은 토큰입니다.' },
-        { status: 401 }
-      );
+    const { user, error: authError } = await verifyAuth(request);
+    if (authError) {
+      return NextResponse.json({ success: false, error: authError }, { status: 401 });
     }
 
     const body = await request.json();
     const {
       title,
       description,
-      category_id,
-      priority = 2,
+      project_id,
+      priority = '보통',
+      assigned_to,
+      department_id,
       start_date,
       due_date,
       estimated_hours,
-      assigned_to,
-      tags = [],
-      is_urgent = false,
-      is_private = false,
-      parent_task_id
+      parent_task_id,
+      order_in_project = 0,
+      notes
     } = body;
 
-    console.log('🔍 [TASKS-CREATE] 수신된 데이터:', {
-      title,
-      assigned_to,
-      priority,
-      category_id,
-      created_by: decodedToken.userId
-    });
-
-    // 입력 데이터 검증
-    if (!title || !assigned_to) {
-      return NextResponse.json(
-        { success: false, message: '제목과 담당자는 필수 항목입니다.' },
-        { status: 400 }
-      );
+    // 필수 필드 검증
+    if (!title || !project_id) {
+      return NextResponse.json({
+        success: false,
+        error: '작업명과 프로젝트는 필수입니다.'
+      }, { status: 400 });
     }
 
-    // 담당자 권한 검증 (일반 사용자는 자신만 지정 가능)
-    if (decodedToken.permissionLevel === 1 && assigned_to !== decodedToken.userId) {
-      return NextResponse.json(
-        { success: false, message: '다른 사용자에게 업무를 할당할 권한이 없습니다.' },
-        { status: 403 }
-      );
+    const supabase = supabaseAdmin;
+
+    // 프로젝트 접근 권한 확인
+    let projectQuery = supabase
+      .from('projects')
+      .select('id, department_id, manager_id')
+      .eq('id', project_id);
+
+    if (user.permission_level === 2) {
+      projectQuery = projectQuery.eq('department_id', user.department_id);
+    } else if (user.permission_level === 3) {
+      projectQuery = projectQuery.eq('manager_id', user.id);
     }
 
-    // 담당자 존재 확인
-    const { data: assignee, error: assigneeError } = await supabaseAdmin
-      .from('employees')
-      .select('id, name, permission_level')
-      .eq('id', assigned_to)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .single();
+    const { data: project, error: projectError } = await projectQuery.single();
 
-    if (assigneeError || !assignee) {
-      return NextResponse.json(
-        { success: false, message: '지정된 담당자를 찾을 수 없습니다.' },
-        { status: 400 }
-      );
+    if (projectError || !project) {
+      return NextResponse.json({
+        success: false,
+        error: '프로젝트에 접근할 권한이 없습니다.'
+      }, { status: 403 });
     }
 
-    // 기본 상태 ID 가져오기 (신규 상태)
-    const { data: defaultStatus, error: statusError } = await supabaseAdmin
-      .from('task_statuses')
-      .select('id')
-      .eq('name', '신규')
-      .eq('is_active', true)
-      .single();
-
-    if (statusError || !defaultStatus) {
-      return NextResponse.json(
-        { success: false, message: '기본 상태를 찾을 수 없습니다.' },
-        { status: 500 }
-      );
-    }
-
-    // 업무 생성
-    const taskData = {
-      title: title.trim(),
-      description: description?.trim() || null,
-      category_id: category_id || null,
-      status_id: defaultStatus.id,
-      priority,
-      start_date: start_date || null,
-      due_date: due_date || null,
-      estimated_hours: estimated_hours || null,
-      created_by: decodedToken.userId,
-      assigned_to,
-      tags: tags || [],
-      is_urgent,
-      is_private,
-      parent_task_id: parent_task_id || null,
-      progress_percentage: 0
-    };
-
-    const { data: newTask, error: createError } = await supabaseAdmin
+    // 작업 생성
+    const { data: task, error: taskError } = await supabase
       .from('tasks')
-      .insert(taskData)
-      .select(`
-        *,
-        category:task_categories(name, color, icon),
-        status:task_statuses(name, color, icon),
-        assignee:assigned_to(name, email, department, position),
-        creator:created_by(name, email)
-      `)
+      .insert({
+        title,
+        description,
+        project_id,
+        priority,
+        assigned_to,
+        department_id: department_id || project.department_id,
+        start_date,
+        due_date,
+        estimated_hours,
+        parent_task_id,
+        order_in_project,
+        notes,
+        created_by: user.id
+      })
+      .select()
       .single();
 
-    if (createError) {
-      console.error('업무 생성 오류:', createError);
-      return NextResponse.json(
-        { success: false, message: `업무 생성에 실패했습니다: ${createError.message}` },
-        { status: 500 }
-      );
+    if (taskError) {
+      console.error('작업 생성 오류:', taskError);
+      return NextResponse.json({
+        success: false,
+        error: '작업 생성에 실패했습니다.'
+      }, { status: 500 });
     }
 
-    console.log('✅ [TASKS-CREATE] 업무 생성 성공:', {
-      taskId: newTask.id,
-      title: newTask.title,
-      assignedTo: assignee.name
-    });
+    // 작업 생성 로그 추가
+    await supabase
+      .from('task_comments')
+      .insert({
+        task_id: task.id,
+        content: `작업이 생성되었습니다.`,
+        comment_type: 'status_change',
+        author_id: user.id
+      });
 
     return NextResponse.json({
       success: true,
-      message: '업무가 성공적으로 생성되었습니다.',
-      data: {
-        task: newTask
-      }
+      data: task,
+      message: '작업이 성공적으로 생성되었습니다.'
     });
 
   } catch (error) {
-    console.error('업무 생성 API 오류:', error);
-    return NextResponse.json(
-      { success: false, message: '서버 오류가 발생했습니다.' },
-      { status: 500 }
-    );
+    console.error('작업 생성 API 오류:', error);
+    return NextResponse.json({
+      success: false,
+      error: '서버 오류가 발생했습니다.'
+    }, { status: 500 });
   }
 }

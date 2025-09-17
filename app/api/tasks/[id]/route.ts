@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+import { createServerClient } from '@/lib/supabase';
+import { verifyAuth } from '@/lib/auth/middleware';
 
 // 업무 상세 조회
 export async function GET(
