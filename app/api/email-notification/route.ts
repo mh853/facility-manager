@@ -186,7 +186,7 @@ ${businessName} ${typeText} 작업이 완료되었습니다.
 - 사업장: ${businessName}
 - 작업 유형: ${typeText}
 - 완료자: ${completedBy || '정보 없음'}
-- 완료 시간: ${completedAt || new Date().toLocaleString('ko-KR')}
+- 완료 시간: ${completedAt || new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
 ${facilityCount ? `- 시설 수: 배출구 ${facilityCount.outlets}개, 배출시설 ${facilityCount.discharge}개, 방지시설 ${facilityCount.prevention}개` : ''}
 
 ${memo ? `📝 특이사항:\n${memo}` : ''}
@@ -248,7 +248,7 @@ ${memo ? `📝 특이사항:\n${memo}` : ''}
         </div>
         <div class="info-item">
           <span class="info-label"><span class="emoji">🕐</span> 완료 시간:</span>
-          <span class="info-value">${completedAt || new Date().toLocaleString('ko-KR')}</span>
+          <span class="info-value">${completedAt || new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</span>
         </div>
       </div>
 
