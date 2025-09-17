@@ -255,31 +255,127 @@ async function getPendingRequests() {
   return [];
 }
 
-// 푸시 알림 (향후 확장용)
+// 푸시 알림 처리
 self.addEventListener('push', (event) => {
+  console.log('📨 푸시 알림 수신:', event);
+
+  let notificationData = {
+    title: '시설 관리 시스템',
+    body: '새로운 알림이 도착했습니다.',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: 'facility-notification',
+    data: {},
+    actions: []
+  };
+
+  // 푸시 데이터 파싱
   if (event.data) {
-    const data = event.data.json();
-    console.log('📨 푸시 알림 수신:', data);
-    
-    event.waitUntil(
-      self.registration.showNotification(data.title, {
-        body: data.body,
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
-        tag: 'facility-notification',
-        renotify: true,
-      })
-    );
+    try {
+      const pushData = event.data.json();
+      notificationData = {
+        ...notificationData,
+        ...pushData
+      };
+      console.log('푸시 데이터:', pushData);
+    } catch (error) {
+      console.error('푸시 데이터 파싱 실패:', error);
+      notificationData.body = event.data.text() || notificationData.body;
+    }
   }
+
+  // 알림 유형별 설정
+  const notificationOptions = {
+    body: notificationData.body,
+    icon: notificationData.icon,
+    badge: notificationData.badge,
+    tag: notificationData.tag,
+    data: notificationData.data,
+    actions: getNotificationActions(notificationData.data?.type),
+    requireInteraction: true,
+    renotify: true,
+    timestamp: Date.now(),
+    vibrate: [200, 100, 200]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, notificationOptions)
+  );
 });
 
 // 알림 클릭 처리
 self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  
+  console.log('알림 클릭:', event);
+
+  const notification = event.notification;
+  const action = event.action;
+  const data = notification.data || {};
+
+  // 알림 닫기
+  notification.close();
+
+  if (action === 'dismiss') {
+    // 닫기 액션 - 아무것도 하지 않음
+    return;
+  }
+
+  // 페이지 열기 URL 결정
+  let urlToOpen = '/';
+  if (data.url) {
+    urlToOpen = data.url;
+  } else if (data.taskId) {
+    urlToOpen = `/admin/tasks?task=${data.taskId}`;
+  }
+
   event.waitUntil(
-    clients.openWindow('/')
+    self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    }).then(clients => {
+      // 이미 열린 탭이 있는지 확인
+      const existingClient = clients.find(client => {
+        const clientUrl = new URL(client.url);
+        const targetUrl = new URL(urlToOpen, self.location.origin);
+        return clientUrl.pathname === targetUrl.pathname;
+      });
+
+      if (existingClient) {
+        // 기존 탭으로 포커스
+        return existingClient.focus();
+      } else {
+        // 새 탭 열기
+        return self.clients.openWindow(new URL(urlToOpen, self.location.origin).href);
+      }
+    }).catch(error => {
+      console.error('알림 클릭 처리 실패:', error);
+    })
   );
+});
+
+// 알림 닫기 처리
+self.addEventListener('notificationclose', (event) => {
+  console.log('알림 닫힘:', event);
+
+  const notification = event.notification;
+  const data = notification.data || {};
+
+  // 알림 닫기 추적 (필요시)
+  if (data.trackClose) {
+    event.waitUntil(
+      fetch('/api/notifications/track-close', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          notificationId: data.notificationId,
+          closedAt: new Date().toISOString()
+        })
+      }).catch(error => {
+        console.error('알림 닫기 추적 실패:', error);
+      })
+    );
+  }
 });
 
 // 메시지 처리 (클라이언트와 통신)
@@ -307,6 +403,65 @@ async function getCacheStats() {
   }
   
   return stats;
+}
+
+// 알림 유형별 액션 정의
+function getNotificationActions(type) {
+  const baseActions = [
+    {
+      action: 'view',
+      title: '확인',
+      icon: '/icon-192.png'
+    },
+    {
+      action: 'dismiss',
+      title: '닫기',
+      icon: '/icon-192.png'
+    }
+  ];
+
+  switch (type) {
+    case 'task_assigned':
+      return [
+        {
+          action: 'view',
+          title: '업무 보기',
+          icon: '/icon-192.png'
+        },
+        {
+          action: 'dismiss',
+          title: '나중에',
+          icon: '/icon-192.png'
+        }
+      ];
+
+    case 'task_comment':
+    case 'mention':
+      return [
+        {
+          action: 'view',
+          title: '보기',
+          icon: '/icon-192.png'
+        },
+        {
+          action: 'dismiss',
+          title: '닫기',
+          icon: '/icon-192.png'
+        }
+      ];
+
+    case 'task_completed':
+      return [
+        {
+          action: 'view',
+          title: '확인',
+          icon: '/icon-192.png'
+        }
+      ];
+
+    default:
+      return baseActions;
+  }
 }
 
 console.log('🚀 Service Worker 로드 완료');
