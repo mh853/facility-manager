@@ -28,7 +28,7 @@ export function useSSE({
   reconnectInterval = 3000,
   maxReconnectAttempts = 5
 }: UseSSEOptions) {
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected')
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'reconnecting'>('disconnected')
   const [reconnectAttempts, setReconnectAttempts] = useState(0)
 
   const eventSourceRef = useRef<EventSource | null>(null)
@@ -71,6 +71,7 @@ export function useSSE({
         if (autoReconnect && !isManuallyClosedRef.current && reconnectAttempts < maxReconnectAttempts) {
           console.log(`Attempting to reconnect in ${reconnectInterval}ms... (${reconnectAttempts + 1}/${maxReconnectAttempts})`)
 
+          setConnectionStatus('reconnecting')
           reconnectTimeoutRef.current = setTimeout(() => {
             setReconnectAttempts(prev => prev + 1)
             connect()

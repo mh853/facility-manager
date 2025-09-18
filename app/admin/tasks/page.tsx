@@ -702,7 +702,7 @@ export default function TaskManagementPage() {
     }
 
     setEditingTask(task)
-    setEditBusinessSearchTerm(task.businessName)
+    setEditBusinessSearchTerm(task.businessName || '')
     setShowEditBusinessDropdown(false)
     setShowEditModal(true)
   }, [])
