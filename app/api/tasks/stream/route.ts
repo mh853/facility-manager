@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server'
 const clients = new Set<ReadableStreamDefaultController>()
 
 // 모든 클라이언트에게 데이터 브로드캐스트
-export function broadcastToClients(data: any) {
+function broadcastToClients(data: any) {
   const message = `data: ${JSON.stringify(data)}\n\n`
 
   clients.forEach(controller => {

@@ -807,20 +807,9 @@ export default function TaskManagementPage() {
           </div>
         </div>
 
-        {/* 검색 및 필터 */}
+        {/* 필터 및 검색 */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex flex-col lg:flex-row gap-4">
-            {/* 검색창 */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="업무명, 사업장명, 담당자로 검색..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                onChange={(e) => debouncedSearch(e.target.value)}
-              />
-            </div>
-
             {/* 필터 옵션들 */}
             <div className="flex flex-wrap gap-3">
               {/* 업무 타입 */}
@@ -859,6 +848,17 @@ export default function TaskManagementPage() {
                   <option key={assignee} value={assignee}>{assignee}</option>
                 ))}
               </select>
+            </div>
+
+            {/* 검색창 */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="업무명, 사업장명, 담당자로 검색..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => debouncedSearch(e.target.value)}
+              />
             </div>
           </div>
 
