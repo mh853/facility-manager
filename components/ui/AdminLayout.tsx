@@ -195,7 +195,7 @@ export default function AdminLayout({ children, title, description, actions }: A
 
             {/* Footer */}
             <div className="border-t border-gray-200 lg:border-gray-300 p-4 lg:p-3 lg:bg-gradient-to-r lg:from-gray-50 lg:to-blue-50 lg:rounded-xl lg:border lg:m-2 lg:mt-0">
-              <div className="flex items-center gap-3 lg:gap-2">
+              <Link href="/profile" className="flex items-center gap-3 lg:gap-2 hover:bg-white/50 lg:hover:bg-blue-100/50 rounded-lg p-2 -m-2 transition-colors duration-200">
                 <div className="w-8 h-8 lg:w-7 lg:h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-sm">
                   <User className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-white" />
                 </div>
@@ -203,7 +203,7 @@ export default function AdminLayout({ children, title, description, actions }: A
                   <div className="text-sm lg:text-xs font-medium text-gray-900">관리자</div>
                   <div className="text-xs lg:text-xs text-gray-500 lg:hidden">주식회사 블루온</div>
                 </div>
-              </div>
+              </Link>
             </div>
           </div>
         </div>

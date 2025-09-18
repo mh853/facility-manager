@@ -7,324 +7,408 @@ import AdminLayout from '@/components/ui/AdminLayout';
 import {
   User,
   Mail,
-  Building,
   Shield,
-  Camera,
+  Building2,
+  Key,
   Save,
-  AlertCircle,
-  CheckCircle,
+  ArrowLeft,
   Eye,
   EyeOff,
-  Lock,
+  CheckCircle,
+  AlertTriangle,
   Calendar,
-  BadgeCheck
+  Clock
 } from 'lucide-react';
-import { Clock } from 'lucide-react';
 
-interface ProfileFormData {
+interface UserProfile {
+  id: string;
   name: string;
   email: string;
-  department: string;
-  position: string;
-}
-
-interface PasswordFormData {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword: string;
+  employee_id: string;
+  department?: string;
+  position?: string;
+  permission_level: number;
+  is_active: boolean;
+  created_at: string;
+  last_login_at?: string;
+  avatar_url?: string;
+  social_login_enabled?: boolean;
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
   const router = useRouter();
+  const { user } = useAuth();
 
-  const [profileData, setProfileData] = useState<ProfileFormData>({
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+
+  // 프로필 편집 폼
+  const [editForm, setEditForm] = useState({
     name: '',
     email: '',
     department: '',
     position: ''
   });
 
-  const [passwordData, setPasswordData] = useState<PasswordFormData>({
+  // 비밀번호 변경 폼
+  const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
 
-  const [loading, setLoading] = useState(false);
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
     confirm: false
   });
 
-  // 사용자 데이터 로드
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
   useEffect(() => {
     if (user) {
-      setProfileData({
-        name: user.name || '',
-        email: user.email || '',
-        department: user.department || '',
-        position: ''
-      });
+      loadProfile();
     }
   }, [user]);
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
+  const loadProfile = async () => {
+    if (!user) return;
 
     try {
-      // Mock implementation - would call API in real app
-      setTimeout(() => {
-        setMessage({ type: 'success', text: '프로필이 성공적으로 업데이트되었습니다.' });
-        setLoading(false);
-      }, 1000);
+      setLoading(true);
+      const token = localStorage.getItem('facility_manager_token');
+      const response = await fetch(`/api/admin/employees/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const userProfile = data.data.employee;
+          setProfile(userProfile);
+          setEditForm({
+            name: userProfile.name || '',
+            email: userProfile.email || '',
+            department: userProfile.department || '',
+            position: userProfile.position || ''
+          });
+        }
+      } else {
+        setErrorMessage('프로필 정보를 불러올 수 없습니다.');
+      }
     } catch (error) {
-      setMessage({ type: 'error', text: '네트워크 오류가 발생했습니다.' });
+      console.error('프로필 로드 오류:', error);
+      setErrorMessage('프로필 정보를 불러오는 중 오류가 발생했습니다.');
+    } finally {
       setLoading(false);
     }
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPasswordLoading(true);
-    setPasswordMessage(null);
+    if (!user || !profile) return;
 
-    // 비밀번호 확인 검증
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordMessage({ type: 'error', text: '새 비밀번호가 일치하지 않습니다.' });
-      setPasswordLoading(false);
+    try {
+      setSaving(true);
+      setErrorMessage('');
+
+      const token = localStorage.getItem('facility_manager_token');
+      const response = await fetch(`/api/admin/employees/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editForm)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setProfile({ ...profile, ...editForm });
+          setSuccessMessage('프로필이 성공적으로 업데이트되었습니다.');
+          setTimeout(() => setSuccessMessage(''), 3000);
+        }
+      } else {
+        setErrorMessage('프로필 업데이트에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('프로필 업데이트 오류:', error);
+      setErrorMessage('프로필 업데이트 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setErrorMessage('새 비밀번호가 일치하지 않습니다.');
       return;
     }
 
-    // 비밀번호 강도 검증
-    if (passwordData.newPassword.length < 8) {
-      setPasswordMessage({ type: 'error', text: '새 비밀번호는 최소 8자 이상이어야 합니다.' });
-      setPasswordLoading(false);
+    if (passwordForm.newPassword.length < 8) {
+      setErrorMessage('새 비밀번호는 최소 8자 이상이어야 합니다.');
       return;
     }
 
     try {
-      // Mock implementation - would call API in real app
-      setTimeout(() => {
-        setPasswordMessage({ type: 'success', text: '비밀번호가 성공적으로 변경되었습니다.' });
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setPasswordLoading(false);
-      }, 1000);
+      setSaving(true);
+      setErrorMessage('');
 
+      const token = localStorage.getItem('facility_manager_token');
+      const response = await fetch('/api/profile/change-password', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+          setShowPasswordForm(false);
+          setSuccessMessage('비밀번호가 성공적으로 변경되었습니다.');
+          setTimeout(() => setSuccessMessage(''), 3000);
+        }
+      } else {
+        const data = await response.json();
+        setErrorMessage(data.error?.message || '비밀번호 변경에 실패했습니다.');
+      }
     } catch (error) {
-      setPasswordMessage({ type: 'error', text: '네트워크 오류가 발생했습니다.' });
-      setPasswordLoading(false);
+      console.error('비밀번호 변경 오류:', error);
+      setErrorMessage('비밀번호 변경 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
     }
   };
 
   const getPermissionLabel = (level: number) => {
     switch (level) {
-      case 3: return { text: '관리자', color: 'text-red-600 bg-red-50 border-red-200' };
-      case 2: return { text: '매니저', color: 'text-orange-600 bg-orange-50 border-orange-200' };
-      case 1: return { text: '일반 사용자', color: 'text-blue-600 bg-blue-50 border-blue-200' };
-      default: return { text: '사용자', color: 'text-gray-600 bg-gray-50 border-gray-200' };
+      case 3: return { text: '관리자', color: 'bg-red-100 text-red-800 border-red-200' };
+      case 2: return { text: '매니저', color: 'bg-orange-100 text-orange-800 border-orange-200' };
+      case 1: return { text: '일반사용자', color: 'bg-blue-100 text-blue-800 border-blue-200' };
+      default: return { text: '사용자', color: 'bg-gray-100 text-gray-800 border-gray-200' };
     }
   };
 
-  if (!user) {
+  if (loading) {
     return (
-      <AdminLayout>
+      <AdminLayout title="계정 설정" description="사용자 프로필 및 계정 정보 관리">
         <div className="flex items-center justify-center min-h-96">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">프로필 정보를 불러오는 중...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <AdminLayout title="계정 설정" description="사용자 프로필 및 계정 정보 관리">
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">프로필을 불러올 수 없습니다</h3>
+            <p className="text-gray-600 mb-4">계정 정보에 접근할 수 없습니다.</p>
+            <button
+              onClick={() => router.push('/admin')}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              돌아가기
+            </button>
+          </div>
         </div>
       </AdminLayout>
     );
   }
 
   return (
-    <AdminLayout>
-      <div className="p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">프로필 관리</h1>
-          <p className="text-gray-600">계정 정보 및 설정을 관리합니다.</p>
-        </div>
+    <AdminLayout title="계정 설정" description="사용자 프로필 및 계정 정보 관리">
+      <div className="max-w-4xl mx-auto space-y-8">
 
-        <div className="max-w-4xl space-y-8">
-          {/* 계정 정보 헤더 */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-200">
-            <div className="flex items-center gap-6">
-              {/* 프로필 아바타 */}
-              <div className="relative">
-                <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-                  <span className="text-2xl font-bold text-white">
-                    {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
-                  <Camera className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
+        {/* 성공/오류 메시지 */}
+        {successMessage && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+            <span className="text-green-800">{successMessage}</span>
+          </div>
+        )}
 
-              {/* 기본 정보 */}
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  {user.name || user.email}
-                </h2>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-gray-500" />
-                    <span className="text-gray-700">{user.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="w-4 h-4 text-gray-500" />
-                    <span className="text-gray-700">ID: {user.id}</span>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPermissionLabel(user.role || 1).color}`}>
-                    {getPermissionLabel(user.role || 1).text}
+        {errorMessage && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <span className="text-red-800">{errorMessage}</span>
+          </div>
+        )}
+
+        {/* 프로필 개요 */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <div className="flex items-center gap-6 mb-6">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-white">
+                {profile.name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{profile.name}</h2>
+              <p className="text-gray-600">{profile.email}</p>
+              <div className="flex items-center gap-3 mt-2">
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getPermissionLabel(profile.permission_level).color}`}>
+                  {getPermissionLabel(profile.permission_level).text}
+                </span>
+                {profile.social_login_enabled && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 border border-green-200">
+                    소셜 로그인
                   </span>
-                </div>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* 프로필 정보 편집 */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <User className="w-6 h-6 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900">프로필 정보</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-gray-200">
+            <div className="flex items-center gap-3">
+              <Building2 className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-500">부서</p>
+                <p className="font-medium text-gray-900">{profile.department || '미설정'}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <User className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-500">직급</p>
+                <p className="font-medium text-gray-900">{profile.position || '미설정'}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-500">최근 로그인</p>
+                <p className="font-medium text-gray-900">
+                  {profile.last_login_at
+                    ? new Date(profile.last_login_at).toLocaleDateString('ko-KR')
+                    : '없음'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 프로필 편집 */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-3">
+            <User className="w-5 h-5" />
+            프로필 정보 수정
+          </h3>
+
+          <form onSubmit={handleProfileUpdate} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">이름</label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
               </div>
 
-              {message && (
-                <div className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${
-                  message.type === 'success'
-                    ? 'bg-green-50 border-green-200 text-green-700'
-                    : 'bg-red-50 border-red-200 text-red-700'
-                }`}>
-                  {message.type === 'success' ? (
-                    <CheckCircle className="w-5 h-5" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5" />
-                  )}
-                  <span className="text-sm font-medium">{message.text}</span>
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">이메일</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
 
-              <form onSubmit={handleProfileSubmit} className="space-y-6">
-                {/* 이름 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    이름
-                  </label>
-                  <input
-                    type="text"
-                    value={profileData.name}
-                    onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="이름을 입력하세요"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">부서</label>
+                <input
+                  type="text"
+                  value={editForm.department}
+                  onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="부서명을 입력하세요"
+                />
+              </div>
 
-                {/* 이메일 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    이메일
-                  </label>
-                  <input
-                    type="email"
-                    value={profileData.email}
-                    onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="이메일을 입력하세요"
-                  />
-                </div>
-
-                {/* 부서 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    부서
-                  </label>
-                  <input
-                    type="text"
-                    value={profileData.department}
-                    onChange={(e) => setProfileData({ ...profileData, department: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="부서를 입력하세요"
-                  />
-                </div>
-
-                {/* 직급 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    직급
-                  </label>
-                  <input
-                    type="text"
-                    value={profileData.position}
-                    onChange={(e) => setProfileData({ ...profileData, position: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="직급을 입력하세요"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors duration-200"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  ) : (
-                    <Save className="w-5 h-5" />
-                  )}
-                  <span>{loading ? '저장 중...' : '프로필 저장'}</span>
-                </button>
-              </form>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">직급</label>
+                <input
+                  type="text"
+                  value={editForm.position}
+                  onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="직급을 입력하세요"
+                />
+              </div>
             </div>
 
-            {/* 비밀번호 변경 */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <Lock className="w-6 h-6 text-red-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900">비밀번호 변경</h3>
-              </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={saving}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {saving ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                프로필 저장
+              </button>
+            </div>
+          </form>
+        </div>
 
-              {passwordMessage && (
-                <div className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${
-                  passwordMessage.type === 'success'
-                    ? 'bg-green-50 border-green-200 text-green-700'
-                    : 'bg-red-50 border-red-200 text-red-700'
-                }`}>
-                  {passwordMessage.type === 'success' ? (
-                    <CheckCircle className="w-5 h-5" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5" />
-                  )}
-                  <span className="text-sm font-medium">{passwordMessage.text}</span>
-                </div>
-              )}
+        {/* 비밀번호 변경 */}
+        {!profile.social_login_enabled && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-3">
+                <Key className="w-5 h-5" />
+                비밀번호 변경
+              </h3>
+              <button
+                onClick={() => setShowPasswordForm(!showPasswordForm)}
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                {showPasswordForm ? '취소' : '비밀번호 변경'}
+              </button>
+            </div>
 
-              <form onSubmit={handlePasswordSubmit} className="space-y-6">
-                {/* 현재 비밀번호 */}
+            {showPasswordForm && (
+              <form onSubmit={handlePasswordChange} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    현재 비밀번호
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">현재 비밀번호</label>
                   <div className="relative">
                     <input
                       type={showPasswords.current ? 'text' : 'password'}
-                      value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="현재 비밀번호를 입력하세요"
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
                     <button
@@ -332,49 +416,42 @@ export default function ProfilePage() {
                       onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                     >
-                      {showPasswords.current ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                {/* 새 비밀번호 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    새 비밀번호
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">새 비밀번호</label>
                   <div className="relative">
                     <input
                       type={showPasswords.new ? 'text' : 'password'}
-                      value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="새 비밀번호를 입력하세요"
-                      required
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       minLength={8}
+                      required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                     >
-                      {showPasswords.new ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">최소 8자 이상의 비밀번호를 입력하세요.</p>
                 </div>
 
-                {/* 새 비밀번호 확인 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    새 비밀번호 확인
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">새 비밀번호 확인</label>
                   <div className="relative">
                     <input
                       type={showPasswords.confirm ? 'text' : 'password'}
-                      value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                      className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="새 비밀번호를 다시 입력하세요"
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      minLength={8}
                       required
                     />
                     <button
@@ -382,59 +459,65 @@ export default function ProfilePage() {
                       onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                     >
-                      {showPasswords.confirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={passwordLoading}
-                  className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors duration-200"
-                >
-                  {passwordLoading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  ) : (
-                    <Lock className="w-5 h-5" />
-                  )}
-                  <span>{passwordLoading ? '변경 중...' : '비밀번호 변경'}</span>
-                </button>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {saving ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Key className="w-4 h-4" />
+                    )}
+                    비밀번호 변경
+                  </button>
+                </div>
               </form>
-            </div>
+            )}
           </div>
+        )}
 
-          {/* 계정 정보 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gray-100 rounded-lg">
-                <Shield className="w-6 h-6 text-gray-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900">계정 정보</h3>
+        {/* 계정 정보 */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-3">
+            <Shield className="w-5 h-5" />
+            계정 정보
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">직원 ID</p>
+              <p className="font-medium text-gray-900">{profile.employee_id}</p>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">계정 생성일</span>
-                </div>
-                <p className="text-gray-900">
-                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString('ko-KR') : '정보 없음'}
-                </p>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">최근 로그인</span>
-                </div>
-                <p className="text-gray-900">
-                  {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('ko-KR') : '정보 없음'}
-                </p>
-              </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">계정 생성일</p>
+              <p className="font-medium text-gray-900">
+                {new Date(profile.created_at).toLocaleDateString('ko-KR')}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">계정 상태</p>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                profile.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}>
+                {profile.is_active ? '활성' : '비활성'}
+              </span>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">권한 레벨</p>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPermissionLabel(profile.permission_level).color}`}>
+                {getPermissionLabel(profile.permission_level).text}
+              </span>
             </div>
           </div>
         </div>
+
       </div>
     </AdminLayout>
   );
