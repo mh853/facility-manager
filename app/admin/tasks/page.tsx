@@ -330,16 +330,16 @@ export default function TaskManagementPage() {
   // 필터링된 사업장 목록
   const filteredBusinesses = useMemo(() => {
     return availableBusinesses.filter(business =>
-      business.name.toLowerCase().includes(businessSearchTerm.toLowerCase()) ||
-      business.address.toLowerCase().includes(businessSearchTerm.toLowerCase())
+      business.name?.toLowerCase().includes(businessSearchTerm.toLowerCase()) ||
+      business.address?.toLowerCase().includes(businessSearchTerm.toLowerCase())
     ).slice(0, 10) // 최대 10개만 표시
   }, [availableBusinesses, businessSearchTerm])
 
   // 수정용 필터링된 사업장 목록
   const filteredEditBusinesses = useMemo(() => {
     return availableBusinesses.filter(business =>
-      business.name.toLowerCase().includes(editBusinessSearchTerm.toLowerCase()) ||
-      business.address.toLowerCase().includes(editBusinessSearchTerm.toLowerCase())
+      business.name?.toLowerCase().includes(editBusinessSearchTerm.toLowerCase()) ||
+      business.address?.toLowerCase().includes(editBusinessSearchTerm.toLowerCase())
     ).slice(0, 10)
   }, [availableBusinesses, editBusinessSearchTerm])
 
@@ -405,6 +405,12 @@ export default function TaskManagementPage() {
 
     const startDate = new Date(task.startDate)
     const currentDate = new Date()
+
+    // 날짜 유효성 검증
+    if (isNaN(startDate.getTime())) {
+      return { delayStatus: 'on_time', delayDays: 0 }
+    }
+
     const daysSinceStart = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
 
     // 업무 타입별 임계값 설정
@@ -420,10 +426,14 @@ export default function TaskManagementPage() {
     // 마감일 체크
     if (task.dueDate) {
       const dueDate = new Date(task.dueDate)
-      const daysUntilDue = Math.floor((dueDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24))
 
-      if (daysUntilDue < 0) {
-        return { delayStatus: 'overdue', delayDays: Math.abs(daysUntilDue) }
+      // 마감일 유효성 검증
+      if (!isNaN(dueDate.getTime())) {
+        const daysUntilDue = Math.floor((dueDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24))
+
+        if (daysUntilDue < 0) {
+          return { delayStatus: 'overdue', delayDays: Math.abs(daysUntilDue) }
+        }
       }
     }
 
@@ -455,9 +465,9 @@ export default function TaskManagementPage() {
   const filteredTasks = useMemo(() => {
     return tasksWithDelayStatus.filter(task => {
       const matchesSearch = searchTerm === '' ||
-        task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (task.assignee && task.assignee.toLowerCase().includes(searchTerm.toLowerCase()))
+        task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        task.businessName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        task.assignee?.toLowerCase().includes(searchTerm.toLowerCase())
 
       const matchesType = selectedType === 'all' || task.type === selectedType
       const matchesPriority = selectedPriority === 'all' || task.priority === selectedPriority
@@ -597,7 +607,7 @@ export default function TaskManagementPage() {
         assignee: createTaskForm.assignee || undefined,
         startDate: createTaskForm.startDate || undefined,
         dueDate: createTaskForm.dueDate || undefined,
-        estimatedDays: createTaskForm.estimatedDays ? parseInt(createTaskForm.estimatedDays) : undefined,
+        estimatedDays: createTaskForm.estimatedDays ? (isNaN(parseInt(createTaskForm.estimatedDays)) ? undefined : parseInt(createTaskForm.estimatedDays)) : undefined,
         progressPercentage: 0,
         delayStatus: 'on_time',
         delayDays: 0,
@@ -682,9 +692,9 @@ export default function TaskManagementPage() {
   // 수정 모달 열기 핸들러 (권한 체크 포함)
   const handleOpenEditModal = useCallback((task: Task) => {
     // 권한 체크: 담당자나 관리자만 수정 가능
-    const currentUser = '이영희' // 실제로는 로그인한 사용자 정보에서 가져옴
+    const currentUser = '관리자' // TODO: 실제 로그인 사용자 정보로 교체 필요
     const isAssignee = task.assignee === currentUser
-    const isAdmin = true // 실제로는 사용자 권한 체크
+    const isAdmin = true // TODO: 실제 사용자 권한 체크로 교체 필요
 
     if (!isAssignee && !isAdmin) {
       alert('이 업무를 수정할 권한이 없습니다. 담당자나 관리자만 수정할 수 있습니다.')
