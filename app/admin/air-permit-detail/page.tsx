@@ -90,8 +90,8 @@ function AirPermitDetailContent() {
   
   // URL 파라미터를 useState로 안정화 - 무한 렌더링 방지
   const [urlParams, setUrlParams] = useState(() => ({
-    permitId: searchParams.get('permitId'),
-    mode: searchParams.get('mode')
+    permitId: searchParams?.get('permitId'),
+    mode: searchParams?.get('mode')
   }))
   
   console.log('🔧 [DEBUG] AirPermitDetailContent 렌더링:', urlParams)
@@ -126,8 +126,8 @@ function AirPermitDetailContent() {
 
   // URL 파라미터 변경 감지 (최적화된 버전)
   useEffect(() => {
-    const newPermitId = searchParams.get('permitId')
-    const newMode = searchParams.get('mode')
+    const newPermitId = searchParams?.get('permitId')
+    const newMode = searchParams?.get('mode')
     
     // 실제로 변경된 경우에만 업데이트 (무한 리로드 방지)
     if (newPermitId !== urlParams.permitId || newMode !== urlParams.mode) {

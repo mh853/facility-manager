@@ -749,7 +749,7 @@ export default function BusinessManagementPage() {
         business.담당자명 || business.manager_name || '',
         business.담당자연락처 || business.manager_contact || business.business_contact || '',
         business.업종 || business.business_type || '',
-        business.사업장분류 || business.business_category || '',
+        (business as any).사업장분류 || business.business_category || '',
 
         // 프로젝트 관리 정보
         business.진행상태 || business.progress_status || '',
