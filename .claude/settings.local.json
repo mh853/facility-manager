@@ -33,7 +33,9 @@
       "Bash(npm outdated)",
       "Bash(npm audit:*)",
       "Bash(tasklist)",
-      "Bash(cmd /c:*)"
+      "Bash(cmd /c:*)",
+      "Bash(xxd:*)",
+      "Bash(timeout 5 npm run dev)"
     ],
     "deny": [],
     "ask": [],
