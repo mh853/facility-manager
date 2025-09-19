@@ -8,8 +8,8 @@ export function createErrorResponse(
   details?: any
 ) {
   return NextResponse.json(
-    { 
-      success: false, 
+    {
+      success: false,
       message,
       ...(details && { details }),
       timestamp: new Date().toLocaleString('ko-KR', {
@@ -23,7 +23,12 @@ export function createErrorResponse(
         hour12: false
       })
     },
-    { status }
+    {
+      status,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
+    }
   );
 }
 
@@ -49,10 +54,11 @@ export function createSuccessResponse(
         hour12: false
       })
     },
-    { 
+    {
       status,
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        'Content-Type': 'application/json; charset=utf-8'
       }
     }
   );

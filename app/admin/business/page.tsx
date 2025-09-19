@@ -411,10 +411,65 @@ function BusinessManagementPage() {
   
   // 메모 관련 상태
   const [businessMemos, setBusinessMemos] = useState<BusinessMemo[]>([])
+
+  // businessMemos state 변경 추적
+  useEffect(() => {
+    console.log('🔧 [FRONTEND] businessMemos state 변경됨:', businessMemos.length, '개', businessMemos)
+  }, [businessMemos])
   const [isAddingMemo, setIsAddingMemo] = useState(false)
   const [editingMemo, setEditingMemo] = useState<BusinessMemo | null>(null)
   const [memoForm, setMemoForm] = useState({ title: '', content: '' })
   const [isLoadingMemos, setIsLoadingMemos] = useState(false)
+
+  // 업무 관련 상태
+  const [businessTasks, setBusinessTasks] = useState<any[]>([])
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false)
+
+  // 메모와 업무를 통합해서 최신순으로 정렬하는 함수
+  const getIntegratedItems = () => {
+    const items: Array<{
+      type: 'memo' | 'task',
+      id: string,
+      title: string,
+      content?: string,
+      description?: string,
+      created_at: string,
+      status?: string,
+      task_type?: string,
+      assignee?: string,
+      data: any
+    }> = []
+
+    // 메모 추가 (type: 'memo')
+    businessMemos.forEach(memo => {
+      items.push({
+        type: 'memo',
+        id: memo.id,
+        title: memo.title,
+        content: memo.content,
+        created_at: memo.created_at,
+        data: memo
+      })
+    })
+
+    // 업무 추가 (type: 'task')
+    businessTasks.forEach(task => {
+      items.push({
+        type: 'task',
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        created_at: task.created_at,
+        status: task.status,
+        task_type: task.task_type,
+        assignee: task.assignee,
+        data: task
+      })
+    })
+
+    // 최신순으로 정렬 (created_at 기준)
+    return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }
 
   // 엑셀 템플릿 다운로드 함수 (API 엔드포인트 사용)
   const downloadExcelTemplate = async () => {
@@ -446,13 +501,26 @@ function BusinessManagementPage() {
   
   // 메모 관리 함수들
   const loadBusinessMemos = async (businessId: string) => {
+    console.log('🔧 [FRONTEND] loadBusinessMemos 시작 - businessId:', businessId)
     setIsLoadingMemos(true)
     try {
-      const response = await fetch(`/api/business-memos?businessId=${businessId}`)
+      const url = `/api/business-memos?businessId=${businessId}`
+      console.log('🔧 [FRONTEND] 메모 로드 요청 URL:', url)
+
+      const response = await fetch(url)
       const result = await response.json()
-      
+
+      console.log('🔧 [FRONTEND] 메모 로드 API 응답:', result)
+      console.log('🔧 [FRONTEND] 받은 메모 데이터:', result.data)
+      console.log('🔧 [FRONTEND] 메모 개수:', result.data?.length || 0)
+
       if (result.success) {
-        setBusinessMemos(result.data || [])
+        // API 응답이 {data: {data: [...], metadata: {...}}} 구조이므로 실제 배열은 result.data.data에 있음
+        const memos = result.data?.data || []
+        console.log('🔧 [FRONTEND] 추출된 메모 배열:', memos)
+        console.log('🔧 [FRONTEND] setBusinessMemos 호출 전 - 설정할 메모:', memos.length, '개')
+        setBusinessMemos(memos)
+        console.log('🔧 [FRONTEND] setBusinessMemos 호출 완료')
       } else {
         console.error('❌ 메모 로드 실패:', result.error)
         setBusinessMemos([])
@@ -465,8 +533,29 @@ function BusinessManagementPage() {
     }
   }
 
+  // 업무 조회 함수
+  const loadBusinessTasks = async (businessName: string) => {
+    setIsLoadingTasks(true)
+    try {
+      const response = await fetch(`/api/facility-tasks?businessName=${encodeURIComponent(businessName)}`)
+      const result = await response.json()
+
+      if (result.success) {
+        setBusinessTasks(result.data?.tasks || [])
+      } else {
+        console.error('❌ 업무 로드 실패:', result.error)
+        setBusinessTasks([])
+      }
+    } catch (error) {
+      console.error('❌ 업무 로드 오류:', error)
+      setBusinessTasks([])
+    } finally {
+      setIsLoadingTasks(false)
+    }
+  }
+
   const handleAddMemo = async () => {
-    if (!selectedBusiness || !memoForm.title.trim() || !memoForm.content.trim()) {
+    if (!selectedBusiness || !memoForm.title?.trim() || !memoForm.content?.trim()) {
       alert('제목과 내용을 모두 입력해주세요.')
       return
     }
@@ -479,6 +568,12 @@ function BusinessManagementPage() {
         created_by: '관리자' // 향후 실제 계정 정보로 변경
       }
 
+      console.log('🔧 [FRONTEND] 메모 전송 데이터:', {
+        businessName: selectedBusiness.business_name,
+        memoData,
+        formData: memoForm
+      })
+
       const response = await fetch('/api/business-memos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -487,14 +582,21 @@ function BusinessManagementPage() {
 
       const result = await response.json()
       
+      console.log('🔧 [FRONTEND] API 응답:', result)
+
       if (result.success) {
-        // 즉시 새 메모를 로컬 state에 추가하여 즉시 화면에 표시
-        const newMemo = result.data
-        setBusinessMemos(prev => [newMemo, ...prev])
-        
+        console.log('🔧 [FRONTEND] 새 메모 추가 성공:', result.data)
+
+        // 메모 폼 초기화
         setMemoForm({ title: '', content: '' })
         setIsAddingMemo(false)
+
+        // 서버에서 전체 메모 목록 다시 로드
+        console.log('🔧 [FRONTEND] 전체 메모 목록 다시 로드 시작')
+        await loadBusinessMemos(selectedBusiness.id)
+        console.log('🔧 [FRONTEND] 메모 목록 다시 로드 완료')
       } else {
+        console.error('🔧 [FRONTEND] 메모 추가 실패:', result.error)
         alert(`메모 추가 실패: ${result.error}`)
       }
     } catch (error) {
@@ -504,7 +606,7 @@ function BusinessManagementPage() {
   }
 
   const handleEditMemo = async () => {
-    if (!editingMemo || !memoForm.title.trim() || !memoForm.content.trim()) {
+    if (!editingMemo || !memoForm.title?.trim() || !memoForm.content?.trim()) {
       alert('제목과 내용을 모두 입력해주세요.')
       return
     }
@@ -525,12 +627,15 @@ function BusinessManagementPage() {
       const result = await response.json()
       
       if (result.success) {
-        // 즉시 로컬 state에서 메모 업데이트하여 즉시 화면에 반영
-        const updatedMemo = result.data
-        setBusinessMemos(prev => prev.map(m => m.id === editingMemo.id ? updatedMemo : m))
-        
+        console.log('🔧 [FRONTEND] 메모 수정 성공:', result.data)
+
+        // 메모 폼 초기화
         setMemoForm({ title: '', content: '' })
         setEditingMemo(null)
+
+        // 서버에서 전체 메모 목록 다시 로드
+        await loadBusinessMemos(selectedBusiness.id)
+        console.log('🔧 [FRONTEND] 메모 수정 후 목록 다시 로드 완료')
       } else {
         alert(`메모 수정 실패: ${result.error}`)
       }
@@ -541,20 +646,31 @@ function BusinessManagementPage() {
   }
 
   const handleDeleteMemo = async (memo: BusinessMemo) => {
+    if (!memo.id) {
+      alert('메모 ID가 없어 삭제할 수 없습니다.')
+      return
+    }
+
     if (!confirm('정말로 이 메모를 삭제하시겠습니까?')) {
       return
     }
 
     try {
+      console.log('🔧 [FRONTEND] 메모 삭제 요청 시작:', memo.id)
+
       const response = await fetch(`/api/business-memos?id=${memo.id}`, {
         method: 'DELETE'
       })
 
       const result = await response.json()
-      
+      console.log('🔧 [FRONTEND] 메모 삭제 API 응답:', result)
+
       if (result.success) {
-        // 즉시 로컬 state에서 메모 제거하여 즉시 화면에 반영
-        setBusinessMemos(prev => prev.filter(m => m.id !== memo.id))
+        console.log('🔧 [FRONTEND] 메모 삭제 성공, 전체 메모 목록 다시 로드 시작')
+        if (selectedBusiness?.id) {
+          await loadBusinessMemos(selectedBusiness.id)
+          console.log('🔧 [FRONTEND] 메모 목록 다시 로드 완료')
+        }
       } else {
         alert(`메모 삭제 실패: ${result.error}`)
       }
@@ -565,6 +681,10 @@ function BusinessManagementPage() {
   }
 
   const startEditMemo = (memo: BusinessMemo) => {
+    if (!memo.id) {
+      alert('메모 ID가 없어 수정할 수 없습니다.')
+      return
+    }
     setEditingMemo(memo)
     setMemoForm({ title: memo.title, content: memo.content })
     setIsAddingMemo(true) // 같은 폼을 재사용
@@ -753,25 +873,25 @@ function BusinessManagementPage() {
         (business as any).사업장분류 || business.business_category || '',
 
         // 프로젝트 관리 정보
-        business.진행상태 || business.progress_status || '',
-        business.발주담당자 || business.order_manager || '',
-        business.설치팀 || business.installation_team || '',
-        business.계약서류 || business.contract_document || '',
-        business.부무선서류 || business.wireless_document || '',
-        business.설치지원 || business.installation_support || '',
+        (business as any).진행상태 || business.progress_status || '',
+        (business as any).발주담당자 || business.order_manager || '',
+        (business as any).설치팀 || business.installation_team || '',
+        (business as any).계약서류 || business.contract_document || '',
+        (business as any).부무선서류 || business.wireless_document || '',
+        (business as any).설치지원 || business.installation_support || '',
 
         // 시설 정보
-        business.오염물질 || business.pollutants || '',
-        business.기타장비 || business.other_equipment || '',
-        business.협의사항 || business.negotiation || '',
+        (business as any).오염물질 || business.pollutants || '',
+        (business as any).기타장비 || business.other_equipment || '',
+        (business as any).협의사항 || business.negotiation || '',
 
         // 시스템 정보
-        business.제조사 || business.manufacturer || '',
-        business.vpn방식 || business.vpn || '',
-        business.그린링크아이디 || business.greenlink_id || '',
+        (business as any).제조사 || business.manufacturer || '',
+        (business as any).vpn방식 || business.vpn || '',
+        (business as any).그린링크아이디 || business.greenlink_id || '',
 
         // 대표자 정보
-        business.대표자명 || business.representative_name || '',
+        (business as any).대표자명 || business.representative_name || '',
         business.사업자등록번호 || business.business_registration_number || '',
         business.팩스번호 || business.fax_number || '',
         business.이메일 || business.email || ''
@@ -893,6 +1013,14 @@ function BusinessManagementPage() {
       }
     }
   }, [allBusinesses.length, selectedBusiness?.id]) // length 변화만 감지
+
+  // 사업장 선택 시 메모와 업무 로드
+  useEffect(() => {
+    if (selectedBusiness) {
+      loadBusinessMemos(selectedBusiness.id)
+      loadBusinessTasks(selectedBusiness.사업장명)
+    }
+  }, [selectedBusiness?.id])
 
   // ESC 키로 모달 닫기
   useEffect(() => {
@@ -2050,36 +2178,50 @@ function BusinessManagementPage() {
                           </div>
                         </div>
 
-                        {/* 메모 섹션 */}
-                        {businessMemos.length > 0 && (
+                        {/* 메모 및 업무 통합 섹션 (최신순 정렬) */}
+                        {(businessMemos.length > 0 || businessTasks.length > 0) && (
                           <div className="bg-white rounded-lg p-4 shadow-sm">
                             <div className="flex items-center text-sm text-gray-600 mb-3">
                               <MessageSquare className="w-4 h-4 mr-2 text-indigo-500" />
-                              메모
+                              메모 및 업무 ({businessMemos.length + businessTasks.length}개, 최신순)
                             </div>
                             <div className="space-y-3">
-                              {businessMemos.map((memo) => (
-                                <div key={memo.id} className="bg-gray-50 rounded-lg p-3 border-l-4 border-indigo-400">
+                              {getIntegratedItems().map((item, index) => {
+                                if (item.type === 'memo') {
+                                  const memo = item.data
+                                  return (
+                                    <div key={`memo-${item.id}-${index}`} className="bg-gray-50 rounded-lg p-3 border-l-4 border-indigo-400">
                                   <div className="flex items-start justify-between mb-2">
                                     <div className="flex-1">
-                                      <h4 className="font-medium text-gray-900 mb-1">{memo.title}</h4>
-                                      <p className="text-sm text-gray-700">{memo.content}</p>
+                                      <div className="flex items-center space-x-2 mb-1">
+                                        <MessageSquare className="w-4 h-4 text-indigo-500" />
+                                        <h4 className="font-medium text-gray-900">{item.title}</h4>
+                                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-700">메모</span>
+                                      </div>
+                                      <p className="text-sm text-gray-700">{item.content}</p>
                                     </div>
                                     <div className="flex items-center space-x-1 ml-2">
                                       <button
-                                        onClick={() => {
-                                          setEditingMemo(memo)
-                                          setMemoForm({ title: memo.title, content: memo.content })
-                                        }}
-                                        className="p-1.5 text-gray-400 hover:text-indigo-600 rounded transition-colors"
-                                        title="메모 수정"
+                                        onClick={() => startEditMemo(memo)}
+                                        disabled={!memo.id}
+                                        className={`p-1.5 rounded transition-colors ${
+                                          memo.id
+                                            ? 'text-gray-400 hover:text-indigo-600'
+                                            : 'text-gray-300 cursor-not-allowed'
+                                        }`}
+                                        title={memo.id ? "메모 수정" : "메모 ID가 없어 수정할 수 없습니다"}
                                       >
                                         <Edit3 className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         onClick={() => handleDeleteMemo(memo)}
-                                        className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors"
-                                        title="메모 삭제"
+                                        disabled={!memo.id}
+                                        className={`p-1.5 rounded transition-colors ${
+                                          memo.id
+                                            ? 'text-gray-400 hover:text-red-600'
+                                            : 'text-gray-300 cursor-not-allowed'
+                                        }`}
+                                        title={memo.id ? "메모 삭제" : "메모 ID가 없어 삭제할 수 없습니다"}
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
@@ -2095,8 +2237,82 @@ function BusinessManagementPage() {
                                       })} ({memo.updated_by})</span>
                                     )}
                                   </div>
-                                </div>
-                              ))}
+                                    </div>
+                                  )
+                                } else {
+                                  // 업무 카드
+                                  const task = item.data
+                                  const getStatusColor = (status: string) => {
+                                    switch (status) {
+                                      case 'quotation': return { bg: 'bg-amber-50', border: 'border-amber-400', text: 'text-amber-700', badge: 'bg-amber-100' }
+                                      case 'customer_contact': return { bg: 'bg-blue-50', border: 'border-blue-400', text: 'text-blue-700', badge: 'bg-blue-100' }
+                                      case 'contract': return { bg: 'bg-purple-50', border: 'border-purple-400', text: 'text-purple-700', badge: 'bg-purple-100' }
+                                      case 'installation': return { bg: 'bg-orange-50', border: 'border-orange-400', text: 'text-orange-700', badge: 'bg-orange-100' }
+                                      case 'completion': return { bg: 'bg-green-50', border: 'border-green-400', text: 'text-green-700', badge: 'bg-green-100' }
+                                      default: return { bg: 'bg-gray-50', border: 'border-gray-400', text: 'text-gray-700', badge: 'bg-gray-100' }
+                                    }
+                                  }
+
+                                  const statusColors = getStatusColor(item.status || '')
+
+                                  return (
+                                    <div key={`task-${item.id}-${index}`} className={`${statusColors.bg} rounded-lg p-4 border-l-4 ${statusColors.border} hover:shadow-md transition-shadow`}>
+                                      <div className="flex items-start justify-between mb-3">
+                                        <div className="flex-1">
+                                          <div className="flex items-center space-x-2 mb-2">
+                                            <ClipboardList className="w-4 h-4 text-blue-500" />
+                                            <h4 className="font-semibold text-gray-900">{item.title}</h4>
+                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.badge} ${statusColors.text}`}>
+                                              {item.status === 'quotation' ? '견적' :
+                                               item.status === 'customer_contact' ? '고객연락' :
+                                               item.status === 'contract' ? '계약' :
+                                               item.status === 'installation' ? '설치' :
+                                               item.status === 'completion' ? '완료' : item.status}
+                                            </span>
+                                          </div>
+                                          <p className="text-sm text-gray-700 mb-3 leading-relaxed">{item.description}</p>
+                                          <div className="flex items-center space-x-4 text-xs">
+                                            <span className="flex items-center space-x-1">
+                                              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                              <span className="text-gray-600">
+                                                {item.task_type === 'subsidy' ? '지원사업' : '자체사업'}
+                                              </span>
+                                            </span>
+                                            <span className="flex items-center space-x-1">
+                                              <User className="w-3 h-3 text-gray-500" />
+                                              <span className="text-gray-600">{item.assignee}</span>
+                                            </span>
+                                            <span className="flex items-center space-x-1">
+                                              <Calendar className="w-3 h-3 text-gray-500" />
+                                              <span className="text-gray-600">
+                                                {task.deadline ? new Date(task.deadline).toLocaleDateString('ko-KR', {
+                                                  month: 'short', day: 'numeric'
+                                                }) : '미정'}
+                                              </span>
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-200">
+                                        <span className="flex items-center space-x-1">
+                                          <Calendar className="w-3 h-3" />
+                                          <span>생성: {new Date(item.created_at).toLocaleDateString('ko-KR', {
+                                            year: 'numeric', month: 'short', day: 'numeric'
+                                          })}</span>
+                                        </span>
+                                        {task.updated_at !== task.created_at && (
+                                          <span className="flex items-center space-x-1">
+                                            <Clock className="w-3 h-3" />
+                                            <span>수정: {new Date(task.updated_at).toLocaleDateString('ko-KR', {
+                                              year: 'numeric', month: 'short', day: 'numeric'
+                                            })}</span>
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                }
+                              })}
                             </div>
                           </div>
                         )}
@@ -2142,7 +2358,7 @@ function BusinessManagementPage() {
                                 </button>
                                 <button
                                   onClick={editingMemo ? handleEditMemo : handleAddMemo}
-                                  disabled={!memoForm.title.trim() || !memoForm.content.trim()}
+                                  disabled={!memoForm.title?.trim() || !memoForm.content?.trim()}
                                   className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg transition-colors"
                                 >
                                   {editingMemo ? '수정' : '추가'}
@@ -2268,7 +2484,7 @@ function BusinessManagementPage() {
                             return devices
                               .filter(device => device.value && device.value > 0)
                               .map((device, index) => (
-                                <div key={index} className="bg-white rounded-lg p-3 shadow-sm">
+                                <div key={`${device.facilityKey}-${device.key}-${index}`} className="bg-white rounded-lg p-3 shadow-sm">
                                   <div className="text-xs text-gray-600 mb-1">{device.key}</div>
                                   <div className="flex items-center justify-between">
                                     <div className="text-lg font-bold text-gray-900">{device.value}</div>

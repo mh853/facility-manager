@@ -90,7 +90,10 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/profile/change-password',  // 비밀번호 변경 (JWT 인증 사용)
     '/api/tasks',  // 업무 관리 API (JWT 인증 사용)
     '/api/tasks/metadata',  // 업무 메타데이터 API (JWT 인증 사용)
-    '/api/work-tasks'  // 업무 API (JWT 인증 사용)
+    '/api/work-tasks',  // 업무 API (JWT 인증 사용)
+    '/api/facility-tasks',  // 시설 업무 관리 API (JWT 인증 사용)
+    '/api/business-progress',  // 사업장 진행 현황 API (withApiHandler 보안 사용)
+    '/api/business-memos'  // 사업장 메모 관리 API (withApiHandler 보안 사용)
   ];
   const excludePatterns = ['/api/auth/social/', '/api/auth/social/*/callback', '/api/tasks/*', '/api/work-tasks/*'];
 
