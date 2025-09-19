@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { BusinessInfo, AirPermitInfo } from '@/lib/database-service'
 import { AirPermitWithOutlets } from '@/types/database'
 import AdminLayout from '@/components/ui/AdminLayout'
+import { withAuth } from '@/contexts/AuthContext'
 import { ConfirmModal } from '@/components/ui/Modal'
 import { generateFacilityNumbering, generateOutletFacilitySummary, type FacilityNumberingResult } from '@/utils/facility-numbering'
 import { 
@@ -124,7 +125,7 @@ const DateInput = ({ value, onChange, placeholder = "YYYY-MM-DD" }: {
 }
 
 
-export default function AirPermitManagementPage() {
+function AirPermitManagementPage() {
   const [businessesWithPermits, setBusinessesWithPermits] = useState<BusinessInfo[]>([])
   const [businessListSearchTerm, setBusinessListSearchTerm] = useState('')
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessInfo | null>(null)
@@ -1696,3 +1697,5 @@ export default function AirPermitManagementPage() {
     </AdminLayout>
   );
 }
+
+export default withAuth(AirPermitManagementPage, 'canAccessAdminPages')

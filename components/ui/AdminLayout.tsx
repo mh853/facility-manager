@@ -4,6 +4,7 @@
 import { useState, useEffect, ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   Home,
   Building2,
@@ -16,7 +17,8 @@ import {
   User,
   Clock,
   Activity,
-  ClipboardList
+  ClipboardList,
+  TrendingUp
 } from 'lucide-react'
 
 interface AdminLayoutProps {
@@ -26,57 +28,86 @@ interface AdminLayoutProps {
   actions?: ReactNode
 }
 
-const navigationItems = [
+interface NavigationItem {
+  name: string
+  href: string
+  icon: any
+  description: string
+  requiredLevel?: number
+}
+
+const navigationItems: NavigationItem[] = [
   {
     name: '대시보드',
     href: '/admin',
     icon: Activity,
-    description: '관리자 종합 현황 대시보드'
-  },
-  {
-    name: '업무 관리',
-    href: '/admin/tasks',
-    icon: ClipboardList,
-    description: '업무 흐름 및 진행 상황 관리'
-  },
-  {
-    name: '실사관리',
-    href: '/facility',
-    icon: Home,
-    description: '사업장 실사 및 파일 관리'
+    description: '관리자 종합 현황 대시보드',
+    requiredLevel: 1
   },
   {
     name: '사업장 관리',
     href: '/admin/business',
     icon: Building2,
-    description: '사업장 정보 및 등록 관리'
+    description: '사업장 정보 및 등록 관리',
+    requiredLevel: 1
   },
   {
     name: '대기필증 관리',
     href: '/admin/air-permit',
     icon: FileText,
-    description: '대기배출시설 허가증 관리'
+    description: '대기배출시설 허가증 관리',
+    requiredLevel: 1
   },
   {
-    name: '데이터 이력',
-    href: '/admin/data-history',
-    icon: History,
-    description: '시스템 데이터 변경 이력'
+    name: '실사관리',
+    href: '/facility',
+    icon: Home,
+    description: '사업장 실사 및 파일 관리',
+    requiredLevel: 1
+  },
+  {
+    name: '업무 관리',
+    href: '/admin/tasks',
+    icon: ClipboardList,
+    description: '업무 흐름 및 진행 상황 관리',
+    requiredLevel: 1
+  },
+  {
+    name: '주간 리포트',
+    href: '/weekly-reports',
+    icon: TrendingUp,
+    description: '개인별 주간 업무 성과 분석',
+    requiredLevel: 1
   },
   {
     name: '문서 자동화',
     href: '/admin/document-automation',
     icon: Settings,
-    description: '문서 생성 및 자동화 설정'
+    description: '문서 생성 및 자동화 설정',
+    requiredLevel: 1
+  },
+  {
+    name: '데이터 이력',
+    href: '/admin/data-history',
+    icon: History,
+    description: '시스템 데이터 변경 이력',
+    requiredLevel: 2
   },
 ]
 
 function NavigationItems({ pathname, onItemClick }: { pathname: string, onItemClick: () => void }) {
   const router = useRouter()
-  
+  const { user, permissions } = useAuth()
+
+  // 사용자 권한에 따라 네비게이션 아이템 필터링
+  const filteredItems = navigationItems.filter(item => {
+    if (!user) return false;
+    return user.permission_level >= (item.requiredLevel || 1);
+  });
+
   return (
     <>
-      {navigationItems.map((item) => {
+      {filteredItems.map((item) => {
         const isActive = pathname === item.href
         const Icon = item.icon
 
@@ -119,6 +150,7 @@ export default function AdminLayout({ children, title, description, actions }: A
   const [currentTime, setCurrentTime] = useState('')
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
+  const { user } = useAuth()
 
   // Mount and time initialization
   useEffect(() => {
@@ -200,8 +232,12 @@ export default function AdminLayout({ children, title, description, actions }: A
                   <User className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="text-sm lg:text-xs font-medium text-gray-900">관리자</div>
-                  <div className="text-xs lg:text-xs text-gray-500 lg:hidden">주식회사 블루온</div>
+                  <div className="text-sm lg:text-xs font-medium text-gray-900">
+                    {user?.name || '관리자'}
+                  </div>
+                  <div className="text-xs lg:text-xs text-gray-500 lg:hidden">
+                    {user?.email || '주식회사 블루온'}
+                  </div>
                 </div>
               </Link>
             </div>

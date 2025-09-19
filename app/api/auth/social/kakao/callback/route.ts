@@ -1,100 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const code = searchParams.get('code');
-  const error = searchParams.get('error');
+  try {
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get('code');
+    const error = searchParams.get('error');
+    const state = searchParams.get('state');
 
-  // 팝업 창에서 처리하기 위한 HTML 응답
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>카카오 로그인 처리 중...</title>
-      <meta charset="utf-8">
-    </head>
-    <body>
-      <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        <div style="text-align: center;">
-          <div style="margin-bottom: 20px;">
-            <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 0 auto;"></div>
-          </div>
-          <p>카카오 로그인 처리 중...</p>
-        </div>
-      </div>
+    console.log('🔄 [KAKAO-CALLBACK] 콜백 처리 시작:', { code: code?.substring(0, 10), error, state });
 
-      <style>
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      </style>
+    // 오류 처리
+    if (error) {
+      console.error('🔴 [KAKAO-CALLBACK] 카카오 로그인 오류:', error);
+      return NextResponse.redirect(new URL('/login?error=kakao_login_failed', request.url));
+    }
 
-      <script>
-        (async function() {
-          try {
-            const code = "${code}";
-            const error = "${error}";
+    if (!code) {
+      console.error('🔴 [KAKAO-CALLBACK] 인증 코드가 없음');
+      return NextResponse.redirect(new URL('/login?error=no_code', request.url));
+    }
 
-            if (error) {
-              window.opener?.postMessage({
-                type: 'SOCIAL_LOGIN_ERROR',
-                error: '카카오 로그인이 취소되었거나 오류가 발생했습니다.'
-              }, window.location.origin);
-              window.close();
-              return;
-            }
+    // 카카오 API를 통해 토큰 및 사용자 정보 처리
+    const response = await fetch(new URL('/api/auth/social/kakao', request.url), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code })
+    });
 
-            if (!code) {
-              window.opener?.postMessage({
-                type: 'SOCIAL_LOGIN_ERROR',
-                error: '카카오 인증 코드를 받지 못했습니다.'
-              }, window.location.origin);
-              window.close();
-              return;
-            }
+    const data = await response.json();
 
-            // 백엔드 API 호출
-            const response = await fetch('/api/auth/social/kakao', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ code })
-            });
+    if (data.success) {
+      console.log('✅ [KAKAO-CALLBACK] 로그인 성공:', data.data.user?.name);
 
-            const data = await response.json();
+      // 토큰을 쿠키에 저장
+      if (data.data.token) {
+        const cookieStore = cookies();
+        cookieStore.set('facility_manager_token', data.data.token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 365 * 24 * 60 * 60, // 1년
+          path: '/'
+        });
+      }
 
-            if (data.success) {
-              window.opener?.postMessage({
-                type: 'SOCIAL_LOGIN_SUCCESS',
-                data: data.data
-              }, window.location.origin);
-            } else {
-              window.opener?.postMessage({
-                type: 'SOCIAL_LOGIN_ERROR',
-                error: data.error?.message || '카카오 로그인 중 오류가 발생했습니다.'
-              }, window.location.origin);
-            }
+      // 로그인 성공 후 어드민 페이지로 리다이렉트하면서 토큰을 URL에 포함
+      const redirectUrl = new URL('/admin', request.url);
+      redirectUrl.searchParams.set('token', data.data.token);
+      return NextResponse.redirect(redirectUrl);
+    } else {
+      console.error('🔴 [KAKAO-CALLBACK] 로그인 처리 실패:', data.error);
+      const errorParam = encodeURIComponent(data.error?.message || '카카오 로그인 중 오류가 발생했습니다.');
+      return NextResponse.redirect(new URL(`/login?error=${errorParam}`, request.url));
+    }
 
-            window.close();
-          } catch (error) {
-            console.error('카카오 로그인 콜백 처리 오류:', error);
-            window.opener?.postMessage({
-              type: 'SOCIAL_LOGIN_ERROR',
-              error: '카카오 로그인 처리 중 오류가 발생했습니다.'
-            }, window.location.origin);
-            window.close();
-          }
-        })();
-      </script>
-    </body>
-    </html>
-  `;
-
-  return new NextResponse(html, {
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-    },
-  });
+  } catch (error: any) {
+    console.error('🔴 [KAKAO-CALLBACK] 콜백 처리 오류:', error);
+    return NextResponse.redirect(new URL('/login?error=callback_error', request.url));
+  }
 }

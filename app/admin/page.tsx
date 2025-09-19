@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import AdminLayout from '@/components/ui/AdminLayout'
 import StatsCard from '@/components/ui/StatsCard'
-import { 
+import {
   Building2,
   Users,
   TrendingUp,
@@ -67,18 +67,18 @@ export default function AdminDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true)
-      
+
       // Load business stats from business-list API with proper error handling
       try {
         const businessResponse = await fetch('/api/business-list')
-        
+
         if (businessResponse.ok) {
           const contentType = businessResponse.headers.get('content-type')
-          
+
           if (contentType && contentType.includes('application/json')) {
             const businessData = await businessResponse.json()
             const businesses = businessData.data?.businesses || []
-            
+
             setStats(prev => ({
               ...prev,
               totalBusinesses: businesses.length,
@@ -128,7 +128,7 @@ export default function AdminDashboard() {
           link: '/admin/business'
         },
         {
-          id: '2', 
+          id: '2',
           type: 'installation_completed',
           message: '농업회사법인 주식회사 건양 2공장 설치 완료',
           timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString()
@@ -152,7 +152,7 @@ export default function AdminDashboard() {
         completedThisMonth: 8,
         upcomingInstallations: 5
       })
-      
+
       // 기본 활동 내역도 설정
       setRecentActivities([
         {
@@ -220,7 +220,7 @@ export default function AdminDashboard() {
     const diff = Date.now() - new Date(timestamp).getTime()
     const minutes = Math.floor(diff / (1000 * 60))
     const hours = Math.floor(diff / (1000 * 60 * 60))
-    
+
     if (minutes < 60) return `${minutes}분 전`
     if (hours < 24) return `${hours}시간 전`
     return new Date(timestamp).toLocaleDateString('ko-KR')
@@ -246,7 +246,7 @@ export default function AdminDashboard() {
               label: '활성 사업장'
             }}
           />
-          
+
           <StatsCard
             title="이번 달 매출"
             value={`${(stats.monthlyRevenue / 10000).toFixed(0)}만원`}
@@ -259,7 +259,7 @@ export default function AdminDashboard() {
               label: '목표 대비'
             }}
           />
-          
+
           <StatsCard
             title="설치 진행중"
             value={stats.installationsInProgress}
@@ -272,7 +272,7 @@ export default function AdminDashboard() {
               label: '이번 달 완료'
             }}
           />
-          
+
           <StatsCard
             title="예정된 설치"
             value={stats.upcomingInstallations}
@@ -290,7 +290,7 @@ export default function AdminDashboard() {
             </div>
             업무 관리
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {quickActions.map((action, index) => (
               <div
@@ -298,8 +298,8 @@ export default function AdminDashboard() {
                 onClick={() => !action.disabled && router.push(action.href)}
                 className={`
                   relative p-6 rounded-xl border-2 transition-all duration-200 text-left cursor-pointer
-                  ${action.disabled 
-                    ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60' 
+                  ${action.disabled
+                    ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
                     : 'border-gray-200 hover:border-blue-300 hover:shadow-lg bg-white'
                   }
                 `}
@@ -324,7 +324,7 @@ export default function AdminDashboard() {
                     <ChevronRight className="w-5 h-5 text-gray-400" />
                   )}
                 </div>
-                
+
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     {action.title}
@@ -355,7 +355,7 @@ export default function AdminDashboard() {
               <Activity className="w-5 h-5 text-blue-600" />
               최근 활동
             </h3>
-            
+
             <div className="space-y-4">
               {recentActivities.map((activity) => (
                 <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
@@ -389,7 +389,7 @@ export default function AdminDashboard() {
               <BarChart3 className="w-5 h-5 text-green-600" />
               시스템 상태
             </h3>
-            
+
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 rounded-lg bg-green-50">
                 <div className="flex items-center gap-3">
@@ -398,7 +398,7 @@ export default function AdminDashboard() {
                 </div>
                 <span className="text-xs text-green-600">정상</span>
               </div>
-              
+
               <div className="flex items-center justify-between p-3 rounded-lg bg-green-50">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
@@ -406,7 +406,7 @@ export default function AdminDashboard() {
                 </div>
                 <span className="text-xs text-green-600">정상</span>
               </div>
-              
+
               <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-50">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
@@ -414,7 +414,7 @@ export default function AdminDashboard() {
                 </div>
                 <span className="text-xs text-yellow-600">준비중</span>
               </div>
-              
+
               <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-50">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
@@ -432,20 +432,20 @@ export default function AdminDashboard() {
             <TrendingUp className="w-5 h-5 text-blue-600" />
             개발 예정 기능
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white bg-opacity-70 rounded-lg p-4 border border-blue-100">
               <CreditCard className="w-8 h-8 text-blue-600 mb-3" />
               <h4 className="font-semibold text-gray-900 mb-2">매출 관리</h4>
               <p className="text-sm text-gray-600">월별/연도별 매출 분석, 청구서 관리, 수익성 분석</p>
             </div>
-            
+
             <div className="bg-white bg-opacity-70 rounded-lg p-4 border border-blue-100">
               <Wrench className="w-8 h-8 text-orange-600 mb-3" />
               <h4 className="font-semibold text-gray-900 mb-2">설치 관리</h4>
               <p className="text-sm text-gray-600">설치 일정 관리, 진행 상황 추적, 기술자 배정</p>
             </div>
-            
+
             <div className="bg-white bg-opacity-70 rounded-lg p-4 border border-blue-100">
               <BarChart3 className="w-8 h-8 text-purple-600 mb-3" />
               <h4 className="font-semibold text-gray-900 mb-2">통계 리포트</h4>

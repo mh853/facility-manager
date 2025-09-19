@@ -3,14 +3,14 @@ import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '@/lib/supabase';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
-const JWT_EXPIRE_TIME = '24h';
+const JWT_EXPIRE_TIME = '365d'; // 1년 - 무기한 세션을 위한 긴 만료시간
 
 export const AUTH_COOKIE_NAME = 'auth_token';
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict' as const,
-  maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  maxAge: 365 * 24 * 60 * 60 * 1000, // 1년 - 무기한 세션
   path: '/',
 };
 

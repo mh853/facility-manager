@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSSE, SSEEvent } from '@/hooks/useSSE'
 import AdminLayout from '@/components/ui/AdminLayout'
+import { withAuth } from '@/contexts/AuthContext'
 import {
   Plus,
   Search,
@@ -143,7 +144,7 @@ const asSteps: Array<{status: TaskStatus, label: string, color: string}> = [
   { status: 'installation', label: 'AS 완료', color: 'green' }
 ]
 
-export default function TaskManagementPage() {
+function TaskManagementPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedType, setSelectedType] = useState<TaskType | 'all'>('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -1780,3 +1781,5 @@ export default function TaskManagementPage() {
     </AdminLayout>
   );
 }
+
+export default withAuth(TaskManagementPage, 'canAccessAdminPages')

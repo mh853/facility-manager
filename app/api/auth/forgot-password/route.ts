@@ -7,6 +7,19 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function POST(request: NextRequest) {
+  // 소셜 로그인 전용 시스템 - 비밀번호 재설정 비활성화
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: 'METHOD_NOT_SUPPORTED',
+        message: '비밀번호 재설정은 지원하지 않습니다. 소셜 로그인을 이용해주세요.'
+      }
+    },
+    { status: 405 }
+  );
+
+  /* 기존 비밀번호 재설정 코드 비활성화
   try {
     const body = await request.json();
     const { email } = body;
@@ -77,4 +90,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+  */
 }

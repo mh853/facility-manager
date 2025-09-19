@@ -1,5 +1,6 @@
 import { Inter, Noto_Sans_KR } from 'next/font/google';
 import './globals.css';
+import ClientProviders from '@/components/providers/ClientProviders';
 
 // 폰트 최적화
 const inter = Inter({ 
@@ -141,8 +142,10 @@ export default function RootLayout({
             `,
           }}
         />
-        
-        {children}
+
+        <ClientProviders>
+          {children}
+        </ClientProviders>
       </body>
     </html>
   );

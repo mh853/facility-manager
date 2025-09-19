@@ -6,6 +6,19 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 
 export async function POST(request: NextRequest) {
+  // 소셜 로그인 전용 시스템 - 이메일/비밀번호 로그인 비활성화
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: 'METHOD_NOT_SUPPORTED',
+        message: '이메일/비밀번호 로그인은 지원하지 않습니다. 소셜 로그인을 이용해주세요.'
+      }
+    },
+    { status: 405 }
+  );
+
+  /* 기존 이메일/비밀번호 로그인 코드 비활성화
   try {
     const { email, password } = await request.json();
 
@@ -99,4 +112,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+  */
 }

@@ -184,6 +184,7 @@ interface UnifiedBusinessInfo {
 }
 import * as XLSX from 'xlsx'
 import AdminLayout from '@/components/ui/AdminLayout'
+import { withAuth } from '@/contexts/AuthContext'
 import StatsCard from '@/components/ui/StatsCard'
 import DataTable, { commonActions } from '@/components/ui/DataTable'
 import { ConfirmModal } from '@/components/ui/Modal'
@@ -241,7 +242,7 @@ const KOREAN_LOCAL_GOVERNMENTS = [
   '인천시 계양구', '인천시 서구', '인천시 강화군', '인천시 옹진군'
 ].sort()
 
-export default function BusinessManagementPage() {
+function BusinessManagementPage() {
   const [allBusinesses, setAllBusinesses] = useState<UnifiedBusinessInfo[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -3581,3 +3582,5 @@ export default function BusinessManagementPage() {
     </AdminLayout>
   )
 }
+
+export default withAuth(BusinessManagementPage, 'canAccessAdminPages')

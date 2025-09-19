@@ -31,6 +31,11 @@ export class TokenManager {
     localStorage.removeItem(this.REFRESH_TOKEN_KEY);
   }
 
+  // 하위 호환성을 위한 별칭
+  static removeToken(): void {
+    this.removeTokens();
+  }
+
   static isTokenValid(token: string): boolean {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -47,7 +52,7 @@ class ApiClient {
   constructor() {
     this.baseURL = typeof window !== 'undefined'
       ? window.location.origin
-      : 'http://localhost:3000';
+      : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   }
 
   private async request<T>(
@@ -120,7 +125,7 @@ export const authAPI = {
   },
 
   verify: async () => {
-    return apiClient.get('/auth/verify');
+    return apiClient.post('/auth/verify');
   },
 
   socialLogin: async (token: string, userData: any, isNewUser: boolean) => {

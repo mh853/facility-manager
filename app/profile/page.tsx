@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { TokenManager } from '@/lib/api-client';
 import AdminLayout from '@/components/ui/AdminLayout';
 import {
   User,
@@ -79,7 +80,7 @@ export default function ProfilePage() {
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch(`/api/admin/employees/${user.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -118,7 +119,7 @@ export default function ProfilePage() {
       setSaving(true);
       setErrorMessage('');
 
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch(`/api/admin/employees/${user.id}`, {
         method: 'PUT',
         headers: {
@@ -164,7 +165,7 @@ export default function ProfilePage() {
       setSaving(true);
       setErrorMessage('');
 
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch('/api/profile/change-password', {
         method: 'POST',
         headers: {

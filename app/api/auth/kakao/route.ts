@@ -7,7 +7,12 @@ export async function GET(request: NextRequest) {
     // 카카오 로그인 파라미터 설정
     const kakaoAuthURL = 'https://kauth.kakao.com/oauth/authorize';
     const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID || 'd429d4772afee7301d3ab0e4f903b94e';
-    const redirectUri = `http://localhost:${process.env.PORT || 3003}/api/auth/social/kakao/callback`;
+    // Vercel 배포와 로컬 개발 모두 지원하는 동적 URL 생성
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const host = process.env.NODE_ENV === 'production'
+      ? process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL
+      : `localhost:${process.env.PORT || 3000}`;
+    const redirectUri = `${protocol}://${host}/api/auth/social/kakao/callback`;
     const state = Math.random().toString(36).substring(2, 15);
 
     // 카카오 OAuth URL 생성

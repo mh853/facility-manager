@@ -4,6 +4,96 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 
+// 사용자 정보 조회
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // JWT 토큰 검증
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: '인증 토큰이 필요합니다.' },
+        { status: 401 }
+      );
+    }
+
+    let decodedToken;
+    try {
+      decodedToken = jwt.verify(token, JWT_SECRET) as any;
+    } catch (jwtError) {
+      return NextResponse.json(
+        { success: false, message: '유효하지 않은 토큰입니다.' },
+        { status: 401 }
+      );
+    }
+
+    // 자신의 정보이거나 관리자인 경우에만 접근 허용
+    if (decodedToken.id !== params.id && decodedToken.permissionLevel !== 3) {
+      return NextResponse.json(
+        { success: false, message: '접근 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
+
+    // 사용자 정보 조회
+    const { data: employee, error: fetchError } = await supabaseAdmin
+      .from('employees')
+      .select('*')
+      .eq('id', params.id)
+      .single();
+
+    if (fetchError) {
+      console.error('사용자 조회 오류:', fetchError);
+      return NextResponse.json(
+        { success: false, message: `사용자 조회에 실패했습니다: ${fetchError.message}` },
+        { status: 500 }
+      );
+    }
+
+    if (!employee) {
+      return NextResponse.json(
+        { success: false, message: '사용자를 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+
+    // 소셜 계정 정보도 함께 조회
+    const { data: socialAccounts, error: socialError } = await supabaseAdmin
+      .from('social_accounts')
+      .select('*')
+      .eq('user_id', params.id);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        employee,
+        socialAccounts: socialAccounts || [],
+        permissions: {
+          canViewAllTasks: employee.permission_level >= 2,
+          canCreateTasks: employee.permission_level >= 1,
+          canEditTasks: employee.permission_level >= 1,
+          canDeleteTasks: employee.permission_level >= 2,
+          canViewReports: employee.permission_level >= 1,
+          canApproveReports: employee.permission_level >= 2,
+          canAccessAdminPages: employee.permission_level >= 3,
+          canViewSensitiveData: employee.permission_level >= 3,
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('사용자 조회 API 오류:', error);
+    return NextResponse.json(
+      { success: false, message: '서버 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
+}
+
 // 사용자 정보 수정
 export async function PUT(
   request: NextRequest,
