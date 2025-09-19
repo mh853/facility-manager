@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useSSE, SSEEvent } from '@/hooks/useSSE'
 import AdminLayout from '@/components/ui/AdminLayout'
 import { withAuth } from '@/contexts/AuthContext'
+import MultiAssigneeSelector, { SelectedAssignee } from '@/components/ui/MultiAssigneeSelector'
 import {
   Plus,
   Search,
@@ -63,10 +63,10 @@ interface Task {
   type: TaskType
   status: TaskStatus
   priority: Priority
-  assignee?: string
+  assignee?: string // 기존 호환성
+  assignees?: SelectedAssignee[] // 새로운 다중 담당자
   startDate?: string
   dueDate?: string
-  estimatedDays?: number
   progressPercentage?: number
   delayStatus?: 'on_time' | 'at_risk' | 'delayed' | 'overdue'
   delayDays?: number
@@ -81,10 +81,10 @@ interface CreateTaskForm {
   type: TaskType
   status: TaskStatus
   priority: Priority
-  assignee: string
+  assignee: string // 기존 호환성
+  assignees: SelectedAssignee[] // 새로운 다중 담당자
   startDate: string
   dueDate: string
-  estimatedDays: string
   description: string
   notes: string
 }
@@ -166,9 +166,9 @@ function TaskManagementPage() {
     status: 'etc_status',
     priority: 'medium',
     assignee: '',
+    assignees: [],
     startDate: '',
     dueDate: '',
-    estimatedDays: '',
     description: '',
     notes: ''
   })
@@ -183,61 +183,56 @@ function TaskManagementPage() {
   const refreshIntervalRef = useRef<NodeJS.Timeout>()
   const businessSearchTimeoutRef = useRef<NodeJS.Timeout>()
 
-  // SSE 메시지 핸들러
-  const handleSSEMessage = useCallback((event: SSEEvent) => {
-    switch (event.type) {
-      case 'connected':
-        console.log('✅ SSE 연결 성공:', event.message)
-        break
+  // 실제 업무 데이터 로딩
+  const loadTasks = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      console.log('📋 시설 업무 목록 로딩 시작...')
 
-      case 'initial':
-        console.log('📥 초기 데이터 수신:', event.tasks?.length, '개 업무')
-        if (event.tasks) {
-          setTasks(event.tasks)
-          setIsLoading(false)
-          setLastRefresh(new Date())
-        }
-        break
+      const response = await fetch('/api/facility-tasks')
+      if (!response.ok) {
+        throw new Error('업무 목록을 불러오는데 실패했습니다.')
+      }
 
-      case 'task_added':
-        console.log('➕ 새 업무 추가:', event.task?.title)
-        if (event.task) {
-          setTasks(prev => [...prev, event.task])
-          setLastRefresh(new Date())
-        }
-        break
+      const result = await response.json()
+      console.log('✅ 업무 목록 로딩 성공:', result.data?.tasks?.length || 0, '개')
 
-      case 'task_updated':
-        console.log('🔄 업무 업데이트:', event.task?.title)
-        if (event.task) {
-          setTasks(prev => prev.map(task =>
-            task.id === event.task.id ? { ...task, ...event.task } : task
-          ))
-          setLastRefresh(new Date())
-        }
-        break
+      if (result.success && result.data?.tasks) {
+        // 데이터베이스 형식을 UI 형식으로 변환
+        const convertedTasks: Task[] = result.data.tasks.map((dbTask: any) => ({
+          id: dbTask.id,
+          title: dbTask.title,
+          businessName: dbTask.business_name,
+          type: dbTask.task_type,
+          status: dbTask.status,
+          priority: dbTask.priority,
+          assignee: dbTask.assignee || undefined,
+          assignees: dbTask.assignees || [],
+          startDate: dbTask.start_date || undefined,
+          dueDate: dbTask.due_date || undefined,
+          progressPercentage: 0,
+          delayStatus: 'on_time',
+          delayDays: 0,
+          createdAt: dbTask.created_at,
+          description: dbTask.description || undefined,
+          notes: dbTask.notes || undefined
+        }))
 
-      case 'task_deleted':
-        console.log('🗑️ 업무 삭제:', event.task?.title)
-        if (event.task) {
-          setTasks(prev => prev.filter(task => task.id !== event.task.id))
-          setLastRefresh(new Date())
-        }
-        break
+        setTasks(convertedTasks)
+        setLastRefresh(new Date())
+      }
+    } catch (error) {
+      console.error('❌ 업무 목록 로딩 실패:', error)
+      alert('업무 목록을 불러오는 중 오류가 발생했습니다.')
+    } finally {
+      setIsLoading(false)
     }
   }, [])
 
-  // SSE 연결 설정
-  const { connectionStatus, isConnected, reconnect } = useSSE({
-    url: '/api/tasks/stream',
-    onMessage: handleSSEMessage,
-    onError: (error) => console.error('❌ SSE 연결 오류:', error),
-    onOpen: () => console.log('🔗 SSE 연결 시작'),
-    onClose: () => console.log('📴 SSE 연결 종료'),
-    autoReconnect: true,
-    reconnectInterval: 3000,
-    maxReconnectAttempts: 5
-  })
+  // 페이지 로드 시 데이터 로딩
+  useEffect(() => {
+    loadTasks()
+  }, [loadTasks])
 
   // 사업장 목록 로딩
   const loadBusinesses = useCallback(async () => {
@@ -279,31 +274,56 @@ function TaskManagementPage() {
     }
   }, [loadBusinesses])
 
-  // 수동 새로고침 (SSE 재연결)
+  // 수동 새로고침 (데이터 다시 로딩)
   const refreshTasks = useCallback(async () => {
     setIsRefreshing(true)
-    reconnect()
-    setIsRefreshing(false)
-  }, [reconnect])
-
-  // SSE 테스트용 시뮬레이션 함수
-  const simulateTaskChange = useCallback(async () => {
     try {
-      const response = await fetch('/api/tasks/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'simulate_change' })
+      await loadTasks()
+    } catch (error) {
+      console.error('새로고침 실패:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [loadTasks])
+
+  // 업무 삭제 핸들러
+  const handleDeleteTask = useCallback(async (taskId: string) => {
+    if (!confirm('이 업무를 삭제하시겠습니까?')) {
+      return
+    }
+
+    try {
+      console.log('🗑️ 업무 삭제 요청:', taskId)
+
+      const response = await fetch(`/api/facility-tasks?id=${taskId}`, {
+        method: 'DELETE'
       })
 
       if (!response.ok) {
-        throw new Error('시뮬레이션 요청 실패')
+        const errorData = await response.json()
+        throw new Error(errorData.message || '업무 삭제에 실패했습니다.')
       }
 
-      console.log('📡 SSE 시뮬레이션 요청 전송됨')
+      const result = await response.json()
+      console.log('✅ 업무 삭제 성공:', result)
+
+      // 로컬 상태에서 제거
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+
+      // 수정 모달이 열려있다면 닫기
+      if (editingTask?.id === taskId) {
+        setShowEditModal(false)
+        setEditingTask(null)
+        setEditBusinessSearchTerm('')
+        setShowEditBusinessDropdown(false)
+      }
+
+      alert('업무가 삭제되었습니다.')
     } catch (error) {
-      console.error('SSE 시뮬레이션 오류:', error)
+      console.error('Failed to delete task:', error)
+      alert(`업무 삭제 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
     }
-  }, [])
+  }, [editingTask])
 
   // 디바운스된 검색
   const debouncedSearch = useCallback((term: string) => {
@@ -533,17 +553,33 @@ function TaskManagementPage() {
     if (!draggedTask) return
 
     try {
-      // 상태 업데이트 (실제 API 호출로 대체 예정)
+      // API 호출로 실제 상태 업데이트
+      const response = await fetch('/api/facility-tasks', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: draggedTask.id,
+          status: status
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('업무 상태 업데이트에 실패했습니다.')
+      }
+
+      // 로컬 상태 업데이트
       setTasks(prev => prev.map(task =>
         task.id === draggedTask.id
           ? { ...task, status }
           : task
       ))
 
-      // 성공 메시지 표시 (실제 구현에서는 toast 등 사용)
       console.log(`업무 "${draggedTask.title}"이(가) ${status} 상태로 이동되었습니다.`)
     } catch (error) {
       console.error('Failed to update task status:', error)
+      alert('업무 상태 업데이트에 실패했습니다. 다시 시도해주세요.')
     }
   }, [draggedTask])
 
@@ -585,6 +621,17 @@ function TaskManagementPage() {
     })
   }, [])
 
+  // 업무 타입 뱃지 정보
+  const getTaskTypeBadge = useCallback((taskType: string) => {
+    const badgeMap = {
+      self: { label: '자비', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+      subsidy: { label: '보조금', color: 'bg-green-100 text-green-800 border-green-200' },
+      as: { label: 'AS', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+      etc: { label: '기타', color: 'bg-gray-100 text-gray-800 border-gray-200' }
+    }
+    return badgeMap[taskType as keyof typeof badgeMap] || badgeMap.etc
+  }, [])
+
   // 새 업무 생성 핸들러
   const handleCreateTask = useCallback(async () => {
     try {
@@ -598,26 +645,58 @@ function TaskManagementPage() {
         return
       }
 
-      const newTask: Task = {
-        id: Date.now().toString(),
+      // API 요청 데이터 준비
+      const requestData = {
         title: createTaskForm.title,
-        businessName: businessSearchTerm,
-        type: createTaskForm.type,
+        business_name: businessSearchTerm || '기타',
+        task_type: createTaskForm.type,
         status: createTaskForm.status,
         priority: createTaskForm.priority,
-        assignee: createTaskForm.assignee || undefined,
+        assignees: createTaskForm.assignees,
+        due_date: createTaskForm.dueDate || null,
+        description: createTaskForm.description || null,
+        notes: createTaskForm.notes || null
+      }
+
+      console.log('📝 새 업무 생성 요청:', requestData)
+
+      // 실제 데이터베이스에 저장
+      const response = await fetch('/api/facility-tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || '업무 생성에 실패했습니다.')
+      }
+
+      const result = await response.json()
+      console.log('✅ 업무 생성 성공:', result)
+
+      // 로컬 상태 업데이트 (임시 - SSE를 통해 자동 업데이트될 예정)
+      const newTask: Task = {
+        id: result.data.task.id,
+        title: result.data.task.title,
+        businessName: result.data.task.business_name,
+        type: result.data.task.task_type,
+        status: result.data.task.status,
+        priority: result.data.task.priority,
+        assignee: result.data.task.assignee || undefined,
+        assignees: result.data.task.assignees || [],
         startDate: createTaskForm.startDate || undefined,
-        dueDate: createTaskForm.dueDate || undefined,
-        estimatedDays: createTaskForm.estimatedDays ? (isNaN(parseInt(createTaskForm.estimatedDays)) ? undefined : parseInt(createTaskForm.estimatedDays)) : undefined,
+        dueDate: result.data.task.due_date || undefined,
         progressPercentage: 0,
         delayStatus: 'on_time',
         delayDays: 0,
-        createdAt: new Date().toISOString(),
-        description: createTaskForm.description || undefined,
-        notes: createTaskForm.notes || undefined
+        createdAt: result.data.task.created_at,
+        description: result.data.task.description || undefined,
+        notes: result.data.task.notes || undefined
       }
 
-      // 업무 목록에 추가
       setTasks(prev => [newTask, ...prev])
 
       // 폼 초기화
@@ -628,22 +707,24 @@ function TaskManagementPage() {
         status: 'customer_contact',
         priority: 'medium',
         assignee: '',
+        assignees: [],
         startDate: '',
         dueDate: '',
-        estimatedDays: '',
-        description: '',
+            description: '',
         notes: ''
       })
 
       // 모달 닫기
       setShowCreateModal(false)
+      setBusinessSearchTerm('')
+      setShowBusinessDropdown(false)
 
       alert('새 업무가 성공적으로 등록되었습니다.')
     } catch (error) {
       console.error('Failed to create task:', error)
-      alert('업무 등록 중 오류가 발생했습니다.')
+      alert(`업무 등록 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
     }
-  }, [createTaskForm])
+  }, [createTaskForm, businessSearchTerm])
 
   // ESC 키 핸들러
   useEffect(() => {
@@ -681,8 +762,7 @@ function TaskManagementPage() {
       assignee: '',
       startDate: today,
       dueDate: '',
-      estimatedDays: '',
-      description: '',
+        description: '',
       notes: ''
     })
     setBusinessSearchTerm('')
@@ -713,21 +793,63 @@ function TaskManagementPage() {
     if (!editingTask) return
 
     try {
-      // 업무 목록에서 해당 업무 업데이트
+      // API 요청 데이터 준비
+      const requestData = {
+        id: editingTask.id,
+        title: editingTask.title,
+        business_name: editingTask.businessName || '기타',
+        task_type: editingTask.type,
+        status: editingTask.status,
+        priority: editingTask.priority,
+        assignees: editingTask.assignees || [],
+        start_date: editingTask.startDate || null,
+        due_date: editingTask.dueDate || null,
+        description: editingTask.description || null,
+        notes: editingTask.notes || null
+      }
+
+      console.log('📝 업무 수정 요청:', requestData)
+
+      // 실제 데이터베이스에 저장
+      const response = await fetch('/api/facility-tasks', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || '업무 수정에 실패했습니다.')
+      }
+
+      const result = await response.json()
+      console.log('✅ 업무 수정 성공:', result)
+
+      // 로컬 상태 업데이트
       setTasks(prev => prev.map(task =>
         task.id === editingTask.id
-          ? { ...editingTask, updatedAt: new Date().toISOString() }
+          ? {
+              ...editingTask,
+              createdAt: result.data.task.created_at,
+              assignee: editingTask.assignees && editingTask.assignees.length > 0
+                ? editingTask.assignees[0].name
+                : undefined
+            }
           : task
       ))
 
       // 모달 닫기
       setShowEditModal(false)
       setEditingTask(null)
+      setEditBusinessSearchTerm('')
+      setShowEditBusinessDropdown(false)
 
       alert('업무가 성공적으로 수정되었습니다.')
     } catch (error) {
       console.error('Failed to update task:', error)
-      alert('업무 수정 중 오류가 발생했습니다.')
+      alert(`업무 수정 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
     }
   }, [editingTask])
 
@@ -753,12 +875,6 @@ function TaskManagementPage() {
             마지막 업데이트: {lastRefresh.toLocaleTimeString('ko-KR')}
           </div>
           <button
-            onClick={simulateTaskChange}
-            className="flex items-center gap-2 bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition-colors text-xs"
-          >
-            테스트
-          </button>
-          <button
             onClick={handleOpenCreateModal}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
@@ -771,7 +887,7 @@ function TaskManagementPage() {
       <div className="space-y-6">
         {/* 동적 통계 요약 */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 cursor-help relative group">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">전체 업무</p>
@@ -779,8 +895,19 @@ function TaskManagementPage() {
               </div>
               <Target className="w-8 h-8 text-blue-500" />
             </div>
+
+            {/* 호버 툴팁 */}
+            <div className="absolute left-0 top-full mt-2 w-48 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+              <div className="font-semibold mb-2">📊 전체 업무</div>
+              <div className="space-y-1">
+                <div>• 시스템에 등록된 모든 업무</div>
+                <div>• 삭제되지 않은 활성 상태 업무</div>
+                <div>• 모든 단계와 우선순위 포함</div>
+              </div>
+              <div className="absolute bottom-full left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+            </div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 cursor-help relative group">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">활성 단계</p>
@@ -788,8 +915,19 @@ function TaskManagementPage() {
               </div>
               <TrendingUp className="w-8 h-8 text-orange-500" />
             </div>
+
+            {/* 호버 툴팁 */}
+            <div className="absolute left-0 top-full mt-2 w-52 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+              <div className="font-semibold mb-2">🔄 활성 단계</div>
+              <div className="space-y-1">
+                <div>• 업무가 있는 워크플로우 단계 수</div>
+                <div>• 총 7단계 중 업무가 진행 중인 단계</div>
+                <div>• 비어있는 단계는 제외</div>
+              </div>
+              <div className="absolute bottom-full left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+            </div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 cursor-help relative group">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">높은 우선순위</p>
@@ -797,8 +935,22 @@ function TaskManagementPage() {
               </div>
               <AlertCircle className="w-8 h-8 text-red-500" />
             </div>
+
+            {/* 호버 툴팁 */}
+            <div className="absolute left-0 top-full mt-2 w-48 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+              <div className="font-semibold mb-2">🔴 높은 우선순위</div>
+              <div className="space-y-1">
+                <div>• 우선순위가 '높음'으로 설정된 업무</div>
+                <div>• 즉시 처리가 필요한 긴급 업무</div>
+                <div>• 빠른 대응이 요구되는 업무</div>
+              </div>
+              <div className="absolute bottom-full left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+            </div>
           </div>
-          <div className="bg-white rounded-lg border border-red-200 p-4 bg-red-50">
+          <div
+            className="bg-white rounded-lg border border-red-200 p-4 bg-red-50 cursor-help relative group"
+            title="업무 타입별 지연 기준: 자비설치(21일), 보조금(30일), AS(10일), 기타(15일)"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-red-600">지연 업무</p>
@@ -806,14 +958,39 @@ function TaskManagementPage() {
               </div>
               <Clock className="w-8 h-8 text-red-500" />
             </div>
+            {/* 호버 도움말 */}
+            <div className="absolute left-0 top-full mt-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+              <div className="font-semibold mb-2">📅 지연 업무 기준</div>
+              <div className="space-y-1">
+                <div>• 자비 설치: 시작 후 21일</div>
+                <div>• 보조금: 시작 후 30일</div>
+                <div>• AS: 시작 후 10일</div>
+                <div>• 기타: 시작 후 15일</div>
+              </div>
+              <div className="absolute bottom-full left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+            </div>
           </div>
-          <div className="bg-white rounded-lg border border-yellow-200 p-4 bg-yellow-50">
+          <div
+            className="bg-white rounded-lg border border-yellow-200 p-4 bg-yellow-50 cursor-help relative group"
+            title="업무 타입별 위험 기준: 자비설치(14일), 보조금(20일), AS(7일), 기타(10일)"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-yellow-600">위험 업무</p>
                 <p className="text-2xl font-semibold text-yellow-700">{dynamicStats.atRiskTasks}</p>
               </div>
               <AlertCircle className="w-8 h-8 text-yellow-500" />
+            </div>
+            {/* 호버 도움말 */}
+            <div className="absolute left-0 top-full mt-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+              <div className="font-semibold mb-2">⚠️ 위험 업무 기준</div>
+              <div className="space-y-1">
+                <div>• 자비 설치: 시작 후 14일</div>
+                <div>• 보조금: 시작 후 20일</div>
+                <div>• AS: 시작 후 7일</div>
+                <div>• 기타: 시작 후 10일</div>
+              </div>
+              <div className="absolute bottom-full left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
             </div>
           </div>
         </div>
@@ -887,15 +1064,9 @@ function TaskManagementPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs">
-                SSE 연결: {connectionStatus === 'connected' ? '연결됨' :
-                          connectionStatus === 'connecting' ? '연결중' :
-                          connectionStatus === 'reconnecting' ? '재연결중' : '연결 끊김'}
+                데이터 연결: 정상
               </span>
-              <div className={`w-2 h-2 rounded-full ${
-                connectionStatus === 'connected' ? 'bg-green-500' :
-                connectionStatus === 'connecting' || connectionStatus === 'reconnecting' ? 'bg-yellow-500' :
-                'bg-red-500'
-              }`} />
+              <div className="w-2 h-2 rounded-full bg-green-500" />
             </div>
           </div>
         </div>
@@ -974,9 +1145,19 @@ function TaskManagementPage() {
                       >
                         {/* 카드 헤더 */}
                         <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-medium text-gray-900 text-sm leading-tight flex-1 pr-2">
-                            {task.title}
-                          </h4>
+                          <div className="flex-1 pr-2">
+                            {/* 타입 뱃지 (전체 필터일 때만 표시) */}
+                            {selectedType === 'all' && (
+                              <div className="mb-1">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getTaskTypeBadge(task.type).color}`}>
+                                  {getTaskTypeBadge(task.type).label}
+                                </span>
+                              </div>
+                            )}
+                            <h4 className="font-medium text-gray-900 text-sm leading-tight">
+                              {task.title}
+                            </h4>
+                          </div>
                           <div className="flex items-center gap-1 flex-col">
                             <div className="flex items-center gap-1">
                               {getPriorityIcon(task.priority)}
@@ -1020,13 +1201,38 @@ function TaskManagementPage() {
                         </div>
 
                         {/* 담당자 및 마감일 */}
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            <span>{task.assignee || '미배정'}</span>
+                        <div className="flex flex-col gap-2 text-xs">
+                          {/* 담당자 (다중 지원) */}
+                          <div className="flex items-center gap-1 text-gray-500">
+                            {task.assignees && task.assignees.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                <Users className="w-3 h-3 mt-0.5 text-gray-400" />
+                                {task.assignees.slice(0, 2).map((assignee, index) => (
+                                  <span
+                                    key={assignee.id}
+                                    className="inline-flex items-center px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-medium"
+                                    title={`${assignee.name} (${assignee.position})`}
+                                  >
+                                    {assignee.name}
+                                  </span>
+                                ))}
+                                {task.assignees.length > 2 && (
+                                  <span className="text-gray-400 text-xs">
+                                    +{task.assignees.length - 2}명
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <User className="w-3 h-3" />
+                                <span>{task.assignee || '미배정'}</span>
+                              </div>
+                            )}
                           </div>
+
+                          {/* 마감일 */}
                           {task.dueDate && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 text-gray-500">
                               <Calendar className="w-3 h-3" />
                               <span>{formatDate(task.dueDate)}</span>
                             </div>
@@ -1094,10 +1300,20 @@ function TaskManagementPage() {
                           <div className="font-medium text-gray-900">{task.businessName}</div>
                         </td>
                         <td className="py-3 px-4 text-sm">
-                          <div className="font-medium text-gray-900">{task.title}</div>
-                          {task.description && (
-                            <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">{task.description}</div>
-                          )}
+                          <div className="flex flex-col gap-1">
+                            {/* 타입 뱃지 (전체 필터일 때만 표시) */}
+                            {selectedType === 'all' && (
+                              <div>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getTaskTypeBadge(task.type).color}`}>
+                                  {getTaskTypeBadge(task.type).label}
+                                </span>
+                              </div>
+                            )}
+                            <div className="font-medium text-gray-900">{task.title}</div>
+                            {task.description && (
+                              <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">{task.description}</div>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-sm">
                           <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getColorClasses(step?.color || 'gray')}`}>
@@ -1105,7 +1321,26 @@ function TaskManagementPage() {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
-                          {task.assignee || '미배정'}
+                          {task.assignees && task.assignees.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {task.assignees.slice(0, 3).map((assignee) => (
+                                <span
+                                  key={assignee.id}
+                                  className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium"
+                                  title={`${assignee.name} (${assignee.position})`}
+                                >
+                                  {assignee.name}
+                                </span>
+                              ))}
+                              {task.assignees.length > 3 && (
+                                <span className="text-gray-400 text-xs">
+                                  +{task.assignees.length - 3}명
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            task.assignee || '미배정'
+                          )}
                         </td>
                         <td className="py-3 px-4 text-sm">
                           <span className={`inline-flex px-2 py-1 text-xs rounded ${
@@ -1141,11 +1376,9 @@ function TaskManagementPage() {
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (confirm('이 업무를 삭제하시겠습니까?')) {
-                                  setTasks(prev => prev.filter(t => t.id !== task.id))
-                                  alert('업무가 삭제되었습니다.')
-                                }
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteTask(task.id)
                               }}
                               className="p-1 text-gray-400 hover:text-red-600 rounded"
                               title="삭제"
@@ -1194,12 +1427,22 @@ function TaskManagementPage() {
                      createTaskForm.type === 'subsidy' ? '보조금' :
                      createTaskForm.type === 'etc' ? '기타' : 'AS'}
                   </span>
-                  <button
-                    onClick={() => setShowCreateModal(false)}
-                    className="text-white hover:text-green-200 bg-white bg-opacity-20 rounded-lg p-2 transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+
+                  {/* 액션 버튼들 */}
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={() => setShowCreateModal(false)}
+                      className="px-4 py-2 text-white bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all font-medium backdrop-blur-sm border border-white border-opacity-30"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={handleCreateTask}
+                      className="px-6 py-2 bg-white text-green-700 rounded-lg hover:bg-green-50 transition-all font-medium shadow-lg"
+                    >
+                      등록
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1361,20 +1604,27 @@ function TaskManagementPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* 담당자 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">담당자</label>
-                    <select
-                      value={createTaskForm.assignee}
-                      onChange={(e) => setCreateTaskForm(prev => ({ ...prev, assignee: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      <option value="">담당자 선택</option>
-                      {assignees.map(assignee => (
-                        <option key={assignee} value={assignee}>{assignee}</option>
-                      ))}
-                    </select>
+                  {/* 담당자 (다중 선택) */}
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      담당자 <span className="text-gray-500 text-xs">(여러 명 선택 가능)</span>
+                    </label>
+                    <MultiAssigneeSelector
+                      selectedAssignees={createTaskForm.assignees}
+                      onAssigneesChange={(assignees) => setCreateTaskForm(prev => ({
+                        ...prev,
+                        assignees,
+                        assignee: assignees.length > 0 ? assignees[0].name : ''
+                      }))}
+                      placeholder="담당자를 검색하여 선택하세요"
+                      maxAssignees={5}
+                      showCurrentUserFirst={true}
+                      className="w-full"
+                    />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
                   {/* 시작일 */}
                   <div>
@@ -1425,23 +1675,8 @@ function TaskManagementPage() {
                 </div>
                 </div>
 
-                {/* 버튼 영역 */}
-                <div className="flex justify-end items-center mt-8 pt-6 border-t border-gray-200">
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setShowCreateModal(false)}
-                      className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                    >
-                      취소
-                    </button>
-                    <button
-                      onClick={handleCreateTask}
-                      className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-medium shadow-lg"
-                    >
-                      등록
-                    </button>
-                  </div>
-                </div>
+                {/* 하단 여백 */}
+                <div className="mt-6"></div>
               </div>
             </div>
           </div>
@@ -1478,15 +1713,31 @@ function TaskManagementPage() {
                      editingTask.type === 'subsidy' ? '보조금' :
                      editingTask.type === 'etc' ? '기타' : 'AS'}
                   </span>
-                  <button
-                    onClick={() => {
-                      setShowEditModal(false)
-                      setEditingTask(null)
-                    }}
-                    className="text-white hover:text-blue-200 bg-white bg-opacity-20 rounded-lg p-2 transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+
+                  {/* 액션 버튼들 */}
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={() => handleDeleteTask(editingTask.id)}
+                      className="px-4 py-2 text-white bg-red-500 bg-opacity-90 rounded-lg hover:bg-red-600 transition-all font-medium"
+                    >
+                      삭제
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowEditModal(false)
+                        setEditingTask(null)
+                      }}
+                      className="px-4 py-2 text-white bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all font-medium backdrop-blur-sm border border-white border-opacity-30"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={handleUpdateTask}
+                      className="px-6 py-2 bg-white text-blue-700 rounded-lg hover:bg-blue-50 transition-all font-medium shadow-lg"
+                    >
+                      변경사항 저장
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1661,20 +1912,27 @@ function TaskManagementPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* 담당자 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">담당자</label>
-                    <select
-                      value={editingTask.assignee || ''}
-                      onChange={(e) => setEditingTask(prev => prev ? { ...prev, assignee: e.target.value || undefined } : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      <option value="">담당자 선택</option>
-                      {assignees.map(assignee => (
-                        <option key={assignee} value={assignee}>{assignee}</option>
-                      ))}
-                    </select>
+                  {/* 담당자 (다중 선택) */}
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      담당자 <span className="text-gray-500 text-xs">(여러 명 선택 가능)</span>
+                    </label>
+                    <MultiAssigneeSelector
+                      selectedAssignees={editingTask.assignees || []}
+                      onAssigneesChange={(assignees) => setEditingTask(prev => prev ? {
+                        ...prev,
+                        assignees,
+                        assignee: assignees.length > 0 ? assignees[0].name : undefined
+                      } : null)}
+                      placeholder="담당자를 검색하여 선택하세요"
+                      maxAssignees={5}
+                      showCurrentUserFirst={true}
+                      className="w-full"
+                    />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
                   {/* 시작일 */}
                   <div>
@@ -1699,20 +1957,6 @@ function TaskManagementPage() {
                   </div>
                 </div>
 
-                {/* 예상 소요 일수 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">예상 소요 일수</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="365"
-                    value={editingTask.estimatedDays || ''}
-                    onChange={(e) => setEditingTask(prev => prev ? { ...prev, estimatedDays: e.target.value ? parseInt(e.target.value) : undefined } : null)}
-                    placeholder="예: 15"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">업무 완료까지 예상되는 총 일수를 입력하세요.</p>
-                </div>
 
                 {/* 업무 설명 */}
                 <div>
@@ -1739,40 +1983,8 @@ function TaskManagementPage() {
                 </div>
                 </div>
 
-                {/* 버튼 영역 */}
-                <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
-                  <button
-                    onClick={() => {
-                      if (confirm('이 업무를 삭제하시겠습니까?')) {
-                        setTasks(prev => prev.filter(t => t.id !== editingTask.id))
-                        setShowEditModal(false)
-                        setEditingTask(null)
-                        alert('업무가 삭제되었습니다.')
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    삭제
-                  </button>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setShowEditModal(false)
-                        setEditingTask(null)
-                      }}
-                      className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                    >
-                      취소
-                    </button>
-                    <button
-                      onClick={handleUpdateTask}
-                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-medium shadow-lg"
-                    >
-                      변경사항 저장
-                    </button>
-                  </div>
-                </div>
+                {/* 하단 여백 */}
+                <div className="mt-6"></div>
               </div>
             </div>
           </div>

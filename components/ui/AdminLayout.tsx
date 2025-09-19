@@ -18,7 +18,8 @@ import {
   Clock,
   Activity,
   ClipboardList,
-  TrendingUp
+  TrendingUp,
+  Sliders
 } from 'lucide-react'
 
 interface AdminLayoutProps {
@@ -92,6 +93,13 @@ const navigationItems: NavigationItem[] = [
     icon: History,
     description: '시스템 데이터 변경 이력',
     requiredLevel: 2
+  },
+  {
+    name: '지연 기준 설정',
+    href: '/admin/settings/delay-criteria',
+    icon: Sliders,
+    description: '업무 지연/위험 판단 기준 관리',
+    requiredLevel: 3
   },
 ]
 

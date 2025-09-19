@@ -3,7 +3,15 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
 
-// Facility Task 타입 정의
+// 담당자 타입 정의
+export interface TaskAssignee {
+  id: string;
+  name: string;
+  position: string;
+  email: string;
+}
+
+// Facility Task 타입 정의 (다중 담당자 지원)
 export interface FacilityTask {
   id: string;
   created_at: string;
@@ -15,7 +23,10 @@ export interface FacilityTask {
   task_type: 'self' | 'subsidy';
   status: string;
   priority: 'low' | 'medium' | 'high';
-  assignee?: string;
+  assignee?: string; // 기존 호환성 유지
+  assignees: TaskAssignee[]; // 새로운 다중 담당자 필드
+  primary_assignee_id?: string;
+  assignee_updated_at?: string;
   due_date?: string;
   completed_at?: string;
   notes?: string;
@@ -48,6 +59,10 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         status,
         priority,
         assignee,
+        assignees,
+        primary_assignee_id,
+        assignee_updated_at,
+        start_date,
         due_date,
         completed_at,
         notes,
@@ -69,7 +84,8 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       query = query.eq('status', status);
     }
     if (assignee) {
-      query = query.eq('assignee', assignee);
+      // 다중 담당자 지원: assignees JSON 배열에서 검색
+      query = query.or(`assignee.eq.${assignee},assignees.cs.[{"name":"${assignee}"}]`);
     }
 
     const { data: tasks, error } = await query;
@@ -107,7 +123,10 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       task_type,
       status = 'customer_contact',
       priority = 'medium',
-      assignee,
+      assignee, // 기존 호환성용
+      assignees, // 새로운 다중 담당자
+      primary_assignee_id,
+      start_date,
       due_date,
       notes
     } = body;
@@ -129,6 +148,17 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('유효하지 않은 우선순위입니다', 400);
     }
 
+    // 담당자 처리: assignees 우선, 없으면 assignee를 assignees로 변환
+    let finalAssignees = assignees || [];
+    if (!finalAssignees.length && assignee) {
+      finalAssignees = [{
+        id: '',
+        name: assignee,
+        position: '미정',
+        email: ''
+      }];
+    }
+
     const { data: newTask, error } = await supabaseAdmin
       .from('facility_tasks')
       .insert({
@@ -138,7 +168,10 @@ export const POST = withApiHandler(async (request: NextRequest) => {
         task_type,
         status,
         priority,
-        assignee,
+        assignee: finalAssignees.length > 0 ? finalAssignees[0].name : null, // 기존 호환성
+        assignees: finalAssignees,
+        primary_assignee_id,
+        start_date,
         due_date,
         notes
       })
@@ -175,7 +208,10 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       task_type,
       status,
       priority,
-      assignee,
+      assignee, // 기존 호환성용
+      assignees, // 새로운 다중 담당자
+      primary_assignee_id,
+      start_date,
       due_date,
       notes,
       completed_at
@@ -196,10 +232,31 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
     if (task_type !== undefined) updateData.task_type = task_type;
     if (status !== undefined) updateData.status = status;
     if (priority !== undefined) updateData.priority = priority;
-    if (assignee !== undefined) updateData.assignee = assignee;
+    if (start_date !== undefined) updateData.start_date = start_date;
     if (due_date !== undefined) updateData.due_date = due_date;
     if (notes !== undefined) updateData.notes = notes;
     if (completed_at !== undefined) updateData.completed_at = completed_at;
+
+    // 담당자 업데이트 처리
+    if (assignees !== undefined) {
+      updateData.assignees = assignees;
+      updateData.assignee = assignees.length > 0 ? assignees[0].name : null; // 기존 호환성
+    } else if (assignee !== undefined) {
+      updateData.assignee = assignee;
+      // assignee가 있으면 assignees도 업데이트
+      if (assignee) {
+        updateData.assignees = [{
+          id: '',
+          name: assignee,
+          position: '미정',
+          email: ''
+        }];
+      } else {
+        updateData.assignees = [];
+      }
+    }
+
+    if (primary_assignee_id !== undefined) updateData.primary_assignee_id = primary_assignee_id;
 
     const { data: updatedTask, error } = await supabaseAdmin
       .from('facility_tasks')
