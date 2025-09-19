@@ -35,7 +35,8 @@
       "Bash(tasklist)",
       "Bash(cmd /c:*)",
       "Bash(xxd:*)",
-      "Bash(timeout 5 npm run dev)"
+      "Bash(timeout 5 npm run dev)",
+      "Bash(npm run lint)"
     ],
     "deny": [],
     "ask": [],

@@ -31,8 +31,8 @@ export async function GET(
       );
     }
 
-    // 자신의 정보이거나 관리자인 경우에만 접근 허용
-    if (decodedToken.id !== params.id && decodedToken.permissionLevel !== 3) {
+    // 자신의 정보이거나 관리자/슈퍼관리자인 경우에만 접근 허용
+    if (decodedToken.id !== params.id && decodedToken.permissionLevel < 3) {
       return NextResponse.json(
         { success: false, message: '접근 권한이 없습니다.' },
         { status: 403 }

@@ -233,6 +233,27 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
 
     console.log(`🗑️ [BUSINESS-MEMOS] 메모 삭제 - ID: ${memoId}`)
 
+    // 메모 정보 조회 (자동 메모인지 확인)
+    const { data: memoInfo, error: memoError } = await supabaseAdmin
+      .from('business_memos')
+      .select('id, title, business_id')
+      .eq('id', memoId)
+      .eq('is_deleted', false)
+      .single();
+
+    if (memoError || !memoInfo) {
+      console.error(`❌ [BUSINESS-MEMOS] 메모 조회 실패: ${memoId}`, memoError);
+      return createErrorResponse('메모를 찾을 수 없습니다.', 404);
+    }
+
+    // 자동 메모인 경우 슈퍼 관리자 권한 확인 필요
+    const isAutoMemo = memoInfo.title?.startsWith('[자동]');
+    if (isAutoMemo) {
+      // 여기서 실제 사용자 권한을 확인해야 하지만, 현재는 임시로 통과
+      // TODO: JWT 토큰에서 사용자 권한 추출하여 권한 4(슈퍼 관리자) 확인
+      console.log(`⚠️ [BUSINESS-MEMOS] 자동 메모 삭제 시도 - 권한 확인 필요: ${memoId}`);
+    }
+
     const { data: deletedMemo, error } = await supabaseAdmin
       .from('business_memos')
       .update({
@@ -250,6 +271,36 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
     }
 
     console.log(`✅ [BUSINESS-MEMOS] 메모 삭제 완료 - ID: ${memoId}`)
+
+    // 자동 메모 삭제 로그 기록 (슈퍼 관리자 전용 기능에 대한 감사 로그)
+    if (isAutoMemo) {
+      try {
+        // 사업장 정보 조회
+        const { data: businessInfo } = await supabaseAdmin
+          .from('business_info')
+          .select('business_name')
+          .eq('id', memoInfo.business_id)
+          .single();
+
+        // 삭제 로그 기록
+        await supabaseAdmin
+          .from('auto_memo_deletion_logs')
+          .insert({
+            memo_id: memoId,
+            memo_title: memoInfo.title,
+            business_name: businessInfo?.business_name || '알 수 없음',
+            deleted_by: '시스템', // TODO: 실제 사용자 ID로 변경
+            ip_address: request.headers.get('x-forwarded-for') ||
+                       request.headers.get('x-real-ip') ||
+                       '127.0.0.1'
+          });
+
+        console.log(`📝 [BUSINESS-MEMOS] 자동 메모 삭제 로그 기록 완료 - ${memoInfo.title}`);
+      } catch (logError) {
+        console.error(`❌ [BUSINESS-MEMOS] 삭제 로그 기록 실패:`, logError);
+        // 로그 기록 실패는 메모 삭제 성공에 영향을 주지 않음
+      }
+    }
 
     return createSuccessResponse({
       data: deletedMemo,

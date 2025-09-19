@@ -30,6 +30,7 @@ interface AuthContextType {
     canApproveReports: boolean;
     canAccessAdminPages: boolean;
     canViewSensitiveData: boolean;
+    canDeleteAutoMemos: boolean; // 슈퍼 관리자만 자동 메모 삭제 가능
   } | null;
   loading: boolean;
   socialLogin: (token: string, userData: any, isNewUser: boolean) => Promise<{ success: boolean; error?: string }>;
@@ -201,6 +202,7 @@ export function usePermission() {
     canApproveReports: permissions?.canApproveReports || false,
     canAccessAdminPages: permissions?.canAccessAdminPages || false,
     canViewSensitiveData: permissions?.canViewSensitiveData || false,
+    canDeleteAutoMemos: permissions?.canDeleteAutoMemos || false,
   };
 }
 

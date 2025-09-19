@@ -13,6 +13,7 @@ import ImprovedFacilityPhotoSection from '@/components/ImprovedFacilityPhotoSect
 import InspectorInfoSection from '@/components/sections/InspectorInfoSection';
 import SpecialNotesSection from '@/components/sections/SpecialNotesSection';
 import EnhancedFacilityInfoSection from '@/components/sections/EnhancedFacilityInfoSection';
+import BusinessProgressSection from '@/components/sections/BusinessProgressSection';
 // Import original components  
 import FileUploadSection from '@/components/FileUploadSection';
 import { FileProvider } from '@/contexts/FileContext';
@@ -707,39 +708,15 @@ export default function BusinessDetailPage() {
               currentPhase={currentPhase}
             />
 
-                {/* 8. 특이사항 - Special Notes */}
-                <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
-                  <div className="flex items-center gap-2 mb-4 md:mb-6">
-                    <FileText className="w-5 h-5 md:w-6 md:h-6 text-yellow-600" />
-                    <h3 className="text-lg md:text-xl font-bold text-gray-900">특이사항</h3>
-                  </div>
-                  
-                  <textarea
-                    value={specialNotes}
-                    onChange={(e) => handleSpecialNotesChange(e.target.value)}
-                    className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                    rows={6}
-                    placeholder="특이사항을 입력하세요..."
-                  />
-                  
-                  <button
-                    onClick={saveSpecialNotes}
-                    disabled={saveStates.notes}
-                    className="mt-4 bg-yellow-600 text-white px-6 py-2 rounded-lg hover:bg-yellow-700 disabled:bg-yellow-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                  >
-                    {saveStates.notes ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        저장 중...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        특이사항 저장
-                      </>
-                    )}
-                  </button>
-                </div>
+                {/* 8. 특이사항 & 업무 진행 현황 - Business Progress Section */}
+                <BusinessProgressSection
+                  businessName={businessName}
+                  specialNotes={specialNotes}
+                  onSpecialNotesUpdate={(notes) => {
+                    setSpecialNotes(notes);
+                    handleSpecialNotesChange(notes);
+                  }}
+                />
               </>
             )}
           </div>

@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
-    const limit = parseInt(searchParams.get('limit') || '1000');
+    const limit = parseInt(searchParams.get('limit') || '1500');
 
     console.log(`🔗 [BUSINESS-UNIFIED] 통합 사업장 정보 조회 시작 - 검색: "${search}", 제한: ${limit}`);
 

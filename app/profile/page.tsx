@@ -18,7 +18,9 @@ import {
   CheckCircle,
   AlertTriangle,
   Calendar,
-  Clock
+  Clock,
+  LogOut,
+  RefreshCw
 } from 'lucide-react';
 
 interface UserProfile {
@@ -38,7 +40,7 @@ interface UserProfile {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -198,8 +200,55 @@ export default function ProfilePage() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      setSaving(true);
+      setErrorMessage('');
+      setSuccessMessage('');
+
+      await logout();
+
+      setSuccessMessage('성공적으로 로그아웃되었습니다.');
+
+      // 잠시 후 로그인 페이지로 이동
+      setTimeout(() => {
+        router.push('/login');
+      }, 1000);
+
+    } catch (error) {
+      console.error('로그아웃 오류:', error);
+      setErrorMessage('로그아웃 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRefreshPermissions = async () => {
+    try {
+      setSaving(true);
+      setErrorMessage('');
+      setSuccessMessage('');
+
+      // 강제로 토큰을 제거하고 새로 로그인하도록 유도
+      await logout();
+
+      setSuccessMessage('권한 정보가 초기화되었습니다. 다시 로그인해주세요.');
+
+      setTimeout(() => {
+        router.push('/login');
+      }, 1500);
+
+    } catch (error) {
+      console.error('권한 새로고침 오류:', error);
+      setErrorMessage('권한 새로고침 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const getPermissionLabel = (level: number) => {
     switch (level) {
+      case 4: return { text: '슈퍼관리자', color: 'bg-purple-100 text-purple-800 border-purple-200' };
       case 3: return { text: '관리자', color: 'bg-red-100 text-red-800 border-red-200' };
       case 2: return { text: '매니저', color: 'bg-orange-100 text-orange-800 border-orange-200' };
       case 1: return { text: '일반사용자', color: 'bg-blue-100 text-blue-800 border-blue-200' };
@@ -515,6 +564,60 @@ export default function ProfilePage() {
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPermissionLabel(profile.permission_level).color}`}>
                 {getPermissionLabel(profile.permission_level).text}
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* 계정 관리 */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-3">
+            <LogOut className="w-5 h-5" />
+            계정 관리
+          </h3>
+
+          <div className="space-y-4">
+            {/* 권한 새로고침 */}
+            <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div>
+                <h4 className="font-medium text-gray-900">권한 정보 새로고침</h4>
+                <p className="text-sm text-gray-600 mt-1">
+                  권한이 변경된 후 새로운 권한이 적용되지 않을 때 사용하세요.
+                </p>
+              </div>
+              <button
+                onClick={handleRefreshPermissions}
+                disabled={saving}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {saving ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                권한 새로고침
+              </button>
+            </div>
+
+            {/* 로그아웃 */}
+            <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div>
+                <h4 className="font-medium text-gray-900">로그아웃</h4>
+                <p className="text-sm text-gray-600 mt-1">
+                  현재 계정에서 로그아웃하고 로그인 페이지로 이동합니다.
+                </p>
+              </div>
+              <button
+                onClick={handleLogout}
+                disabled={saving}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {saving ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <LogOut className="w-4 h-4" />
+                )}
+                로그아웃
+              </button>
             </div>
           </div>
         </div>

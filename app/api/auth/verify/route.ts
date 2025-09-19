@@ -71,8 +71,9 @@ export async function POST(request: NextRequest) {
           canDeleteTasks: employee.permission_level >= 2,
           canViewReports: true,
           canApproveReports: employee.permission_level >= 2,
-          canAccessAdminPages: employee.permission_level === 3,
-          canViewSensitiveData: employee.permission_level === 3
+          canAccessAdminPages: employee.permission_level >= 3,
+          canViewSensitiveData: employee.permission_level >= 3,
+          canDeleteAutoMemos: employee.permission_level === 4 // 슈퍼 관리자만
         },
         socialAccounts: socialAccounts || []
       },

@@ -184,7 +184,7 @@ interface UnifiedBusinessInfo {
 }
 import * as XLSX from 'xlsx'
 import AdminLayout from '@/components/ui/AdminLayout'
-import { withAuth } from '@/contexts/AuthContext'
+import { withAuth, usePermission } from '@/contexts/AuthContext'
 import StatsCard from '@/components/ui/StatsCard'
 import DataTable, { commonActions } from '@/components/ui/DataTable'
 import { ConfirmModal } from '@/components/ui/Modal'
@@ -243,6 +243,9 @@ const KOREAN_LOCAL_GOVERNMENTS = [
 ].sort()
 
 function BusinessManagementPage() {
+  // 권한 확인 훅
+  const { canDeleteAutoMemos } = usePermission()
+
   const [allBusinesses, setAllBusinesses] = useState<UnifiedBusinessInfo[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -424,6 +427,39 @@ function BusinessManagementPage() {
   // 업무 관련 상태
   const [businessTasks, setBusinessTasks] = useState<any[]>([])
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
+
+  // 업무 상태 매핑 유틸리티 함수들
+  const getStatusDisplayName = (status: string): string => {
+    const statusMap: { [key: string]: string } = {
+      'quotation': '견적',
+      'site_inspection': '현장조사',
+      'customer_contact': '고객연락',
+      'contract': '계약',
+      'installation': '설치',
+      'completion': '완료',
+      'pending': '대기',
+      'in_progress': '진행중',
+      'on_hold': '보류',
+      'cancelled': '취소'
+    }
+    return statusMap[status] || status
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'quotation': return { bg: 'bg-amber-50', border: 'border-amber-400', text: 'text-amber-700', badge: 'bg-amber-100' }
+      case 'site_inspection': return { bg: 'bg-cyan-50', border: 'border-cyan-400', text: 'text-cyan-700', badge: 'bg-cyan-100' }
+      case 'customer_contact': return { bg: 'bg-blue-50', border: 'border-blue-400', text: 'text-blue-700', badge: 'bg-blue-100' }
+      case 'contract': return { bg: 'bg-purple-50', border: 'border-purple-400', text: 'text-purple-700', badge: 'bg-purple-100' }
+      case 'installation': return { bg: 'bg-orange-50', border: 'border-orange-400', text: 'text-orange-700', badge: 'bg-orange-100' }
+      case 'completion': return { bg: 'bg-green-50', border: 'border-green-400', text: 'text-green-700', badge: 'bg-green-100' }
+      case 'pending': return { bg: 'bg-gray-50', border: 'border-gray-400', text: 'text-gray-700', badge: 'bg-gray-100' }
+      case 'in_progress': return { bg: 'bg-indigo-50', border: 'border-indigo-400', text: 'text-indigo-700', badge: 'bg-indigo-100' }
+      case 'on_hold': return { bg: 'bg-yellow-50', border: 'border-yellow-400', text: 'text-yellow-700', badge: 'bg-yellow-100' }
+      case 'cancelled': return { bg: 'bg-red-50', border: 'border-red-400', text: 'text-red-700', badge: 'bg-red-100' }
+      default: return { bg: 'bg-gray-50', border: 'border-gray-400', text: 'text-gray-700', badge: 'bg-gray-100' }
+    }
+  }
 
   // 메모와 업무를 통합해서 최신순으로 정렬하는 함수
   const getIntegratedItems = () => {
@@ -2189,43 +2225,53 @@ function BusinessManagementPage() {
                               {getIntegratedItems().map((item, index) => {
                                 if (item.type === 'memo') {
                                   const memo = item.data
+                                  const isAutoMemo = item.title?.startsWith('[자동]')
                                   return (
-                                    <div key={`memo-${item.id}-${index}`} className="bg-gray-50 rounded-lg p-3 border-l-4 border-indigo-400">
+                                    <div key={`memo-${item.id}-${index}`} className={`${isAutoMemo ? 'bg-gray-50 border-gray-300' : 'bg-gray-50 border-indigo-400'} rounded-lg p-3 border-l-4`}>
                                   <div className="flex items-start justify-between mb-2">
                                     <div className="flex-1">
                                       <div className="flex items-center space-x-2 mb-1">
-                                        <MessageSquare className="w-4 h-4 text-indigo-500" />
-                                        <h4 className="font-medium text-gray-900">{item.title}</h4>
-                                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-700">메모</span>
+                                        <MessageSquare className={`w-4 h-4 ${isAutoMemo ? 'text-gray-400' : 'text-indigo-500'}`} />
+                                        <h4 className={`${isAutoMemo ? 'font-normal text-gray-600 text-sm' : 'font-medium text-gray-900'}`}>{item.title}</h4>
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${isAutoMemo ? 'bg-gray-100 text-gray-600' : 'bg-indigo-100 text-indigo-700'}`}>
+                                          {isAutoMemo ? '자동' : '메모'}
+                                        </span>
                                       </div>
-                                      <p className="text-sm text-gray-700">{item.content}</p>
+                                      <p className={`text-sm ${isAutoMemo ? 'text-gray-500' : 'text-gray-700'}`}>{item.content}</p>
                                     </div>
-                                    <div className="flex items-center space-x-1 ml-2">
-                                      <button
-                                        onClick={() => startEditMemo(memo)}
-                                        disabled={!memo.id}
-                                        className={`p-1.5 rounded transition-colors ${
-                                          memo.id
-                                            ? 'text-gray-400 hover:text-indigo-600'
-                                            : 'text-gray-300 cursor-not-allowed'
-                                        }`}
-                                        title={memo.id ? "메모 수정" : "메모 ID가 없어 수정할 수 없습니다"}
-                                      >
-                                        <Edit3 className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteMemo(memo)}
-                                        disabled={!memo.id}
-                                        className={`p-1.5 rounded transition-colors ${
-                                          memo.id
-                                            ? 'text-gray-400 hover:text-red-600'
-                                            : 'text-gray-300 cursor-not-allowed'
-                                        }`}
-                                        title={memo.id ? "메모 삭제" : "메모 ID가 없어 삭제할 수 없습니다"}
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
+                                    {(!isAutoMemo || (isAutoMemo && canDeleteAutoMemos)) && (
+                                      <div className="flex items-center space-x-1 ml-2">
+                                        {!isAutoMemo && (
+                                          <button
+                                            onClick={() => startEditMemo(memo)}
+                                            disabled={!memo.id}
+                                            className={`p-1.5 rounded transition-colors ${
+                                              memo.id
+                                                ? 'text-gray-400 hover:text-indigo-600'
+                                                : 'text-gray-300 cursor-not-allowed'
+                                            }`}
+                                            title={memo.id ? "메모 수정" : "메모 ID가 없어 수정할 수 없습니다"}
+                                          >
+                                            <Edit3 className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={() => handleDeleteMemo(memo)}
+                                          disabled={!memo.id}
+                                          className={`p-1.5 rounded transition-colors ${
+                                            memo.id
+                                              ? 'text-gray-400 hover:text-red-600'
+                                              : 'text-gray-300 cursor-not-allowed'
+                                          }`}
+                                          title={memo.id ?
+                                            (isAutoMemo ? "자동 메모 삭제 (슈퍼 관리자 전용)" : "메모 삭제") :
+                                            "메모 ID가 없어 삭제할 수 없습니다"
+                                          }
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="flex items-center justify-between text-xs text-gray-500">
                                     <span>작성: {new Date(memo.created_at).toLocaleDateString('ko-KR', {
@@ -2242,17 +2288,6 @@ function BusinessManagementPage() {
                                 } else {
                                   // 업무 카드
                                   const task = item.data
-                                  const getStatusColor = (status: string) => {
-                                    switch (status) {
-                                      case 'quotation': return { bg: 'bg-amber-50', border: 'border-amber-400', text: 'text-amber-700', badge: 'bg-amber-100' }
-                                      case 'customer_contact': return { bg: 'bg-blue-50', border: 'border-blue-400', text: 'text-blue-700', badge: 'bg-blue-100' }
-                                      case 'contract': return { bg: 'bg-purple-50', border: 'border-purple-400', text: 'text-purple-700', badge: 'bg-purple-100' }
-                                      case 'installation': return { bg: 'bg-orange-50', border: 'border-orange-400', text: 'text-orange-700', badge: 'bg-orange-100' }
-                                      case 'completion': return { bg: 'bg-green-50', border: 'border-green-400', text: 'text-green-700', badge: 'bg-green-100' }
-                                      default: return { bg: 'bg-gray-50', border: 'border-gray-400', text: 'text-gray-700', badge: 'bg-gray-100' }
-                                    }
-                                  }
-
                                   const statusColors = getStatusColor(item.status || '')
 
                                   return (
@@ -2263,11 +2298,7 @@ function BusinessManagementPage() {
                                             <ClipboardList className="w-4 h-4 text-blue-500" />
                                             <h4 className="font-semibold text-gray-900">{item.title}</h4>
                                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.badge} ${statusColors.text}`}>
-                                              {item.status === 'quotation' ? '견적' :
-                                               item.status === 'customer_contact' ? '고객연락' :
-                                               item.status === 'contract' ? '계약' :
-                                               item.status === 'installation' ? '설치' :
-                                               item.status === 'completion' ? '완료' : item.status}
+                                              {getStatusDisplayName(item.status || '')}
                                             </span>
                                           </div>
                                           <p className="text-sm text-gray-700 mb-3 leading-relaxed">{item.description}</p>

@@ -9,9 +9,10 @@ export interface PagePermission {
 
 // 권한 레벨 정의
 export const PERMISSION_LEVELS = {
-  REGULAR: 1,    // 일반사용자
-  MANAGER: 2,    // 매니저
-  ADMIN: 3       // 관리자
+  REGULAR: 1,     // 일반사용자
+  MANAGER: 2,     // 매니저
+  ADMIN: 3,       // 관리자
+  SUPER_ADMIN: 4  // 슈퍼관리자
 } as const;
 
 // 페이지별 접근 권한 설정
@@ -123,7 +124,8 @@ export const PAGE_PERMISSIONS: PagePermission[] = [
 export const PERMISSION_NAMES = {
   [PERMISSION_LEVELS.REGULAR]: '일반사용자',
   [PERMISSION_LEVELS.MANAGER]: '매니저',
-  [PERMISSION_LEVELS.ADMIN]: '관리자'
+  [PERMISSION_LEVELS.ADMIN]: '관리자',
+  [PERMISSION_LEVELS.SUPER_ADMIN]: '슈퍼관리자'
 } as const;
 
 // 유틸리티 함수들

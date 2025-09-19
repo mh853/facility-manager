@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const searchQuery = searchParams.get('search') || '';
-    const limit = parseInt(searchParams.get('limit') || '1000');
+    const limit = parseInt(searchParams.get('limit') || '1500');
     const id = searchParams.get('id');
     const includeFileStats = searchParams.get('includeFileStats') === 'true';
 

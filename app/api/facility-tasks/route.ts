@@ -185,6 +185,9 @@ export const POST = withApiHandler(async (request: NextRequest) => {
 
     console.log('✅ [FACILITY-TASKS] 생성 성공:', newTask.id);
 
+    // 업무 생성 시 자동 메모 생성
+    await createTaskCreationNote(newTask);
+
     return createSuccessResponse({
       task: newTask,
       message: '시설 업무가 성공적으로 생성되었습니다'
@@ -221,6 +224,19 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
 
     if (!id) {
       return createErrorResponse('업무 ID는 필수입니다', 400);
+    }
+
+    // 기존 업무 정보 조회 (상태 변경 감지용)
+    const { data: existingTask, error: fetchError } = await supabaseAdmin
+      .from('facility_tasks')
+      .select('*')
+      .eq('id', id)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
+      .single();
+
+    if (fetchError || !existingTask) {
+      return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
     // 업데이트할 필드만 포함
@@ -278,6 +294,9 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
 
     console.log('✅ [FACILITY-TASKS] 수정 성공:', updatedTask.id);
 
+    // 상태 변경 시 자동 메모 및 알림 생성
+    await createAutoProgressNoteAndNotification(existingTask, updatedTask);
+
     return createSuccessResponse({
       task: updatedTask,
       message: '시설 업무가 성공적으로 수정되었습니다'
@@ -333,3 +352,330 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
     return createErrorResponse('시설 업무 삭제 중 오류가 발생했습니다', 500);
   }
 }, { logLevel: 'debug' });
+
+// ============================================================================
+// 자동 메모 및 알림 생성 유틸리티 함수
+// ============================================================================
+
+async function createAutoProgressNoteAndNotification(existingTask: any, updatedTask: any) {
+  try {
+    const statusChanged = existingTask.status !== updatedTask.status;
+    const assigneesChanged = JSON.stringify(existingTask.assignees || []) !== JSON.stringify(updatedTask.assignees || []);
+
+    // 상태 변경 시 자동 메모 생성
+    if (statusChanged) {
+      await createAutoProgressNote({
+        task: updatedTask,
+        oldStatus: existingTask.status,
+        newStatus: updatedTask.status,
+        changeType: 'status_change'
+      });
+    }
+
+    // 담당자 변경 시 자동 메모 생성
+    if (assigneesChanged) {
+      await createAutoProgressNote({
+        task: updatedTask,
+        oldAssignees: existingTask.assignees || [],
+        newAssignees: updatedTask.assignees || [],
+        changeType: 'assignee_change'
+      });
+    }
+
+    // 알림 생성 (담당자들에게)
+    if (statusChanged || assigneesChanged) {
+      await createTaskNotifications({
+        task: updatedTask,
+        oldTask: existingTask,
+        statusChanged,
+        assigneesChanged
+      });
+    }
+
+  } catch (error) {
+    console.error('🔴 [AUTO-PROGRESS] 자동 메모/알림 생성 오류:', error);
+    // 에러가 발생해도 메인 로직에 영향을 주지 않도록 함
+  }
+}
+
+async function createAutoProgressNote(params: {
+  task: any;
+  oldStatus?: string;
+  newStatus?: string;
+  oldAssignees?: any[];
+  newAssignees?: any[];
+  changeType: 'status_change' | 'assignee_change';
+}) {
+  const { task, oldStatus, newStatus, oldAssignees, newAssignees, changeType } = params;
+
+  let content = '';
+  let metadata: any = {};
+
+  if (changeType === 'status_change' && oldStatus && newStatus) {
+    const statusLabels: { [key: string]: string } = {
+      'pending': '대기',
+      'in_progress': '진행중',
+      'quote_requested': '견적 요청',
+      'quote_received': '견적 수신',
+      'work_scheduled': '작업 예정',
+      'work_in_progress': '작업중',
+      'completed': '완료',
+      'cancelled': '취소',
+      'customer_contact': '고객연락',
+      'site_inspection': '현장조사',
+      'quotation': '견적',
+      'contract': '계약',
+      'deposit_confirm': '계약금확인',
+      'product_order': '제품주문',
+      'product_shipment': '제품출하',
+      'installation_schedule': '설치협의',
+      'installation': '설치',
+      'balance_payment': '잔금결제',
+      'document_complete': '서류완료',
+      'subsidy_payment': '보조금지급',
+      'on_hold': '보류'
+    };
+
+    content = `업무 상태가 "${statusLabels[oldStatus] || oldStatus}"에서 "${statusLabels[newStatus] || newStatus}"로 변경되었습니다.`;
+    metadata = {
+      change_type: 'status',
+      old_status: oldStatus,
+      new_status: newStatus,
+      task_priority: task.priority,
+      task_type: task.task_type
+    };
+  } else if (changeType === 'assignee_change') {
+    const oldNames = oldAssignees?.map(a => a.name).join(', ') || '없음';
+    const newNames = newAssignees?.map(a => a.name).join(', ') || '없음';
+
+    content = `담당자가 "${oldNames}"에서 "${newNames}"로 변경되었습니다.`;
+    metadata = {
+      change_type: 'assignee',
+      old_assignees: oldAssignees,
+      new_assignees: newAssignees,
+      task_priority: task.priority,
+      task_type: task.task_type
+    };
+  }
+
+  if (content) {
+    // business_name을 business_id로 변환
+    const { data: businessInfo } = await supabaseAdmin
+      .from('business_info')
+      .select('id')
+      .eq('business_name', task.business_name)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
+      .single();
+
+    if (!businessInfo) {
+      console.warn(`⚠️ [FACILITY-TASKS] 사업장을 찾을 수 없음: ${task.business_name}`);
+      return; // 메모 생성 실패하지만 업무는 계속 진행
+    }
+
+    const { error } = await supabaseAdmin
+      .from('business_memos')
+      .insert({
+        business_id: businessInfo.id,
+        title: `[자동] ${task.task_type === 'self' ? '자비' : task.task_type === 'subsidy' ? '보조금' : task.task_type === 'as' ? 'AS' : '기타'} 업무 상태 변경`,
+        content,
+        created_by: 'system',
+        updated_by: 'system'
+      });
+
+    if (error) {
+      console.error('🔴 [AUTO-PROGRESS] 메모 생성 오류:', error);
+    } else {
+      console.log('✅ [AUTO-PROGRESS] 자동 메모 생성 성공:', task.id);
+    }
+  }
+}
+
+async function createTaskNotifications(params: {
+  task: any;
+  oldTask: any;
+  statusChanged: boolean;
+  assigneesChanged: boolean;
+}) {
+  const { task, oldTask, statusChanged, assigneesChanged } = params;
+
+  // 알림을 받을 사용자 ID 수집
+  const userIds = new Set<string>();
+
+  // 현재 담당자들
+  if (task.assignees && Array.isArray(task.assignees)) {
+    task.assignees.forEach((assignee: any) => {
+      if (assignee.id) userIds.add(assignee.id);
+    });
+  }
+
+  // 이전 담당자들 (변경된 경우)
+  if (assigneesChanged && oldTask.assignees && Array.isArray(oldTask.assignees)) {
+    oldTask.assignees.forEach((assignee: any) => {
+      if (assignee.id) userIds.add(assignee.id);
+    });
+  }
+
+  const userIdArray = Array.from(userIds);
+  if (userIdArray.length === 0) return;
+
+  // 알림 생성
+  const notifications = [];
+
+  if (statusChanged) {
+    const statusLabels: { [key: string]: string } = {
+      'pending': '대기',
+      'in_progress': '진행중',
+      'quote_requested': '견적 요청',
+      'quote_received': '견적 수신',
+      'work_scheduled': '작업 예정',
+      'work_in_progress': '작업중',
+      'completed': '완료',
+      'cancelled': '취소'
+    };
+
+    const oldStatusLabel = statusLabels[oldTask.status] || oldTask.status;
+    const newStatusLabel = statusLabels[task.status] || task.status;
+
+    userIdArray.forEach(userId => {
+      notifications.push({
+        user_id: userId,
+        task_id: task.id,
+        business_name: task.business_name,
+        message: `${task.business_name}의 업무 "${task.title}"이 ${oldStatusLabel}에서 ${newStatusLabel}로 변경되었습니다.`,
+        notification_type: 'status_change',
+        priority: task.priority === 'urgent' ? 'urgent' : task.priority === 'high' ? 'high' : 'normal'
+      });
+    });
+  }
+
+  if (assigneesChanged) {
+    // 새로 배정된 담당자들에게 알림
+    const newUserIds = task.assignees?.map((a: any) => a.id).filter((id: string) => id) || [];
+    const oldUserIds = oldTask.assignees?.map((a: any) => a.id).filter((id: string) => id) || [];
+    const assignedUserIds = newUserIds.filter((id: string) => !oldUserIds.includes(id));
+
+    assignedUserIds.forEach((userId: string) => {
+      notifications.push({
+        user_id: userId,
+        task_id: task.id,
+        business_name: task.business_name,
+        message: `${task.business_name}의 새 업무 "${task.title}"이 담당자로 배정되었습니다.`,
+        notification_type: 'assignment',
+        priority: task.priority === 'urgent' ? 'urgent' : task.priority === 'high' ? 'high' : 'normal'
+      });
+    });
+  }
+
+  // 알림 일괄 생성
+  if (notifications.length > 0) {
+    const { error } = await supabaseAdmin
+      .from('task_notifications')
+      .insert(notifications);
+
+    if (error) {
+      console.error('🔴 [AUTO-PROGRESS] 알림 생성 오류:', error);
+    } else {
+      console.log('✅ [AUTO-PROGRESS] 자동 알림 생성 성공:', notifications.length, '개');
+    }
+  }
+}
+
+// 업무 생성 시 자동 메모 생성 함수
+async function createTaskCreationNote(task: any) {
+  try {
+    const taskTypeLabels: { [key: string]: string } = {
+      'self': '자비 설치',
+      'subsidy': '보조금',
+      'as': 'AS',
+      'etc': '기타'
+    };
+
+    const statusLabels: { [key: string]: string } = {
+      'customer_contact': '고객 연락',
+      'pending': '대기',
+      'in_progress': '진행중',
+      'quote_requested': '견적 요청',
+      'quote_received': '견적 수신',
+      'work_scheduled': '작업 예정',
+      'work_in_progress': '작업중',
+      'completed': '완료',
+      'cancelled': '취소'
+    };
+
+    const taskTypeLabel = taskTypeLabels[task.task_type] || task.task_type;
+    const statusLabel = statusLabels[task.status] || task.status;
+    const assigneeList = task.assignees?.map((a: any) => a.name).filter(Boolean).join(', ') || '미배정';
+
+    const content = `새로운 ${taskTypeLabel} 업무 "${task.title}"이 생성되었습니다. (상태: ${statusLabel}, 담당자: ${assigneeList})`;
+
+    const metadata = {
+      change_type: 'creation',
+      task_type: task.task_type,
+      initial_status: task.status,
+      initial_assignees: task.assignees || [],
+      task_priority: task.priority,
+      creation_timestamp: new Date().toISOString()
+    };
+
+    // business_name을 business_id로 변환
+    const { data: businessInfo } = await supabaseAdmin
+      .from('business_info')
+      .select('id')
+      .eq('business_name', task.business_name)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
+      .single();
+
+    if (!businessInfo) {
+      console.warn(`⚠️ [FACILITY-TASKS] 사업장을 찾을 수 없음: ${task.business_name}`);
+      return; // 메모 생성 실패하지만 업무는 계속 진행
+    }
+
+    const { error } = await supabaseAdmin
+      .from('business_memos')
+      .insert({
+        business_id: businessInfo.id,
+        title: `[자동] ${task.task_type === 'self' ? '자비' : task.task_type === 'subsidy' ? '보조금' : task.task_type === 'as' ? 'AS' : '기타'} 업무 상태 변경`,
+        content,
+        created_by: 'system',
+        updated_by: 'system'
+      });
+
+    if (error) {
+      console.error('🔴 [TASK-CREATION] 생성 메모 오류:', error);
+    } else {
+      console.log('✅ [TASK-CREATION] 생성 메모 성공:', task.id);
+    }
+
+    // 담당자가 있는 경우 알림도 생성
+    if (task.assignees && task.assignees.length > 0) {
+      const userIds = task.assignees.map((a: any) => a.id).filter(Boolean);
+
+      if (userIds.length > 0) {
+        const notifications = userIds.map((userId: string) => ({
+          user_id: userId,
+          task_id: task.id,
+          business_name: task.business_name,
+          message: `${task.business_name}의 새 업무 "${task.title}"이 담당자로 배정되었습니다.`,
+          notification_type: 'assignment',
+          priority: task.priority === 'high' ? 'high' : 'normal'
+        }));
+
+        const { error: notificationError } = await supabaseAdmin
+          .from('task_notifications')
+          .insert(notifications);
+
+        if (notificationError) {
+          console.error('🔴 [TASK-CREATION] 생성 알림 오류:', notificationError);
+        } else {
+          console.log('✅ [TASK-CREATION] 생성 알림 성공:', notifications.length, '개');
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error('🔴 [TASK-CREATION] 생성 메모/알림 처리 오류:', error);
+    // 에러가 발생해도 메인 로직에 영향을 주지 않도록 함
+  }
+}
