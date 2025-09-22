@@ -187,9 +187,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         urlParams.delete('token');
         const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
         window.history.replaceState({}, '', newUrl);
-      }
 
-      checkAuth();
+        // 토큰 저장 후 즉시 인증 확인 (레이스 컨디션 방지)
+        setTimeout(() => {
+          checkAuth();
+        }, 100);
+      } else {
+        // URL에 토큰이 없을 때만 기존 토큰으로 인증 확인
+        checkAuth();
+      }
     }
   }, []);
 

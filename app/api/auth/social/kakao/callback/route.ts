@@ -258,6 +258,7 @@ export async function GET(request: NextRequest) {
         if (existingEmployee) {
           // JWT 토큰 생성 (다른 로그인 API와 동일한 형식)
           const jwtToken = createToken({
+            id: existingEmployee.id,
             userId: existingEmployee.id,
             email: existingEmployee.email,
             permissionLevel: existingEmployee.permission_level,
@@ -277,6 +278,7 @@ export async function GET(request: NextRequest) {
       } else {
         // 신규 사용자 생성 성공
         const jwtToken = createToken({
+          id: newEmployee.id,
           userId: newEmployee.id,
           email: newEmployee.email,
           permissionLevel: newEmployee.permission_level,
