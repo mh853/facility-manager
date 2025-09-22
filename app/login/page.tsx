@@ -8,11 +8,17 @@ import { Building2, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, loading: authLoading, socialLogin } = useAuth()
+  const { user, loading: authLoading, socialLogin, emailLogin } = useAuth()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [showEmailLogin, setShowEmailLogin] = useState(false)
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  })
+  const [showPassword, setShowPassword] = useState(false)
 
   // 이미 로그인된 사용자는 리다이렉트
   useEffect(() => {
@@ -40,6 +46,57 @@ function LoginForm() {
       setError(decodeURIComponent(errorParam))
     }
   }, [searchParams])
+
+  // 입력 필드 변경 핸들러
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  // 일반 로그인 핸들러
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        // AuthContext의 emailLogin 함수 호출
+        const authResult = await emailLogin(result.data.token, result.data)
+
+        if (authResult.success) {
+          setSuccessMessage('로그인되었습니다!')
+
+          setTimeout(() => {
+            const redirectTo = searchParams?.get('redirect') || '/admin'
+            router.push(redirectTo)
+          }, 1000)
+        } else {
+          setError(authResult.error || '인증 처리 중 오류가 발생했습니다.')
+        }
+      } else {
+        setError(result.error?.message || '로그인에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('로그인 오류:', error)
+      setError('네트워크 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // 소셜 로그인 핸들러
   const handleSocialLogin = async (provider: 'google' | 'kakao' | 'naver') => {
@@ -87,7 +144,9 @@ function LoginForm() {
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">로그인</h2>
-            <p className="text-sm text-gray-600">카카오 계정으로 간편하게 로그인하세요</p>
+            <p className="text-sm text-gray-600">
+              {showEmailLogin ? '이메일과 비밀번호로 로그인하세요' : '간편하게 로그인하세요'}
+            </p>
           </div>
 
           {error && (
@@ -105,8 +164,94 @@ function LoginForm() {
             </div>
           )}
 
-          {/* 소셜 로그인 버튼들 */}
-          <div className="space-y-3">
+          {/* 로그인 방법 선택 탭 */}
+          <div className="flex mb-6 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setShowEmailLogin(false)}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                !showEmailLogin
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              소셜 로그인
+            </button>
+            <button
+              onClick={() => setShowEmailLogin(true)}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                showEmailLogin
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              이메일 로그인
+            </button>
+          </div>
+
+          {/* 일반 로그인 폼 */}
+          {showEmailLogin ? (
+            <form onSubmit={handleEmailLogin} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  <Mail className="inline w-4 h-4 mr-1" />
+                  이메일
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="이메일을 입력하세요"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  <Lock className="inline w-4 h-4 mr-1" />
+                  비밀번호
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="비밀번호를 입력하세요"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>로그인 중...</span>
+                  </>
+                ) : (
+                  <span className="font-medium">로그인</span>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* 소셜 로그인 버튼들 */
+            <div className="space-y-3">
             {/* 카카오 로그인만 활성화 */}
             <button
               onClick={() => handleSocialLogin('kakao')}
@@ -152,9 +297,10 @@ function LoginForm() {
               <span className="font-medium">네이버로 로그인</span>
             </button>
             */}
-          </div>
+            </div>
+          )}
 
-          {loading && (
+          {loading && !showEmailLogin && (
             <div className="mt-4 text-center">
               <div className="inline-flex items-center gap-2 text-sm text-gray-600">
                 <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -163,9 +309,24 @@ function LoginForm() {
             </div>
           )}
 
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center space-y-4">
+            <div className="flex items-center justify-center gap-4">
+              <Link
+                href="/signup"
+                className="text-sm text-blue-600 hover:text-blue-500 font-medium"
+              >
+                회원가입
+              </Link>
+              <span className="text-gray-300">|</span>
+              <Link
+                href="/forgot-password"
+                className="text-sm text-gray-500 hover:text-gray-400"
+              >
+                비밀번호 찾기
+              </Link>
+            </div>
             <p className="text-xs text-gray-500">
-              카카오 로그인으로 가입하시면 관리자 승인 후 이용 가능합니다.
+              {showEmailLogin ? '이메일 가입하시면 관리자 승인 후 이용 가능합니다.' : '카카오 로그인으로 가입하시면 관리자 승인 후 이용 가능합니다.'}
             </p>
           </div>
         </div>

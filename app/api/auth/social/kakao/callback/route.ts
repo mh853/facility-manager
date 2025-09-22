@@ -61,8 +61,11 @@ async function exchangeCodeForToken(code: string): Promise<KakaoTokenResponse> {
   console.log('🔐 [KAKAO-CALLBACK] 토큰 교환 요청:', {
     url: tokenUrl,
     clientId: KAKAO_CLIENT_ID?.substring(0, 10) + '...',
+    clientSecret: KAKAO_CLIENT_SECRET ? 'SET' : 'NOT_SET',
     redirectUri: KAKAO_REDIRECT_URI,
-    codeLength: code.length
+    codeLength: code.length,
+    hasAllParams: !!(KAKAO_CLIENT_ID && KAKAO_CLIENT_SECRET && KAKAO_REDIRECT_URI),
+    fullParams: params.toString()
   });
 
   const response = await fetch(tokenUrl, {

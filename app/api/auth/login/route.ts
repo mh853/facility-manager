@@ -11,19 +11,6 @@ export const runtime = 'nodejs';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 
 export async function POST(request: NextRequest) {
-  // 소셜 로그인 전용 시스템 - 이메일/비밀번호 로그인 비활성화
-  return NextResponse.json(
-    {
-      success: false,
-      error: {
-        code: 'METHOD_NOT_SUPPORTED',
-        message: '이메일/비밀번호 로그인은 지원하지 않습니다. 소셜 로그인을 이용해주세요.'
-      }
-    },
-    { status: 405 }
-  );
-
-  /* 기존 이메일/비밀번호 로그인 코드 비활성화
   try {
     const { email, password } = await request.json();
 
@@ -52,7 +39,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 소셜 로그인 사용자 확인
+    if (!employee.password_hash && employee.signup_method && employee.signup_method !== 'direct') {
+      console.log('❌ [AUTH] 소셜 로그인 사용자 일반 로그인 시도');
+      return NextResponse.json(
+        { success: false, error: { code: 'SOCIAL_LOGIN_USER', message: '소셜 로그인 사용자입니다. 카카오 로그인을 이용해주세요.' } },
+        { status: 400 }
+      );
+    }
+
     // 비밀번호 검증
+    if (!employee.password_hash) {
+      console.log('❌ [AUTH] 비밀번호 해시 없음');
+      return NextResponse.json(
+        { success: false, error: { code: 'NO_PASSWORD', message: '비밀번호가 설정되지 않은 계정입니다.' } },
+        { status: 400 }
+      );
+    }
+
     const isValidPassword = await bcrypt.compare(password, employee.password_hash);
     if (!isValidPassword) {
       console.log('❌ [AUTH] 비밀번호 불일치');
@@ -117,5 +121,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-  */
 }

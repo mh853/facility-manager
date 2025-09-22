@@ -34,6 +34,7 @@ interface AuthContextType {
   } | null;
   loading: boolean;
   socialLogin: (token: string, userData: any, isNewUser: boolean) => Promise<{ success: boolean; error?: string }>;
+  emailLogin: (token: string, userData: any) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
@@ -46,7 +47,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<AuthContextType['permissions']>(null);
   const [loading, setLoading] = useState(true);
 
-  // 소셜 로그인 전용 시스템 - 이메일/비밀번호 로그인 제거됨
+  // 일반 로그인 핸들러
+  const emailLogin = async (token: string, userData: any) => {
+    try {
+      setLoading(true);
+
+      // 토큰을 직접 저장
+      TokenManager.setToken(token);
+
+      // 사용자 정보 설정
+      setUser(userData.user);
+      setPermissions(userData.permissions);
+      setSocialAccounts([]); // 일반 로그인은 소셜 계정 없음
+
+      console.log('✅ [AUTH-CONTEXT] 일반 로그인 성공:', {
+        user: userData.user
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('일반 로그인 오류:', error);
+      TokenManager.removeToken();
+      return {
+        success: false,
+        error: '일반 로그인 중 오류가 발생했습니다.'
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const socialLogin = async (token: string, userData: any, isNewUser: boolean) => {
     try {
@@ -170,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     permissions,
     loading,
     socialLogin,
+    emailLogin,
     logout,
     checkAuth
   };
