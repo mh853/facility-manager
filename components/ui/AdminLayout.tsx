@@ -158,32 +158,53 @@ export default function AdminLayout({ children, title, description, actions }: A
   const [currentTime, setCurrentTime] = useState('')
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
-  const { user } = useAuth()
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
 
   // Mount and time initialization
   useEffect(() => {
     setMounted(true)
-    setCurrentTime(new Date().toLocaleTimeString('ko-KR', { 
-      hour: '2-digit', 
+    setCurrentTime(new Date().toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
       minute: '2-digit'
     }))
-    
+
     const interval = setInterval(() => {
-      setCurrentTime(new Date().toLocaleTimeString('ko-KR', { 
-        hour: '2-digit', 
+      setCurrentTime(new Date().toLocaleTimeString('ko-KR', {
+        hour: '2-digit',
         minute: '2-digit'
       }))
     }, 60000)
-    
+
     return () => clearInterval(interval)
   }, [])
 
-  if (!mounted) {
+  // 인증 체크 및 리다이렉트
+  useEffect(() => {
+    if (mounted && !authLoading && !user) {
+      console.log('🔒 [ADMIN-LAYOUT] 인증되지 않은 접근 - 로그인 페이지로 리다이렉트')
+      router.push('/login?redirect=' + encodeURIComponent(pathname || '/admin'))
+    }
+  }, [mounted, authLoading, user, router, pathname])
+
+  if (!mounted || authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 사용자가 인증되지 않았으면 로딩 화면 유지 (리다이렉트가 진행 중)
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">인증 확인 중...</p>
         </div>
       </div>
     )
