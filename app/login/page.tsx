@@ -87,7 +87,7 @@ function LoginForm() {
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">로그인</h2>
-            <p className="text-sm text-gray-600">소셜 계정으로 간편하게 로그인하세요</p>
+            <p className="text-sm text-gray-600">카카오 계정으로 간편하게 로그인하세요</p>
           </div>
 
           {error && (
@@ -107,6 +107,22 @@ function LoginForm() {
 
           {/* 소셜 로그인 버튼들 */}
           <div className="space-y-3">
+            {/* 카카오 로그인만 활성화 */}
+            <button
+              onClick={() => handleSocialLogin('kakao')}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-yellow-400 hover:bg-yellow-500 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <div className="w-5 h-5">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="#3C1E1E">
+                  <path d="M12 3C7.03 3 3 6.34 3 10.5c0 2.69 1.73 5.04 4.32 6.4l-1.09 4.02c-.06.22.26.4.44.25L10.5 18.6c.5.05 1 .08 1.5.08 4.97 0 9-3.34 9-7.5S16.97 3 12 3z"/>
+                </svg>
+              </div>
+              <span className="font-medium text-gray-800">카카오로 로그인</span>
+            </button>
+
+            {/* 구글/네이버 로그인 임시 비활성화 */}
+            {/*
             <button
               onClick={() => handleSocialLogin('google')}
               disabled={loading}
@@ -124,19 +140,6 @@ function LoginForm() {
             </button>
 
             <button
-              onClick={() => handleSocialLogin('kakao')}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-yellow-400 hover:bg-yellow-500 rounded-lg transition-colors disabled:opacity-50"
-            >
-              <div className="w-5 h-5">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="#3C1E1E">
-                  <path d="M12 3C7.03 3 3 6.34 3 10.5c0 2.69 1.73 5.04 4.32 6.4l-1.09 4.02c-.06.22.26.4.44.25L10.5 18.6c.5.05 1 .08 1.5.08 4.97 0 9-3.34 9-7.5S16.97 3 12 3z"/>
-                </svg>
-              </div>
-              <span className="font-medium text-gray-800">카카오로 로그인</span>
-            </button>
-
-            <button
               onClick={() => handleSocialLogin('naver')}
               disabled={loading}
               className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors disabled:opacity-50"
@@ -148,6 +151,7 @@ function LoginForm() {
               </div>
               <span className="font-medium">네이버로 로그인</span>
             </button>
+            */}
           </div>
 
           {loading && (
@@ -161,7 +165,7 @@ function LoginForm() {
 
           <div className="mt-8 text-center">
             <p className="text-xs text-gray-500">
-              소셜 로그인으로 가입하시면 관리자 승인 후 이용 가능합니다.
+              카카오 로그인으로 가입하시면 관리자 승인 후 이용 가능합니다.
             </p>
           </div>
         </div>
