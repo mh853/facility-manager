@@ -47,7 +47,32 @@ interface KakaoUserInfo {
   };
 }
 
+// 환경변수 검증 함수
+function validateEnvironmentVariables() {
+  console.log('🔍 [ENV-CHECK] 환경변수 상세 검증:', {
+    KAKAO_CLIENT_ID: KAKAO_CLIENT_ID ? `${KAKAO_CLIENT_ID.substring(0, 10)}...` : 'NOT_SET',
+    KAKAO_CLIENT_SECRET: KAKAO_CLIENT_SECRET ? 'SET' : 'NOT_SET',
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'NOT_SET',
+    NODE_ENV: process.env.NODE_ENV,
+    VERCEL_ENV: process.env.VERCEL_ENV,
+    VERCEL_URL: process.env.VERCEL_URL || 'NOT_SET',
+    calculated_redirect_uri: KAKAO_REDIRECT_URI
+  });
+
+  if (!KAKAO_CLIENT_ID) {
+    throw new Error('KAKAO_CLIENT_ID 환경변수가 설정되지 않았습니다');
+  }
+  if (!KAKAO_CLIENT_SECRET) {
+    throw new Error('KAKAO_CLIENT_SECRET 환경변수가 설정되지 않았습니다');
+  }
+  if (!process.env.NEXTAUTH_URL) {
+    throw new Error('NEXTAUTH_URL 환경변수가 설정되지 않았습니다');
+  }
+}
+
 async function exchangeCodeForToken(code: string): Promise<KakaoTokenResponse> {
+  validateEnvironmentVariables();
+
   const tokenUrl = 'https://kauth.kakao.com/oauth/token';
 
   const params = new URLSearchParams({
@@ -86,16 +111,41 @@ async function exchangeCodeForToken(code: string): Promise<KakaoTokenResponse> {
     try {
       errorResponse = await response.json();
       console.error('❌ [KAKAO-CALLBACK] 토큰 교환 실패 - JSON 응답:', JSON.stringify(errorResponse, null, 2));
+      console.error('❌ [KAKAO-CALLBACK] HTTP 상태:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       console.error('❌ [KAKAO-CALLBACK] 요청 파라미터 상세:', {
         grant_type: 'authorization_code',
         client_id: KAKAO_CLIENT_ID,
         client_secret: KAKAO_CLIENT_SECRET ? '설정됨' : '미설정',
         redirect_uri: KAKAO_REDIRECT_URI,
-        code: code?.substring(0, 20) + '...'
+        code: code?.substring(0, 20) + '...',
+        fullBody: params.toString()
       });
+
+      // 카카오 에러 코드별 상세 메시지
+      if (errorResponse.error) {
+        const errorMap: Record<string, string> = {
+          'invalid_client': 'Client ID 또는 Client Secret이 잘못되었습니다',
+          'invalid_grant': '인증 코드가 만료되었거나 잘못되었습니다',
+          'invalid_request': '요청 파라미터가 잘못되었습니다',
+          'unsupported_grant_type': '지원하지 않는 grant_type입니다'
+        };
+        console.error('❌ [KAKAO-CALLBACK] 카카오 에러 상세:', {
+          error: errorResponse.error,
+          description: errorResponse.error_description,
+          koreanMessage: errorMap[errorResponse.error] || '알 수 없는 에러'
+        });
+      }
     } catch (jsonError) {
       const errorText = await response.text();
       console.error('❌ [KAKAO-CALLBACK] 토큰 교환 실패 - 텍스트 응답:', errorText);
+      console.error('❌ [KAKAO-CALLBACK] HTTP 상태:', {
+        status: response.status,
+        statusText: response.statusText
+      });
       console.error('❌ [KAKAO-CALLBACK] 요청 파라미터 상세:', {
         grant_type: 'authorization_code',
         client_id: KAKAO_CLIENT_ID,
