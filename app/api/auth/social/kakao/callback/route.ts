@@ -82,10 +82,24 @@ async function exchangeCodeForToken(code: string): Promise<KakaoTokenResponse> {
     let errorResponse;
     try {
       errorResponse = await response.json();
-      console.error('❌ [KAKAO-CALLBACK] 토큰 교환 실패 - JSON 응답:', errorResponse);
+      console.error('❌ [KAKAO-CALLBACK] 토큰 교환 실패 - JSON 응답:', JSON.stringify(errorResponse, null, 2));
+      console.error('❌ [KAKAO-CALLBACK] 요청 파라미터 상세:', {
+        grant_type: 'authorization_code',
+        client_id: KAKAO_CLIENT_ID,
+        client_secret: KAKAO_CLIENT_SECRET ? '설정됨' : '미설정',
+        redirect_uri: KAKAO_REDIRECT_URI,
+        code: code?.substring(0, 20) + '...'
+      });
     } catch (jsonError) {
       const errorText = await response.text();
       console.error('❌ [KAKAO-CALLBACK] 토큰 교환 실패 - 텍스트 응답:', errorText);
+      console.error('❌ [KAKAO-CALLBACK] 요청 파라미터 상세:', {
+        grant_type: 'authorization_code',
+        client_id: KAKAO_CLIENT_ID,
+        client_secret: KAKAO_CLIENT_SECRET ? '설정됨' : '미설정',
+        redirect_uri: KAKAO_REDIRECT_URI,
+        code: code?.substring(0, 20) + '...'
+      });
       errorResponse = { error: 'non_json_response', error_description: errorText };
     }
     throw new Error(`토큰 교환 실패: ${response.status} - ${errorResponse?.error || errorResponse?.error_description || '알 수 없는 오류'}`);
