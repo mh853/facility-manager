@@ -59,6 +59,14 @@ async function exchangeCodeForToken(code: string): Promise<KakaoTokenResponse> {
     code: code
   });
 
+  console.log('🔐 [KAKAO] 토큰 교환 요청:', {
+    url: tokenUrl,
+    clientId: KAKAO_CLIENT_ID?.substring(0, 10) + '...',
+    redirectUri: KAKAO_REDIRECT_URI,
+    codeLength: code.length,
+    hasClientSecret: !!KAKAO_CLIENT_SECRET
+  });
+
   const response = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
@@ -67,10 +75,36 @@ async function exchangeCodeForToken(code: string): Promise<KakaoTokenResponse> {
     body: params.toString()
   });
 
+  console.log('📊 [KAKAO] 토큰 교환 응답:', {
+    status: response.status,
+    statusText: response.statusText,
+    headers: Object.fromEntries(response.headers.entries())
+  });
+
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ [KAKAO] 토큰 교환 실패:', errorText);
-    throw new Error(`카카오 토큰 교환 실패: ${response.status}`);
+    let errorResponse;
+    try {
+      errorResponse = await response.json();
+      console.error('❌ [KAKAO] 토큰 교환 실패 - JSON 응답:', errorResponse);
+    } catch (jsonError) {
+      const errorText = await response.text();
+      console.error('❌ [KAKAO] 토큰 교환 실패 - 텍스트 응답:', errorText);
+      errorResponse = { error: 'non_json_response', error_description: errorText };
+    }
+
+    console.error('❌ [KAKAO] 토큰 교환 전체 오류 정보:', {
+      status: response.status,
+      statusText: response.statusText,
+      error: errorResponse,
+      requestParams: {
+        grant_type: 'authorization_code',
+        client_id: KAKAO_CLIENT_ID?.substring(0, 10) + '...',
+        redirect_uri: KAKAO_REDIRECT_URI,
+        code: code.substring(0, 10) + '...'
+      }
+    });
+
+    throw new Error(`카카오 토큰 교환 실패: ${response.status} - ${errorResponse?.error || errorResponse?.error_description || '알 수 없는 오류'}`);
   }
 
   return await response.json();
@@ -185,11 +219,26 @@ export async function POST(request: NextRequest) {
 
     const { code } = body;
 
-    console.log('🔐 [KAKAO] 로그인 시작:', { code: code.substring(0, 10) + '...' });
+    console.log('🔐 [KAKAO] 로그인 시작:', {
+      code: code.substring(0, 10) + '...',
+      codeLength: code.length
+    });
+
+    console.log('🔧 [KAKAO] 환경 변수 확인:', {
+      hasClientId: !!KAKAO_CLIENT_ID,
+      hasClientSecret: !!KAKAO_CLIENT_SECRET,
+      clientIdPrefix: KAKAO_CLIENT_ID?.substring(0, 10) + '...',
+      redirectUri: KAKAO_REDIRECT_URI,
+      nextAuthUrl: process.env.NEXTAUTH_URL
+    });
 
     // 1. 카카오에서 액세스 토큰 교환
     const tokenData = await exchangeCodeForToken(code);
-    console.log('✅ [KAKAO] 토큰 교환 성공');
+    console.log('✅ [KAKAO] 토큰 교환 성공:', {
+      hasAccessToken: !!tokenData.access_token,
+      tokenType: tokenData.token_type,
+      expiresIn: tokenData.expires_in
+    });
 
     // 2. 카카오 사용자 정보 조회
     const kakaoUser = await getKakaoUserInfo(tokenData.access_token);
