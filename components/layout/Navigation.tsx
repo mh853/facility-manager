@@ -18,6 +18,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 import NotificationBell from '@/components/notifications/NotificationBell';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NavigationItem {
   name: string;
@@ -25,6 +26,7 @@ interface NavigationItem {
   icon: React.ComponentType<any>;
   badge?: number;
   children?: NavigationItem[];
+  requiredLevel?: number;
 }
 
 const navigationItems: NavigationItem[] = [
@@ -58,7 +60,7 @@ const navigationItems: NavigationItem[] = [
     children: [
       { name: '업무 관리', href: '/admin/tasks', icon: ClipboardList },
       { name: '부서 관리', href: '/admin/departments', icon: Users },
-      { name: '사용자 승인', href: '/admin/users', icon: Users },
+      { name: '사용자 승인', href: '/admin/users', icon: Users, requiredLevel: 3 },
       { name: '시설 관리', href: '/facility', icon: Building2 }
     ]
   },
@@ -73,6 +75,7 @@ export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const pathname = usePathname();
+  const { user } = useAuth();
 
   const toggleExpanded = (href: string) => {
     setExpandedItems(prev =>
@@ -80,6 +83,17 @@ export default function Navigation() {
         ? prev.filter(item => item !== href)
         : [...prev, href]
     );
+  };
+
+  // 권한 체크 함수
+  const hasPermission = (requiredLevel?: number): boolean => {
+    if (!requiredLevel || !user) return true;
+    return user.permission_level >= requiredLevel;
+  };
+
+  // 자식 메뉴 필터링 함수
+  const filterChildren = (children: NavigationItem[]): NavigationItem[] => {
+    return children.filter(child => hasPermission(child.requiredLevel));
   };
 
   const isActive = (href: string) => {
@@ -90,7 +104,8 @@ export default function Navigation() {
   };
 
   const NavigationLink = ({ item }: { item: NavigationItem }) => {
-    const hasChildren = item.children && item.children.length > 0;
+    const filteredChildren = item.children ? filterChildren(item.children) : [];
+    const hasChildren = filteredChildren.length > 0;
     const isExpanded = expandedItems.includes(item.href);
     const active = isActive(item.href);
 
@@ -137,7 +152,7 @@ export default function Navigation() {
         {/* 하위 메뉴 */}
         {hasChildren && isExpanded && (
           <div className="ml-6 space-y-1">
-            {item.children?.map((child) => (
+            {filteredChildren.map((child) => (
               <Link
                 key={child.href}
                 href={child.href}

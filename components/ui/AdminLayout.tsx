@@ -74,6 +74,13 @@ const navigationItems: NavigationItem[] = [
     requiredLevel: 1
   },
   {
+    name: '사용자 관리',
+    href: '/admin/users',
+    icon: User,
+    description: '사용자 승인 및 권한 관리',
+    requiredLevel: 3
+  },
+  {
     name: '주간 리포트',
     href: '/weekly-reports',
     icon: TrendingUp,

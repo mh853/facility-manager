@@ -94,6 +94,28 @@ BEGIN
     END IF;
 END $$;
 
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'employees' AND column_name = 'personal_info_agreed_at'
+    ) THEN
+        ALTER TABLE employees ADD COLUMN personal_info_agreed_at TIMESTAMP WITH TIME ZONE;
+        RAISE NOTICE '✅ personal_info_agreed_at 컬럼 추가됨';
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'employees' AND column_name = 'marketing_agreed_at'
+    ) THEN
+        ALTER TABLE employees ADD COLUMN marketing_agreed_at TIMESTAMP WITH TIME ZONE;
+        RAISE NOTICE '✅ marketing_agreed_at 컬럼 추가됨';
+    END IF;
+END $$;
+
 -- 7. 제약조건 추가 (이미 존재하면 무시)
 DO $$
 BEGIN
@@ -180,6 +202,34 @@ SELECT
     CASE WHEN EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_name = 'employees' AND column_name = 'is_deleted'
+    ) THEN '✅ 존재함' ELSE '❌ 없음' END as status
+UNION ALL
+SELECT
+    'terms_agreed_at' as column_name,
+    CASE WHEN EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'employees' AND column_name = 'terms_agreed_at'
+    ) THEN '✅ 존재함' ELSE '❌ 없음' END as status
+UNION ALL
+SELECT
+    'privacy_agreed_at' as column_name,
+    CASE WHEN EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'employees' AND column_name = 'privacy_agreed_at'
+    ) THEN '✅ 존재함' ELSE '❌ 없음' END as status
+UNION ALL
+SELECT
+    'personal_info_agreed_at' as column_name,
+    CASE WHEN EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'employees' AND column_name = 'personal_info_agreed_at'
+    ) THEN '✅ 존재함' ELSE '❌ 없음' END as status
+UNION ALL
+SELECT
+    'marketing_agreed_at' as column_name,
+    CASE WHEN EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'employees' AND column_name = 'marketing_agreed_at'
     ) THEN '✅ 존재함' ELSE '❌ 없음' END as status;
 
 -- 11. munong2@gmail.com 계정 현재 상태 확인
