@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createToken } from '@/utils/auth';
 
@@ -267,17 +266,11 @@ export async function GET(request: NextRequest) {
 
           console.log('✅ [KAKAO-CALLBACK] 기존 사용자 로그인 성공:', email);
 
-          // 쿠키에 토큰 저장
-          const cookieStore = cookies();
-          cookieStore.set('facility_manager_token', jwtToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 365 * 24 * 60 * 60,
-            path: '/'
-          });
+          // URL 파라미터로 토큰 전달하여 클라이언트에서 localStorage에 저장
+          const redirectUrl = new URL('/admin', request.url);
+          redirectUrl.searchParams.set('token', jwtToken);
 
-          return NextResponse.redirect(new URL('/admin', request.url));
+          return NextResponse.redirect(redirectUrl);
         } else {
           throw new Error('사용자 계정 생성 및 조회 실패');
         }
@@ -292,17 +285,11 @@ export async function GET(request: NextRequest) {
 
         console.log('✅ [KAKAO-CALLBACK] 신규 사용자 생성 및 로그인 성공:', email);
 
-        // 쿠키에 토큰 저장
-        const cookieStore = cookies();
-        cookieStore.set('facility_manager_token', jwtToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 365 * 24 * 60 * 60,
-          path: '/'
-        });
+        // URL 파라미터로 토큰 전달하여 클라이언트에서 localStorage에 저장
+        const redirectUrl = new URL('/admin', request.url);
+        redirectUrl.searchParams.set('token', jwtToken);
 
-        return NextResponse.redirect(new URL('/admin', request.url));
+        return NextResponse.redirect(redirectUrl);
       }
     } catch (dbError: any) {
       console.error('❌ [KAKAO-CALLBACK] 데이터베이스 오류:', dbError);
