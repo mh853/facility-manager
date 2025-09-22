@@ -14,6 +14,7 @@ import {
   FileText,
   Plus
 } from 'lucide-react';
+import { TokenManager } from '@/lib/api-client';
 
 interface TaskMetadata {
   categories: Array<{
@@ -87,7 +88,7 @@ export default function CreateTaskPage() {
   const loadMetadata = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
 
       const response = await fetch('/api/tasks/metadata', {
         headers: {
@@ -156,7 +157,7 @@ export default function CreateTaskPage() {
       setSaving(true);
       setError(null);
 
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
 
       const submitData = {
         ...formData,

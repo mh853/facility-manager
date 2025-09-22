@@ -15,6 +15,7 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
+import { TokenManager } from '@/lib/api-client';
 
 interface TaskMetadata {
   categories: Array<{
@@ -100,7 +101,7 @@ export default function EditTaskPage() {
 
   const loadMetadata = async () => {
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
 
       const response = await fetch('/api/tasks/metadata', {
         headers: {
@@ -126,7 +127,7 @@ export default function EditTaskPage() {
 
   const loadTaskData = async () => {
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
 
       const response = await fetch(`/api/tasks/${taskId}`, {
         headers: {
@@ -212,7 +213,7 @@ export default function EditTaskPage() {
       setSaving(true);
       setError(null);
 
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
 
       const submitData = {
         ...formData,
@@ -251,7 +252,7 @@ export default function EditTaskPage() {
       setDeleting(true);
       setError(null);
 
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
 
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'DELETE',

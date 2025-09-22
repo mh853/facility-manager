@@ -19,6 +19,7 @@ import {
   BarChart3,
   History
 } from 'lucide-react';
+import { TokenManager } from '@/lib/api-client';
 
 interface TaskDetail {
   id: string;
@@ -84,7 +85,7 @@ export default function TaskDetailPage() {
   const loadTaskDetail = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
 
       const response = await fetch(`/api/tasks/${taskId}`, {
         headers: {

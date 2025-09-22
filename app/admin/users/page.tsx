@@ -34,6 +34,7 @@ import {
   ArrowLeft,
   ExternalLink
 } from 'lucide-react';
+import { TokenManager } from '@/lib/api-client';
 
 interface Employee {
   id: string;
@@ -433,7 +434,7 @@ function UsersManagementPage() {
 
   const loadEmployees = async () => {
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch('/api/admin/employees', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -458,7 +459,7 @@ function UsersManagementPage() {
 
   const loadSocialApprovals = async () => {
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch('/api/admin/social-approvals?status=pending', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -484,7 +485,7 @@ function UsersManagementPage() {
     if (!editingUser) return;
 
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch(`/api/admin/employees/${editingUser.id}`, {
         method: 'PUT',
         headers: {
@@ -515,7 +516,7 @@ function UsersManagementPage() {
     if (!resetPasswordUser || !newPassword) return;
 
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch(`/api/admin/employees/${resetPasswordUser.id}/reset-password`, {
         method: 'POST',
         headers: {
@@ -544,7 +545,7 @@ function UsersManagementPage() {
 
   const handleUserToggle = async (userId: string, isActive: boolean) => {
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch(`/api/admin/employees/${userId}/toggle`, {
         method: 'POST',
         headers: {
@@ -566,7 +567,7 @@ function UsersManagementPage() {
 
   const handleApprovalAction = async (approvalId: string, action: 'approved' | 'rejected', reason?: string) => {
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch('/api/admin/social-approvals', {
         method: 'POST',
         headers: {
@@ -592,7 +593,7 @@ function UsersManagementPage() {
       setLoadingUserDetails(true);
       setSelectedUser(user);
 
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
 
       // 소셜 계정 정보 로드
       const socialResponse = await fetch(`/api/admin/user-social-accounts?userId=${user.id}`, {
@@ -629,7 +630,7 @@ function UsersManagementPage() {
     if (!confirm('이 소셜 계정 연결을 해제하시겠습니까?')) return;
 
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch(`/api/admin/user-social-accounts?socialAccountId=${socialAccountId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -650,7 +651,7 @@ function UsersManagementPage() {
   // 주 소셜 계정 설정
   const handleSetPrimarySocialAccount = async (socialAccountId: string) => {
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch('/api/admin/user-social-accounts', {
         method: 'PUT',
         headers: {
@@ -677,7 +678,7 @@ function UsersManagementPage() {
     if (!confirm('이 세션을 강제로 종료하시겠습니까?')) return;
 
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch(`/api/admin/user-login-history?sessionId=${sessionId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -699,7 +700,7 @@ function UsersManagementPage() {
   const loadApprovalSettings = async () => {
     try {
       setLoadingSettings(true);
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch('/api/admin/approval-settings', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -721,7 +722,7 @@ function UsersManagementPage() {
   const saveApprovalSettings = async (settings: any) => {
     try {
       setSavingSettings(true);
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch('/api/admin/approval-settings', {
         method: 'PUT',
         headers: {
@@ -754,7 +755,7 @@ function UsersManagementPage() {
   // 자동 승인 테스트
   const testAutoApproval = async (email: string, permissionLevel: number) => {
     try {
-      const token = localStorage.getItem('facility_manager_token');
+      const token = TokenManager.getToken();
       const response = await fetch('/api/admin/approval-settings', {
         method: 'POST',
         headers: {
