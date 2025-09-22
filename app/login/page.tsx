@@ -14,7 +14,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [showEmailLogin, setShowEmailLogin] = useState(false)
+  const [showEmailLogin, setShowEmailLogin] = useState(true) // 이메일 로그인을 기본값으로 설정
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -146,7 +146,7 @@ function LoginForm() {
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">로그인</h2>
             <p className="text-sm text-gray-600">
-              {showEmailLogin ? '이메일과 비밀번호로 로그인하세요' : '간편하게 로그인하세요'}
+              {showEmailLogin ? '안정적인 이메일 로그인을 권장합니다' : '소셜 로그인은 불안정할 수 있습니다'}
             </p>
           </div>
 
@@ -327,7 +327,7 @@ function LoginForm() {
               </Link>
             </div>
             <p className="text-xs text-gray-500">
-              {showEmailLogin ? '이메일 가입하시면 관리자 승인 후 이용 가능합니다.' : '카카오 로그인으로 가입하시면 관리자 승인 후 이용 가능합니다.'}
+              {showEmailLogin ? '이메일 가입을 권장합니다. 관리자 승인 후 이용 가능합니다.' : '⚠️ 소셜 로그인은 현재 불안정할 수 있습니다. 이메일 로그인을 권장합니다.'}
             </p>
           </div>
         </div>

@@ -12,15 +12,28 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-pro
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
+    let token: string | null = null;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // 1. Authorization 헤더에서 토큰 확인
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7); // "Bearer " 제거
+      console.log('🔑 [AUTH] 헤더에서 토큰 발견');
+    }
+    // 2. 쿠키에서 토큰 확인 (헤더에 없는 경우)
+    else {
+      const cookieToken = request.cookies.get('auth_token')?.value;
+      if (cookieToken) {
+        token = cookieToken;
+        console.log('🍪 [AUTH] 쿠키에서 토큰 발견');
+      }
+    }
+
+    if (!token) {
       return NextResponse.json(
         { success: false, error: { code: 'NO_TOKEN', message: '인증 토큰이 없습니다.' } },
         { status: 401 }
       );
     }
-
-    const token = authHeader.substring(7); // "Bearer " 제거
 
     // JWT 토큰 검증
     let decoded: any;

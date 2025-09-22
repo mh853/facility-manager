@@ -9,16 +9,27 @@ export async function POST(request: NextRequest) {
   try {
     console.log('✅ [AUTH] 로그아웃 요청 처리');
 
-    // JWT는 stateless이므로 서버에서 별도 처리 없음
-    // 클라이언트에서 토큰을 localStorage/sessionStorage에서 제거
-
-    return NextResponse.json({
+    // 응답 생성
+    const response = NextResponse.json({
       success: true,
       data: {
         message: '성공적으로 로그아웃되었습니다.'
       },
       timestamp: new Date().toISOString()
     });
+
+    // httpOnly 쿠키 삭제
+    response.cookies.set('auth_token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0, // 즉시 만료
+      path: '/'
+    });
+
+    console.log('🍪 [AUTH] 인증 쿠키 삭제 완료');
+
+    return response;
 
   } catch (error) {
     console.error('❌ [AUTH] 로그아웃 오류:', error);

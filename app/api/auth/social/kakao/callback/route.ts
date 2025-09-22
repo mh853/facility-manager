@@ -267,39 +267,20 @@ export async function GET(request: NextRequest) {
 
           console.log('✅ [KAKAO-CALLBACK] 기존 사용자 로그인 성공:', email);
 
-          // HTML 페이지로 토큰을 직접 localStorage에 저장하고 리다이렉트
-          return new NextResponse(`
-<!DOCTYPE html>
-<html>
-<head>
-    <title>로그인 처리 중...</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px; }
-        .loading { color: #666; }
-    </style>
-</head>
-<body>
-    <div class="loading">
-        <h2>로그인 처리 중...</h2>
-        <p>잠시만 기다려주세요.</p>
-    </div>
-    <script>
-        try {
-            localStorage.setItem('auth_token', '${jwtToken}');
-            console.log('✅ 토큰 저장 완료:', localStorage.getItem('auth_token'));
-            window.location.href = '/admin';
-        } catch (error) {
-            console.error('❌ 토큰 저장 실패:', error);
-            window.location.href = '/login?error=token_save_failed';
-        }
-    </script>
-</body>
-</html>`, {
-            status: 200,
-            headers: {
-              'Content-Type': 'text/html',
-            },
+          // 쿠키 기반 안전한 로그인 처리
+          const response = NextResponse.redirect(new URL('/admin', request.url));
+
+          // httpOnly 쿠키로 토큰 설정
+          response.cookies.set('auth_token', jwtToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60, // 24시간
+            path: '/'
           });
+
+          console.log('🍪 [KAKAO-CALLBACK] 쿠키 기반 인증 설정 완료');
+          return response;
         } else {
           throw new Error('사용자 계정 생성 및 조회 실패');
         }
@@ -315,39 +296,20 @@ export async function GET(request: NextRequest) {
 
         console.log('✅ [KAKAO-CALLBACK] 신규 사용자 생성 및 로그인 성공:', email);
 
-        // HTML 페이지로 토큰을 직접 localStorage에 저장하고 리다이렉트
-        return new NextResponse(`
-<!DOCTYPE html>
-<html>
-<head>
-    <title>로그인 처리 중...</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px; }
-        .loading { color: #666; }
-    </style>
-</head>
-<body>
-    <div class="loading">
-        <h2>회원가입 완료!</h2>
-        <p>로그인 처리 중입니다...</p>
-    </div>
-    <script>
-        try {
-            localStorage.setItem('auth_token', '${jwtToken}');
-            console.log('✅ 신규 사용자 토큰 저장 완료:', localStorage.getItem('auth_token'));
-            window.location.href = '/admin';
-        } catch (error) {
-            console.error('❌ 토큰 저장 실패:', error);
-            window.location.href = '/login?error=token_save_failed';
-        }
-    </script>
-</body>
-</html>`, {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/html',
-          },
+        // 쿠키 기반 안전한 신규 사용자 로그인 처리
+        const response = NextResponse.redirect(new URL('/admin', request.url));
+
+        // httpOnly 쿠키로 토큰 설정
+        response.cookies.set('auth_token', jwtToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 24 * 60 * 60, // 24시간
+          path: '/'
         });
+
+        console.log('🍪 [KAKAO-CALLBACK] 신규 사용자 쿠키 기반 인증 설정 완료');
+        return response;
       }
     } catch (dbError: any) {
       console.error('❌ [KAKAO-CALLBACK] 데이터베이스 오류:', dbError);

@@ -10,8 +10,8 @@ interface SignupRequest {
   name: string;
   email: string;
   password: string;
-  department: string;
-  position: string;
+  department?: string; // 선택사항
+  position?: string;   // 선택사항
   agreements: {
     terms: boolean;
     privacy: boolean;
@@ -80,19 +80,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!department?.trim()) {
-      return NextResponse.json(
-        { success: false, message: '부서를 입력해주세요.' },
-        { status: 400 }
-      );
-    }
-
-    if (!position?.trim()) {
-      return NextResponse.json(
-        { success: false, message: '직책을 입력해주세요.' },
-        { status: 400 }
-      );
-    }
+    // 부서와 직책은 이제 선택사항 (검증 제거)
 
     // 필수 약관 동의 확인
     if (!agreements.terms) {
@@ -155,8 +143,8 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         email: email.toLowerCase().trim(),
         password_hash: hashedPassword,
-        department: department.trim(),
-        position: position.trim(),
+        department: department?.trim() || '미입력', // 선택사항 - 기본값
+        position: position?.trim() || '미입력',     // 선택사항 - 기본값
         permission_level: 1, // 기본 권한
         is_active: true,
         created_at: new Date().toISOString(),

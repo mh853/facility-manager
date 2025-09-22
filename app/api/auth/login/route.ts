@@ -83,10 +83,11 @@ export async function POST(request: NextRequest) {
       .update({ last_login_at: new Date().toISOString() })
       .eq('id', employee.id);
 
-    // JWT 토큰 생성
+    // JWT 토큰 생성 (verify API와 동일한 구조)
     const token = jwt.sign(
       {
-        userId: employee.id,
+        id: employee.id,          // verify API 호환성
+        userId: employee.id,      // 기존 호환성 유지
         email: employee.email,
         permissionLevel: employee.permission_level,
         name: employee.name
@@ -100,10 +101,11 @@ export async function POST(request: NextRequest) {
     // 응답 데이터 (password_hash 제외)
     const { password_hash, ...safeEmployee } = employee;
 
-    return NextResponse.json({
+    // 쿠키 기반 토큰 관리 - httpOnly 쿠키 설정
+    const response = NextResponse.json({
       success: true,
       data: {
-        token,
+        token, // 클라이언트 호환성을 위해 유지
         user: safeEmployee,
         permissions: {
           canViewAllTasks: employee.permission_level >= 2,
@@ -118,6 +120,17 @@ export async function POST(request: NextRequest) {
       },
       timestamp: new Date().toISOString()
     });
+
+    // httpOnly 쿠키로 토큰 설정 (보안 강화)
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60, // 24시간
+      path: '/'
+    });
+
+    return response;
 
   } catch (error) {
     console.error('❌ [AUTH] 로그인 오류:', error);

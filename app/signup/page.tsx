@@ -58,8 +58,7 @@ export default function SignupPage() {
     if (!formData.email.trim()) newErrors.push('이메일을 입력해주세요.');
     if (!formData.password) newErrors.push('비밀번호를 입력해주세요.');
     if (formData.password !== formData.confirmPassword) newErrors.push('비밀번호가 일치하지 않습니다.');
-    if (!formData.department.trim()) newErrors.push('부서를 입력해주세요.');
-    if (!formData.position.trim()) newErrors.push('직책을 입력해주세요.');
+    // 부서와 직책은 이제 선택사항 (검증 제거)
 
     if (!agreements.terms) newErrors.push('서비스 이용약관에 동의해주세요.');
     if (!agreements.privacy) newErrors.push('개인정보 처리방침에 동의해주세요.');
@@ -191,33 +190,31 @@ export default function SignupPage() {
 
             <div>
               <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">
-                부서 <span className="text-red-500">*</span>
+                부서 <span className="text-gray-500">(선택사항)</span>
               </label>
               <input
                 id="department"
                 name="department"
                 type="text"
-                required
                 value={formData.department}
                 onChange={handleInputChange}
                 className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="부서를 입력하세요"
+                placeholder="부서를 입력하세요 (선택사항)"
               />
             </div>
 
             <div>
               <label htmlFor="position" className="block text-sm font-medium text-gray-700 mb-2">
-                직책 <span className="text-red-500">*</span>
+                직책 <span className="text-gray-500">(선택사항)</span>
               </label>
               <input
                 id="position"
                 name="position"
                 type="text"
-                required
                 value={formData.position}
                 onChange={handleInputChange}
                 className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="직책을 입력하세요"
+                placeholder="직책을 입력하세요 (선택사항)"
               />
             </div>
 
