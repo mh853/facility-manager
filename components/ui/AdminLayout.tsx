@@ -99,7 +99,7 @@ const navigationItems: NavigationItem[] = [
     href: '/admin/data-history',
     icon: History,
     description: '시스템 데이터 변경 이력',
-    requiredLevel: 2
+    requiredLevel: 1
   },
   {
     name: '지연 기준 설정',

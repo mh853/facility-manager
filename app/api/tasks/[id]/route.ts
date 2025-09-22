@@ -61,7 +61,7 @@ export async function GET(
     const hasAccess =
       task.assigned_to === decodedToken.userId ||
       task.created_by === decodedToken.userId ||
-      decodedToken.permissionLevel >= 2;
+      decodedToken.permissionLevel >= 1;
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -163,7 +163,7 @@ export async function PUT(
     const canEdit =
       existingTask.assigned_to === decodedToken.userId ||
       existingTask.created_by === decodedToken.userId ||
-      decodedToken.permissionLevel >= 2;
+      decodedToken.permissionLevel >= 1;
 
     if (!canEdit) {
       return NextResponse.json(
@@ -363,7 +363,7 @@ export async function DELETE(
     // 삭제 권한 확인 (관리자 또는 생성자만)
     const canDelete =
       existingTask.created_by === decodedToken.userId ||
-      decodedToken.permissionLevel >= 2;
+      decodedToken.permissionLevel >= 1;
 
     if (!canDelete) {
       return NextResponse.json(

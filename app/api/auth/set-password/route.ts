@@ -182,12 +182,12 @@ export async function POST(request: NextRequest) {
           signup_method: newSignupMethod
         },
         permissions: {
-          canViewAllTasks: employee.permission_level >= 2,
+          canViewAllTasks: employee.permission_level >= 1,
           canCreateTasks: true,
           canEditTasks: true,
-          canDeleteTasks: employee.permission_level >= 2,
+          canDeleteTasks: employee.permission_level >= 1,
           canViewReports: true,
-          canApproveReports: employee.permission_level >= 2,
+          canApproveReports: employee.permission_level >= 1,
           canAccessAdminPages: employee.permission_level >= 3,
           canViewSensitiveData: employee.permission_level >= 3
         }

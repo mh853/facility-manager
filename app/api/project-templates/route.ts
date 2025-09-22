@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 권한별 필터링
-    if (user && user.permissionLevel === 2) {
+    if (user && (user.permissionLevel === 1 || user.permissionLevel === 2)) {
       query = query.eq('department_id', user.departmentId);
     }
 

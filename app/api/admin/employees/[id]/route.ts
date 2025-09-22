@@ -78,12 +78,12 @@ export async function GET(
         employee,
         socialAccounts: socialAccounts || [],
         permissions: {
-          canViewAllTasks: employee.permission_level >= 2,
+          canViewAllTasks: employee.permission_level >= 1,
           canCreateTasks: employee.permission_level >= 1,
           canEditTasks: employee.permission_level >= 1,
-          canDeleteTasks: employee.permission_level >= 2,
+          canDeleteTasks: employee.permission_level >= 1,
           canViewReports: employee.permission_level >= 1,
-          canApproveReports: employee.permission_level >= 2,
+          canApproveReports: employee.permission_level >= 1,
           canAccessAdminPages: employee.permission_level >= 3,
           canViewSensitiveData: employee.permission_level >= 3,
         }

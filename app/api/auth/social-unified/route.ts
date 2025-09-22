@@ -147,12 +147,12 @@ export async function POST(request: NextRequest) {
         token,
         user: safeUser,
         permissions: {
-          canViewAllTasks: user.permission_level >= 2,
+          canViewAllTasks: user.permission_level >= 1,
           canCreateTasks: true,
           canEditTasks: true,
-          canDeleteTasks: user.permission_level >= 2,
+          canDeleteTasks: user.permission_level >= 1,
           canViewReports: true,
-          canApproveReports: user.permission_level >= 2,
+          canApproveReports: user.permission_level >= 1,
           canAccessAdminPages: user.permission_level >= 3,
           canManageDepartments: user.permission_level >= 3,
           canViewSensitiveData: user.permission_level >= 3

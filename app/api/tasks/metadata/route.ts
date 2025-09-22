@@ -94,11 +94,8 @@ export async function GET(request: NextRequest) {
     // 권한에 따른 직원 목록 필터링
     let availableEmployees = employeesResult.data || [];
 
-    if (decodedToken.permissionLevel === 1) {
-      // 일반 사용자: 자신만 선택 가능
-      availableEmployees = availableEmployees.filter(emp => emp.id === decodedToken.userId);
-    } else if (decodedToken.permissionLevel === 2) {
-      // 매니저: 현재는 모든 직원 (추후 팀/부서별 필터링 가능)
+    if (decodedToken.permissionLevel === 1 || decodedToken.permissionLevel === 2) {
+      // 일반 사용자 및 매니저: 현재는 모든 직원 (추후 팀/부서별 필터링 가능)
       // 필요시 부서별 필터링 로직 추가
     }
     // 관리자(레벨 3)는 모든 직원에게 할당 가능

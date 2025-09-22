@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 권한별 필터링
-    if (user && user.permissionLevel === 2) {
+    if (user && (user.permissionLevel === 1 || user.permissionLevel === 2)) {
       query = query.eq('department_id', user.departmentId);
     } else if (user && user.permissionLevel === 3) {
       // 권한 3: 자신이 담당하거나 소속 프로젝트의 작업만
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     if (assigned_to) countQuery = countQuery.eq('assigned_to', assigned_to);
     if (department_id) countQuery = countQuery.eq('department_id', department_id);
     if (my_tasks === 'true' && user) countQuery = countQuery.eq('assigned_to', (user as any).id);
-    if (user && user.permissionLevel === 2) countQuery = countQuery.eq('department_id', user.departmentId);
+    if (user && (user.permissionLevel === 1 || user.permissionLevel === 2)) countQuery = countQuery.eq('department_id', user.departmentId);
 
     const { count } = await countQuery;
 
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
       .select('id, department_id, manager_id')
       .eq('id', project_id);
 
-    if (user && user.permissionLevel === 2) {
+    if (user && (user.permissionLevel === 1 || user.permissionLevel === 2)) {
       projectQuery = projectQuery.eq('department_id', user.departmentId);
     } else if (user && user.permissionLevel === 3) {
       projectQuery = projectQuery.eq('manager_id', (user as any).id);

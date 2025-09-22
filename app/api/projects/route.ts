@@ -41,8 +41,8 @@ export async function GET(request: NextRequest) {
       query = query.eq('department_id', department_id);
     }
 
-    // 권한별 필터링 (권한 1: 전체, 권한 2: 자신의 부서, 권한 3: 자신의 프로젝트만)
-    if (user && user.permissionLevel === 2) {
+    // 권한별 필터링 (권한 1-2: 자신의 부서, 권한 3: 자신의 프로젝트만)
+    if (user && (user.permissionLevel === 1 || user.permissionLevel === 2)) {
       query = query.eq('department_id', user.departmentId);
     } else if (user && user.permissionLevel === 3) {
       query = query.eq('manager_id', (user as any).id);
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     if (status) countQuery = countQuery.eq('status', status);
     if (type) countQuery = countQuery.eq('project_type', type);
     if (department_id) countQuery = countQuery.eq('department_id', department_id);
-    if (user && user.permissionLevel === 2) countQuery = countQuery.eq('department_id', user.departmentId);
+    if (user && (user.permissionLevel === 1 || user.permissionLevel === 2)) countQuery = countQuery.eq('department_id', user.departmentId);
     if (user && user.permissionLevel === 3) countQuery = countQuery.eq('manager_id', (user as any).id);
 
     const { count } = await countQuery;

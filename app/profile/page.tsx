@@ -457,13 +457,13 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-3">
               <Key className="w-5 h-5" />
-              {profile.social_login_enabled ? '비밀번호 설정' : '비밀번호 변경'}
+              비밀번호 변경
             </h3>
             <button
               onClick={() => setShowPasswordForm(!showPasswordForm)}
               className="text-blue-600 hover:text-blue-700 text-sm font-medium"
             >
-              {showPasswordForm ? '취소' : (profile.social_login_enabled ? '비밀번호 설정' : '비밀번호 변경')}
+              {showPasswordForm ? '취소' : '비밀번호 변경'}
             </button>
           </div>
 
@@ -557,7 +557,7 @@ export default function ProfilePage() {
                     ) : (
                       <Key className="w-4 h-4" />
                     )}
-                    {profile?.social_login_enabled ? '비밀번호 설정' : '비밀번호 변경'}
+                    비밀번호 변경
                   </button>
                 </div>
               </form>
@@ -607,28 +607,6 @@ export default function ProfilePage() {
           </h3>
 
           <div className="space-y-4">
-            {/* 권한 새로고침 */}
-            <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-900">권한 정보 새로고침</h4>
-                <p className="text-sm text-gray-600 mt-1">
-                  권한이 변경된 후 새로운 권한이 적용되지 않을 때 사용하세요.
-                </p>
-              </div>
-              <button
-                onClick={handleRefreshPermissions}
-                disabled={saving}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {saving ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                권한 새로고침
-              </button>
-            </div>
-
             {/* 로그아웃 */}
             <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
               <div>

@@ -27,7 +27,7 @@ export async function GET(
       .eq('id', params.id);
 
     // 권한별 필터링
-    if (user && user.permissionLevel === 2) {
+    if (user && (user.permissionLevel === 1 || user.permissionLevel === 2)) {
       query = query.eq('department_id', user.departmentId);
     } else if (user && user.permissionLevel === 3) {
       query = query.eq('manager_id', (user as any).id);
@@ -115,7 +115,7 @@ export async function PUT(
       .select('manager_id, department_id')
       .eq('id', params.id);
 
-    if (user && user.permissionLevel === 2) {
+    if (user && (user.permissionLevel === 1 || user.permissionLevel === 2)) {
       accessQuery = accessQuery.eq('department_id', user.departmentId);
     } else if (user && user.permissionLevel === 3) {
       accessQuery = accessQuery.eq('manager_id', (user as any).id);
@@ -210,7 +210,7 @@ export async function DELETE(
       .select('manager_id, department_id')
       .eq('id', params.id);
 
-    if (user && user.permissionLevel === 2) {
+    if (user && (user.permissionLevel === 1 || user.permissionLevel === 2)) {
       accessQuery = accessQuery.eq('department_id', user.departmentId);
     }
 
