@@ -12,6 +12,17 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-pro
 
 export async function POST(request: NextRequest) {
   try {
+    // CORS 헤더 설정
+    const origin = request.headers.get('origin');
+    const allowedOrigins = ['https://facility.blueon-iot.com', 'http://localhost:3000'];
+
+    if (origin && !allowedOrigins.includes(origin)) {
+      return NextResponse.json(
+        { success: false, error: { code: 'FORBIDDEN_ORIGIN', message: '허용되지 않은 도메인입니다.' } },
+        { status: 403 }
+      );
+    }
+
     const { email, password } = await request.json();
 
     // 입력 검증

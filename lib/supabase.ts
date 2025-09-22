@@ -47,6 +47,65 @@ export function getSupabaseAdminClient() {
 export interface Database {
   public: {
     Tables: {
+      employees: {
+        Row: {
+          id: string;
+          employee_id: string;
+          name: string;
+          email: string;
+          password_hash: string | null;
+          department: string;
+          position: string;
+          permission_level: number;
+          is_active: boolean;
+          signup_method: string;
+          terms_agreed_at: string;
+          privacy_agreed_at: string;
+          personal_info_agreed_at: string;
+          marketing_agreed_at: string | null;
+          last_login_at: string | null;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          employee_id: string;
+          name: string;
+          email: string;
+          password_hash?: string | null;
+          department: string;
+          position: string;
+          permission_level?: number;
+          is_active?: boolean;
+          signup_method?: string;
+          terms_agreed_at?: string;
+          privacy_agreed_at?: string;
+          personal_info_agreed_at?: string;
+          marketing_agreed_at?: string | null;
+          last_login_at?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          employee_id?: string;
+          name?: string;
+          email?: string;
+          password_hash?: string | null;
+          department?: string;
+          position?: string;
+          permission_level?: number;
+          is_active?: boolean;
+          signup_method?: string;
+          terms_agreed_at?: string;
+          privacy_agreed_at?: string;
+          personal_info_agreed_at?: string;
+          marketing_agreed_at?: string | null;
+          last_login_at?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+      };
       businesses: {
         Row: {
           id: string;

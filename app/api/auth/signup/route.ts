@@ -22,6 +22,17 @@ interface SignupRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // CORS 헤더 설정
+    const origin = request.headers.get('origin');
+    const allowedOrigins = ['https://facility.blueon-iot.com', 'http://localhost:3000'];
+
+    if (origin && !allowedOrigins.includes(origin)) {
+      return NextResponse.json(
+        { success: false, message: '허용되지 않은 도메인입니다.' },
+        { status: 403 }
+      );
+    }
+
     const body: SignupRequest = await request.json();
     const {
       name,
