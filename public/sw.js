@@ -7,8 +7,9 @@ const DYNAMIC_CACHE_NAME = 'facility-dynamic-v1.2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
-  '/_next/static/css/',
-  '/_next/static/js/',
+  '/icon-192.svg',
+  '/icon-512.svg',
+  '/favicon.svg',
 ];
 
 // 캐시 전략별 URL 패턴

@@ -40,7 +40,7 @@ export const metadata = {
   other: {
     'theme-color': '#2563eb',
     'msapplication-TileColor': '#2563eb',
-    'apple-mobile-web-app-capable': 'yes',
+    'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'default',
     'format-detection': 'telephone=no',
   },
