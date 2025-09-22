@@ -1097,9 +1097,14 @@ function UsersManagementPage() {
             <div className="p-6">
               {socialApprovals.length === 0 ? (
                 <div className="text-center py-12">
-                  <CheckCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-sm font-medium text-gray-900 mb-1">승인 요청이 없습니다</h3>
-                  <p className="text-sm text-gray-500">현재 처리할 소셜 로그인 승인 요청이 없습니다.</p>
+                  <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                  <h3 className="text-sm font-medium text-gray-900 mb-1">자동 승인 시스템 운영 중</h3>
+                  <p className="text-sm text-gray-500">현재 시설관리 시스템은 자동 승인으로 운영됩니다. 회원가입 시 즉시 계정이 생성되며, 별도 승인 과정이 없습니다.</p>
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <p className="text-xs text-blue-700">
+                      💡 <strong>참고:</strong> 승인 설정 탭에서 자동 승인 규칙을 설정할 수 있습니다.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
