@@ -235,11 +235,14 @@ export async function GET(request: NextRequest) {
           employee_id: `SOCIAL_${Date.now()}`,
           name: name,
           email: email,
-          permission_level: 1,
+          department: '소셜 로그인',
           position: '소셜 로그인 사용자',
+          permission_level: 1,
           is_active: true,
-          social_login_enabled: true,
-          created_by_social: true
+          signup_method: 'kakao',
+          terms_agreed_at: new Date().toISOString(),
+          privacy_agreed_at: new Date().toISOString(),
+          personal_info_agreed_at: new Date().toISOString()
         })
         .select()
         .single();
@@ -254,12 +257,12 @@ export async function GET(request: NextRequest) {
           .single();
 
         if (existingEmployee) {
-          // JWT 토큰 생성
+          // JWT 토큰 생성 (다른 로그인 API와 동일한 형식)
           const jwtToken = createToken({
-            id: existingEmployee.id,
+            userId: existingEmployee.id,
             email: existingEmployee.email,
-            name: existingEmployee.name,
-            permission_level: existingEmployee.permission_level
+            permissionLevel: existingEmployee.permission_level,
+            name: existingEmployee.name
           });
 
           console.log('✅ [KAKAO-CALLBACK] 기존 사용자 로그인 성공:', email);
@@ -281,10 +284,10 @@ export async function GET(request: NextRequest) {
       } else {
         // 신규 사용자 생성 성공
         const jwtToken = createToken({
-          id: newEmployee.id,
+          userId: newEmployee.id,
           email: newEmployee.email,
-          name: newEmployee.name,
-          permission_level: newEmployee.permission_level
+          permissionLevel: newEmployee.permission_level,
+          name: newEmployee.name
         });
 
         console.log('✅ [KAKAO-CALLBACK] 신규 사용자 생성 및 로그인 성공:', email);
