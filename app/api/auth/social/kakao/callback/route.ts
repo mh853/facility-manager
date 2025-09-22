@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 // 카카오 API 정보
 const KAKAO_CLIENT_ID = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
 const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
-const KAKAO_REDIRECT_URI = process.env.NEXTAUTH_URL + '/api/auth/social/kakao/callback';
+const KAKAO_REDIRECT_URI = (process.env.NEXTAUTH_URL || '').trim() + '/api/auth/social/kakao/callback';
 
 // 카카오 토큰 응답 인터페이스
 interface KakaoTokenResponse {
