@@ -22,7 +22,7 @@ interface SignupRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    // CORS 헤더 설정 (개선된 버전)
+    // CORS 헤더 설정 (포용적 접근)
     const origin = request.headers.get('origin');
     const referer = request.headers.get('referer');
     const allowedOrigins = [
@@ -32,6 +32,13 @@ export async function POST(request: NextRequest) {
       'http://127.0.0.1:3000'
     ];
 
+    // Vercel 자동 배포 도메인 동적 허용 (프로덕션 환경에서)
+    const allowedDomainPatterns = [
+      /^https:\/\/.*\.vercel\.app$/,
+      /^https:\/\/facility\.blueon-iot\.com$/,
+      /^https:\/\/.*\.facility\.blueon-iot\.com$/
+    ];
+
     console.log('🔍 [SIGNUP] 요청 헤더 정보:', {
       origin,
       referer,
@@ -39,9 +46,26 @@ export async function POST(request: NextRequest) {
       contentType: request.headers.get('content-type')
     });
 
-    // Origin이 null이거나 허용된 도메인이 아닌 경우
-    if (origin && !allowedOrigins.includes(origin)) {
-      console.error('❌ [SIGNUP] 허용되지 않은 Origin:', { origin, allowedOrigins });
+    // Origin 검증 (포용적 접근)
+    let isOriginAllowed = false;
+
+    if (!origin) {
+      // Origin이 없는 경우 (직접 접근 등) 허용
+      isOriginAllowed = true;
+    } else if (allowedOrigins.includes(origin)) {
+      // 명시적 허용 목록에 있는 경우
+      isOriginAllowed = true;
+    } else {
+      // 패턴 기반 검증 (Vercel 도메인 등)
+      isOriginAllowed = allowedDomainPatterns.some(pattern => pattern.test(origin));
+    }
+
+    if (!isOriginAllowed) {
+      console.error('❌ [SIGNUP] 허용되지 않은 Origin:', {
+        origin,
+        allowedOrigins,
+        allowedPatterns: allowedDomainPatterns.map(p => p.toString())
+      });
       return NextResponse.json(
         { success: false, message: `허용되지 않은 도메인입니다. Origin: ${origin}` },
         { status: 403 }

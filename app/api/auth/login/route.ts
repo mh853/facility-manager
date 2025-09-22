@@ -12,7 +12,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-pro
 
 export async function POST(request: NextRequest) {
   try {
-    // CORS 헤더 설정 (개선된 버전)
+    // CORS 헤더 설정 (포용적 접근)
     const origin = request.headers.get('origin');
     const allowedOrigins = [
       'https://facility.blueon-iot.com',
@@ -21,14 +21,36 @@ export async function POST(request: NextRequest) {
       'http://127.0.0.1:3000'
     ];
 
+    // Vercel 자동 배포 도메인 동적 허용 (프로덕션 환경에서)
+    const allowedDomainPatterns = [
+      /^https:\/\/.*\.vercel\.app$/,
+      /^https:\/\/facility\.blueon-iot\.com$/,
+      /^https:\/\/.*\.facility\.blueon-iot\.com$/
+    ];
+
     console.log('🔍 [LOGIN] 요청 헤더 정보:', {
       origin,
       referer: request.headers.get('referer'),
       userAgent: request.headers.get('user-agent')
     });
 
-    if (origin && !allowedOrigins.includes(origin)) {
-      console.error('❌ [LOGIN] 허용되지 않은 Origin:', { origin, allowedOrigins });
+    // Origin 검증 (포용적 접근)
+    let isOriginAllowed = false;
+
+    if (!origin) {
+      isOriginAllowed = true;
+    } else if (allowedOrigins.includes(origin)) {
+      isOriginAllowed = true;
+    } else {
+      isOriginAllowed = allowedDomainPatterns.some(pattern => pattern.test(origin));
+    }
+
+    if (!isOriginAllowed) {
+      console.error('❌ [LOGIN] 허용되지 않은 Origin:', {
+        origin,
+        allowedOrigins,
+        allowedPatterns: allowedDomainPatterns.map(p => p.toString())
+      });
       return NextResponse.json(
         { success: false, error: { code: 'FORBIDDEN_ORIGIN', message: `허용되지 않은 도메인입니다. Origin: ${origin}` } },
         { status: 403 }

@@ -79,9 +79,10 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     return { valid: true };
   }
 
-  // 로그인 API와 설정 API는 CSRF 보호 제외 (초기 토큰 발급 전)
+  // 로그인/회원가입 API와 설정 API는 CSRF 보호 제외 (초기 토큰 발급 전)
   const excludePaths = [
     '/api/auth/login',
+    '/api/auth/signup',  // 회원가입 API 추가
     '/api/auth/verify',
     '/api/health',
     '/api/setup-social-schema',
