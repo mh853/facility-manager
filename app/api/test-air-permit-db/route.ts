@@ -3,6 +3,11 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { getSupabaseAdminClient } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
     console.log('🔍 [TEST-AIR-PERMIT-DB] 대기필증 데이터베이스 연결 테스트 시작');
@@ -113,7 +118,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
             sample: businessWithPermits[0] ? {
               permit_id: businessWithPermits[0].id,
               permit_number: businessWithPermits[0].permit_number,
-              business_name: businessWithPermits[0].business_info?.business_name,
+              business_name: (businessWithPermits[0] as any).business_info?.business_name,
               business_type: businessWithPermits[0].business_type
             } : null
           }

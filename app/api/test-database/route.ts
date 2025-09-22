@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { DatabaseService } from '@/lib/database-service'
 import { supabase } from '@/lib/supabase'
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // GET: 데이터베이스 연결 및 기능 테스트
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)

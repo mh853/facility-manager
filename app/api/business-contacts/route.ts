@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 사업장 연락처 정보 조회 (GET)
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

@@ -3,6 +3,11 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
     console.log('🏢 [BUSINESS-LIST] business_info에서 대기필증 보유 사업장 목록 조회');

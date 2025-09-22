@@ -82,11 +82,11 @@ export default function TaskManagement() {
         const taskData = tasksResult.data;
         const taskStats: TaskStats = {
           total_tasks: taskData.length,
-          pending_tasks: taskData.filter((t: Task) => t.status === '할당대기').length,
-          in_progress_tasks: taskData.filter((t: Task) => t.status === '진행중').length,
-          completed_tasks: taskData.filter((t: Task) => t.status === '완료').length,
+          pending_tasks: taskData.filter((t: Task) => t.status === 'todo').length,
+          in_progress_tasks: taskData.filter((t: Task) => t.status === 'in_progress').length,
+          completed_tasks: taskData.filter((t: Task) => t.status === 'completed').length,
           overdue_tasks: taskData.filter((t: Task) =>
-            t.due_date && new Date(t.due_date) < new Date() && t.status !== '완료'
+            t.due_date && new Date(t.due_date) < new Date() && t.status !== 'completed'
           ).length
         };
         setStats(taskStats);

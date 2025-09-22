@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 측정기기 수량 업데이트 (PUT)
 export async function PUT(request: NextRequest) {
   try {

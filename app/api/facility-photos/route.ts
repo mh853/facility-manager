@@ -10,6 +10,11 @@ import { generateFacilityFileName, generateBasicFileName } from '@/utils/filenam
 import { generateBusinessId, convertLegacyPath } from '@/utils/business-id-generator';
 import imageCompression from 'browser-image-compression';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 interface FacilityPhotoRequest {
   businessName: string;
   facilityType: 'discharge' | 'prevention' | 'basic';

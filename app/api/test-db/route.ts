@@ -2,12 +2,20 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 import { UserService } from '@/lib/user-service';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function GET() {
   try {
     console.log('🔍 [TEST-DB] 데이터베이스 연결 테스트 시작');
 
     // Supabase 연결 테스트
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     // 기본 연결 테스트
     const { data: connectionTest, error: connectionError } = await supabase

@@ -4,6 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { generatePathVariants } from '@/utils/business-id-generator';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { photoId: string } }

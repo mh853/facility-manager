@@ -3,11 +3,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth/middleware';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function POST(request: NextRequest) {
   try {
     const { user, error: authError } = await verifyAuth(request);
-    if (authError) {
-      return NextResponse.json({ success: false, error: authError }, { status: 401 });
+    if (authError || !user) {
+      return NextResponse.json({ success: false, error: authError || '인증이 필요합니다.' }, { status: 401 });
     }
 
     // 관리자 권한 확인
@@ -112,8 +117,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { user, error: authError } = await verifyAuth(request);
-    if (authError) {
-      return NextResponse.json({ success: false, error: authError }, { status: 401 });
+    if (authError || !user) {
+      return NextResponse.json({ success: false, error: authError || '인증이 필요합니다.' }, { status: 401 });
     }
 
     // 관리자 권한 확인

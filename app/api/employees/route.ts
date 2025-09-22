@@ -3,10 +3,22 @@ import { supabaseAdmin } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
 import { verifyToken } from '@/utils/auth';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // GET /api/employees - 직원 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await verifyToken(request);
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+      request.headers.get('cookie')?.match(/auth-token=([^;]+)/)?.[1];
+
+    if (!token) {
+      return NextResponse.json({ success: false, error: '인증이 필요합니다' }, { status: 401 });
+    }
+
+    const authResult = await verifyToken(token);
     if (!authResult.success) {
       return NextResponse.json(authResult, { status: 401 });
     }
@@ -83,7 +95,14 @@ export async function GET(request: NextRequest) {
 // POST /api/employees - 새 직원 등록
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await verifyToken(request);
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+      request.headers.get('cookie')?.match(/auth-token=([^;]+)/)?.[1];
+
+    if (!token) {
+      return NextResponse.json({ success: false, error: '인증이 필요합니다' }, { status: 401 });
+    }
+
+    const authResult = await verifyToken(token);
     if (!authResult.success) {
       return NextResponse.json(authResult, { status: 401 });
     }

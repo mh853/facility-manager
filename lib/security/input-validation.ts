@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // 기본 한국어 에러 메시지
 const koreanErrorMessages = {
-  required_error: "필수 입력 항목입니다",
+  required: "필수 입력 항목입니다",
   invalid_type_error: "잘못된 데이터 타입입니다",
   too_small: "최소 길이를 만족하지 않습니다",
   too_big: "최대 길이를 초과했습니다",
@@ -14,15 +14,14 @@ const koreanErrorMessages = {
 export const ValidationSchemas = {
   // 이메일 검증
   email: z.string({
-    required_error: koreanErrorMessages.required_error,
-    invalid_type_error: koreanErrorMessages.invalid_type_error
+    message: koreanErrorMessages.required
   })
   .email(koreanErrorMessages.invalid_email)
   .max(255, "이메일은 255자를 초과할 수 없습니다"),
 
   // 비밀번호 검증 (소셜 로그인용으로 간소화)
   password: z.string({
-    required_error: koreanErrorMessages.required_error
+    message: koreanErrorMessages.required
   })
   .min(8, "비밀번호는 최소 8자 이상이어야 합니다")
   .max(128, "비밀번호는 128자를 초과할 수 없습니다")
@@ -33,7 +32,7 @@ export const ValidationSchemas = {
 
   // 한국어 이름 검증
   koreanName: z.string({
-    required_error: koreanErrorMessages.required_error
+    message: koreanErrorMessages.required
   })
   .min(2, "이름은 최소 2자 이상이어야 합니다")
   .max(50, "이름은 50자를 초과할 수 없습니다")
@@ -44,7 +43,7 @@ export const ValidationSchemas = {
 
   // 사업장명 검증
   businessName: z.string({
-    required_error: "사업장명은 필수입니다"
+    message: "사업장명은 필수입니다"
   })
   .min(2, "사업장명은 최소 2자 이상이어야 합니다")
   .max(100, "사업장명은 100자를 초과할 수 없습니다")
@@ -63,8 +62,7 @@ export const ValidationSchemas = {
 
   // 권한 레벨 검증
   permissionLevel: z.number({
-    required_error: "권한 레벨은 필수입니다",
-    invalid_type_error: "권한 레벨은 숫자여야 합니다"
+    message: "권한 레벨은 필수입니다"
   })
   .int("권한 레벨은 정수여야 합니다")
   .min(1, "권한 레벨은 1 이상이어야 합니다")
@@ -96,19 +94,19 @@ export const ValidationSchemas = {
 
   // 소셜 로그인 제공자 검증
   socialProvider: z.enum(['kakao', 'naver', 'google'], {
-    errorMap: () => ({ message: "지원하지 않는 소셜 로그인 제공자입니다" })
+    message: "지원하지 않는 소셜 로그인 제공자입니다"
   }),
 
   // 소셜 로그인 토큰 검증
   socialToken: z.string({
-    required_error: "소셜 로그인 토큰이 필요합니다"
+    message: "소셜 로그인 토큰이 필요합니다"
   })
   .min(10, "유효하지 않은 토큰입니다")
   .max(4096, "토큰이 너무 깁니다"),
 
   // JWT 토큰 검증
   jwtToken: z.string({
-    required_error: "인증 토큰이 필요합니다"
+    message: "인증 토큰이 필요합니다"
   })
   .regex(
     /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/,
@@ -164,7 +162,7 @@ export function validateInput<T>(schema: z.ZodSchema<T>, input: unknown): {
         data: result.data
       };
     } else {
-      const errors = result.error.errors.map(err => {
+      const errors = result.error.issues.map((err: any) => {
         if (err.path.length > 0) {
           return `${err.path.join('.')}: ${err.message}`;
         }

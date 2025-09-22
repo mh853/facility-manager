@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createClient, supabaseAdmin } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth/middleware';
+import jwt from 'jsonwebtoken';
+
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
+const JWT_SECRET = process.env.JWT_SECRET!
 
 // 업무 상세 조회
 export async function GET(

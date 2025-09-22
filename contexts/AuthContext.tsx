@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { useRouter, usePathname } from 'next/navigation';
 import { X, Shield } from 'lucide-react';
 import { authAPI, TokenManager } from '@/lib/api-client';
-import { Employee } from '@/types/work-management';
+import { Employee } from '@/types';
 
 interface SocialAccount {
   id: string;
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       TokenManager.setToken(token);
 
       // 토큰 검증을 통해 최신 사용자 정보 가져오기
-      const response = await authAPI.verify();
+      const response = await authAPI.verify() as any;
 
       if (response.success && response.data) {
         setUser(response.data.user);
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       console.log('🔑 [AUTH-CONTEXT] 토큰 확인 중...');
-      const response = await authAPI.verify();
+      const response = await authAPI.verify() as any;
 
       if (response.success && response.data) {
         setUser(response.data.user);
@@ -241,7 +241,7 @@ export function withAuth<P extends object>(
     if (!user) {
       // 로그인 페이지로 리다이렉트 (현재 페이지 정보 포함)
       if (typeof window !== 'undefined') {
-        const redirectUrl = `/login?redirect=${encodeURIComponent(pathname)}`;
+        const redirectUrl = `/login?redirect=${encodeURIComponent(pathname || '/')}`;
         window.location.href = redirectUrl;
       }
       return null;

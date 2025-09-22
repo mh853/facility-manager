@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyTokenString } from '@/utils/auth';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 사용자 권한 승격 API (관리자만 사용 가능)
 export async function POST(request: NextRequest) {
   try {

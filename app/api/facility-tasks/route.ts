@@ -3,6 +3,11 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 담당자 타입 정의
 export interface TaskAssignee {
   id: string;
@@ -520,7 +525,7 @@ async function createTaskNotifications(params: {
   if (userIdArray.length === 0) return;
 
   // 알림 생성
-  const notifications = [];
+  const notifications: any[] = [];
 
   if (statusChanged) {
     const statusLabels: { [key: string]: string } = {

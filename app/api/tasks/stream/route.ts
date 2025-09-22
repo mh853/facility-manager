@@ -1,5 +1,10 @@
 import { NextRequest } from 'next/server'
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 전역 클라이언트 연결 관리
 const clients = new Set<ReadableStreamDefaultController>()
 

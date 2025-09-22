@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createToken } from '@/utils/auth';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 interface SocialUserInfo {
   provider: 'google' | 'kakao' | 'naver';
   social_id: string;

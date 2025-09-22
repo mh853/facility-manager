@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import jsPDF from 'jspdf';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // Google API 설정
 const auth = new google.auth.GoogleAuth({
   credentials: {

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export interface DatabaseUser {
   id: string;
@@ -20,7 +20,6 @@ export interface DatabaseUser {
 export class UserService {
   static async findByEmail(email: string): Promise<DatabaseUser | null> {
     try {
-      const supabase = createClient();
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -43,7 +42,6 @@ export class UserService {
 
   static async updateLastLogin(userId: string): Promise<void> {
     try {
-      const supabase = createClient();
       await supabase
         .from('users')
         .update({ last_login_at: new Date().toISOString() })
@@ -61,7 +59,6 @@ export class UserService {
     avatarUrl?: string
   ): Promise<DatabaseUser | null> {
     try {
-      const supabase = createClient();
 
       // 기존 사용자 확인
       let existingUser = await this.findByEmail(email);
@@ -119,7 +116,6 @@ export class UserService {
 
   static async getAllUsers(): Promise<DatabaseUser[]> {
     try {
-      const supabase = createClient();
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -139,7 +135,6 @@ export class UserService {
 
   static async updateUserRole(userId: string, newRole: number): Promise<boolean> {
     try {
-      const supabase = createClient();
       const { error } = await supabase
         .from('users')
         .update({
@@ -162,7 +157,6 @@ export class UserService {
 
   static async activateUser(userId: string): Promise<boolean> {
     try {
-      const supabase = createClient();
       const { error } = await supabase
         .from('users')
         .update({
@@ -185,7 +179,6 @@ export class UserService {
 
   static async deactivateUser(userId: string): Promise<boolean> {
     try {
-      const supabase = createClient();
       const { error } = await supabase
         .from('users')
         .update({

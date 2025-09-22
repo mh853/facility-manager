@@ -36,6 +36,13 @@ export const supabaseAdmin = createClient(
   }
 );
 
+// Missing exports - API routes에서 사용하는 함수들 추가
+export { createClient };
+
+export function getSupabaseAdminClient() {
+  return supabaseAdmin;
+}
+
 // 데이터베이스 타입 정의
 export interface Database {
   public: {

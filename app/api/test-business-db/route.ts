@@ -8,6 +8,10 @@ import {
   getBusinessNamesList
 } from '@/lib/supabase-business';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
     console.log('🔍 [TEST-BUSINESS-DB] Supabase 비즈니스 데이터베이스 연결 테스트 시작');

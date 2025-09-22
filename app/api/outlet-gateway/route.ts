@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DatabaseService } from '@/lib/database-service'
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // PUT: 배출구 게이트웨이 할당
 export async function PUT(request: NextRequest) {
   try {

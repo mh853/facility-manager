@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth/middleware';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 워크플로우 상태 조회 (GET)
 export async function GET(request: NextRequest) {
   try {
@@ -156,10 +161,10 @@ async function calculateWorkflowStatus(supabase: any, project: any) {
 
   // 각 단계별 완료 상태 계산
   const stepsWithStatus = workflow.steps.map(step => {
-    const stepTasks = tasks?.filter(task => step.tasks.includes(task.title)) || [];
-    const completedTasks = stepTasks.filter(task => task.status === '완료');
+    const stepTasks = tasks?.filter((task: any) => step.tasks.includes(task.title)) || [];
+    const completedTasks = stepTasks.filter((task: any) => task.status === '완료');
     const isCompleted = stepTasks.length > 0 && completedTasks.length === stepTasks.length;
-    const isInProgress = stepTasks.some(task => task.status === '진행중');
+    const isInProgress = stepTasks.some((task: any) => task.status === '진행중');
 
     return {
       ...step,
@@ -319,7 +324,7 @@ async function executeWorkflowAction(supabase: any, params: any) {
           .from('tasks')
           .update({ status: '진행중', start_date: new Date().toISOString().split('T')[0] })
           .eq('project_id', project.id)
-          .in('id', firstTasks.map(task => task.id));
+          .in('id', firstTasks.map((task: any) => task.id));
       }
 
       return {

@@ -4,6 +4,11 @@ import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/li
 import { supabaseAdmin } from '@/lib/supabase'
 import type { BusinessMemo, CreateBusinessMemoInput, UpdateBusinessMemoInput } from '@/types/database'
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // GET - 특정 사업장의 모든 메모 조회
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {

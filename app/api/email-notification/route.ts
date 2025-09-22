@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 이메일 설정 인터페이스
 interface EmailConfig {
   enabled: boolean;

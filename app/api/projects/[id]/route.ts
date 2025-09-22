@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth/middleware';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 프로젝트 상세 조회 (GET)
 export async function GET(
   request: NextRequest,
@@ -22,10 +27,10 @@ export async function GET(
       .eq('id', params.id);
 
     // 권한별 필터링
-    if (user.permission_level === 2) {
-      query = query.eq('department_id', user.department_id);
-    } else if (user.permission_level === 3) {
-      query = query.eq('manager_id', user.id);
+    if (user && user.permissionLevel === 2) {
+      query = query.eq('department_id', user.departmentId);
+    } else if (user && user.permissionLevel === 3) {
+      query = query.eq('manager_id', (user as any).id);
     }
 
     const { data: project, error: projectError } = await query.single();
@@ -110,10 +115,10 @@ export async function PUT(
       .select('manager_id, department_id')
       .eq('id', params.id);
 
-    if (user.permission_level === 2) {
-      accessQuery = accessQuery.eq('department_id', user.department_id);
-    } else if (user.permission_level === 3) {
-      accessQuery = accessQuery.eq('manager_id', user.id);
+    if (user && user.permissionLevel === 2) {
+      accessQuery = accessQuery.eq('department_id', user.departmentId);
+    } else if (user && user.permissionLevel === 3) {
+      accessQuery = accessQuery.eq('manager_id', (user as any).id);
     }
 
     const { data: projectAccess, error: accessError } = await accessQuery.single();
@@ -190,7 +195,7 @@ export async function DELETE(
     }
 
     // 권한 확인 (권한 1 또는 프로젝트 매니저만 삭제 가능)
-    if (user.permission_level > 2) {
+    if (user && user.permissionLevel > 2) {
       return NextResponse.json({
         success: false,
         error: '프로젝트 삭제 권한이 없습니다.'
@@ -205,8 +210,8 @@ export async function DELETE(
       .select('manager_id, department_id')
       .eq('id', params.id);
 
-    if (user.permission_level === 2) {
-      accessQuery = accessQuery.eq('department_id', user.department_id);
+    if (user && user.permissionLevel === 2) {
+      accessQuery = accessQuery.eq('department_id', user.departmentId);
     }
 
     const { data: projectAccess, error: accessError } = await accessQuery.single();

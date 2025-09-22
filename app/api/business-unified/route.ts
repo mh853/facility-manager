@@ -1,6 +1,11 @@
 // app/api/business-unified/route.ts - 통합된 사업장 정보 API
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 interface Contact {
   name: string;
   position: string;

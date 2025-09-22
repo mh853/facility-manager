@@ -3,6 +3,11 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { DatabaseService, BusinessInfo } from '@/lib/database-service';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
     console.log('🔍 [BUSINESS-MGMT] 어드민 사업장 목록 조회 (기존 데이터 활용)');

@@ -1,6 +1,11 @@
 // app/api/create-tables/route.ts - 테이블 생성 SQL 제공
 import { NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function GET() {
   const emergencyFix = `
 -- 🚨 응급 수정: 누락된 컬럼 추가 (기존 데이터 보존)

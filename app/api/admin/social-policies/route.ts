@@ -3,6 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { verifyTokenString } from '@/utils/auth';
 import { validateInput, ValidationSchemas } from '@/lib/security/input-validation';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 소셜 로그인 정책 목록 조회
 export async function GET(request: NextRequest) {
   try {

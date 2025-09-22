@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import { createToken, verifyToken, findUserByEmail } from '@/utils/auth';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function GET() {
   try {
     console.log('🔐 [TEST-AUTH] 인증 시스템 테스트 시작');
 
     // 1. Mock 사용자 조회
-    const adminUser = findUserByEmail('admin@facility.blueon-iot.com');
+    const adminUser = await findUserByEmail('admin@facility.blueon-iot.com');
     if (!adminUser) {
       return NextResponse.json({
         success: false,
@@ -36,7 +41,7 @@ export async function GET() {
 
     // 4. 사용자 재조회 (토큰 기반)
     if (tokenPayload) {
-      const userFromToken = findUserByEmail(tokenPayload.email);
+      const userFromToken = await findUserByEmail(tokenPayload.email);
       console.log('👤 [TEST-AUTH] 토큰으로부터 사용자 재조회:', {
         found: !!userFromToken,
         email: userFromToken?.email,

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth/middleware';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 작업 목록 조회 (GET)
 export async function GET(request: NextRequest) {
   try {
@@ -47,8 +52,8 @@ export async function GET(request: NextRequest) {
     }
 
     // 내 작업만 필터
-    if (my_tasks === 'true') {
-      query = query.eq('assigned_to', user.id);
+    if (my_tasks === 'true' && user) {
+      query = query.eq('assigned_to', (user as any).id);
     }
 
     // 마감 임박 작업 (7일 이내)
@@ -62,17 +67,17 @@ export async function GET(request: NextRequest) {
     }
 
     // 권한별 필터링
-    if (user.permission_level === 2) {
-      query = query.eq('department_id', user.department_id);
-    } else if (user.permission_level === 3) {
+    if (user && user.permissionLevel === 2) {
+      query = query.eq('department_id', user.departmentId);
+    } else if (user && user.permissionLevel === 3) {
       // 권한 3: 자신이 담당하거나 소속 프로젝트의 작업만
-      query = query.or(`assigned_to.eq.${user.id},project_id.in.(select id from projects where manager_id = ${user.id})`);
+      query = query.or(`assigned_to.eq.${(user as any).id},project_id.in.(select id from projects where manager_id = ${(user as any).id})`);
     }
 
     // 페이징 및 정렬
     query = query
       .order('priority', { ascending: false }) // 우선순위 순
-      .order('due_date', { ascending: true, nullsLast: true }) // 마감일 순
+      .order('due_date', { ascending: true }) // 마감일 순
       .range(offset, offset + limit - 1);
 
     const { data: tasks, error: tasksError } = await query;
@@ -95,8 +100,8 @@ export async function GET(request: NextRequest) {
     if (priority) countQuery = countQuery.eq('priority', priority);
     if (assigned_to) countQuery = countQuery.eq('assigned_to', assigned_to);
     if (department_id) countQuery = countQuery.eq('department_id', department_id);
-    if (my_tasks === 'true') countQuery = countQuery.eq('assigned_to', user.id);
-    if (user.permission_level === 2) countQuery = countQuery.eq('department_id', user.department_id);
+    if (my_tasks === 'true' && user) countQuery = countQuery.eq('assigned_to', (user as any).id);
+    if (user && user.permissionLevel === 2) countQuery = countQuery.eq('department_id', user.departmentId);
 
     const { count } = await countQuery;
 
@@ -162,10 +167,10 @@ export async function POST(request: NextRequest) {
       .select('id, department_id, manager_id')
       .eq('id', project_id);
 
-    if (user.permission_level === 2) {
-      projectQuery = projectQuery.eq('department_id', user.department_id);
-    } else if (user.permission_level === 3) {
-      projectQuery = projectQuery.eq('manager_id', user.id);
+    if (user && user.permissionLevel === 2) {
+      projectQuery = projectQuery.eq('department_id', user.departmentId);
+    } else if (user && user.permissionLevel === 3) {
+      projectQuery = projectQuery.eq('manager_id', (user as any).id);
     }
 
     const { data: project, error: projectError } = await projectQuery.single();
@@ -193,7 +198,7 @@ export async function POST(request: NextRequest) {
         parent_task_id,
         order_in_project,
         notes,
-        created_by: user.id
+        created_by: (user as any)?.id
       })
       .select()
       .single();
@@ -213,7 +218,7 @@ export async function POST(request: NextRequest) {
         task_id: task.id,
         content: `작업이 생성되었습니다.`,
         comment_type: 'status_change',
-        author_id: user.id
+        author_id: (user as any)?.id
       });
 
     return NextResponse.json({

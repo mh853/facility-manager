@@ -79,11 +79,11 @@ export function useSSE({
         }
       }
 
-      eventSource.onclose = () => {
+      eventSource.addEventListener('close', () => {
         console.log('SSE connection closed')
         setConnectionStatus('disconnected')
         onClose?.()
-      }
+      })
 
     } catch (error) {
       console.error('Failed to establish SSE connection:', error)

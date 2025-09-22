@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 댓글 목록 조회
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { user, error: authError } = await verifyAuth(request);
+    const { user, error: authError } = await verifyAuth() as any;
     if (authError) {
       return NextResponse.json({ success: false, error: authError }, { status: 401 });
     }
@@ -54,7 +59,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { user, error: authError } = await verifyAuth(request);
+    const { user, error: authError } = await verifyAuth() as any;
     if (authError) {
       return NextResponse.json({ success: false, error: authError }, { status: 401 });
     }
@@ -146,8 +151,7 @@ export async function POST(
         user_id: user.id
       })
       .select()
-      .single()
-      .catch(() => {}); // 이미 존재하면 무시
+      .single(); // 이미 존재하면 무시
 
     return NextResponse.json({
       success: true,

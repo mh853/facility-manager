@@ -6,6 +6,11 @@ import { createHash } from 'crypto';
 import { generateFacilityFileName, generateBasicFileName } from '@/utils/filename-generator';
 import sharp from 'sharp';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 파일 해시 계산
 async function calculateFileHash(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();

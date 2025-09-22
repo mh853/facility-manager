@@ -63,7 +63,7 @@ interface TaskFormData {
 export default function EditTaskPage() {
   const params = useParams();
   const router = useRouter();
-  const taskId = params.id as string;
+  const taskId = params?.id as string;
 
   const [metadata, setMetadata] = useState<TaskMetadata | null>(null);
   const [loading, setLoading] = useState(true);

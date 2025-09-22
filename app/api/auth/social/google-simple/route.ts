@@ -3,6 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { generateToken } from '@/utils/auth';
 import crypto from 'crypto';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = process.env.NODE_ENV === 'production'

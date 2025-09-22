@@ -1,6 +1,11 @@
 // app/api/uploaded-files/route.ts - 업로드된 파일 관리 API (간소화)
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);

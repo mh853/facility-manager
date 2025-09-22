@@ -3,6 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { generateToken } from '@/utils/auth';
 import crypto from 'crypto';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 처리 중인 코드 캐시 (중복 요청 방지)
 const processingCodes = new Map<string, Promise<NextResponse>>();
 const processedCodes = new Map<string, { response: any; timestamp: number }>();

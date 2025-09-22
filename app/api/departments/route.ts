@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth/middleware';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function GET(request: NextRequest) {
   try {
     const { user, error: authError } = await verifyAuth(request);
@@ -31,7 +36,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     // 계층 구조 정리
-    const departmentsWithStats = departments?.map(dept => ({
+    const departmentsWithStats = departments?.map((dept: any) => ({
       ...dept,
       employee_count: dept.employees?.filter((emp: any) => emp.is_active).length || 0,
       total_employees: dept.employees?.length || 0
@@ -59,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 관리자 권한 확인
-    if (user.permissionLevel < 3) {
+    if (!user || user.permissionLevel < 3) {
       return NextResponse.json(
         { success: false, error: '부서 생성 권한이 없습니다.' },
         { status: 403 }
@@ -145,7 +150,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 관리자 권한 확인
-    if (user.permissionLevel < 3) {
+    if (!user || user.permissionLevel < 3) {
       return NextResponse.json(
         { success: false, error: '부서 수정 권한이 없습니다.' },
         { status: 403 }

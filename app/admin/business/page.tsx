@@ -670,7 +670,9 @@ function BusinessManagementPage() {
         setEditingMemo(null)
 
         // 서버에서 전체 메모 목록 다시 로드
-        await loadBusinessMemos(selectedBusiness.id)
+        if (selectedBusiness) {
+          await loadBusinessMemos(selectedBusiness.id)
+        }
         console.log('🔧 [FRONTEND] 메모 수정 후 목록 다시 로드 완료')
       } else {
         alert(`메모 수정 실패: ${result.error}`)
@@ -3830,4 +3832,4 @@ function BusinessManagementPage() {
   )
 }
 
-export default withAuth(BusinessManagementPage, 'canAccessAdminPages')
+export default withAuth(BusinessManagementPage, 'canAccessAdminPages' as any)

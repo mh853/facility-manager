@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 댓글 수정
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { user, error: authError } = await verifyAuth(request);
+    const { user, error: authError } = await verifyAuth() as any;
     if (authError) {
       return NextResponse.json({ success: false, error: authError }, { status: 401 });
     }
@@ -123,7 +128,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { user, error: authError } = await verifyAuth(request);
+    const { user, error: authError } = await verifyAuth() as any;
     if (authError) {
       return NextResponse.json({ success: false, error: authError }, { status: 401 });
     }

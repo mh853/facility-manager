@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DatabaseService, AirPermitInfo } from '@/lib/database-service'
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // GET: 대기필증 정보 조회
 export async function GET(request: NextRequest) {
   try {

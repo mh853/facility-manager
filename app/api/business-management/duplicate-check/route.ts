@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DatabaseService } from '@/lib/database-service'
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // POST: 사업장명 중복 및 유사도 체크
 export async function POST(request: NextRequest) {
   try {

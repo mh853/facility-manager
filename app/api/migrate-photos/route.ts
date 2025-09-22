@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function POST(request: NextRequest) {
   const requestId = Math.random().toString(36).substr(2, 9);
   console.log(`🚀 [MIGRATION] 기존 사진 마이그레이션 시작: ${requestId}`);

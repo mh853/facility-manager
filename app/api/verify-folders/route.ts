@@ -1,6 +1,11 @@
 // app/api/verify-folders/route.ts - Google Drive 폴더 검증 API
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function GET(request: NextRequest) {
   try {
     console.log('🔍 [VERIFY] Starting folder verification');

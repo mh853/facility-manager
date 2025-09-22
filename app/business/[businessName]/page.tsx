@@ -33,7 +33,7 @@ function useIsHydrated() {
 export default function BusinessDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const businessName = useMemo(() => decodeURIComponent(params.businessName as string), [params.businessName]);
+  const businessName = useMemo(() => decodeURIComponent(params?.businessName as string), [params?.businessName]);
   const [systemType, setSystemType] = useState<SystemType>('presurvey');
   const [currentPhase, setCurrentPhase] = useState<SystemPhase>('presurvey');
   const isHydrated = useIsHydrated();

@@ -3,6 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 
 // 비밀번호 재설정

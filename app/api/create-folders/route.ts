@@ -1,6 +1,11 @@
 // app/api/create-folders/route.ts - Google Drive 폴더 자동 생성 API
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function POST(request: NextRequest) {
   try {
     console.log('🗂️ [CREATE-FOLDERS] 폴더 생성 시작');

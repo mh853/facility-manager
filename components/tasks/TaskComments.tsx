@@ -361,7 +361,7 @@ export default function TaskComments({ taskId, employees }: TaskCommentsProps) {
               >
                 <AtSign className="w-4 h-4 text-gray-500" />
                 <span>{employee.name}</span>
-                <span className="text-sm text-gray-500">({employee.position})</span>
+                <span className="text-sm text-gray-500">({(employee as any).position})</span>
               </button>
             ))}
           </div>

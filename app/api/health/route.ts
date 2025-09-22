@@ -1,6 +1,11 @@
 // app/api/health/route.ts - 헬스체크 및 환경 변수 검증 (Vercel 최적화)
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function GET(request: NextRequest) {
   try {
     const requiredEnvVars = [

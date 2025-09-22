@@ -9,6 +9,11 @@ import {
 } from '@/lib/supabase-business';
 import { verifyToken } from '@/utils/auth';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // GET /api/businesses - 사업장 목록 조회
 export const GET = withApiHandler(async (request: NextRequest) => {
   // 인증 확인

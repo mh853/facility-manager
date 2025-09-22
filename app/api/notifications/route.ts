@@ -3,6 +3,11 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 기존 사용자 알림 타입
 export interface UserNotification {
   id: string;
@@ -54,13 +59,61 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     const userId = searchParams.get('userId');
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
     const limit = parseInt(searchParams.get('limit') || '50');
+    const taskNotifications = searchParams.get('taskNotifications') === 'true';
 
-    console.log('📢 [NOTIFICATIONS] 알림 목록 조회:', { userId, unreadOnly, limit });
+    console.log('📢 [NOTIFICATIONS] 알림 목록 조회:', { userId, unreadOnly, limit, taskNotifications });
 
     if (!userId) {
       return createErrorResponse('사용자 ID가 필요합니다', 400);
     }
 
+    // 업무 담당자 알림 조회
+    if (taskNotifications) {
+      let query = supabaseAdmin
+        .from('task_notifications')
+        .select(`
+          id,
+          user_id,
+          user_name,
+          task_id,
+          business_name,
+          message,
+          notification_type,
+          priority,
+          is_read,
+          read_at,
+          created_at,
+          expires_at
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      // 읽지 않은 알림만 필터링
+      if (unreadOnly) {
+        query = query.eq('is_read', false);
+      }
+
+      // 만료되지 않은 알림만 조회
+      query = query.or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+
+      const { data: notifications, error } = await query;
+
+      if (error) {
+        console.error('🔴 [TASK-NOTIFICATIONS] 조회 오류:', error);
+        throw error;
+      }
+
+      console.log('✅ [TASK-NOTIFICATIONS] 조회 성공:', notifications?.length || 0, '개 업무 알림');
+
+      return createSuccessResponse({
+        taskNotifications: notifications || [],
+        count: notifications?.length || 0,
+        unreadCount: notifications?.filter(n => !n.is_read).length || 0
+      });
+    }
+
+    // 기본 사용자 알림 조회
     let query = supabaseAdmin
       .from('user_notifications')
       .select(`
@@ -200,16 +253,18 @@ export const POST = withApiHandler(async (request: NextRequest) => {
 export const PUT = withApiHandler(async (request: NextRequest) => {
   try {
     const body = await request.json();
-    const { notification_ids, user_id, mark_all_read } = body;
+    const { notification_ids, user_id, mark_all_read, is_task_notification } = body;
 
-    console.log('📢 [NOTIFICATIONS] 읽음 처리:', { notification_ids, user_id, mark_all_read });
+    console.log('📢 [NOTIFICATIONS] 읽음 처리:', { notification_ids, user_id, mark_all_read, is_task_notification });
 
     if (!user_id) {
       return createErrorResponse('사용자 ID가 필요합니다', 400);
     }
 
+    const tableName = is_task_notification ? 'task_notifications' : 'user_notifications';
+
     let query = supabaseAdmin
-      .from('user_notifications')
+      .from(tableName)
       .update({
         is_read: true,
         read_at: new Date().toISOString()
@@ -313,182 +368,3 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
     return createErrorResponse('알림 삭제 중 오류가 발생했습니다', 500);
   }
 }, { logLevel: 'debug' });
-
-// ============================================================================
-// 업무 담당자 알림 시스템 (task_notifications 테이블 사용)
-// ============================================================================
-
-// 업무 담당자 알림 조회를 위한 별도 엔드포인트
-export async function getTaskNotifications(request: NextRequest) {
-  return withApiHandler(async (request: NextRequest) => {
-    try {
-      const { searchParams } = new URL(request.url);
-      const userId = searchParams.get('userId');
-      const unreadOnly = searchParams.get('unreadOnly') === 'true';
-      const limit = parseInt(searchParams.get('limit') || '50');
-
-      console.log('📋 [TASK-NOTIFICATIONS] 업무 알림 조회:', { userId, unreadOnly, limit });
-
-      if (!userId) {
-        return createErrorResponse('사용자 ID는 필수입니다', 400);
-      }
-
-      let query = supabaseAdmin
-        .from('task_notifications')
-        .select(`
-          id,
-          user_id,
-          user_name,
-          task_id,
-          business_name,
-          message,
-          notification_type,
-          priority,
-          is_read,
-          read_at,
-          created_at,
-          expires_at
-        `)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      // 읽지 않은 알림만 필터링
-      if (unreadOnly) {
-        query = query.eq('is_read', false);
-      }
-
-      // 만료되지 않은 알림만 조회
-      query = query.or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
-
-      const { data: notifications, error } = await query;
-
-      if (error) {
-        console.error('🔴 [TASK-NOTIFICATIONS] 조회 오류:', error);
-        throw error;
-      }
-
-      console.log('✅ [TASK-NOTIFICATIONS] 조회 성공:', notifications?.length || 0, '개 업무 알림');
-
-      return createSuccessResponse({
-        taskNotifications: notifications || [],
-        count: notifications?.length || 0,
-        unreadCount: notifications?.filter(n => !n.is_read).length || 0
-      });
-
-    } catch (error: any) {
-      console.error('🔴 [TASK-NOTIFICATIONS] GET 오류:', error?.message || error);
-      return createErrorResponse('업무 알림 조회 중 오류가 발생했습니다', 500);
-    }
-  }, { logLevel: 'debug' })(request);
-}
-
-// 업무 담당자 알림 생성을 위한 유틸리티 함수
-export const createTaskNotification = async (params: {
-  task_id: string;
-  user_ids: string[];
-  business_name: string;
-  notification_type: 'delay' | 'risk' | 'status_change' | 'assignment' | 'completion';
-  task_title?: string;
-  old_status?: string;
-  new_status?: string;
-  priority?: 'low' | 'normal' | 'high' | 'urgent';
-}) => {
-  const {
-    task_id,
-    user_ids,
-    business_name,
-    notification_type,
-    task_title,
-    old_status,
-    new_status,
-    priority = 'normal'
-  } = params;
-
-  // 알림 메시지 생성
-  let message = '';
-  switch (notification_type) {
-    case 'delay':
-      message = `${business_name}의 업무 "${task_title}"이 지연 상태입니다.`;
-      break;
-    case 'risk':
-      message = `${business_name}의 업무 "${task_title}"이 위험 상태입니다. 즉시 확인이 필요합니다.`;
-      break;
-    case 'status_change':
-      message = `${business_name}의 업무 "${task_title}"이 ${old_status}에서 ${new_status}로 변경되었습니다.`;
-      break;
-    case 'assignment':
-      message = `${business_name}의 새 업무 "${task_title}"이 담당자로 배정되었습니다.`;
-      break;
-    case 'completion':
-      message = `${business_name}의 업무 "${task_title}"이 완료되었습니다.`;
-      break;
-  }
-
-  // 각 사용자에게 알림 생성
-  const notifications = user_ids.map(user_id => ({
-    user_id,
-    task_id,
-    business_name,
-    message,
-    notification_type,
-    priority
-  }));
-
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('task_notifications')
-      .insert(notifications)
-      .select();
-
-    if (error) {
-      console.error('🔴 [TASK-NOTIFICATIONS] 자동 알림 생성 오류:', error);
-      return { success: false, error };
-    }
-
-    console.log('✅ [TASK-NOTIFICATIONS] 자동 알림 생성 성공:', data?.length || 0, '개 알림');
-    return { success: true, data };
-
-  } catch (error) {
-    console.error('🔴 [TASK-NOTIFICATIONS] 자동 알림 생성 예외:', error);
-    return { success: false, error };
-  }
-};
-
-// 업무 담당자 알림 읽음 처리
-export const markTaskNotificationsAsRead = async (params: {
-  notification_ids?: string[];
-  user_id: string;
-  mark_all?: boolean;
-}) => {
-  const { notification_ids, user_id, mark_all = false } = params;
-
-  try {
-    let query = supabaseAdmin
-      .from('task_notifications')
-      .update({
-        is_read: true,
-        read_at: new Date().toISOString()
-      })
-      .eq('user_id', user_id)
-      .eq('is_read', false);
-
-    if (!mark_all && notification_ids && notification_ids.length > 0) {
-      query = query.in('id', notification_ids);
-    }
-
-    const { data: updatedNotifications, error } = await query.select();
-
-    if (error) {
-      console.error('🔴 [TASK-NOTIFICATIONS] 읽음 처리 오류:', error);
-      return { success: false, error };
-    }
-
-    console.log('✅ [TASK-NOTIFICATIONS] 읽음 처리 성공:', updatedNotifications?.length || 0, '개 알림');
-    return { success: true, data: updatedNotifications };
-
-  } catch (error) {
-    console.error('🔴 [TASK-NOTIFICATIONS] 읽음 처리 예외:', error);
-    return { success: false, error };
-  }
-};

@@ -7,13 +7,13 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret';
 
-export interface ExtendedNextApiResponse extends NextApiResponse {
+export type ExtendedNextApiResponse = NextApiResponse & {
   socket: {
     server: HTTPServer & {
       io?: SocketIOServer;
     };
   };
-}
+};
 
 export interface AuthenticatedSocket {
   id: string;

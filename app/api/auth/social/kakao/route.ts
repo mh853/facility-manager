@@ -3,6 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { createToken } from '@/utils/auth';
 import { validateInput, ValidationSchemas } from '@/lib/security/input-validation';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 카카오 API 정보
 const KAKAO_CLIENT_ID = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
 const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;

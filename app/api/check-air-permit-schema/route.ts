@@ -3,6 +3,11 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse } from '@/lib/api-utils';
 import { getSupabaseAdminClient } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
     console.log('🔍 [CHECK-SCHEMA] 대기필증 스키마 구조 확인 시작');

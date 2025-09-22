@@ -6,6 +6,11 @@ import { FacilitiesData, Facility } from '@/types';
 import { generateFacilityNumbering, type FacilityNumberingResult } from '@/utils/facility-numbering';
 import { AirPermitWithOutlets } from '@/types/database';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // HTTP 캐시 헤더 설정
 const CACHE_HEADERS = {
   'Cache-Control': 'public, max-age=300, stale-while-revalidate=60', // 5분 캐시, 1분 stale

@@ -3,6 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { generateToken } from '@/utils/auth';
 import crypto from 'crypto';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
 const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
 const NAVER_REDIRECT_URI = process.env.NODE_ENV === 'production'

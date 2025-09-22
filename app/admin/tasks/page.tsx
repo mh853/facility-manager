@@ -760,6 +760,7 @@ function TaskManagementPage() {
       status: 'customer_contact',
       priority: 'medium',
       assignee: '',
+      assignees: [],
       startDate: today,
       dueDate: '',
         description: '',
@@ -1994,4 +1995,4 @@ function TaskManagementPage() {
   );
 }
 
-export default withAuth(TaskManagementPage, 'canAccessAdminPages')
+export default withAuth(TaskManagementPage, 'canAccessAdminPages' as any)

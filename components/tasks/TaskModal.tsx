@@ -44,10 +44,10 @@ export default function TaskModal({
         description: task.description || '',
         project_id: task.project_id || '',
         assigned_to: task.assigned_to || '',
-        status: task.status,
-        priority: task.priority,
+        status: task.status as any,
+        priority: task.priority as any,
         due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '',
-        estimated_hours: task.estimated_hours || 0
+        estimated_hours: (task as any).estimated_hours || 0
       });
     } else {
       setFormData({
@@ -97,11 +97,11 @@ export default function TaskModal({
     setIsSubmitting(true);
 
     try {
-      const submitData: Partial<Task> = {
+      const submitData = {
         ...formData,
-        due_date: formData.due_date || null,
-        estimated_hours: formData.estimated_hours || null
-      };
+        due_date: formData.due_date || undefined,
+        estimated_hours: formData.estimated_hours || undefined
+      } as unknown as Partial<Task>;
 
       await onSubmit(submitData);
       onClose();
@@ -236,7 +236,7 @@ export default function TaskModal({
                   <option value="">담당자 선택</option>
                   {employees.map(employee => (
                     <option key={employee.id} value={employee.id}>
-                      {employee.name} ({employee.position})
+                      {employee.name} ({(employee as any).position})
                     </option>
                   ))}
                 </select>

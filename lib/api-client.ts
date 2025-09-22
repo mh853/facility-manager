@@ -1,5 +1,5 @@
 // API Client for work management system
-import { Employee } from '@/types/work-management';
+import { Employee } from '@/types';
 
 export class TokenManager {
   private static readonly TOKEN_KEY = 'auth_token';

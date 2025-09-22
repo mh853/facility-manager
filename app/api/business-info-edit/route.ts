@@ -1,6 +1,11 @@
 // app/api/business-info-edit/route.ts - business_info 테이블 직접 수정 API
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();

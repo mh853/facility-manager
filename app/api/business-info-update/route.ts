@@ -1,6 +1,11 @@
 // app/api/business-info-update/route.ts - business_info 테이블 업데이트 API
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 interface ExcelBusinessData {
   사업장명: string;
   주소: string;

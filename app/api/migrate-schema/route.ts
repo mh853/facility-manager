@@ -1,6 +1,11 @@
 // app/api/migrate-schema/route.ts - 데이터베이스 스키마 마이그레이션 API
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function POST(request: NextRequest) {
   try {
     console.log('🔧 [MIGRATION] 데이터베이스 스키마 마이그레이션 시작...');

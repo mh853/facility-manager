@@ -4,6 +4,11 @@ import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/li
 import { getSupabaseAdminClient } from '@/lib/supabase';
 import { verifyToken } from '@/utils/auth';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // GET /api/air-permits - 대기필증 목록 조회
 export const GET = withApiHandler(async (request: NextRequest) => {
   // 임시로 인증 체크 제거 (테스트용)

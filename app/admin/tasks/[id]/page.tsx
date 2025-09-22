@@ -68,7 +68,7 @@ interface TaskHistory {
 export default function TaskDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const taskId = params.id as string;
+  const taskId = params?.id as string;
 
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [history, setHistory] = useState<TaskHistory[]>([]);

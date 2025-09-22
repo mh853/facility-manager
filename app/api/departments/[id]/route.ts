@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth/middleware';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -86,7 +91,7 @@ export async function DELETE(
     }
 
     // 관리자 권한 확인
-    if (user.permissionLevel < 3) {
+    if (!user || user.permissionLevel < 3) {
       return NextResponse.json(
         { success: false, error: '부서 삭제 권한이 없습니다.' },
         { status: 403 }

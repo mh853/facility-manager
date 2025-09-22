@@ -112,10 +112,10 @@ export default function TaskCard({
   const StatusIcon = statusConfig.icon;
 
   // 마감일 체크
-  const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== '완료';
+  const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed';
   const isDueSoon = task.due_date &&
     new Date(task.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) &&
-    task.status !== '완료';
+    task.status !== 'completed';
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ko-KR');
@@ -195,7 +195,7 @@ export default function TaskCard({
           <User className="w-4 h-4" />
           <span>{assignedEmployee.name}</span>
           <span className="text-xs text-gray-500">
-            ({assignedEmployee.position})
+            ({(assignedEmployee as any).position})
           </span>
         </div>
       )}
@@ -209,7 +209,7 @@ export default function TaskCard({
             <Calendar className="w-4 h-4" />
             <span>마감: {formatDate(task.due_date)}</span>
             {isOverdue && (
-              <AlertCircle className="w-4 h-4 text-red-500" title="마감 지연" />
+              <AlertCircle className="w-4 h-4 text-red-500" />
             )}
           </div>
         )}
@@ -223,7 +223,7 @@ export default function TaskCard({
       </div>
 
       {/* 진행률 표시 (추후 구현 시) */}
-      {task.status === '진행중' && (
+      {task.status === 'in_progress' && (
         <div className="mt-4 pt-4 border-t border-gray-200">
           <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
             <span>진행률</span>

@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'stream';
 
-// Vercel 최적화 설정
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 

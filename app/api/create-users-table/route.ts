@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function POST() {
   try {
     console.log('🚀 [CREATE-TABLE] users 테이블 생성 시작');
 
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     // 먼저 기존 테이블 삭제 (있다면)
     console.log('🗑️ [CREATE-TABLE] 기존 테이블 확인 및 정리');

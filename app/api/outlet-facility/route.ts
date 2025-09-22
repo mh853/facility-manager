@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DatabaseService, DischargeOutlet, DischargeFacility, PreventionFacility } from '@/lib/database-service'
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // GET: 배출구 및 시설 정보 조회
 export async function GET(request: NextRequest) {
   try {

@@ -19,6 +19,11 @@ export function createToken(payload: any): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRE_TIME });
 }
 
+// Missing export - generateToken 함수 추가 (createToken의 별칭)
+export function generateToken(payload: any): string {
+  return createToken(payload);
+}
+
 // JWT Token 검증
 export function verifyToken(token: string): any {
   try {

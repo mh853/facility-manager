@@ -230,7 +230,7 @@ export default function AdminLayout({ children, title, description, actions }: A
 
             {/* Navigation */}
             <nav className="flex-1 px-4 lg:px-3 py-4 lg:py-3 space-y-2 lg:space-y-1 lg:overflow-y-auto">
-              <NavigationItems pathname={pathname} onItemClick={() => setSidebarOpen(false)} />
+              <NavigationItems pathname={pathname || ''} onItemClick={() => setSidebarOpen(false)} />
             </nav>
 
             {/* Footer */}

@@ -3,6 +3,11 @@ import { NextRequest } from 'next/server';
 import { sheets } from '@/lib/google-client';
 import { withApiHandler, createSuccessResponse, withTimeout } from '@/lib/api-utils';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export const GET = withApiHandler(async (request: NextRequest) => {
   // 대기필증 DB가 포함된 스프레드시트 사용 (UPLOAD_SPREADSHEET_ID 우선)
   const uploadSpreadsheetId = process.env.UPLOAD_SPREADSHEET_ID || process.env.DATA_COLLECTION_SPREADSHEET_ID || process.env.MAIN_SPREADSHEET_ID;
@@ -36,6 +41,10 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   }
 
   // 시트 메타데이터 조회 (타임아웃 적용)
+  if (!sheets) {
+    throw new Error('Google Sheets 클라이언트를 초기화할 수 없습니다');
+  }
+
   const metadata = await withTimeout(
     sheets.spreadsheets.get({ spreadsheetId: uploadSpreadsheetId }),
     5000

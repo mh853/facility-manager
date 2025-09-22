@@ -8,7 +8,7 @@ export interface PushNotificationOptions {
   badge?: string;
   tag?: string;
   data?: any;
-  actions?: NotificationAction[];
+  actions?: { action: string; title: string; icon?: string }[];
   requireInteraction?: boolean;
   silent?: boolean;
 }
@@ -73,7 +73,7 @@ class PushNotificationManager {
         // 새 구독 생성
         this.subscription = await this.registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: this.urlBase64ToUint8Array(this.VAPID_PUBLIC_KEY)
+          applicationServerKey: this.urlBase64ToUint8Array(this.VAPID_PUBLIC_KEY) as BufferSource
         });
       }
 
@@ -118,7 +118,7 @@ class PushNotificationManager {
       return;
     }
 
-    const notificationOptions: NotificationOptions = {
+    const notificationOptions: any = {
       body: options.body,
       icon: options.icon || '/icon-192x192.png',
       badge: options.badge || '/badge-72x72.png',

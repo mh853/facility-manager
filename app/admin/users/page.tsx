@@ -134,7 +134,7 @@ function ApprovalSettingsForm({ settings, onSave, onTest, isSaving }: {
   const removeDomain = (domain: string) => {
     setFormData({
       ...formData,
-      auto_approval_domains: formData.auto_approval_domains.filter(d => d !== domain)
+      auto_approval_domains: formData.auto_approval_domains.filter((d: string) => d !== domain)
     });
   };
 
@@ -151,7 +151,7 @@ function ApprovalSettingsForm({ settings, onSave, onTest, isSaving }: {
   const removeNotificationEmail = (email: string) => {
     setFormData({
       ...formData,
-      notification_emails: formData.notification_emails.filter(e => e !== email)
+      notification_emails: formData.notification_emails.filter((e: string) => e !== email)
     });
   };
 
@@ -204,7 +204,7 @@ function ApprovalSettingsForm({ settings, onSave, onTest, isSaving }: {
               </button>
             </div>
             <div className="flex flex-wrap gap-2">
-              {formData.auto_approval_domains.map((domain, index) => (
+              {formData.auto_approval_domains.map((domain: string, index: number) => (
                 <span
                   key={index}
                   className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
@@ -279,7 +279,7 @@ function ApprovalSettingsForm({ settings, onSave, onTest, isSaving }: {
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {formData.notification_emails.map((email, index) => (
+            {formData.notification_emails.map((email: string, index: number) => (
               <span
                 key={index}
                 className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800"
@@ -1666,4 +1666,4 @@ function UsersManagementPage() {
 }
 
 // 관리자 페이지 접근 권한 필요 (레벨 3: 관리자만)
-export default withAuth(UsersManagementPage, 'canAccessAdminPages', 3)
+export default withAuth(UsersManagementPage, 'canAccessAdminPages' as any, 3)

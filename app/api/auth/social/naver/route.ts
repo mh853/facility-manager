@@ -3,6 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { generateToken } from '@/utils/auth';
 import { validateInput, ValidationSchemas } from '@/lib/security/input-validation';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 네이버 API 정보
 const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
 const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;

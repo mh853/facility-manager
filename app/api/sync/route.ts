@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sheets } from '@/lib/google-client';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 구글시트와 시스템 간 양방향 동기화 API
 export async function GET(request: NextRequest) {
   try {
@@ -33,6 +38,10 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('🔄 [SYNC] 사용할 시트:', { spreadsheetId, sheetName });
+
+    if (!sheets) {
+      throw new Error('Google Sheets 클라이언트를 초기화할 수 없습니다');
+    }
 
     // 해당 시트에서 사업장 데이터 조회
     const range = `'${sheetName}'!A:H`;
@@ -136,6 +145,10 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    if (!sheets) {
+      throw new Error('Google Sheets 클라이언트를 초기화할 수 없습니다');
+    }
+
     // 해당 사업장 행 찾기
     const range = `'${sheetName}'!A:H`;
     const response = await sheets.spreadsheets.values.get({
@@ -192,6 +205,10 @@ export async function POST(request: NextRequest) {
     console.log('🔄 [SYNC] ⚠️ A, B열 완전 보호 - 수정하지 않음');
     console.log('🔄 [SYNC] 포맷된 연락처:', formattedContact);
     console.log('🔄 [SYNC] 업데이트할 데이터 (C~H열):', updatedRow);
+
+    if (!sheets) {
+      throw new Error('Google Sheets 클라이언트를 초기화할 수 없습니다');
+    }
 
     // C열부터 H열까지만 업데이트
     await sheets.spreadsheets.values.update({
@@ -253,7 +270,11 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
+    if (!sheets) {
+      throw new Error('Google Sheets 클라이언트를 초기화할 수 없습니다');
+    }
+
     const range = `'${sheetName}'!A:H`;
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,

@@ -1,6 +1,8 @@
 // app/api/edge/route.ts - Vercel Edge Function for image optimization
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 export const preferredRegion = ['icn1', 'hnd1']; // 한국/일본 리전 우선
 

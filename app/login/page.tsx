@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Building2, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading, socialLogin } = useAuth()
@@ -17,21 +17,21 @@ export default function LoginPage() {
   // 이미 로그인된 사용자는 리다이렉트
   useEffect(() => {
     if (user && !authLoading) {
-      const redirectTo = searchParams.get('redirect') || '/admin'
+      const redirectTo = searchParams?.get('redirect') || '/admin'
       router.push(redirectTo)
     }
   }, [user, authLoading, router, searchParams])
 
   // URL 파라미터에서 성공/오류 메시지 확인
   useEffect(() => {
-    const success = searchParams.get('success')
-    const errorParam = searchParams.get('error')
+    const success = searchParams?.get('success')
+    const errorParam = searchParams?.get('error')
 
     if (success === 'true') {
       setSuccessMessage('카카오 로그인이 성공했습니다! 잠시만 기다려주세요...')
       // 성공 시 즉시 admin 페이지로 리다이렉트
       setTimeout(() => {
-        const redirectTo = searchParams.get('redirect') || '/admin'
+        const redirectTo = searchParams?.get('redirect') || '/admin'
         window.location.href = redirectTo
       }, 1500) // 1.5초 후 리다이렉트
     }
@@ -174,5 +174,20 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

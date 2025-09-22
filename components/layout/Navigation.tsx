@@ -86,7 +86,7 @@ export default function Navigation() {
     if (href === '/') {
       return pathname === '/';
     }
-    return pathname.startsWith(href);
+    return pathname?.startsWith(href) ?? false;
   };
 
   const NavigationLink = ({ item }: { item: NavigationItem }) => {

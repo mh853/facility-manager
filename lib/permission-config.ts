@@ -1,4 +1,5 @@
 // 권한별 페이지 접근 제어 설정
+import React from 'react';
 export interface PagePermission {
   path: string;
   name: string;
@@ -245,7 +246,7 @@ export const withPermissionLevel = (requiredLevel: number) => {
   return function<P extends object>(Component: React.ComponentType<P>) {
     return function PermissionComponent(props: P) {
       // 이 함수는 withAuth HOC와 함께 사용될 예정
-      return Component(props);
+      return React.createElement(Component, props);
     };
   };
 };

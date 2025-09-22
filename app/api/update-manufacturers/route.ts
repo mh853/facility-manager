@@ -1,6 +1,11 @@
 // app/api/update-manufacturers/route.ts - 제조사명 한글 업데이트
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function POST(request: NextRequest) {
   try {
     console.log('🏭 [UPDATE-MANUFACTURERS] 제조사명 한글 업데이트 시작...');

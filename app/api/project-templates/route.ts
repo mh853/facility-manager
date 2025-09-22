@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth/middleware';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 프로젝트 템플릿 목록 조회 (GET)
 export async function GET(request: NextRequest) {
   try {
@@ -38,8 +43,8 @@ export async function GET(request: NextRequest) {
     }
 
     // 권한별 필터링
-    if (user.permission_level === 2) {
-      query = query.eq('department_id', user.department_id);
+    if (user && user.permissionLevel === 2) {
+      query = query.eq('department_id', user.departmentId);
     }
 
     // 정렬
@@ -78,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 권한 확인 (권한 3은 템플릿 생성 불가)
-    if (user.permission_level === 3) {
+    if (user && user.permissionLevel === 3) {
       return NextResponse.json({
         success: false,
         error: '템플릿 생성 권한이 없습니다.'
@@ -120,8 +125,8 @@ export async function POST(request: NextRequest) {
         description,
         project_type,
         template_tasks,
-        department_id: department_id || user.department_id,
-        created_by: user.id
+        department_id: department_id || user?.departmentId,
+        created_by: (user as any)?.id
       })
       .select()
       .single();

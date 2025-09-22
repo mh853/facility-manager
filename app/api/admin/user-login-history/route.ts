@@ -3,6 +3,11 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 로그인 이력 정보 타입
 export interface UserLoginHistory {
   id: string;
@@ -87,7 +92,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         ? Math.floor((new Date(session.logout_at).getTime() - new Date(session.created_at).getTime()) / 1000)
         : session.is_active
           ? Math.floor((new Date().getTime() - new Date(session.created_at).getTime()) / 1000)
-          : null,
+          : undefined,
       is_suspicious: session.is_suspicious
     }));
 

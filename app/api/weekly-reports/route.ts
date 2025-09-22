@@ -3,6 +3,11 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 // 주간 리포트 타입 정의
 export interface WeeklyTaskSummary {
   user_id: string;
@@ -88,7 +93,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('사용자 ID가 필요합니다', 400);
     }
 
-    const { start: weekStart, end: weekEnd } = getWeekRange(weekDate);
+    const { start: weekStart, end: weekEnd } = getWeekRange(weekDate || undefined);
 
     // 사용자 정보 조회
     const { data: user, error: userError } = await supabaseAdmin
