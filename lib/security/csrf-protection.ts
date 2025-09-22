@@ -83,6 +83,7 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
   const excludePaths = [
     '/api/auth/login',
     '/api/auth/signup',  // 회원가입 API 추가
+    '/api/auth/set-password',  // 비밀번호 설정 API 추가
     '/api/auth/verify',
     '/api/health',
     '/api/setup-social-schema',
