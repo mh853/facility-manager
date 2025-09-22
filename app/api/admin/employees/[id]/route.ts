@@ -126,8 +126,8 @@ export async function PUT(
       );
     }
 
-    // 관리자 권한 확인
-    if (decodedToken.permissionLevel !== 3) {
+    // 관리자 권한 확인 (레벨 3 이상: 관리자, 슈퍼 관리자)
+    if (decodedToken.permissionLevel < 3) {
       return NextResponse.json(
         { success: false, message: '관리자 권한이 필요합니다.' },
         { status: 403 }
