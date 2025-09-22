@@ -1995,4 +1995,4 @@ function TaskManagementPage() {
   );
 }
 
-export default withAuth(TaskManagementPage, 'canAccessAdminPages' as any)
+export default withAuth(TaskManagementPage, undefined, 1)

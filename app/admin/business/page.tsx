@@ -3832,4 +3832,4 @@ function BusinessManagementPage() {
   )
 }
 
-export default withAuth(BusinessManagementPage, 'canAccessAdminPages' as any)
+export default withAuth(BusinessManagementPage, undefined, 1)

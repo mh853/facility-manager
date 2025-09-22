@@ -1698,4 +1698,4 @@ function AirPermitManagementPage() {
   );
 }
 
-export default withAuth(AirPermitManagementPage, 'canAccessAdminPages' as any)
+export default withAuth(AirPermitManagementPage, undefined, 1)
