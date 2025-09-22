@@ -22,13 +22,28 @@ interface SignupRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    // CORS 헤더 설정
+    // CORS 헤더 설정 (개선된 버전)
     const origin = request.headers.get('origin');
-    const allowedOrigins = ['https://facility.blueon-iot.com', 'http://localhost:3000'];
+    const referer = request.headers.get('referer');
+    const allowedOrigins = [
+      'https://facility.blueon-iot.com',
+      'https://www.facility.blueon-iot.com',
+      'http://localhost:3000',
+      'http://127.0.0.1:3000'
+    ];
 
+    console.log('🔍 [SIGNUP] 요청 헤더 정보:', {
+      origin,
+      referer,
+      userAgent: request.headers.get('user-agent'),
+      contentType: request.headers.get('content-type')
+    });
+
+    // Origin이 null이거나 허용된 도메인이 아닌 경우
     if (origin && !allowedOrigins.includes(origin)) {
+      console.error('❌ [SIGNUP] 허용되지 않은 Origin:', { origin, allowedOrigins });
       return NextResponse.json(
-        { success: false, message: '허용되지 않은 도메인입니다.' },
+        { success: false, message: `허용되지 않은 도메인입니다. Origin: ${origin}` },
         { status: 403 }
       );
     }
@@ -146,7 +161,7 @@ export async function POST(request: NextRequest) {
         department: department?.trim() || '미입력', // 선택사항 - 기본값
         position: position?.trim() || '미입력',     // 선택사항 - 기본값
         permission_level: 1, // 기본 권한
-        is_active: true,
+        is_active: false, // 승인 대기 상태로 생성
         created_at: new Date().toISOString(),
         // 약관 동의 정보
         terms_agreed_at: new Date().toISOString(),
@@ -175,13 +190,14 @@ export async function POST(request: NextRequest) {
     // 성공 응답 (비밀번호 제외)
     return NextResponse.json({
       success: true,
-      message: '회원가입이 완료되었습니다.',
+      message: '회원가입이 완료되었습니다. 관리자 승인 후 이용 가능합니다.',
       user: {
         id: newEmployee.id,
         name: newEmployee.name,
         email: newEmployee.email,
         department: newEmployee.department,
-        position: newEmployee.position
+        position: newEmployee.position,
+        is_active: newEmployee.is_active
       }
     });
 

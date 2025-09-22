@@ -89,7 +89,20 @@ function LoginForm() {
           setError(authResult.error || '인증 처리 중 오류가 발생했습니다.')
         }
       } else {
-        setError(result.error?.message || '로그인에 실패했습니다.')
+        // 상세한 에러 메시지 처리
+        let errorMessage = '로그인에 실패했습니다.';
+        if (result.error?.code === 'ACCOUNT_PENDING') {
+          errorMessage = '계정 승인 대기 중입니다. 관리자에게 문의하세요.';
+        } else if (result.error?.code === 'USER_NOT_FOUND') {
+          errorMessage = '존재하지 않는 사용자입니다.';
+        } else if (result.error?.code === 'INVALID_PASSWORD') {
+          errorMessage = '비밀번호가 틀렸습니다.';
+        } else if (result.error?.code === 'SOCIAL_LOGIN_USER') {
+          errorMessage = '소셜 로그인 사용자입니다. 카카오 로그인을 이용해주세요.';
+        } else {
+          errorMessage = result.error?.message || '로그인에 실패했습니다.';
+        }
+        setError(errorMessage);
       }
     } catch (error) {
       console.error('로그인 오류:', error)

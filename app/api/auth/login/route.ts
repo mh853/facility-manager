@@ -12,13 +12,25 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-pro
 
 export async function POST(request: NextRequest) {
   try {
-    // CORS 헤더 설정
+    // CORS 헤더 설정 (개선된 버전)
     const origin = request.headers.get('origin');
-    const allowedOrigins = ['https://facility.blueon-iot.com', 'http://localhost:3000'];
+    const allowedOrigins = [
+      'https://facility.blueon-iot.com',
+      'https://www.facility.blueon-iot.com',
+      'http://localhost:3000',
+      'http://127.0.0.1:3000'
+    ];
+
+    console.log('🔍 [LOGIN] 요청 헤더 정보:', {
+      origin,
+      referer: request.headers.get('referer'),
+      userAgent: request.headers.get('user-agent')
+    });
 
     if (origin && !allowedOrigins.includes(origin)) {
+      console.error('❌ [LOGIN] 허용되지 않은 Origin:', { origin, allowedOrigins });
       return NextResponse.json(
-        { success: false, error: { code: 'FORBIDDEN_ORIGIN', message: '허용되지 않은 도메인입니다.' } },
+        { success: false, error: { code: 'FORBIDDEN_ORIGIN', message: `허용되지 않은 도메인입니다. Origin: ${origin}` } },
         { status: 403 }
       );
     }
@@ -33,22 +45,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 사용자 조회
-    const { data: employee, error: fetchError } = await supabaseAdmin
+    // 먼저 이메일로 사용자 조회 (활성 상태 무관)
+    const { data: employeeCheck, error: checkError } = await supabaseAdmin
       .from('employees')
       .select('*')
       .eq('email', email)
-      .eq('is_active', true)
       .eq('is_deleted', false)
       .single();
 
-    if (fetchError || !employee) {
-      console.log('❌ [AUTH] 사용자 조회 실패:', fetchError?.message);
+    if (checkError || !employeeCheck) {
+      console.log('❌ [AUTH] 사용자 조회 실패:', checkError?.message);
       return NextResponse.json(
         { success: false, error: { code: 'USER_NOT_FOUND', message: '존재하지 않는 사용자입니다.' } },
         { status: 401 }
       );
     }
+
+    // 활성 상태 확인
+    if (!employeeCheck.is_active) {
+      console.log('❌ [AUTH] 승인 대기 중인 사용자:', email);
+      return NextResponse.json(
+        { success: false, error: { code: 'ACCOUNT_PENDING', message: '계정 승인 대기 중입니다. 관리자에게 문의하세요.' } },
+        { status: 403 }
+      );
+    }
+
+    const employee = employeeCheck;
 
     // 소셜 로그인 사용자 확인
     if (!employee.password_hash && employee.signup_method && employee.signup_method !== 'direct') {

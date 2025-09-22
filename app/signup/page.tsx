@@ -87,14 +87,34 @@ export default function SignupPage() {
       });
 
       if (response.ok) {
-        alert('회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.');
+        const result = await response.json();
+        alert(result.message || '회원가입이 완료되었습니다. 관리자 승인 후 이용 가능합니다.');
         router.push('/login');
       } else {
         const error = await response.json();
-        setErrors([error.message || '회원가입 중 오류가 발생했습니다.']);
+        console.error('회원가입 오류:', {
+          status: response.status,
+          statusText: response.statusText,
+          error
+        });
+
+        // 상세한 에러 메시지 처리
+        let errorMessage = '회원가입 중 오류가 발생했습니다.';
+        if (response.status === 403) {
+          errorMessage = `도메인 접근 오류: ${error.message || '허용되지 않은 도메인에서 접근했습니다.'}`;
+        } else if (response.status === 409) {
+          errorMessage = '이미 가입된 이메일입니다.';
+        } else if (response.status === 400) {
+          errorMessage = error.message || '입력 정보를 확인해주세요.';
+        } else if (response.status === 500) {
+          errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+        }
+
+        setErrors([errorMessage]);
       }
     } catch (error) {
-      setErrors(['네트워크 오류가 발생했습니다.']);
+      console.error('네트워크 오류:', error);
+      setErrors(['네트워크 연결을 확인해주세요.']);
     } finally {
       setLoading(false);
     }
