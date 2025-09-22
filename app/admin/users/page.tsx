@@ -379,7 +379,7 @@ function UsersManagementPage() {
 
   // 관리자 권한 체크
   useEffect(() => {
-    if (user && user.permission_level !== 3) {
+    if (user && user.permission_level < 3) {
       router.push('/admin');
       return;
     }
@@ -419,7 +419,7 @@ function UsersManagementPage() {
   }, []);
 
   const loadData = async () => {
-    if (!user || user.permission_level !== 3) return;
+    if (!user || user.permission_level < 3) return;
 
     try {
       setLoading(true);
@@ -816,7 +816,7 @@ function UsersManagementPage() {
     return matchesSearch && matchesPermission && matchesStatus;
   });
 
-  if (!user || user.permission_level !== 3) {
+  if (!user || user.permission_level < 3) {
     return (
       <AdminLayout title="접근 권한 없음" description="관리자만 접근할 수 있는 페이지입니다">
         <div className="flex items-center justify-center min-h-96">

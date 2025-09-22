@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 관리자 권한 확인
-    if (authResult.data?.user.permission_level !== 3) {
+    if (authResult.data?.user.permission_level < 3) {
       return NextResponse.json(
         { success: false, error: { code: 'INSUFFICIENT_PERMISSION', message: '직원 등록 권한이 없습니다.' } },
         { status: 403 }

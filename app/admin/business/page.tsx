@@ -1931,7 +1931,7 @@ function BusinessManagementPage() {
                 loading={isLoading}
                 emptyMessage="등록된 사업장이 없습니다."
                 searchable={false}
-                pageSize={100}
+                pageSize={12}
               />
             </div>
           </div>

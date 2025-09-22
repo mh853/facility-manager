@@ -153,9 +153,9 @@ export async function POST(request: NextRequest) {
           canDeleteTasks: user.permission_level >= 2,
           canViewReports: true,
           canApproveReports: user.permission_level >= 2,
-          canAccessAdminPages: user.permission_level === 3,
-          canManageDepartments: user.permission_level === 3,
-          canViewSensitiveData: user.permission_level === 3
+          canAccessAdminPages: user.permission_level >= 3,
+          canManageDepartments: user.permission_level >= 3,
+          canViewSensitiveData: user.permission_level >= 3
         }
       },
       timestamp: new Date().toISOString()

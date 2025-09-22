@@ -79,7 +79,7 @@ export async function PUT(
     const currentUser = authResult.data?.user;
 
     // 본인 정보 수정이거나 관리자인 경우만 허용
-    if (currentUser?.id !== params.id && currentUser?.permission_level !== 3) {
+    if (currentUser?.id !== params.id && currentUser?.permission_level < 3) {
       return NextResponse.json(
         { success: false, error: { code: 'INSUFFICIENT_PERMISSION', message: '수정 권한이 없습니다.' } },
         { status: 403 }
@@ -117,7 +117,7 @@ export async function PUT(
 
     // 권한 레벨 변경은 관리자만 가능
     if (permissionLevel !== undefined && permissionLevel !== existingEmployee.permission_level) {
-      if (currentUser?.permission_level !== 3) {
+      if (currentUser?.permission_level < 3) {
         return NextResponse.json(
           { success: false, error: { code: 'INSUFFICIENT_PERMISSION', message: '권한 변경은 관리자만 가능합니다.' } },
           { status: 403 }
@@ -153,7 +153,7 @@ export async function PUT(
     if (position !== undefined) updateData.position = position;
     if (phone !== undefined) updateData.phone = phone;
     if (mobile !== undefined) updateData.mobile = mobile;
-    if (isActive !== undefined && currentUser?.permission_level === 3) {
+    if (isActive !== undefined && currentUser?.permission_level >= 3) {
       updateData.is_active = isActive;
     }
 
@@ -214,7 +214,7 @@ export async function DELETE(
     }
 
     // 관리자만 삭제 가능
-    if (authResult.data?.user.permission_level !== 3) {
+    if (authResult.data?.user.permission_level < 3) {
       return NextResponse.json(
         { success: false, error: { code: 'INSUFFICIENT_PERMISSION', message: '직원 삭제 권한이 없습니다.' } },
         { status: 403 }

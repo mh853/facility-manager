@@ -158,8 +158,14 @@ export default function ProfilePage() {
       return;
     }
 
-    if (passwordForm.newPassword.length < 8) {
-      setErrorMessage('새 비밀번호는 최소 8자 이상이어야 합니다.');
+    if (passwordForm.newPassword.length < 6) {
+      setErrorMessage('새 비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+
+    // 소셜 로그인 계정이 아닌 경우 현재 비밀번호 필수
+    if (!profile?.social_login_enabled && !passwordForm.currentPassword) {
+      setErrorMessage('현재 비밀번호를 입력해주세요.');
       return;
     }
 
@@ -168,16 +174,21 @@ export default function ProfilePage() {
       setErrorMessage('');
 
       const token = TokenManager.getToken();
-      const response = await fetch('/api/profile/change-password', {
+
+      // 소셜 로그인 계정의 경우 비밀번호 설정 API 사용
+      const apiEndpoint = profile?.social_login_enabled ? '/api/auth/set-password' : '/api/auth/change-password';
+
+      const requestBody = profile?.social_login_enabled
+        ? { password: passwordForm.newPassword }
+        : { currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword };
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          currentPassword: passwordForm.currentPassword,
-          newPassword: passwordForm.newPassword
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {
@@ -185,8 +196,16 @@ export default function ProfilePage() {
         if (data.success) {
           setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
           setShowPasswordForm(false);
-          setSuccessMessage('비밀번호가 성공적으로 변경되었습니다.');
-          setTimeout(() => setSuccessMessage(''), 3000);
+          const message = profile?.social_login_enabled
+            ? '비밀번호가 성공적으로 설정되었습니다. 이제 이메일로도 로그인할 수 있습니다.'
+            : '비밀번호가 성공적으로 변경되었습니다.';
+          setSuccessMessage(message);
+          setTimeout(() => setSuccessMessage(''), 5000);
+
+          // 소셜 로그인 계정의 경우 프로필 새로고침
+          if (profile?.social_login_enabled) {
+            loadProfile();
+          }
         }
       } else {
         const data = await response.json();
@@ -433,43 +452,56 @@ export default function ProfilePage() {
           </form>
         </div>
 
-        {/* 비밀번호 변경 */}
-        {!profile.social_login_enabled && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-3">
-                <Key className="w-5 h-5" />
-                비밀번호 변경
-              </h3>
-              <button
-                onClick={() => setShowPasswordForm(!showPasswordForm)}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-              >
-                {showPasswordForm ? '취소' : '비밀번호 변경'}
-              </button>
-            </div>
+        {/* 비밀번호 변경/설정 */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-3">
+              <Key className="w-5 h-5" />
+              {profile.social_login_enabled ? '비밀번호 설정' : '비밀번호 변경'}
+            </h3>
+            <button
+              onClick={() => setShowPasswordForm(!showPasswordForm)}
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            >
+              {showPasswordForm ? '취소' : (profile.social_login_enabled ? '비밀번호 설정' : '비밀번호 변경')}
+            </button>
+          </div>
 
             {showPasswordForm && (
               <form onSubmit={handlePasswordChange} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">현재 비밀번호</label>
-                  <div className="relative">
-                    <input
-                      type={showPasswords.current ? 'text' : 'password'}
-                      value={passwordForm.currentPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    >
-                      {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                {!profile.social_login_enabled && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">현재 비밀번호</label>
+                    <div className="relative">
+                      <input
+                        type={showPasswords.current ? 'text' : 'password'}
+                        value={passwordForm.currentPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {profile.social_login_enabled && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-blue-800">
+                      <Shield className="w-4 h-4" />
+                      <span className="text-sm font-medium">소셜 로그인 계정 비밀번호 설정</span>
+                    </div>
+                    <p className="text-sm text-blue-700 mt-1">
+                      소셜 로그인으로 가입한 계정에 비밀번호를 설정하여 이메일 로그인도 사용할 수 있습니다.
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">새 비밀번호</label>
@@ -479,7 +511,7 @@ export default function ProfilePage() {
                       value={passwordForm.newPassword}
                       onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      minLength={8}
+                      minLength={6}
                       required
                     />
                     <button
@@ -490,7 +522,7 @@ export default function ProfilePage() {
                       {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">최소 8자 이상의 비밀번호를 입력하세요.</p>
+                  <p className="text-xs text-gray-500 mt-1">최소 6자 이상의 비밀번호를 입력하세요.</p>
                 </div>
 
                 <div>
@@ -501,7 +533,7 @@ export default function ProfilePage() {
                       value={passwordForm.confirmPassword}
                       onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      minLength={8}
+                      minLength={6}
                       required
                     />
                     <button
@@ -525,13 +557,12 @@ export default function ProfilePage() {
                     ) : (
                       <Key className="w-4 h-4" />
                     )}
-                    비밀번호 변경
+                    {profile?.social_login_enabled ? '비밀번호 설정' : '비밀번호 변경'}
                   </button>
                 </div>
               </form>
             )}
-          </div>
-        )}
+        </div>
 
         {/* 계정 정보 */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
