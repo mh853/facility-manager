@@ -9,9 +9,9 @@ export const runtime = 'nodejs';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 
 interface SetPasswordRequest {
-  email: string;
+  email?: string;
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -56,8 +56,23 @@ export async function POST(request: NextRequest) {
 
     const { email, password, confirmPassword }: SetPasswordRequest = await request.json();
 
+    // JWT 토큰에서 인증된 사용자 정보 가져오기
+    let userEmail = email;
+    const authHeader = request.headers.get('authorization');
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        userEmail = decoded.email || decoded.user?.email;
+        console.log('✅ [SET-PASSWORD] JWT 토큰에서 이메일 추출:', userEmail);
+      } catch (jwtError) {
+        console.log('⚠️ [SET-PASSWORD] JWT 토큰 검증 실패, 요청 본문의 이메일 사용');
+      }
+    }
+
     // 입력 검증
-    if (!email?.trim()) {
+    if (!userEmail?.trim()) {
       return NextResponse.json(
         { success: false, error: { code: 'INVALID_INPUT', message: '이메일을 입력해주세요.' } },
         { status: 400 }
@@ -78,7 +93,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (password !== confirmPassword) {
+    if (confirmPassword && password !== confirmPassword) {
       return NextResponse.json(
         { success: false, error: { code: 'INVALID_INPUT', message: '비밀번호가 일치하지 않습니다.' } },
         { status: 400 }
@@ -89,7 +104,7 @@ export async function POST(request: NextRequest) {
     const { data: employee, error: findError } = await supabaseAdmin
       .from('employees')
       .select('*')
-      .eq('email', email.toLowerCase())
+      .eq('email', userEmail.toLowerCase())
       .eq('is_deleted', false)
       .single();
 
@@ -103,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     // 활성 상태 확인
     if (!employee.is_active) {
-      console.log('❌ [SET-PASSWORD] 승인 대기 중인 사용자:', email);
+      console.log('❌ [SET-PASSWORD] 승인 대기 중인 사용자:', userEmail);
       return NextResponse.json(
         { success: false, error: { code: 'ACCOUNT_PENDING', message: '계정 승인 대기 중입니다. 관리자에게 문의하세요.' } },
         { status: 403 }
@@ -113,7 +128,7 @@ export async function POST(request: NextRequest) {
     // 소셜 계정인지 확인
     if (employee.signup_method && employee.signup_method !== 'direct' && !employee.password_hash) {
       // 소셜 계정에 비밀번호 설정 - 허용
-      console.log('✅ [SET-PASSWORD] 소셜 계정에 비밀번호 설정:', email);
+      console.log('✅ [SET-PASSWORD] 소셜 계정에 비밀번호 설정:', userEmail);
     } else if (employee.password_hash) {
       // 이미 비밀번호가 설정된 계정
       return NextResponse.json(

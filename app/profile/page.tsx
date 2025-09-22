@@ -179,7 +179,7 @@ export default function ProfilePage() {
       const apiEndpoint = profile?.social_login_enabled ? '/api/auth/set-password' : '/api/auth/change-password';
 
       const requestBody = profile?.social_login_enabled
-        ? { password: passwordForm.newPassword }
+        ? { password: passwordForm.newPassword, confirmPassword: passwordForm.confirmPassword }
         : { currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword };
 
       const response = await fetch(apiEndpoint, {
