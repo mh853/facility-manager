@@ -1,7 +1,7 @@
 // Service Worker for PWA and caching
-const CACHE_NAME = 'facility-manager-v1.2';
-const STATIC_CACHE_NAME = 'facility-static-v1.2';
-const DYNAMIC_CACHE_NAME = 'facility-dynamic-v1.2';
+const CACHE_NAME = 'facility-manager-v1.3';
+const STATIC_CACHE_NAME = 'facility-static-v1.3';
+const DYNAMIC_CACHE_NAME = 'facility-dynamic-v1.3';
 
 // 캐시할 정적 리소스
 const STATIC_ASSETS = [
