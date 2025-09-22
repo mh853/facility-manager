@@ -74,7 +74,9 @@ class ApiClient {
 
     if (response.status === 401) {
       TokenManager.removeTokens();
-      window.location.href = '/auth/login';
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
       throw new Error('Unauthorized');
     }
 

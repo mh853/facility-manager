@@ -99,3 +99,8 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function GET(request: NextRequest) {
+  // GET 요청도 같은 로직으로 처리
+  return POST(request);
+}
