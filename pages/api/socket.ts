@@ -1,32 +1,22 @@
-// pages/api/socket.ts - 웹소켓 서버 초기화 엔드포인트
-import { NextApiRequest } from 'next';
-import { ExtendedNextApiResponse, initializeWebSocket } from '@/lib/websocket/websocket-server';
+// pages/api/socket.ts - Supabase Realtime으로 전환 완료
+// 이 파일은 더 이상 사용되지 않습니다.
+// Supabase Realtime + PostgreSQL 트리거 시스템이 대체합니다.
 
-export default function handler(req: NextApiRequest, res: ExtendedNextApiResponse) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: '지원되지 않는 메소드입니다.' });
-  }
+import { NextApiRequest, NextApiResponse } from 'next';
 
-  try {
-    const io = initializeWebSocket(req, res);
-    console.log('✅ 웹소켓 서버 준비 완료');
-
-    res.status(200).json({
-      success: true,
-      message: '웹소켓 서버가 성공적으로 초기화되었습니다.',
-      connectedClients: io.engine.clientsCount
-    });
-  } catch (error) {
-    console.error('웹소켓 초기화 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: '웹소켓 서버 초기화에 실패했습니다.'
-    });
-  }
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  res.status(410).json({
+    success: false,
+    message: 'WebSocket 서버는 더 이상 사용되지 않습니다. Supabase Realtime으로 전환되었습니다.',
+    migration: {
+      from: 'Socket.io WebSocket',
+      to: 'Supabase Realtime + PostgreSQL Triggers',
+      benefits: [
+        'Vercel 무료 플랜 호환',
+        '무한 재연결 루프 해결',
+        '폴링 폴백으로 안정성 보장',
+        'PostgreSQL 트리거로 데이터 일관성 보장'
+      ]
+    }
+  });
 }
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};

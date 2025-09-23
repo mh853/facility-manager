@@ -6,10 +6,15 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-// 클라이언트용 (브라우저)
+// 클라이언트용 (브라우저) - Realtime 활성화
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     persistSession: false, // 세션 유지 비활성화 (공용 앱)
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10, // 초당 이벤트 제한
+    },
   },
   global: {
     headers: {

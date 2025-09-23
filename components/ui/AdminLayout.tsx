@@ -5,7 +5,7 @@ import { useState, useEffect, ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import NotificationButton from '@/components/ui/NotificationButton'
+import RealtimeNotificationBell from '@/components/notifications/RealtimeNotificationBell'
 import {
   Home,
   Building2,
@@ -322,7 +322,7 @@ export default function AdminLayout({ children, title, description, actions }: A
                     </div>
 
                     {/* 알림 버튼 (모바일) - 제일 오른쪽 */}
-                    <NotificationButton />
+                    <RealtimeNotificationBell userId={user?.id} />
                   </div>
                 </div>
 
@@ -354,7 +354,7 @@ export default function AdminLayout({ children, title, description, actions }: A
                     </div>
 
                     {/* 알림 버튼 (데스크톱) - 제일 오른쪽 */}
-                    <NotificationButton />
+                    <RealtimeNotificationBell userId={user?.id} />
                   </div>
                 </div>
               </div>

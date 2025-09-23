@@ -1,89 +1,29 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, CheckCheck, Clock, User, FolderOpen, AlertCircle, X, Wifi, WifiOff } from 'lucide-react';
-import { useWebSocket } from '@/lib/hooks/useWebSocket';
-
-interface Notification {
-  id: string;
-  type: string;
-  title: string;
-  message: string;
-  priority: '낮음' | '보통' | '높음' | '긴급';
-  is_read: boolean;
-  created_at: string;
-  sender_name?: string;
-  project_name?: string;
-  task_title?: string;
-  action_url?: string;
-  time_category: 'recent' | 'today' | 'this_week' | 'older';
-}
-
-interface NotificationData {
-  notifications: Notification[];
-  unreadCount: number;
-}
+import { Bell, Check, CheckCheck, Clock, User, FolderOpen, AlertCircle, X, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { useNotification } from '@/contexts/NotificationContext';
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 웹소켓 연결
+  // Supabase Realtime 기반 알림 시스템 사용
   const {
+    notifications,
+    unreadCount,
+    loading,
     isConnected,
     isConnecting,
-    onlineUsers,
-    subscribeToNotifications
-  } = useWebSocket({
-    onConnect: () => {
-      console.log('🔔 알림 시스템 연결됨');
-      subscribeToNotifications();
-    },
-    onNotification: (newNotification) => {
-      console.log('🔔 실시간 알림 수신:', newNotification);
+    connectionError,
+    lastEventTime,
+    markAsRead,
+    markAllAsRead,
+    reconnectRealtime
+  } = useNotification();
 
-      // 새 알림을 목록에 추가
-      setNotifications(prev => [newNotification, ...prev.slice(0, 9)]);
-      setUnreadCount(prev => prev + 1);
-
-      // 브라우저 알림 표시 (권한이 있는 경우)
-      if (Notification.permission === 'granted') {
-        new Notification(newNotification.title, {
-          body: newNotification.message,
-          icon: '/icon-192x192.png',
-          badge: '/icon-192x192.png'
-        });
-      }
-    }
-  });
-
-  // 알림 목록 가져오기
-  const fetchNotifications = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/notifications?limit=10');
-      if (response.ok) {
-        const data: { success: boolean; data: NotificationData } = await response.json();
-        if (data.success) {
-          setNotifications(data.data.notifications);
-          setUnreadCount(data.data.unreadCount);
-        }
-      }
-    } catch (error) {
-      console.error('알림 조회 오류:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 컴포넌트 마운트 시 알림 가져오기
+  // 브라우저 알림 권한 요청
   useEffect(() => {
-    fetchNotifications();
-
-    // 브라우저 알림 권한 요청
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
@@ -103,62 +43,34 @@ export default function NotificationBell() {
     };
   }, []);
 
-  // 모든 알림 읽음 처리
-  const markAllAsRead = async () => {
-    try {
-      const response = await fetch('/api/notifications', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ mark_all_read: true }),
-      });
+  // 알림 읽음 처리는 useNotification 훅에서 제공하는 함수 사용
 
-      if (response.ok) {
-        setNotifications(notifications.map(n => ({ ...n, is_read: true })));
-        setUnreadCount(0);
-      }
-    } catch (error) {
-      console.error('읽음 처리 오류:', error);
-    }
-  };
-
-  // 개별 알림 읽음 처리
-  const markAsRead = async (notificationId: string) => {
-    try {
-      const response = await fetch('/api/notifications', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ notification_ids: [notificationId] }),
-      });
-
-      if (response.ok) {
-        setNotifications(notifications.map(n =>
-          n.id === notificationId ? { ...n, is_read: true } : n
-        ));
-        setUnreadCount(Math.max(0, unreadCount - 1));
-      }
-    } catch (error) {
-      console.error('읽음 처리 오류:', error);
-    }
-  };
-
-  // 알림 타입별 아이콘
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
+  // 알림 카테고리별 아이콘
+  const getNotificationIcon = (category: string) => {
+    switch (category) {
+      case 'task_created':
+      case 'task_updated':
       case 'task_assigned':
+      case 'task_status_changed':
       case 'task_completed':
-      case 'task_overdue':
         return <Check className="h-4 w-4" />;
-      case 'project_assigned':
-      case 'project_status_changed':
+      case 'system_maintenance':
+      case 'system_update':
+        return <AlertCircle className="h-4 w-4" />;
+      case 'security_alert':
+      case 'login_attempt':
+        return <AlertCircle className="h-4 w-4" />;
+      case 'report_submitted':
+      case 'report_approved':
         return <FolderOpen className="h-4 w-4" />;
-      case 'mention':
-      case 'comment_added':
+      case 'user_created':
+      case 'user_updated':
         return <User className="h-4 w-4" />;
-      case 'deadline_reminder':
+      case 'business_added':
+      case 'file_uploaded':
+        return <FolderOpen className="h-4 w-4" />;
+      case 'backup_completed':
+      case 'maintenance_scheduled':
         return <Clock className="h-4 w-4" />;
       default:
         return <Bell className="h-4 w-4" />;
@@ -168,13 +80,13 @@ export default function NotificationBell() {
   // 우선순위별 색상
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case '긴급':
+      case 'critical':
         return 'text-red-600 bg-red-100';
-      case '높음':
+      case 'high':
         return 'text-orange-600 bg-orange-100';
-      case '보통':
+      case 'medium':
         return 'text-blue-600 bg-blue-100';
-      case '낮음':
+      case 'low':
         return 'text-gray-600 bg-gray-100';
       default:
         return 'text-gray-600 bg-gray-100';
@@ -204,7 +116,15 @@ export default function NotificationBell() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
-        title={isConnected ? '실시간 알림 연결됨' : isConnecting ? '연결 중...' : '오프라인'}
+        title={
+          isConnected
+            ? `Supabase Realtime 연결됨${lastEventTime ? ` (마지막 이벤트: ${lastEventTime.toLocaleTimeString()})` : ''}`
+            : isConnecting
+            ? 'Supabase Realtime 연결 중...'
+            : connectionError
+            ? `연결 오류: ${connectionError}`
+            : '오프라인'
+        }
       >
         <Bell className="h-6 w-6" />
 
@@ -215,14 +135,21 @@ export default function NotificationBell() {
           </span>
         )}
 
-        {/* 연결 상태 표시 */}
+        {/* Supabase Realtime 연결 상태 표시 */}
         <span className={`absolute -bottom-1 -left-1 w-3 h-3 rounded-full ${
           isConnected
             ? 'bg-green-500'
             : isConnecting
             ? 'bg-yellow-500 animate-pulse'
+            : connectionError
+            ? 'bg-red-500'
             : 'bg-gray-400'
         }`} />
+
+        {/* 연결 오류 시 경고 표시 */}
+        {connectionError && (
+          <AlertCircle className="absolute -top-0.5 -right-0.5 h-3 w-3 text-red-500" />
+        )}
       </button>
 
       {/* 드롭다운 메뉴 */}
@@ -230,8 +157,40 @@ export default function NotificationBell() {
         <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-hidden">
           {/* 헤더 */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">알림</h3>
+            <div className="flex items-center space-x-3">
+              <h3 className="text-lg font-semibold text-gray-900">알림</h3>
+
+              {/* 연결 상태 표시 */}
+              <div className="flex items-center space-x-1">
+                {isConnected ? (
+                  <div title="Supabase Realtime 연결됨">
+                    <Wifi className="h-4 w-4 text-green-500" />
+                  </div>
+                ) : isConnecting ? (
+                  <div title="연결 중...">
+                    <RefreshCw className="h-4 w-4 text-yellow-500 animate-spin" />
+                  </div>
+                ) : (
+                  <div title="연결 끊김">
+                    <WifiOff className="h-4 w-4 text-red-500" />
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="flex items-center space-x-2">
+              {/* 재연결 버튼 (연결이 끊어진 경우에만 표시) */}
+              {!isConnected && !isConnecting && (
+                <button
+                  onClick={reconnectRealtime}
+                  className="p-1 text-blue-600 hover:text-blue-800"
+                  title="재연결"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* 모두 읽음 버튼 */}
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
@@ -240,6 +199,8 @@ export default function NotificationBell() {
                   모두 읽음
                 </button>
               )}
+
+              {/* 닫기 버튼 */}
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-1 text-gray-400 hover:text-gray-600"
@@ -261,20 +222,20 @@ export default function NotificationBell() {
                   <div
                     key={notification.id}
                     className={`p-4 hover:bg-gray-50 transition-colors duration-200 ${
-                      !notification.is_read ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                      !notification.isRead ? 'bg-blue-50 border-l-4 border-blue-500' : ''
                     }`}
                   >
                     <div className="flex items-start space-x-3">
                       {/* 아이콘 */}
                       <div className={`p-2 rounded-full ${getPriorityColor(notification.priority)}`}>
-                        {getNotificationIcon(notification.type)}
+                        {getNotificationIcon(notification.category)}
                       </div>
 
                       {/* 내용 */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <p className={`text-sm font-medium ${!notification.is_read ? 'text-gray-900' : 'text-gray-700'}`}>
+                            <p className={`text-sm font-medium ${!notification.isRead ? 'text-gray-900' : 'text-gray-700'}`}>
                               {notification.title}
                             </p>
                             <p className="text-sm text-gray-600 mt-1">
@@ -282,27 +243,27 @@ export default function NotificationBell() {
                             </p>
 
                             {/* 추가 정보 */}
-                            {(notification.sender_name || notification.project_name || notification.task_title) && (
+                            {(notification.createdByName || notification.relatedResourceType || notification.metadata) && (
                               <div className="flex items-center space-x-2 mt-2 text-xs text-gray-500">
-                                {notification.sender_name && (
-                                  <span>보낸이: {notification.sender_name}</span>
+                                {notification.createdByName && (
+                                  <span>보낸이: {notification.createdByName}</span>
                                 )}
-                                {notification.project_name && (
-                                  <span>프로젝트: {notification.project_name}</span>
+                                {notification.relatedResourceType && (
+                                  <span>유형: {notification.relatedResourceType}</span>
                                 )}
-                                {notification.task_title && (
-                                  <span>작업: {notification.task_title}</span>
+                                {notification.metadata?.business_name && (
+                                  <span>사업장: {notification.metadata.business_name}</span>
                                 )}
                               </div>
                             )}
 
                             <p className="text-xs text-gray-500 mt-2">
-                              {formatTime(notification.created_at)}
+                              {formatTime(notification.createdAt)}
                             </p>
                           </div>
 
                           {/* 읽음 처리 버튼 */}
-                          {!notification.is_read && (
+                          {!notification.isRead && (
                             <button
                               onClick={() => markAsRead(notification.id)}
                               className="ml-2 p-1 text-gray-400 hover:text-gray-600"
@@ -316,10 +277,10 @@ export default function NotificationBell() {
                     </div>
 
                     {/* 액션 버튼 */}
-                    {notification.action_url && (
+                    {notification.relatedUrl && (
                       <div className="mt-3">
                         <a
-                          href={notification.action_url}
+                          href={notification.relatedUrl}
                           className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors duration-200"
                           onClick={() => setIsOpen(false)}
                         >

@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { FileProvider, useFileContext } from '@/contexts/FileContext';
+import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
+import { useNotification } from '@/contexts/NotificationContext';
+import { Bell, CheckCircle, XCircle, AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 function RealtimeTestContent() {
   const { uploadedFiles, setBusinessInfo, refreshFiles } = useFileContext();
