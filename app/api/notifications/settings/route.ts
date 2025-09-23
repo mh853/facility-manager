@@ -6,22 +6,36 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// 토큰에서 사용자 정보 추출
-function getUserFromToken(authHeader: string | null) {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
+// JWT 토큰에서 사용자 정보 추출하는 헬퍼 함수
+import jwt from 'jsonwebtoken';
 
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+
+async function getUserFromToken(authHeader: string | null) {
   try {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return null;
+    }
+
     const token = authHeader.substring(7);
-    // 임시 사용자 정보 (실제로는 토큰에서 추출)
-    return {
-      id: 'user_1',
-      name: '관리자',
-      email: 'admin@blueon.kr'
-    };
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+
+    // 사용자 정보 조회
+    const { data: user, error } = await supabase
+      .from('employees')
+      .select('id, name, email, permission_level, department')
+      .eq('id', decoded.userId || decoded.id)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !user) {
+      console.warn('⚠️ [AUTH] 사용자 조회 실패:', error?.message);
+      return null;
+    }
+
+    return user;
   } catch (error) {
-    console.error('토큰 파싱 오류:', error);
+    console.warn('⚠️ [AUTH] JWT 토큰 검증 실패:', error);
     return null;
   }
 }

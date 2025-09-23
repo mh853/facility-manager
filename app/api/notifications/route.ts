@@ -52,20 +52,62 @@ export interface TaskNotification {
   expires_at?: string;
 }
 
+// JWT 토큰에서 사용자 정보 추출하는 헬퍼 함수
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+
+async function getUserFromToken(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return null;
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+
+    // 사용자 정보 조회
+    const { data: user, error } = await supabaseAdmin
+      .from('employees')
+      .select('id, name, email, permission_level, department')
+      .eq('id', decoded.userId || decoded.id)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !user) {
+      console.warn('⚠️ [AUTH] 사용자 조회 실패:', error?.message);
+      return null;
+    }
+
+    return user;
+  } catch (error) {
+    console.warn('⚠️ [AUTH] JWT 토큰 검증 실패:', error);
+    return null;
+  }
+}
+
 // GET: 사용자 알림 목록 조회
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
+    // JWT 토큰에서 사용자 정보 추출
+    const user = await getUserFromToken(request);
+    if (!user) {
+      return createErrorResponse('인증이 필요합니다', 401);
+    }
+
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
     const limit = parseInt(searchParams.get('limit') || '50');
     const taskNotifications = searchParams.get('taskNotifications') === 'true';
 
-    console.log('📢 [NOTIFICATIONS] 알림 목록 조회:', { userId, unreadOnly, limit, taskNotifications });
-
-    if (!userId) {
-      return createErrorResponse('사용자 ID가 필요합니다', 400);
-    }
+    console.log('📢 [NOTIFICATIONS] 알림 목록 조회:', {
+      userId: user.id,
+      userName: user.name,
+      unreadOnly,
+      limit,
+      taskNotifications
+    });
 
     // 업무 담당자 알림 조회
     if (taskNotifications) {
@@ -85,7 +127,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
           created_at,
           expires_at
         `)
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -321,7 +363,7 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
       const { data: deletedNotifications, error } = await supabaseAdmin
         .from('user_notifications')
         .delete()
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .or(`expires_at.lt.${new Date().toISOString()},and(is_read.eq.true,read_at.lt.${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()})`)
         .select();
 

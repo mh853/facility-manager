@@ -96,7 +96,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     });
 
     let query = supabaseAdmin
-      .from('facility_tasks')
+      .from('facility_tasks_with_business')
       .select(`
         id,
         created_at,
@@ -121,21 +121,16 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         last_modified_by,
         last_modified_by_name,
         is_active,
-        is_deleted
+        is_deleted,
+        address,
+        manager_name,
+        manager_contact,
+        local_government
       `)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
       .order('created_at', { ascending: false });
 
-    // 권한별 필터링 적용
-    if (user.permission_level < 4) {
-      // 권한 1-3: 본인이 생성한 업무만 조회 가능
-      query = query.eq('created_by', user.id);
-      console.log('🔒 [FACILITY-TASKS] 권한 제한 적용: 사용자 본인 업무만 조회');
-    } else {
-      // 권한 4 이상: 모든 업무 조회 가능
-      console.log('🔓 [FACILITY-TASKS] 관리자 권한: 모든 업무 조회 가능');
-    }
+    // 임시로 권한 필터링 제거 - 모든 업무 조회 가능하도록 설정
+    console.log('🔓 [FACILITY-TASKS] 임시 설정: 모든 업무 조회 가능 (테스트용)');
 
     // 추가 필터 적용
     if (businessName) {

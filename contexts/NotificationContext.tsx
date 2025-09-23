@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
+import { TokenManager } from '@/lib/auth/TokenManager';
 
 // 알림 타입 정의
 export type NotificationCategory =
@@ -102,7 +103,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       const response = await fetch('/api/notifications', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${TokenManager.getToken()}`
         }
       });
 
@@ -128,7 +129,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch('/api/notifications/settings', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${TokenManager.getToken()}`
         }
       });
 
@@ -153,7 +154,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const response = await fetch(`/api/notifications/${notificationId}/read`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${TokenManager.getToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -183,7 +184,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/notifications/read-all', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${TokenManager.getToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -209,7 +210,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const response = await fetch(`/api/notifications/${notificationId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${TokenManager.getToken()}`
         }
       });
 
@@ -236,7 +237,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/notifications', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${TokenManager.getToken()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(notification)
@@ -264,7 +265,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/notifications/settings', {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${TokenManager.getToken()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(newSettings)
@@ -289,7 +290,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/api/ws/notifications?token=${localStorage.getItem('token')}`;
+      const token = TokenManager.getToken();
+      const wsUrl = `${protocol}//${window.location.host}/api/ws/notifications?token=${token}`;
 
       wsRef.current = new WebSocket(wsUrl);
 
