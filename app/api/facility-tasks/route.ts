@@ -242,6 +242,35 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       }];
     }
 
+    // 담당자 이름으로 ID 조회 및 매핑
+    if (finalAssignees.length > 0) {
+      for (let i = 0; i < finalAssignees.length; i++) {
+        const assigneeItem = finalAssignees[i];
+        if (assigneeItem.name && !assigneeItem.id) {
+          // employees 테이블에서 이름으로 사용자 정보 조회
+          const { data: employee, error: employeeError } = await supabaseAdmin
+            .from('employees')
+            .select('id, name, email, position')
+            .eq('name', assigneeItem.name)
+            .eq('is_active', true)
+            .eq('is_deleted', false)
+            .single();
+
+          if (!employeeError && employee) {
+            finalAssignees[i] = {
+              id: employee.id,
+              name: employee.name,
+              position: employee.position || '미정',
+              email: employee.email || ''
+            };
+            console.log('✅ [FACILITY-TASKS] 담당자 ID 매핑 성공:', employee.name, '→', employee.id);
+          } else {
+            console.warn('⚠️ [FACILITY-TASKS] 담당자 ID 조회 실패:', assigneeItem.name, employeeError?.message);
+          }
+        }
+      }
+    }
+
     const { data: newTask, error } = await supabaseAdmin
       .from('facility_tasks')
       .insert({
@@ -367,18 +396,65 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
 
     // 담당자 업데이트 처리
     if (assignees !== undefined) {
-      updateData.assignees = assignees;
-      updateData.assignee = assignees.length > 0 ? assignees[0].name : null; // 기존 호환성
+      // 담당자 배열이 전달된 경우 ID 매핑 처리
+      const mappedAssignees = [...assignees];
+      for (let i = 0; i < mappedAssignees.length; i++) {
+        const assigneeItem = mappedAssignees[i];
+        if (assigneeItem.name && !assigneeItem.id) {
+          // employees 테이블에서 이름으로 사용자 정보 조회
+          const { data: employee, error: employeeError } = await supabaseAdmin
+            .from('employees')
+            .select('id, name, email, position')
+            .eq('name', assigneeItem.name)
+            .eq('is_active', true)
+            .eq('is_deleted', false)
+            .single();
+
+          if (!employeeError && employee) {
+            mappedAssignees[i] = {
+              id: employee.id,
+              name: employee.name,
+              position: employee.position || '미정',
+              email: employee.email || ''
+            };
+            console.log('✅ [FACILITY-TASKS] 수정 시 담당자 ID 매핑 성공:', employee.name, '→', employee.id);
+          } else {
+            console.warn('⚠️ [FACILITY-TASKS] 수정 시 담당자 ID 조회 실패:', assigneeItem.name, employeeError?.message);
+          }
+        }
+      }
+      updateData.assignees = mappedAssignees;
+      updateData.assignee = mappedAssignees.length > 0 ? mappedAssignees[0].name : null; // 기존 호환성
     } else if (assignee !== undefined) {
       updateData.assignee = assignee;
-      // assignee가 있으면 assignees도 업데이트
+      // assignee가 있으면 assignees도 업데이트하고 ID 매핑
       if (assignee) {
-        updateData.assignees = [{
-          id: '',
-          name: assignee,
-          position: '미정',
-          email: ''
-        }];
+        // employees 테이블에서 이름으로 사용자 정보 조회
+        const { data: employee, error: employeeError } = await supabaseAdmin
+          .from('employees')
+          .select('id, name, email, position')
+          .eq('name', assignee)
+          .eq('is_active', true)
+          .eq('is_deleted', false)
+          .single();
+
+        if (!employeeError && employee) {
+          updateData.assignees = [{
+            id: employee.id,
+            name: employee.name,
+            position: employee.position || '미정',
+            email: employee.email || ''
+          }];
+          console.log('✅ [FACILITY-TASKS] 단일 담당자 ID 매핑 성공:', employee.name, '→', employee.id);
+        } else {
+          console.warn('⚠️ [FACILITY-TASKS] 단일 담당자 ID 조회 실패:', assignee, employeeError?.message);
+          updateData.assignees = [{
+            id: '',
+            name: assignee,
+            position: '미정',
+            email: ''
+          }];
+        }
       } else {
         updateData.assignees = [];
       }
@@ -717,14 +793,30 @@ async function createTaskNotifications(params: {
 
   // 알림 일괄 생성
   if (notifications.length > 0) {
-    const { error } = await supabaseAdmin
+    const { data: createdNotifications, error } = await supabaseAdmin
       .from('task_notifications')
-      .insert(notifications);
+      .insert(notifications)
+      .select();
 
     if (error) {
       console.error('🔴 [AUTO-PROGRESS] 알림 생성 오류:', error);
     } else {
       console.log('✅ [AUTO-PROGRESS] 자동 알림 생성 성공:', notifications.length, '개');
+
+      // WebSocket으로 실시간 알림 전송
+      try {
+        const io = (global as any).io;
+        if (io && createdNotifications) {
+          createdNotifications.forEach((notification: any) => {
+            io.to(`user_${notification.user_id}`).emit('task_notification_created', {
+              notification: notification
+            });
+          });
+          console.log('🔔 [WEBSOCKET] 업무 변경 알림 WebSocket 전송 성공:', createdNotifications.length, '개');
+        }
+      } catch (wsError) {
+        console.warn('⚠️ [WEBSOCKET] 업무 변경 알림 WebSocket 전송 실패:', wsError);
+      }
     }
   }
 }
@@ -810,14 +902,30 @@ async function createTaskCreationNote(task: any) {
           priority: task.priority === 'high' ? 'high' : 'normal'
         }));
 
-        const { error: notificationError } = await supabaseAdmin
+        const { data: createdNotifications, error: notificationError } = await supabaseAdmin
           .from('task_notifications')
-          .insert(notifications);
+          .insert(notifications)
+          .select();
 
         if (notificationError) {
           console.error('🔴 [TASK-CREATION] 생성 알림 오류:', notificationError);
         } else {
           console.log('✅ [TASK-CREATION] 생성 알림 성공:', notifications.length, '개');
+
+          // WebSocket으로 실시간 알림 전송
+          try {
+            const io = (global as any).io;
+            if (io && createdNotifications) {
+              createdNotifications.forEach((notification: any) => {
+                io.to(`user_${notification.user_id}`).emit('task_notification_created', {
+                  notification: notification
+                });
+              });
+              console.log('🔔 [WEBSOCKET] 업무 생성 알림 WebSocket 전송 성공:', createdNotifications.length, '개');
+            }
+          } catch (wsError) {
+            console.warn('⚠️ [WEBSOCKET] 업무 생성 알림 WebSocket 전송 실패:', wsError);
+          }
         }
       }
     }

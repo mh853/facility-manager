@@ -99,26 +99,58 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const maxReconnectDelay = 30000; // 30초
   const circuitBreakerTimeout = 300000; // 5분 후 재시도 허용
 
-  // 알림 목록 조회
+  // 알림 목록 조회 (일반 알림 + 업무 알림 통합)
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
 
     try {
       setLoading(true);
-      const response = await fetch('/api/notifications', {
-        headers: {
-          'Authorization': `Bearer ${TokenManager.getToken()}`
-        }
-      });
 
-      if (!response.ok) {
-        throw new Error('알림을 불러오는데 실패했습니다.');
-      }
+      // 일반 알림과 업무 알림을 병렬로 조회
+      const [notificationsResponse, taskNotificationsResponse] = await Promise.all([
+        fetch('/api/notifications', {
+          headers: {
+            'Authorization': `Bearer ${TokenManager.getToken()}`
+          }
+        }),
+        fetch('/api/notifications?taskNotifications=true', {
+          headers: {
+            'Authorization': `Bearer ${TokenManager.getToken()}`
+          }
+        })
+      ]);
 
-      const data = await response.json();
-      if (data.success) {
-        setNotifications(data.data || []);
-      }
+      const notificationsData = notificationsResponse.ok ? await notificationsResponse.json() : { success: false, data: [] };
+      const taskNotificationsData = taskNotificationsResponse.ok ? await taskNotificationsResponse.json() : { success: false, data: { taskNotifications: [] } };
+
+      // 업무 알림을 일반 알림 형식으로 변환
+      const taskNotifications = (taskNotificationsData.data?.taskNotifications || []).map((taskNotif: any) => ({
+        id: taskNotif.id,
+        title: '업무 알림',
+        message: taskNotif.message,
+        category: 'task_assigned' as NotificationCategory,
+        priority: taskNotif.priority === 'urgent' ? 'critical' as NotificationPriority :
+                 taskNotif.priority === 'high' ? 'high' as NotificationPriority : 'medium' as NotificationPriority,
+        relatedResourceType: 'task',
+        relatedResourceId: taskNotif.task_id,
+        metadata: {
+          business_name: taskNotif.business_name,
+          notification_type: taskNotif.notification_type
+        },
+        createdAt: taskNotif.created_at,
+        expiresAt: taskNotif.expires_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        isSystemNotification: false,
+        isRead: taskNotif.is_read
+      }));
+
+      // 일반 알림과 업무 알림 합치기 (시간순 정렬)
+      const allNotifications = [
+        ...(notificationsData.data || []),
+        ...taskNotifications
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      setNotifications(allNotifications);
+
     } catch (error) {
       console.error('알림 조회 오류:', error);
     } finally {
@@ -403,6 +435,59 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
               setNotifications(prev =>
                 prev.filter(notification => notification.id !== data.notificationId)
               );
+              break;
+
+            case 'task_notification_created':
+              // 업무 알림 생성 (task_notifications 테이블 기반)
+              if (data.notification) {
+                // 기존 알림 형식으로 변환하여 추가
+                const taskNotification = {
+                  id: data.notification.id,
+                  title: '업무 알림',
+                  message: data.notification.message,
+                  category: 'task_assigned' as NotificationCategory,
+                  priority: data.notification.priority === 'urgent' ? 'critical' as NotificationPriority :
+                           data.notification.priority === 'high' ? 'high' as NotificationPriority : 'medium' as NotificationPriority,
+                  relatedResourceType: 'task',
+                  relatedResourceId: data.notification.task_id,
+                  metadata: {
+                    business_name: data.notification.business_name,
+                    notification_type: data.notification.notification_type
+                  },
+                  createdAt: data.notification.created_at,
+                  expiresAt: data.notification.expires_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                  isSystemNotification: false,
+                  isRead: false
+                };
+
+                setNotifications(prev => [taskNotification, ...prev]);
+
+                // 브라우저 알림 표시
+                if (settings?.pushNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
+                  new Notification('업무 알림', {
+                    body: data.notification.message,
+                    icon: '/icon-192x192.png',
+                    badge: '/icon-192x192.png',
+                    tag: data.notification.id
+                  });
+                }
+
+                // 소리 알림
+                if (settings?.soundNotificationsEnabled) {
+                  playNotificationSound(taskNotification.priority);
+                }
+              }
+              break;
+
+            case 'task_notification_updated':
+              // 업무 알림 읽음 처리
+              if (data.notificationId) {
+                setNotifications(prev =>
+                  prev.map(notification =>
+                    notification.id === data.notificationId ? { ...notification, isRead: true } : notification
+                  )
+                );
+              }
               break;
 
             default:
