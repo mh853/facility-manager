@@ -24,11 +24,10 @@ async function getUserFromToken(request: NextRequest) {
 
     // 사용자 정보 조회
     const { data: user, error } = await supabaseAdmin
-      .from('employees')
-      .select('id, name, email, permission_level, department_id')
+      .from('users')
+      .select('id, name, email, role as permission_level, department')
       .eq('id', decoded.userId || decoded.id)
       .eq('is_active', true)
-      .eq('is_deleted', false)
       .single();
 
     if (error || !user) {

@@ -49,11 +49,10 @@ export async function POST(request: NextRequest) {
 
     // 사용자 존재 여부 재확인 (토큰은 유효하지만 사용자가 비활성화된 경우)
     const { data: employee, error: fetchError } = await supabaseAdmin
-      .from('employees')
+      .from('users')
       .select('*')
       .eq('id', decoded.id || decoded.userId)
       .eq('is_active', true)
-      .eq('is_deleted', false)
       .single();
 
     if (fetchError || !employee) {
