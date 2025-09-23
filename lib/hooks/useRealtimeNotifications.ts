@@ -36,6 +36,9 @@ export function useRealtimeNotifications(userId?: string): UseRealtimeNotificati
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error' | 'connecting'>('connecting');
   const [isPollingMode, setIsPollingMode] = useState(false);
 
+  // 클라이언트 읽음 상태 캐시 (실시간 업데이트 시 유지용)
+  const [readStateCache, setReadStateCache] = useState<Set<string>>(new Set());
+
   const unsubscribeRefs = useRef<(() => void)[]>([]);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -44,11 +47,15 @@ export function useRealtimeNotifications(userId?: string): UseRealtimeNotificati
     try {
       console.log('📥 [REALTIME-HOOK] 초기 알림 로드 시작', { userId });
 
-      // 전역 알림 로드
+      // 전역 알림 로드 (테스트 알림 제외)
       const { data: globalNotifications, error: globalError } = await supabase
         .from('notifications')
         .select('*')
         .gt('expires_at', new Date().toISOString())
+        .not('title', 'like', '%테스트%')
+        .not('title', 'like', '%🧪%')
+        .not('message', 'like', '%테스트%')
+        .not('created_by_name', 'in', '("System Test", "테스트 관리자")')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -58,7 +65,7 @@ export function useRealtimeNotifications(userId?: string): UseRealtimeNotificati
 
       let taskNotifications: any[] = [];
 
-      // 사용자별 업무 알림 로드 (userId가 있는 경우)
+      // 사용자별 업무 알림 로드 (테스트 알림 제외)
       if (userId) {
         const { data: userTaskNotifications, error: taskError } = await supabase
           .from('task_notifications')
@@ -66,6 +73,9 @@ export function useRealtimeNotifications(userId?: string): UseRealtimeNotificati
           .eq('user_id', userId)
           .eq('is_read', false)
           .gt('expires_at', new Date().toISOString())
+          .not('message', 'like', '%테스트%')
+          .not('message', 'like', '%🧪%')
+          .not('user_id', 'eq', 'test-user')
           .order('created_at', { ascending: false })
           .limit(50);
 
@@ -76,7 +86,7 @@ export function useRealtimeNotifications(userId?: string): UseRealtimeNotificati
         }
       }
 
-      // 알림 병합 및 표준화
+      // 알림 병합 및 표준화 (읽음 상태 캐시 적용)
       const combinedNotifications: NotificationItem[] = [
         ...(globalNotifications || []).map(notif => ({
           id: notif.id,
@@ -85,7 +95,7 @@ export function useRealtimeNotifications(userId?: string): UseRealtimeNotificati
           category: notif.category,
           priority: notif.priority as 'low' | 'medium' | 'high' | 'critical',
           timestamp: notif.created_at,
-          read: false, // 전역 알림은 읽음 상태 별도 관리 안함
+          read: readStateCache.has(notif.id), // 캐시된 읽음 상태 적용
           related_url: notif.related_url,
           metadata: notif.metadata,
           type: 'global' as const
@@ -100,7 +110,7 @@ export function useRealtimeNotifications(userId?: string): UseRealtimeNotificati
           priority: notif.priority === 'urgent' ? 'critical' :
                    notif.priority === 'high' ? 'high' : 'medium' as 'low' | 'medium' | 'high' | 'critical',
           timestamp: notif.created_at,
-          read: notif.is_read,
+          read: readStateCache.has(notif.id) || notif.is_read, // 캐시 또는 DB 읽음 상태
           related_url: `/admin/tasks?task=${notif.task_id}`,
           metadata: {
             ...notif.metadata,
@@ -251,8 +261,11 @@ export function useRealtimeNotifications(userId?: string): UseRealtimeNotificati
       const notification = notifications.find(n => n.id === notificationId);
       if (!notification) return;
 
+      // 캐시에 읽음 상태 저장 (즉시 적용)
+      setReadStateCache(prev => new Set([...prev, notificationId]));
+
       if (notification.type === 'task') {
-        // 업무 알림 읽음 처리
+        // 업무 알림 읽음 처리 (백그라운드)
         const { error } = await supabase
           .from('task_notifications')
           .update({ is_read: true })
@@ -260,11 +273,17 @@ export function useRealtimeNotifications(userId?: string): UseRealtimeNotificati
 
         if (error) {
           console.error('🔴 [REALTIME-HOOK] 업무 알림 읽음 처리 오류:', error);
+          // 실패 시 캐시에서 제거
+          setReadStateCache(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(notificationId);
+            return newSet;
+          });
           return;
         }
       }
 
-      // 로컬 상태 업데이트
+      // 로컬 상태 업데이트 (캐시 적용 위해 다시 로드)
       setNotifications(prev =>
         prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
       );
@@ -308,10 +327,46 @@ export function useRealtimeNotifications(userId?: string): UseRealtimeNotificati
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
   }, []);
 
-  // 모든 알림 제거 (로컬에서만)
-  const clearAllNotifications = useCallback(() => {
-    setNotifications([]);
-  }, []);
+  // 모든 알림 제거 및 아카이브 (서버 + 로컬)
+  const clearAllNotifications = useCallback(async () => {
+    try {
+      if (!userId) {
+        // userId가 없으면 로컬에서만 제거
+        setNotifications([]);
+        return;
+      }
+
+      // 서버에서 읽은 알림을 히스토리로 아카이브
+      const response = await fetch('/api/notifications/history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        },
+        body: JSON.stringify({
+          action: 'archive_read',
+          olderThanDays: 0 // 모든 읽은 알림 즉시 아카이브
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ [REALTIME-HOOK] 알림 아카이브 완료:', result.archivedCount);
+      } else {
+        console.warn('⚠️ [REALTIME-HOOK] 알림 아카이브 실패');
+      }
+
+      // 로컬 상태 즉시 정리
+      setNotifications([]);
+      setReadStateCache(new Set()); // 읽음 캐시도 초기화
+
+      console.log('✅ [REALTIME-HOOK] 모든 알림 정리 완료');
+    } catch (error) {
+      console.error('🔴 [REALTIME-HOOK] 알림 정리 오류:', error);
+      // 실패해도 로컬은 정리
+      setNotifications([]);
+    }
+  }, [userId]);
 
   // 알림 새로고침
   const refreshNotifications = useCallback(async () => {

@@ -230,10 +230,76 @@ export function useSimpleNotifications(userId?: string): UseSimpleNotificationsR
     }
   }, [userId, notifications]);
 
-  // 알림 제거 (로컬)
-  const clearNotification = useCallback((notificationId: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== notificationId));
-  }, []);
+  // 알림 제거 (데이터베이스에서 실제 삭제)
+  const clearNotification = useCallback(async (notificationId: string) => {
+    try {
+      const notification = notifications.find(n => n.id === notificationId);
+      if (!notification) return;
+
+      // 로컬에서 즉시 제거 (UI 반응성)
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+
+      // 서버에서 삭제 또는 아카이브
+      if (notification.type === 'task') {
+        // 업무 알림은 아카이브로 이동
+        const response = await fetch('/api/notifications/history', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+          },
+          body: JSON.stringify({
+            action: 'archive_specific',
+            notificationIds: [notificationId]
+          })
+        });
+
+        if (!response.ok) {
+          console.error('🔴 [SIMPLE-NOTIFICATIONS] 업무 알림 아카이브 실패');
+          // 실패 시 로컬 상태 복원
+          const originalNotification = notifications.find(n => n.id === notificationId);
+          if (originalNotification) {
+            setNotifications(prev => [...prev, originalNotification].sort((a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            ));
+          }
+        } else {
+          console.log('✅ [SIMPLE-NOTIFICATIONS] 업무 알림 아카이브 완료:', notificationId);
+        }
+      } else {
+        // 전역 알림은 숨김 처리
+        const response = await fetch(`/api/notifications/${notificationId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+          }
+        });
+
+        if (!response.ok) {
+          console.error('🔴 [SIMPLE-NOTIFICATIONS] 전역 알림 삭제 실패');
+          // 실패 시 로컬 상태 복원
+          const originalNotification = notifications.find(n => n.id === notificationId);
+          if (originalNotification) {
+            setNotifications(prev => [...prev, originalNotification].sort((a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            ));
+          }
+        } else {
+          console.log('✅ [SIMPLE-NOTIFICATIONS] 전역 알림 삭제 완료:', notificationId);
+        }
+      }
+
+    } catch (error) {
+      console.error('🔴 [SIMPLE-NOTIFICATIONS] 알림 제거 오류:', error);
+      // 오류 시 로컬 상태 복원
+      const originalNotification = notifications.find(n => n.id === notificationId);
+      if (originalNotification) {
+        setNotifications(prev => [...prev, originalNotification].sort((a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        ));
+      }
+    }
+  }, [notifications]);
 
   // 모든 알림 제거 및 아카이브
   const clearAllNotifications = useCallback(async () => {
