@@ -27,12 +27,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { currentPassword, newPassword } = body;
+    const { newPassword, currentPassword } = body;
 
-    // 필수 필드 검증
-    if (!currentPassword || !newPassword) {
+    // 필수 필드 검증 - newPassword만 필수
+    if (!newPassword) {
       return NextResponse.json(
-        { success: false, error: '현재 비밀번호와 새 비밀번호를 모두 입력해주세요.' },
+        { success: false, error: '새 비밀번호를 입력해주세요.' },
         { status: 400 }
       );
     }
@@ -62,21 +62,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 비밀번호가 설정되어 있지 않은 경우 (소셜 로그인 전용 계정)
-    if (!existingUser.password_hash) {
-      return NextResponse.json(
-        { success: false, error: '소셜 로그인 계정입니다. 먼저 비밀번호를 설정해주세요.' },
-        { status: 400 }
-      );
-    }
-
-    // 현재 비밀번호 확인
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, existingUser.password_hash);
-    if (!isCurrentPasswordValid) {
-      return NextResponse.json(
-        { success: false, error: '현재 비밀번호가 올바르지 않습니다.' },
-        { status: 400 }
-      );
+    // 현재 비밀번호가 제공된 경우에만 확인 (선택적)
+    if (currentPassword && existingUser.password_hash) {
+      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, existingUser.password_hash);
+      if (!isCurrentPasswordValid) {
+        return NextResponse.json(
+          { success: false, error: '현재 비밀번호가 올바르지 않습니다.' },
+          { status: 400 }
+        );
+      }
     }
 
     // 새 비밀번호 해시
