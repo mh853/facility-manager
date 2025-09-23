@@ -186,6 +186,31 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('⚠️ [NOTIFICATIONS] 인증 실패 - 기본 설정 사용');
+          // 기본 설정으로 설정하여 로딩 상태 해제
+          setSettings({
+            taskNotifications: true,
+            systemNotifications: true,
+            securityNotifications: true,
+            reportNotifications: true,
+            userNotifications: true,
+            businessNotifications: true,
+            fileNotifications: true,
+            maintenanceNotifications: true,
+            pushNotificationsEnabled: true,
+            emailNotificationsEnabled: false,
+            soundNotificationsEnabled: true,
+            showLowPriority: true,
+            showMediumPriority: true,
+            showHighPriority: true,
+            showCriticalPriority: true,
+            quietHoursStart: '22:00:00',
+            quietHoursEnd: '08:00:00',
+            quietHoursEnabled: false
+          });
+          return;
+        }
         throw new Error('알림 설정을 불러오는데 실패했습니다.');
       }
 
