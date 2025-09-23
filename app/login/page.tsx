@@ -68,8 +68,11 @@ function LoginForm() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
         },
         body: JSON.stringify(formData),
+        credentials: 'same-origin',
+        mode: 'cors',
       })
 
       const result = await response.json()
@@ -106,7 +109,17 @@ function LoginForm() {
       }
     } catch (error) {
       console.error('로그인 오류:', error)
-      setError('네트워크 오류가 발생했습니다.')
+
+      // 네트워크 오류 상세 처리
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        if (error.message.includes('ERR_CONNECTION_CLOSED') || error.message.includes('Failed to fetch')) {
+          setError('서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.')
+        } else {
+          setError('네트워크 연결을 확인해주세요.')
+        }
+      } else {
+        setError('로그인 처리 중 오류가 발생했습니다.')
+      }
     } finally {
       setLoading(false)
     }

@@ -37,7 +37,8 @@
       "Bash(xxd:*)",
       "Bash(timeout 5 npm run dev)",
       "Bash(npm run lint)",
-      "WebFetch(domain:vercel.com)"
+      "WebFetch(domain:vercel.com)",
+      "WebFetch(domain:facility.blueon-iot.com)"
     ],
     "deny": [],
     "ask": [],
