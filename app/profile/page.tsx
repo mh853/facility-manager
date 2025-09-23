@@ -169,12 +169,9 @@ export default function ProfilePage() {
 
       const token = TokenManager.getToken();
 
-      // 소셜 로그인 계정의 경우 비밀번호 설정 API 사용
-      const apiEndpoint = profile?.social_login_enabled ? '/api/auth/set-password' : '/api/auth/change-password';
-
-      const requestBody = profile?.social_login_enabled
-        ? { password: passwordForm.newPassword, confirmPassword: passwordForm.confirmPassword }
-        : { newPassword: passwordForm.newPassword }; // 로그인 상태에서는 현재 비밀번호 불필요
+      // 모든 사용자에게 통일된 change-password API 사용
+      const apiEndpoint = '/api/auth/change-password';
+      const requestBody = { newPassword: passwordForm.newPassword };
 
       const response = await fetch(apiEndpoint, {
         method: 'POST',
@@ -190,16 +187,8 @@ export default function ProfilePage() {
         if (data.success) {
           setPasswordForm({ newPassword: '', confirmPassword: '' });
           setShowPasswordForm(false);
-          const message = profile?.social_login_enabled
-            ? '비밀번호가 성공적으로 설정되었습니다. 이제 이메일로도 로그인할 수 있습니다.'
-            : '비밀번호가 성공적으로 변경되었습니다.';
-          setSuccessMessage(message);
+          setSuccessMessage('비밀번호가 성공적으로 변경되었습니다.');
           setTimeout(() => setSuccessMessage(''), 5000);
-
-          // 소셜 로그인 계정의 경우 프로필 새로고침
-          if (profile?.social_login_enabled) {
-            loadProfile();
-          }
         }
       } else {
         const data = await response.json();
@@ -465,17 +454,16 @@ export default function ProfilePage() {
               <form onSubmit={handlePasswordChange} className="space-y-6">
                 {/* 로그인 상태에서는 현재 비밀번호 입력 불필요 */}
 
-                {profile.social_login_enabled && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 text-blue-800">
-                      <Shield className="w-4 h-4" />
-                      <span className="text-sm font-medium">소셜 로그인 계정 비밀번호 설정</span>
-                    </div>
-                    <p className="text-sm text-blue-700 mt-1">
-                      소셜 로그인으로 가입한 계정에 비밀번호를 설정하여 이메일 로그인도 사용할 수 있습니다.
-                    </p>
+                {/* 간소화된 비밀번호 변경 설명 */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-gray-800">
+                    <Shield className="w-4 h-4" />
+                    <span className="text-sm font-medium">비밀번호 변경</span>
                   </div>
-                )}
+                  <p className="text-sm text-gray-700 mt-1">
+                    로그인 상태에서는 새 비밀번호만 입력하면 변경할 수 있습니다.
+                  </p>
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">새 비밀번호</label>
