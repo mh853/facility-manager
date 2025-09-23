@@ -65,7 +65,7 @@ const defaultSettings = {
 // GET: 사용자 알림 설정 조회
 export async function GET(request: NextRequest) {
   try {
-    const user = getUserFromToken(request.headers.get('authorization'));
+    const user = await getUserFromToken(request.headers.get('authorization'));
     if (!user) {
       return NextResponse.json(
         { success: false, error: { message: '인증이 필요합니다.' } },
@@ -73,19 +73,39 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 사용자 설정 조회
-    const { data: settings, error } = await supabase
-      .from('user_notification_settings')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    // 사용자 설정 조회 (테이블이 없으면 기본 설정 반환)
+    try {
+      const { data: settings, error } = await supabase
+        .from('user_notification_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116은 "not found" 오류
-      console.error('알림 설정 조회 오류:', error);
-      return NextResponse.json(
-        { success: false, error: { message: '설정 조회에 실패했습니다.' } },
-        { status: 500 }
-      );
+      if (error && error.code !== 'PGRST116') { // PGRST116은 "not found" 오류
+        // 테이블이 존재하지 않는 경우 기본 설정 반환
+        if (error.code === 'PGRST205') {
+          console.warn('⚠️ [NOTIFICATIONS] user_notification_settings 테이블이 존재하지 않음 - 기본 설정 반환');
+          return NextResponse.json({
+            success: true,
+            data: defaultSettings,
+            isDefault: true
+          });
+        }
+
+        console.error('알림 설정 조회 오류:', error);
+        return NextResponse.json(
+          { success: false, error: { message: '설정 조회에 실패했습니다.' } },
+          { status: 500 }
+        );
+      }
+    } catch (tableError: any) {
+      // 테이블 관련 오류인 경우 기본 설정 반환
+      console.warn('⚠️ [NOTIFICATIONS] 테이블 접근 오류 - 기본 설정 반환:', tableError.message);
+      return NextResponse.json({
+        success: true,
+        data: defaultSettings,
+        isDefault: true
+      });
     }
 
     // 설정이 없으면 기본 설정 반환
@@ -137,7 +157,7 @@ export async function GET(request: NextRequest) {
 // PUT: 사용자 알림 설정 업데이트
 export async function PUT(request: NextRequest) {
   try {
-    const user = getUserFromToken(request.headers.get('authorization'));
+    const user = await getUserFromToken(request.headers.get('authorization'));
     if (!user) {
       return NextResponse.json(
         { success: false, error: { message: '인증이 필요합니다.' } },
@@ -229,7 +249,7 @@ export async function PUT(request: NextRequest) {
 // DELETE: 사용자 알림 설정 초기화 (기본값으로 복원)
 export async function DELETE(request: NextRequest) {
   try {
-    const user = getUserFromToken(request.headers.get('authorization'));
+    const user = await getUserFromToken(request.headers.get('authorization'));
     if (!user) {
       return NextResponse.json(
         { success: false, error: { message: '인증이 필요합니다.' } },

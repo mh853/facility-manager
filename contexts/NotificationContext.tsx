@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
-import { TokenManager } from '@/lib/auth/TokenManager';
+import { TokenManager } from '@/lib/api-client';
 
 // 알림 타입 정의
 export type NotificationCategory =

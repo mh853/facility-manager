@@ -46,7 +46,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = getUserFromToken(request.headers.get('authorization'));
+    const user = await getUserFromToken(request.headers.get('authorization'));
     if (!user) {
       return NextResponse.json(
         { success: false, error: { message: '인증이 필요합니다.' } },
@@ -127,7 +127,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = getUserFromToken(request.headers.get('authorization'));
+    const user = await getUserFromToken(request.headers.get('authorization'));
     if (!user) {
       return NextResponse.json(
         { success: false, error: { message: '인증이 필요합니다.' } },
