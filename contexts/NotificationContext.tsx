@@ -99,12 +99,56 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const maxReconnectDelay = 30000; // 30초
   const circuitBreakerTimeout = 300000; // 5분 후 재시도 허용
 
-  // 알림 목록 조회 (일반 알림 + 업무 알림 통합)
+  // 하이브리드 알림 시스템: 단순 API 사용 + WebSocket 폴백
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
 
     try {
       setLoading(true);
+
+      // 먼저 단순 API로 시도
+      const simpleResponse = await fetch('/api/notifications/simple', {
+        headers: {
+          'Authorization': `Bearer ${TokenManager.getToken()}`
+        }
+      });
+
+      if (simpleResponse.ok) {
+        const simpleData = await simpleResponse.json();
+
+        if (simpleData.success && simpleData.data) {
+          const transformedNotifications = simpleData.data.notifications.map((notif: any) => ({
+            id: notif.id,
+            title: notif.title,
+            message: notif.message,
+            category: notif.category as NotificationCategory,
+            priority: notif.priority as NotificationPriority,
+            relatedResourceType: notif.related_resource_type,
+            relatedResourceId: notif.related_resource_id,
+            relatedUrl: notif.related_url,
+            metadata: notif.metadata,
+            createdById: notif.created_by_id,
+            createdByName: notif.created_by_name,
+            createdAt: notif.created_at,
+            expiresAt: notif.expires_at,
+            isSystemNotification: notif.is_system_notification,
+            isRead: notif.is_read
+          }));
+
+          setNotifications(transformedNotifications);
+
+          console.log('✅ [NOTIFICATIONS] 하이브리드 시스템 - 단순 API 사용:', {
+            total: simpleData.data.totalCount,
+            unread: simpleData.data.unreadCount,
+            source: 'simple_api'
+          });
+
+          return; // 성공 시 기존 로직 건너뛰기
+        }
+      }
+
+      // 단순 API 실패 시 기존 로직으로 폴백
+      console.warn('⚠️ [NOTIFICATIONS] 단순 API 실패, 기존 시스템으로 폴백');
 
       // 일반 알림과 업무 알림을 병렬로 조회
       const [notificationsResponse, taskNotificationsResponse] = await Promise.all([
@@ -166,6 +210,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setNotifications(allNotifications);
+
+      console.log('✅ [NOTIFICATIONS] 하이브리드 시스템 - 기존 API 사용 (폴백):', {
+        total: allNotifications.length,
+        source: 'legacy_api'
+      });
 
     } catch (error) {
       console.error('알림 조회 오류:', error);
@@ -392,7 +441,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   // WebSocket 연결 (백오프 및 Circuit Breaker 패턴)
-  const connectWebSocket = useCallback(() => {
+  const connectWebSocket = useCallback(async () => {
     if (!user || wsRef.current?.readyState === WebSocket.OPEN) return;
 
     const now = Date.now();

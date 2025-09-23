@@ -305,8 +305,9 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     // 업무 생성 시 자동 메모 생성
     await createTaskCreationNote(newTask);
 
-    // 실시간 WebSocket 알림 전송
+    // 하이브리드 알림 시스템: WebSocket + Database 알림 생성
     await sendTaskCreationNotifications(newTask, user);
+    await createSimpleTaskNotifications(newTask, 'creation', user);
 
     return createSuccessResponse({
       task: newTask,
@@ -485,8 +486,9 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
     // 상태 변경 시 자동 메모 및 알림 생성
     await createAutoProgressNoteAndNotification(existingTask, updatedTask);
 
-    // 실시간 WebSocket 알림 전송
+    // 하이브리드 알림 시스템: WebSocket + Database 알림 생성
     await sendTaskUpdateNotifications(existingTask, updatedTask, user);
+    await createSimpleTaskNotifications(updatedTask, 'update', user, existingTask);
 
     return createSuccessResponse({
       task: updatedTask,
@@ -564,8 +566,9 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
 
     console.log('✅ [FACILITY-TASKS] 삭제 성공:', deletedTask.id);
 
-    // 실시간 WebSocket 알림 전송 (삭제 알림)
+    // 하이브리드 알림 시스템: WebSocket + Database 알림 생성
     await sendTaskDeleteNotifications(existingTask, user);
+    await createSimpleTaskNotifications(existingTask, 'deletion', user);
 
     return createSuccessResponse({
       message: '시설 업무가 성공적으로 삭제되었습니다'
@@ -1197,4 +1200,235 @@ async function sendTaskDeleteNotifications(task: any, deleter: any) {
   } catch (error) {
     console.error('🔴 [WEBSOCKET] 업무 삭제 알림 오류:', error);
   }
+}
+
+// ============================================================================
+// 하이브리드 알림 시스템 - 단순화된 데이터베이스 알림 생성
+// ============================================================================
+
+/**
+ * 단순화된 업무 알림 생성 (데이터베이스 저장용)
+ * WebSocket 실패 시에도 폴링으로 알림을 받을 수 있도록 보장
+ */
+async function createSimpleTaskNotifications(
+  task: any,
+  actionType: 'creation' | 'update' | 'deletion',
+  actor: any,
+  oldTask?: any
+) {
+  try {
+    console.log('🔔 [HYBRID-NOTIFICATIONS] 단순 알림 생성:', {
+      taskId: task.id,
+      actionType,
+      actor: actor.name
+    });
+
+    // 알림을 받을 사용자 ID 수집
+    const userIds = new Set<string>();
+
+    // 현재 담당자들
+    if (task.assignees && Array.isArray(task.assignees)) {
+      task.assignees.forEach((assignee: any) => {
+        if (assignee.id) userIds.add(assignee.id);
+      });
+    }
+
+    // 이전 담당자들 (수정 시)
+    if (actionType === 'update' && oldTask?.assignees && Array.isArray(oldTask.assignees)) {
+      oldTask.assignees.forEach((assignee: any) => {
+        if (assignee.id) userIds.add(assignee.id);
+      });
+    }
+
+    // 생성자 (본인 제외하고 알림)
+    if (task.created_by && task.created_by !== actor.id) {
+      userIds.add(task.created_by);
+    }
+
+    const userIdArray = Array.from(userIds);
+    if (userIdArray.length === 0) {
+      console.log('📭 [HYBRID-NOTIFICATIONS] 알림 받을 사용자 없음');
+      return;
+    }
+
+    // 알림 메시지 생성
+    const messages = generateTaskNotificationMessages(task, actionType, actor, oldTask);
+    const notifications: any[] = [];
+
+    // 사용자별 맞춤 알림 생성
+    for (const userId of userIdArray) {
+      const isAssignee = task.assignees?.some((a: any) => a.id === userId);
+      const wasAssignee = oldTask?.assignees?.some((a: any) => a.id === userId);
+      const isCreator = task.created_by === userId;
+
+      let message = messages.default;
+      let notificationType = 'general';
+      let priority = 'normal';
+
+      // 액션 타입별 메시지 및 우선순위 결정
+      if (actionType === 'creation') {
+        if (isAssignee) {
+          message = messages.assigned || messages.default;
+          notificationType = 'assignment';
+          priority = task.priority === 'high' ? 'high' : 'normal';
+        } else if (isCreator) {
+          message = messages.created || messages.default;
+          notificationType = 'creation_confirmation';
+          priority = 'normal';
+        }
+      } else if (actionType === 'update') {
+        const statusChanged = oldTask && oldTask.status !== task.status;
+        const assigneeChanged = JSON.stringify(oldTask?.assignees) !== JSON.stringify(task.assignees);
+
+        if (statusChanged && (isAssignee || wasAssignee)) {
+          message = messages.statusChanged || messages.default;
+          notificationType = 'status_change';
+          priority = task.priority === 'high' ? 'high' : 'normal';
+        } else if (assigneeChanged) {
+          if (isAssignee && !wasAssignee) {
+            message = messages.newlyAssigned || messages.default;
+            notificationType = 'assignment';
+            priority = task.priority === 'high' ? 'high' : 'normal';
+          } else if (!isAssignee && wasAssignee) {
+            message = messages.unassigned || messages.default;
+            notificationType = 'unassignment';
+            priority = 'normal';
+          }
+        }
+      } else if (actionType === 'deletion') {
+        message = messages.deleted || messages.default;
+        notificationType = 'deletion';
+        priority = 'normal';
+      }
+
+      notifications.push({
+        user_id: userId,
+        task_id: task.id,
+        business_name: task.business_name,
+        message,
+        notification_type: notificationType,
+        priority,
+        metadata: {
+          action_type: actionType,
+          actor_name: actor.name,
+          task_title: task.title,
+          task_priority: task.priority,
+          task_type: task.task_type,
+          is_assignee: isAssignee,
+          is_creator: isCreator,
+          timestamp: new Date().toISOString()
+        },
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30일 후 만료
+        is_read: false,
+        is_deleted: false
+      });
+    }
+
+    // 알림 일괄 생성
+    if (notifications.length > 0) {
+      const { data: createdNotifications, error } = await supabaseAdmin
+        .from('task_notifications')
+        .insert(notifications)
+        .select();
+
+      if (error) {
+        console.error('🔴 [HYBRID-NOTIFICATIONS] 알림 생성 오류:', error);
+        throw error;
+      }
+
+      console.log('✅ [HYBRID-NOTIFICATIONS] 알림 생성 성공:', {
+        taskId: task.id,
+        actionType,
+        notificationCount: notifications.length,
+        userIds: userIdArray
+      });
+
+      // 통계 로깅
+      const priorityCount = notifications.reduce((acc, notif) => {
+        acc[notif.priority] = (acc[notif.priority] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      console.log('📊 [HYBRID-NOTIFICATIONS] 알림 통계:', {
+        total: notifications.length,
+        priorities: priorityCount,
+        types: notifications.reduce((acc, notif) => {
+          acc[notif.notification_type] = (acc[notif.notification_type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      });
+
+      return createdNotifications;
+    }
+
+  } catch (error) {
+    console.error('🔴 [HYBRID-NOTIFICATIONS] 단순 알림 생성 오류:', error);
+    // 알림 생성 실패해도 메인 로직에 영향 주지 않음
+  }
+}
+
+/**
+ * 액션 타입별 알림 메시지 생성
+ */
+function generateTaskNotificationMessages(
+  task: any,
+  actionType: 'creation' | 'update' | 'deletion',
+  actor: any,
+  oldTask?: any
+) {
+  const taskTitle = task.title || '제목 없음';
+  const businessName = task.business_name || '사업장 없음';
+  const actorName = actor.name || '시스템';
+
+  const statusLabels: { [key: string]: string } = {
+    'customer_contact': '고객연락',
+    'site_inspection': '현장조사',
+    'quotation': '견적',
+    'contract': '계약',
+    'deposit_confirm': '계약금확인',
+    'product_order': '제품주문',
+    'product_shipment': '제품출하',
+    'installation_schedule': '설치협의',
+    'installation': '설치',
+    'balance_payment': '잔금결제',
+    'document_complete': '서류완료',
+    'subsidy_payment': '보조금지급',
+    'on_hold': '보류',
+    'completed': '완료',
+    'cancelled': '취소'
+  };
+
+  if (actionType === 'creation') {
+    return {
+      default: `"${taskTitle}" 업무가 새로 등록되었습니다. (${businessName})`,
+      assigned: `"${taskTitle}" 업무가 담당자로 배정되었습니다. (${businessName})`,
+      created: `"${taskTitle}" 업무를 성공적으로 등록했습니다. (${businessName})`
+    };
+  }
+
+  if (actionType === 'update') {
+    const oldStatus = oldTask?.status;
+    const newStatus = task.status;
+    const statusChanged = oldStatus && oldStatus !== newStatus;
+
+    return {
+      default: `"${taskTitle}" 업무가 수정되었습니다. (${businessName})`,
+      statusChanged: statusChanged
+        ? `"${taskTitle}" 업무 상태가 "${statusLabels[oldStatus] || oldStatus}"에서 "${statusLabels[newStatus] || newStatus}"로 변경되었습니다. (${businessName})`
+        : `"${taskTitle}" 업무가 수정되었습니다. (${businessName})`,
+      newlyAssigned: `"${taskTitle}" 업무가 새로 담당자로 배정되었습니다. (${businessName})`,
+      unassigned: `"${taskTitle}" 업무의 담당자에서 해제되었습니다. (${businessName})`
+    };
+  }
+
+  if (actionType === 'deletion') {
+    return {
+      default: `"${taskTitle}" 업무가 삭제되었습니다. (${businessName})`,
+      deleted: `"${taskTitle}" 업무가 삭제되었습니다. (${businessName})`
+    };
+  }
+
+  return {
+    default: `업무 관련 알림이 있습니다. (${businessName})`
+  };
 }

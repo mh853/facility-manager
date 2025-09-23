@@ -84,43 +84,6 @@ export async function GET(request: NextRequest) {
       warning: 'Settings table not available - using defaults'
     });
 
-    // 설정이 없으면 기본 설정 반환
-    if (!settings) {
-      return NextResponse.json({
-        success: true,
-        data: defaultSettings,
-        isDefault: true
-      });
-    }
-
-    // 데이터베이스 필드명을 클라이언트 형식으로 변환
-    const clientSettings = {
-      taskNotifications: settings.task_notifications,
-      systemNotifications: settings.system_notifications,
-      securityNotifications: settings.security_notifications,
-      reportNotifications: settings.report_notifications,
-      userNotifications: settings.user_notifications,
-      businessNotifications: settings.business_notifications,
-      fileNotifications: settings.file_notifications,
-      maintenanceNotifications: settings.maintenance_notifications,
-      pushNotificationsEnabled: settings.push_notifications_enabled,
-      emailNotificationsEnabled: settings.email_notifications_enabled,
-      soundNotificationsEnabled: settings.sound_notifications_enabled,
-      showLowPriority: settings.show_low_priority,
-      showMediumPriority: settings.show_medium_priority,
-      showHighPriority: settings.show_high_priority,
-      showCriticalPriority: settings.show_critical_priority,
-      quietHoursStart: settings.quiet_hours_start,
-      quietHoursEnd: settings.quiet_hours_end,
-      quietHoursEnabled: settings.quiet_hours_enabled
-    };
-
-    return NextResponse.json({
-      success: true,
-      data: clientSettings,
-      isDefault: false
-    });
-
   } catch (error) {
     console.error('알림 설정 조회 API 오류:', error);
     return NextResponse.json(
