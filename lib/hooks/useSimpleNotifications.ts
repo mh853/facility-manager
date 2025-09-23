@@ -1,360 +1,303 @@
-// lib/hooks/useSimpleNotifications.ts - 단순 폴링 기반 알림 훅
-'use client';
-
+// lib/hooks/useSimpleNotifications.ts - 안정적인 폴링 기반 알림 시스템
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { TokenManager } from '@/lib/api-client';
+import { supabase } from '@/lib/supabase';
 
-export interface SimpleNotification {
+export interface NotificationItem {
   id: string;
   title: string;
   message: string;
-  category: string;
+  category?: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
-  related_resource_type?: string;
-  related_resource_id?: string;
+  timestamp: string;
+  read: boolean;
   related_url?: string;
   metadata?: Record<string, any>;
-  created_by_name?: string;
-  created_at: string;
-  expires_at: string;
-  is_system_notification: boolean;
-  is_read: boolean;
-}
-
-export interface NotificationStats {
-  critical: number;
-  high: number;
-  medium: number;
-  low: number;
+  type?: 'global' | 'task';
 }
 
 export interface UseSimpleNotificationsResult {
-  notifications: SimpleNotification[];
+  notifications: NotificationItem[];
   unreadCount: number;
-  totalCount: number;
-  priorityStats: NotificationStats;
-  loading: boolean;
-  error: string | null;
-  lastFetched: string | null;
-
-  // 액션들
-  fetchNotifications: () => Promise<void>;
-  markAsRead: (notificationIds: string[]) => Promise<void>;
+  isConnected: boolean;
+  connectionStatus: 'connected' | 'disconnected' | 'error' | 'connecting';
+  markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
-  deleteNotification: (notificationId: string) => Promise<void>;
-
-  // 폴링 제어
-  startPolling: () => void;
-  stopPolling: () => void;
-  isPolling: boolean;
+  clearNotification: (notificationId: string) => void;
+  clearAllNotifications: () => void;
+  refreshNotifications: () => Promise<void>;
+  isPollingMode: boolean;
+  reconnect: () => Promise<void>;
 }
 
-interface UseSimpleNotificationsOptions {
-  pollingInterval?: number; // 기본 30초
-  enablePolling?: boolean; // 기본 true
-  maxRetries?: number; // 기본 3
-  onError?: (error: Error) => void;
-  onNewNotification?: (notification: SimpleNotification) => void;
-}
-
-/**
- * 단순 폴링 기반 알림 훅
- * WebSocket 대신 HTTP 폴링을 사용하여 서버리스 환경에 최적화
- */
-export function useSimpleNotifications(options: UseSimpleNotificationsOptions = {}): UseSimpleNotificationsResult {
-  const {
-    pollingInterval = 30000, // 30초
-    enablePolling = true,
-    maxRetries = 3,
-    onError,
-    onNewNotification
-  } = options;
-
-  // 상태 관리
-  const [notifications, setNotifications] = useState<SimpleNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
-  const [priorityStats, setPriorityStats] = useState<NotificationStats>({
-    critical: 0,
-    high: 0,
-    medium: 0,
-    low: 0
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastFetched, setLastFetched] = useState<string | null>(null);
-  const [isPolling, setIsPolling] = useState(false);
-
-  // 참조 관리
+export function useSimpleNotifications(userId?: string): UseSimpleNotificationsResult {
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [readStateCache, setReadStateCache] = useState<Set<string>>(new Set());
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const retryCountRef = useRef(0);
-  const isUnmountedRef = useRef(false);
-  const lastETagRef = useRef<string | null>(null);
 
-  // API 호출 함수
-  const callAPI = useCallback(async (url: string, options: RequestInit = {}) => {
-    const token = TokenManager.getToken();
-    if (!token) {
-      throw new Error('인증 토큰이 없습니다');
-    }
-
-    const headers = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...options.headers
-    };
-
-    // ETag 지원 (조건부 요청)
-    if (lastETagRef.current && options.method === undefined) {
-      (headers as any)['If-None-Match'] = lastETagRef.current;
-    }
-
-    const response = await fetch(url, {
-      ...options,
-      headers
-    });
-
-    // 304 Not Modified 처리
-    if (response.status === 304) {
-      console.log('📦 [SIMPLE-NOTIFICATIONS] 캐시된 데이터 사용 (304 Not Modified)');
-      return null; // 데이터 변경 없음
-    }
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    // ETag 저장
-    const etag = response.headers.get('ETag');
-    if (etag) {
-      lastETagRef.current = etag;
-    }
-
-    return response.json();
-  }, []);
-
-  // 알림 조회
-  const fetchNotifications = useCallback(async () => {
-    if (isUnmountedRef.current) return;
-
+  // 알림 로드
+  const loadNotifications = useCallback(async () => {
     try {
-      setError(null);
+      console.log('📥 [SIMPLE-NOTIFICATIONS] 알림 로드 시작', { userId });
 
-      const data = await callAPI('/api/notifications/simple');
+      // 전역 알림 로드 (테스트 알림 제외)
+      const { data: globalNotifications, error: globalError } = await supabase
+        .from('notifications')
+        .select('*')
+        .gt('expires_at', new Date().toISOString())
+        .not('title', 'like', '%테스트%')
+        .not('title', 'like', '%🧪%')
+        .not('message', 'like', '%테스트%')
+        .not('created_by_name', 'in', '("System Test", "테스트 관리자")')
+        .order('created_at', { ascending: false })
+        .limit(20);
 
-      // 304 응답 시 데이터 업데이트 하지 않음
-      if (data === null) return;
-
-      if (data.success && data.data) {
-        const { notifications: newNotifications, unreadCount: newUnreadCount, totalCount: newTotalCount, priorityStats: newPriorityStats, lastFetched: newLastFetched } = data.data;
-
-        // 새 알림 감지 및 콜백 호출
-        if (notifications.length > 0 && newNotifications.length > notifications.length) {
-          const newNotifs = newNotifications.slice(0, newNotifications.length - notifications.length);
-          newNotifs.forEach((notif: SimpleNotification) => {
-            if (onNewNotification) {
-              onNewNotification(notif);
-            }
-          });
-        }
-
-        setNotifications(newNotifications);
-        setUnreadCount(newUnreadCount);
-        setTotalCount(newTotalCount);
-        setPriorityStats(newPriorityStats);
-        setLastFetched(newLastFetched);
-
-        retryCountRef.current = 0; // 성공 시 재시도 카운터 리셋
-
-        console.log('✅ [SIMPLE-NOTIFICATIONS] 알림 조회 성공:', {
-          total: newTotalCount,
-          unread: newUnreadCount,
-          cached: data.data.cached || false
-        });
-      } else {
-        throw new Error(data.error || '알림 조회에 실패했습니다');
+      if (globalError) {
+        console.error('🔴 [SIMPLE-NOTIFICATIONS] 전역 알림 로드 오류:', globalError);
       }
-    } catch (err: any) {
-      console.error('🔴 [SIMPLE-NOTIFICATIONS] 조회 오류:', err);
 
-      retryCountRef.current++;
-      const errorMessage = err.message || '알림 조회 중 오류가 발생했습니다';
+      let taskNotifications: any[] = [];
 
-      // 최대 재시도 횟수 초과 시에만 에러 상태 설정
-      if (retryCountRef.current >= maxRetries) {
-        setError(errorMessage);
-        if (onError) {
-          onError(new Error(errorMessage));
+      // 사용자별 업무 알림 로드 (테스트 알림 제외)
+      if (userId) {
+        const { data: userTaskNotifications, error: taskError } = await supabase
+          .from('task_notifications')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_read', false)
+          .gt('expires_at', new Date().toISOString())
+          .not('message', 'like', '%테스트%')
+          .not('message', 'like', '%🧪%')
+          .not('user_id', 'eq', 'test-user')
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (taskError) {
+          console.error('🔴 [SIMPLE-NOTIFICATIONS] 업무 알림 로드 오류:', taskError);
+        } else {
+          taskNotifications = userTaskNotifications || [];
         }
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [callAPI, notifications.length, maxRetries, onError, onNewNotification]);
 
-  // 읽음 처리
-  const markAsRead = useCallback(async (notificationIds: string[]) => {
-    try {
-      const data = await callAPI('/api/notifications/simple', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'markAsRead',
-          notificationIds
-        })
+      // 알림 병합 및 표준화 (읽음 상태 캐시 적용)
+      const combinedNotifications: NotificationItem[] = [
+        ...(globalNotifications || []).map(notif => ({
+          id: notif.id,
+          title: notif.title,
+          message: notif.message,
+          category: notif.category,
+          priority: notif.priority as 'low' | 'medium' | 'high' | 'critical',
+          timestamp: notif.created_at,
+          read: readStateCache.has(notif.id), // 캐시된 읽음 상태 적용
+          related_url: notif.related_url,
+          metadata: notif.metadata,
+          type: 'global' as const
+        })),
+        ...taskNotifications.map(notif => ({
+          id: notif.id,
+          title: notif.notification_type === 'assignment' ? '새 업무 배정' :
+                notif.notification_type === 'status_change' ? '업무 상태 변경' :
+                notif.notification_type === 'unassignment' ? '업무 배정 해제' : '업무 알림',
+          message: notif.message,
+          category: notif.notification_type,
+          priority: notif.priority === 'urgent' ? 'critical' :
+                   notif.priority === 'high' ? 'high' : 'medium' as 'low' | 'medium' | 'high' | 'critical',
+          timestamp: notif.created_at,
+          read: readStateCache.has(notif.id) || notif.is_read, // 캐시 또는 DB 읽음 상태
+          related_url: `/admin/tasks?task=${notif.task_id}`,
+          metadata: {
+            ...notif.metadata,
+            task_id: notif.task_id,
+            business_name: notif.business_name,
+            notification_type: notif.notification_type
+          },
+          type: 'task' as const
+        }))
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      setNotifications(combinedNotifications);
+
+      const unreadCount = combinedNotifications.filter(n => !n.read).length;
+      console.log('✅ [SIMPLE-NOTIFICATIONS] 알림 로드 완료:', {
+        global: globalNotifications?.length || 0,
+        task: taskNotifications.length,
+        total: combinedNotifications.length,
+        unread: unreadCount
       });
 
-      if (data?.success) {
-        // 로컬 상태 업데이트
-        setNotifications(prev =>
-          prev.map(notif =>
-            notificationIds.includes(notif.id)
-              ? { ...notif, is_read: true }
-              : notif
-          )
-        );
-
-        // 읽지 않은 알림 수 재계산
-        setUnreadCount(prev => Math.max(0, prev - notificationIds.length));
-
-        console.log('✅ [SIMPLE-NOTIFICATIONS] 읽음 처리 성공:', notificationIds.length);
-      } else {
-        throw new Error(data?.error || '읽음 처리에 실패했습니다');
-      }
-    } catch (err: any) {
-      console.error('🔴 [SIMPLE-NOTIFICATIONS] 읽음 처리 오류:', err);
-      if (onError) {
-        onError(new Error(err.message || '읽음 처리 중 오류가 발생했습니다'));
-      }
+    } catch (error) {
+      console.error('🔴 [SIMPLE-NOTIFICATIONS] 알림 로드 실패:', error);
     }
-  }, [callAPI, onError]);
-
-  // 모든 알림 읽음 처리
-  const markAllAsRead = useCallback(async () => {
-    try {
-      const data = await callAPI('/api/notifications/simple', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'markAllAsRead',
-          markAllAsRead: true
-        })
-      });
-
-      if (data?.success) {
-        // 로컬 상태 업데이트
-        setNotifications(prev =>
-          prev.map(notif => ({ ...notif, is_read: true }))
-        );
-        setUnreadCount(0);
-
-        console.log('✅ [SIMPLE-NOTIFICATIONS] 모든 알림 읽음 처리 성공');
-      } else {
-        throw new Error(data?.error || '모든 알림 읽음 처리에 실패했습니다');
-      }
-    } catch (err: any) {
-      console.error('🔴 [SIMPLE-NOTIFICATIONS] 모든 알림 읽음 처리 오류:', err);
-      if (onError) {
-        onError(new Error(err.message || '모든 알림 읽음 처리 중 오류가 발생했습니다'));
-      }
-    }
-  }, [callAPI, onError]);
-
-  // 알림 삭제
-  const deleteNotification = useCallback(async (notificationId: string) => {
-    try {
-      const data = await callAPI(`/api/notifications/simple?id=${notificationId}`, {
-        method: 'DELETE'
-      });
-
-      if (data?.success) {
-        // 로컬 상태 업데이트
-        setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
-        setTotalCount(prev => Math.max(0, prev - 1));
-
-        console.log('✅ [SIMPLE-NOTIFICATIONS] 알림 삭제 성공:', notificationId);
-      } else {
-        throw new Error(data?.error || '알림 삭제에 실패했습니다');
-      }
-    } catch (err: any) {
-      console.error('🔴 [SIMPLE-NOTIFICATIONS] 삭제 오류:', err);
-      if (onError) {
-        onError(new Error(err.message || '알림 삭제 중 오류가 발생했습니다'));
-      }
-    }
-  }, [callAPI, onError]);
+  }, [userId, readStateCache]);
 
   // 폴링 시작
   const startPolling = useCallback(() => {
-    if (pollingIntervalRef.current || !enablePolling) return;
+    if (pollingIntervalRef.current) return;
 
-    console.log('🔄 [SIMPLE-NOTIFICATIONS] 폴링 시작 (간격:', pollingInterval, 'ms)');
-    setIsPolling(true);
+    console.log('🔄 [SIMPLE-NOTIFICATIONS] 폴링 시작');
 
+    // 즉시 로드
+    loadNotifications();
+
+    // 30초마다 새로고침
     pollingIntervalRef.current = setInterval(() => {
-      if (!isUnmountedRef.current) {
-        fetchNotifications();
-      }
-    }, pollingInterval);
-  }, [enablePolling, pollingInterval, fetchNotifications]);
+      loadNotifications();
+    }, 30000);
+  }, [loadNotifications]);
 
   // 폴링 중지
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
-      console.log('⏹️ [SIMPLE-NOTIFICATIONS] 폴링 중지');
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
-      setIsPolling(false);
+      console.log('⏹️ [SIMPLE-NOTIFICATIONS] 폴링 중지');
     }
   }, []);
 
-  // 초기 로드 및 폴링 시작
+  // 초기화
   useEffect(() => {
-    fetchNotifications();
+    startPolling();
+    return () => stopPolling();
+  }, [startPolling, stopPolling]);
 
-    if (enablePolling) {
-      startPolling();
-    }
+  // 알림 읽음 처리
+  const markAsRead = useCallback(async (notificationId: string) => {
+    try {
+      const notification = notifications.find(n => n.id === notificationId);
+      if (!notification) return;
 
-    return () => {
-      isUnmountedRef.current = true;
-      stopPolling();
-    };
-  }, [fetchNotifications, startPolling, stopPolling, enablePolling]);
+      // 캐시에 읽음 상태 저장 (즉시 적용)
+      setReadStateCache(prev => new Set([...prev, notificationId]));
 
-  // 페이지 가시성 변경 시 폴링 제어
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        if (enablePolling && !pollingIntervalRef.current) {
-          startPolling();
+      if (notification.type === 'task') {
+        // 업무 알림 읽음 처리 (백그라운드)
+        const { error } = await supabase
+          .from('task_notifications')
+          .update({ is_read: true })
+          .eq('id', notificationId);
+
+        if (error) {
+          console.error('🔴 [SIMPLE-NOTIFICATIONS] 업무 알림 읽음 처리 오류:', error);
+          // 실패 시 캐시에서 제거
+          setReadStateCache(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(notificationId);
+            return newSet;
+          });
+          return;
         }
-        // 페이지가 다시 활성화될 때 즉시 업데이트
-        fetchNotifications();
-      } else {
-        stopPolling();
       }
-    };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+      // 로컬 상태 업데이트
+      setNotifications(prev =>
+        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+      );
 
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [enablePolling, startPolling, stopPolling, fetchNotifications]);
+      console.log('✅ [SIMPLE-NOTIFICATIONS] 알림 읽음 처리:', notificationId);
+    } catch (error) {
+      console.error('🔴 [SIMPLE-NOTIFICATIONS] 읽음 처리 실패:', error);
+    }
+  }, [notifications]);
+
+  // 모든 알림 읽음 처리
+  const markAllAsRead = useCallback(async () => {
+    try {
+      if (!userId) return;
+
+      // 업무 알림 모두 읽음 처리
+      const { error } = await supabase
+        .from('task_notifications')
+        .update({ is_read: true })
+        .eq('user_id', userId)
+        .eq('is_read', false);
+
+      if (error) {
+        console.error('🔴 [SIMPLE-NOTIFICATIONS] 모든 알림 읽음 처리 오류:', error);
+        return;
+      }
+
+      // 모든 알림을 읽음 캐시에 추가
+      const allNotificationIds = notifications.map(n => n.id);
+      setReadStateCache(prev => new Set([...prev, ...allNotificationIds]));
+
+      // 로컬 상태 업데이트
+      setNotifications(prev =>
+        prev.map(n => ({ ...n, read: true }))
+      );
+
+      console.log('✅ [SIMPLE-NOTIFICATIONS] 모든 알림 읽음 처리 완료');
+    } catch (error) {
+      console.error('🔴 [SIMPLE-NOTIFICATIONS] 모든 읽음 처리 실패:', error);
+    }
+  }, [userId, notifications]);
+
+  // 알림 제거 (로컬)
+  const clearNotification = useCallback((notificationId: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+  }, []);
+
+  // 모든 알림 제거 및 아카이브
+  const clearAllNotifications = useCallback(async () => {
+    try {
+      if (!userId) {
+        setNotifications([]);
+        return;
+      }
+
+      // 서버에서 읽은 알림을 히스토리로 아카이브
+      const response = await fetch('/api/notifications/history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        },
+        body: JSON.stringify({
+          action: 'archive_read',
+          olderThanDays: 0
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ [SIMPLE-NOTIFICATIONS] 알림 아카이브 완료:', result.archivedCount);
+      }
+
+      // 로컬 상태 즉시 정리
+      setNotifications([]);
+      setReadStateCache(new Set());
+
+      console.log('✅ [SIMPLE-NOTIFICATIONS] 모든 알림 정리 완료');
+    } catch (error) {
+      console.error('🔴 [SIMPLE-NOTIFICATIONS] 알림 정리 오류:', error);
+      setNotifications([]);
+    }
+  }, [userId]);
+
+  // 새로고침
+  const refreshNotifications = useCallback(async () => {
+    console.log('🔄 [SIMPLE-NOTIFICATIONS] 수동 새로고침');
+    await loadNotifications();
+  }, [loadNotifications]);
+
+  // 재연결 (폴링 재시작)
+  const reconnect = useCallback(async () => {
+    console.log('🔄 [SIMPLE-NOTIFICATIONS] 재연결');
+    stopPolling();
+    setTimeout(() => startPolling(), 1000);
+  }, [stopPolling, startPolling]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return {
     notifications,
     unreadCount,
-    totalCount,
-    priorityStats,
-    loading,
-    error,
-    lastFetched,
-    fetchNotifications,
+    isConnected: true, // 폴링 모드는 항상 연결됨
+    connectionStatus: 'connected',
     markAsRead,
     markAllAsRead,
-    deleteNotification,
-    startPolling,
-    stopPolling,
-    isPolling
+    clearNotification,
+    clearAllNotifications,
+    refreshNotifications,
+    isPollingMode: true,
+    reconnect
   };
 }

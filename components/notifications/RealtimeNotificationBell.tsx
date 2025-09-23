@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, Clock, User, FolderOpen, AlertCircle, X, Wifi, WifiOff, RefreshCw, Zap } from 'lucide-react';
-import { useRealtimeNotifications } from '@/lib/hooks/useRealtimeNotifications';
+import { useSimpleNotifications } from '@/lib/hooks/useSimpleNotifications';
 
 interface RealtimeNotificationBellProps {
   userId?: string; // 사용자 ID (로그인된 경우)
@@ -13,7 +13,7 @@ export default function RealtimeNotificationBell({ userId }: RealtimeNotificatio
   const [showConnectionStatus, setShowConnectionStatus] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Supabase Realtime 알림 훅 사용
+  // 폴링 기반 알림 시스템 사용 (WebSocket 연결 문제 해결)
   const {
     notifications,
     unreadCount,
@@ -26,7 +26,7 @@ export default function RealtimeNotificationBell({ userId }: RealtimeNotificatio
     refreshNotifications,
     isPollingMode,
     reconnect
-  } = useRealtimeNotifications(userId);
+  } = useSimpleNotifications(userId);
 
   // 브라우저 알림 권한 요청
   useEffect(() => {
@@ -135,11 +135,11 @@ export default function RealtimeNotificationBell({ userId }: RealtimeNotificatio
     }
   };
 
-  // 연결 상태 텍스트
+  // 연결 상태 텍스트 (간소화)
   const getConnectionText = () => {
-    if (connectionStatus === 'connecting') return '연결 중...';
-    if (isConnected) return isPollingMode ? '폴링 모드' : 'Realtime 연결';
-    return '연결 끊어짐';
+    if (connectionStatus === 'connecting') return '동기화 중...';
+    if (isConnected) return '정상 연결';
+    return '오프라인';
   };
 
   return (
@@ -194,27 +194,25 @@ export default function RealtimeNotificationBell({ userId }: RealtimeNotificatio
             </div>
           </div>
 
-          {/* 연결 상태 세부 정보 */}
-          {showConnectionStatus && (
-            <div className="px-4 py-2 bg-blue-50 border-b text-xs space-y-1">
-              <div className="flex justify-between">
-                <span>상태:</span>
-                <span className={`font-medium ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
-                  {getConnectionText()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>모드:</span>
-                <span>{isPollingMode ? '폴링 폴백' : 'Supabase Realtime'}</span>
-              </div>
-              {!isConnected && (
+          {/* 연결 문제 시에만 상태 정보 표시 */}
+          {(!isConnected || connectionStatus === 'error') && (
+            <div className="px-4 py-3 bg-amber-50 border-b text-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <WifiOff className="w-4 h-4 text-amber-600" />
+                  <span className="text-amber-800 font-medium">연결 문제</span>
+                </div>
                 <button
                   onClick={reconnect}
-                  className="w-full mt-2 py-1 px-2 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                  className="flex items-center gap-1 px-2 py-1 bg-amber-600 text-white rounded text-xs hover:bg-amber-700 transition-colors"
                 >
-                  재연결 시도
+                  <RefreshCw className="w-3 h-3" />
+                  재연결
                 </button>
-              )}
+              </div>
+              <p className="text-xs text-amber-700">
+                실시간 알림이 지연될 수 있습니다. 재연결을 시도하거나 새로고침해주세요.
+              </p>
             </div>
           )}
 
@@ -223,7 +221,17 @@ export default function RealtimeNotificationBell({ userId }: RealtimeNotificatio
             {notifications.length === 0 ? (
               <div className="px-4 py-8 text-center text-gray-500">
                 <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                <p className="text-sm">새로운 알림이 없습니다</p>
+                <p className="text-sm mb-3">새로운 알림이 없습니다</p>
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    // 히스토리 페이지로 이동 (향후 구현)
+                    window.location.href = '/notifications/history';
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                >
+                  이전 알림 보기
+                </button>
               </div>
             ) : (
               <div className="divide-y">
@@ -310,8 +318,19 @@ export default function RealtimeNotificationBell({ userId }: RealtimeNotificatio
           </div>
 
           {/* 푸터 */}
-          {notifications.length > 0 && (
-            <div className="px-4 py-2 border-t bg-gray-50 flex justify-between items-center">
+          <div className="px-4 py-2 border-t bg-gray-50 flex justify-between items-center">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                window.location.href = '/notifications/history';
+              }}
+              className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+            >
+              <FolderOpen className="w-3 h-3" />
+              <span>이전 알림 보기</span>
+            </button>
+
+            {notifications.length > 0 && (
               <button
                 onClick={refreshNotifications}
                 className="text-xs text-gray-600 hover:text-gray-800 flex items-center space-x-1"
@@ -319,14 +338,14 @@ export default function RealtimeNotificationBell({ userId }: RealtimeNotificatio
                 <RefreshCw className="w-3 h-3" />
                 <span>새로고침</span>
               </button>
-              <button
-                onClick={clearAllNotifications}
-                className="text-xs text-red-600 hover:text-red-800"
-              >
-                모든 알림 제거
-              </button>
-            </div>
-          )}
+            )}
+            <button
+              onClick={clearAllNotifications}
+              className="text-xs text-red-600 hover:text-red-800"
+            >
+              모든 알림 제거
+            </button>
+          </div>
         </div>
       )}
     </div>
