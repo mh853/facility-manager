@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, CheckCheck, Clock, User, FolderOpen, AlertCircle, X, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Bell, Check, CheckCheck, Clock, User, FolderOpen, AlertCircle, X, Wifi, WifiOff, RefreshCw, Trash2 } from 'lucide-react';
 import { useNotification } from '@/contexts/NotificationContext';
 
 export default function NotificationBell() {
@@ -19,6 +19,8 @@ export default function NotificationBell() {
     lastEventTime,
     markAsRead,
     markAllAsRead,
+    deleteAllNotifications,
+    deleteReadNotifications,
     reconnectRealtime
   } = useNotification();
 
@@ -200,6 +202,18 @@ export default function NotificationBell() {
                 </button>
               )}
 
+              {/* 모든 알림 제거 버튼 */}
+              {notifications.length > 0 && (
+                <button
+                  onClick={deleteAllNotifications}
+                  className="text-sm text-red-600 hover:text-red-800 font-medium flex items-center space-x-1"
+                  title="모든 알림을 완전히 삭제합니다"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span>모든 알림 제거</span>
+                </button>
+              )}
+
               {/* 닫기 버튼 */}
               <button
                 onClick={() => setIsOpen(false)}
@@ -305,11 +319,11 @@ export default function NotificationBell() {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  // TODO: 알림 전체 페이지로 이동
+                  window.location.href = '/notifications/history';
                 }}
                 className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium py-2 hover:bg-gray-50 rounded-md transition-colors duration-200"
               >
-                모든 알림 보기
+                이전 알림 보기
               </button>
             </div>
           )}

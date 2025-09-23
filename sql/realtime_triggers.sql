@@ -418,6 +418,8 @@ CREATE INDEX IF NOT EXISTS idx_facility_tasks_assignees_gin ON facility_tasks US
 -- 7. 설정 완료 알림
 -- ============================================================================
 
+-- 하드코딩된 시스템 알림 비활성화 (반복 생성 방지)
+/*
 INSERT INTO notifications (
   title, message, category, priority,
   is_system_notification, created_by_name, metadata
@@ -435,6 +437,7 @@ INSERT INTO notifications (
     'trigger_functions', true
   )
 );
+*/
 
 -- 설정 요약 출력
 SELECT 'Supabase Realtime 설정 완료' as status,

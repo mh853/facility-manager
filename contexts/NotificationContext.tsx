@@ -68,6 +68,8 @@ interface NotificationContextType {
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
+  deleteAllNotifications: () => Promise<void>;
+  deleteReadNotifications: () => Promise<void>;
 
   // 알림 생성
   createNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'expiresAt' | 'isRead'>) => Promise<void>;
@@ -106,7 +108,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     reconnect,
     sendBroadcast
   } = useSupabaseRealtime({
-    tableName: 'notifications',
+    tableName: 'task_notifications',
     eventTypes: ['INSERT', 'UPDATE'],
     autoConnect: !!user,
     onNotification: handleRealtimeNotification,
@@ -133,22 +135,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
 
       if (eventType === 'INSERT' && newRecord) {
-        // 새 알림 추가
+        // task_notifications 구조에 맞게 새 알림 추가
         const newNotification: Notification = {
           id: newRecord.id,
-          title: newRecord.title,
+          title: `업무 알림: ${newRecord.business_name}`,
           message: newRecord.message,
-          category: newRecord.category as NotificationCategory,
+          category: (newRecord.notification_type || 'task_updated') as NotificationCategory,
           priority: newRecord.priority as NotificationPriority,
-          relatedResourceType: newRecord.related_resource_type,
-          relatedResourceId: newRecord.related_resource_id,
-          relatedUrl: newRecord.related_url,
-          metadata: newRecord.metadata,
-          createdById: newRecord.created_by_id,
-          createdByName: newRecord.created_by_name,
+          relatedResourceType: 'task',
+          relatedResourceId: newRecord.task_id,
+          relatedUrl: `/admin/tasks/${newRecord.task_id}`,
+          metadata: { business_name: newRecord.business_name, task_id: newRecord.task_id },
+          createdById: newRecord.user_id,
+          createdByName: newRecord.user_name,
           createdAt: newRecord.created_at,
-          expiresAt: newRecord.expires_at,
-          isSystemNotification: newRecord.is_system_notification,
+          expiresAt: newRecord.expires_at || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          isSystemNotification: false,
           isRead: newRecord.is_read
         };
 
@@ -192,7 +194,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
 
-      const response = await fetch('/api/notifications', {
+      const response = await fetch('/api/notifications?taskNotifications=true', {
         headers: {
           'Authorization': `Bearer ${TokenManager.getToken()}`,
           'Content-Type': 'application/json'
@@ -205,21 +207,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       const data = await response.json();
       if (data.success && data.data) {
-        const transformedNotifications = data.data.map((notif: any) => ({
+        // task_notifications API 응답 구조에 맞게 변환
+        const taskNotifications = data.data.taskNotifications || [];
+        const transformedNotifications = taskNotifications.map((notif: any) => ({
           id: notif.id,
-          title: notif.title,
+          title: `업무 알림: ${notif.business_name}`, // task_notifications는 title이 없으므로 생성
           message: notif.message,
-          category: notif.category as NotificationCategory,
+          category: (notif.notification_type || 'task_updated') as NotificationCategory,
           priority: notif.priority as NotificationPriority,
-          relatedResourceType: notif.related_resource_type,
-          relatedResourceId: notif.related_resource_id,
-          relatedUrl: notif.related_url,
-          metadata: notif.metadata,
-          createdById: notif.created_by_id,
-          createdByName: notif.created_by_name,
+          relatedResourceType: 'task',
+          relatedResourceId: notif.task_id,
+          relatedUrl: `/admin/tasks/${notif.task_id}`,
+          metadata: { business_name: notif.business_name, task_id: notif.task_id },
+          createdById: notif.user_id,
+          createdByName: notif.user_name,
           createdAt: notif.created_at,
-          expiresAt: notif.expires_at,
-          isSystemNotification: notif.is_system_notification,
+          expiresAt: notif.expires_at || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30일 후
+          isSystemNotification: false,
           isRead: notif.is_read
         }));
 
@@ -386,6 +390,68 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       );
     } catch (error) {
       console.error('알림 삭제 오류:', error);
+    }
+  }, [user]);
+
+  // 모든 알림 완전 삭제
+  const deleteAllNotifications = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/notifications/delete-all', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${TokenManager.getToken()}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('모든 알림 삭제에 실패했습니다.');
+      }
+
+      const data = await response.json();
+      console.log('✅ [NOTIFICATIONS] 모든 알림 삭제 완료:', data.data);
+
+      // 로컬 상태 초기화
+      setNotifications([]);
+
+    } catch (error) {
+      console.error('❌ [NOTIFICATIONS] 모든 알림 삭제 오류:', error);
+      throw error;
+    }
+  }, [user]);
+
+  // 읽은 알림만 삭제
+  const deleteReadNotifications = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/notifications/delete-all', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${TokenManager.getToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          deleteType: 'read'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('읽은 알림 삭제에 실패했습니다.');
+      }
+
+      const data = await response.json();
+      console.log('✅ [NOTIFICATIONS] 읽은 알림 삭제 완료:', data.data);
+
+      // 로컬 상태 업데이트 (읽은 알림만 제거)
+      setNotifications(prev =>
+        prev.filter(notification => !notification.isRead)
+      );
+
+    } catch (error) {
+      console.error('❌ [NOTIFICATIONS] 읽은 알림 삭제 오류:', error);
+      throw error;
     }
   }, [user]);
 

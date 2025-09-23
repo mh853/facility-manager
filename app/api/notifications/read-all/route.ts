@@ -37,19 +37,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 현재 읽지 않은 알림 목록 조회
-    const { data: unreadNotifications, error: fetchError } = await supabase
-      .from('notifications')
-      .select(`
-        id,
-        title,
-        user_notification_reads!left(user_id)
-      `)
-      .gt('expires_at', new Date().toISOString())
-      .is('user_notification_reads.user_id', null);
+    // 현재 읽지 않은 알림 목록 조회 (user_notifications 테이블에서)
+    const { data: unreadUserNotifications, error: userFetchError } = await supabase
+      .from('user_notifications')
+      .select('id, title')
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+      .gt('expires_at', new Date().toISOString());
 
-    if (fetchError) {
-      console.error('읽지 않은 알림 조회 오류:', fetchError);
+    // 업무 알림도 조회
+    const { data: unreadTaskNotifications, error: taskFetchError } = await supabase
+      .from('task_notifications')
+      .select('id, message')
+      .eq('user_id', user.id)
+      .eq('is_read', false);
+
+    // 통합된 읽지 않은 알림 목록
+    const unreadNotifications = [
+      ...(unreadUserNotifications || []),
+      ...(unreadTaskNotifications || []).map(item => ({ id: item.id, title: item.message }))
+    ];
+
+    if (userFetchError && taskFetchError) {
+      console.error('읽지 않은 알림 조회 오류:', { userFetchError, taskFetchError });
       return NextResponse.json(
         { success: false, error: { message: '알림 조회에 실패했습니다.' } },
         { status: 500 }
@@ -67,32 +77,55 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 모든 읽지 않은 알림에 대해 읽음 기록 생성
-    const readRecords = unreadNotifications.map(notification => ({
-      notification_id: notification.id,
-      user_id: user.id,
-      user_name: user.name
-    }));
+    // 모든 읽지 않은 알림을 읽음 처리
+    let totalProcessed = 0;
 
-    const { data: createdReads, error: insertError } = await supabase
-      .from('user_notification_reads')
-      .insert(readRecords)
-      .select();
+    // user_notifications 업데이트
+    if (unreadUserNotifications && unreadUserNotifications.length > 0) {
+      const userNotificationIds = unreadUserNotifications.map(n => n.id);
+      const { data: updatedUserNotifications, error: userUpdateError } = await supabase
+        .from('user_notifications')
+        .update({
+          is_read: true,
+          read_at: new Date().toISOString()
+        })
+        .in('id', userNotificationIds)
+        .eq('user_id', user.id)
+        .select();
 
-    if (insertError) {
-      console.error('모든 알림 읽음 처리 오류:', insertError);
-      return NextResponse.json(
-        { success: false, error: { message: '읽음 처리에 실패했습니다.' } },
-        { status: 500 }
-      );
+      if (userUpdateError) {
+        console.error('사용자 알림 읽음 처리 오류:', userUpdateError);
+      } else {
+        totalProcessed += updatedUserNotifications?.length || 0;
+      }
+    }
+
+    // task_notifications 업데이트
+    if (unreadTaskNotifications && unreadTaskNotifications.length > 0) {
+      const taskNotificationIds = unreadTaskNotifications.map(n => n.id);
+      const { data: updatedTaskNotifications, error: taskUpdateError } = await supabase
+        .from('task_notifications')
+        .update({
+          is_read: true,
+          read_at: new Date().toISOString()
+        })
+        .in('id', taskNotificationIds)
+        .eq('user_id', user.id)
+        .select();
+
+      if (taskUpdateError) {
+        console.error('업무 알림 읽음 처리 오류:', taskUpdateError);
+      } else {
+        totalProcessed += updatedTaskNotifications?.length || 0;
+      }
     }
 
     return NextResponse.json({
       success: true,
       data: {
-        processedCount: createdReads?.length || 0,
+        processedCount: totalProcessed,
         readAt: new Date().toISOString(),
-        message: `${createdReads?.length || 0}개의 알림이 읽음 처리되었습니다.`
+        message: `${totalProcessed}개의 알림이 읽음 처리되었습니다.`
       }
     });
 

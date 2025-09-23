@@ -369,7 +369,9 @@ $$ LANGUAGE plpgsql;
 -- 6. 설정 완료 알림
 -- ============================================================================
 
--- 설정 완료 시스템 알림 생성
+-- 설정 완료 시스템 알림 생성 (주석 처리 - 하드코딩된 알림 방지)
+-- 개발 중 반복 실행을 방지하기 위해 시스템 알림 생성을 비활성화합니다.
+/*
 INSERT INTO notifications (
   title, message, category, priority,
   is_system_notification, created_by_name, metadata
@@ -388,6 +390,7 @@ INSERT INTO notifications (
     'setup_time', NOW()
   )
 ) ON CONFLICT DO NOTHING;
+*/
 
 -- ============================================================================
 -- 7. 설정 확인 및 결과 출력

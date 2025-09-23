@@ -134,6 +134,9 @@ BEGIN
 END $$;
 
 -- 초기 시스템 알림 생성
+-- 하드코딩된 시스템 알림 비활성화 (반복 생성 방지)
+-- 개발 중 스크립트 재실행으로 인한 중복 알림 생성을 방지합니다.
+/*
 INSERT INTO notifications (
   title,
   message,
@@ -155,6 +158,7 @@ INSERT INTO notifications (
     'setup_completed_at', NOW()
   )
 ) ON CONFLICT DO NOTHING;
+*/
 
 -- 완료 메시지
 SELECT

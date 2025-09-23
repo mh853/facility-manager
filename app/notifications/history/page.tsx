@@ -91,7 +91,7 @@ export default function NotificationHistoryPage() {
 
       const response = await fetch(`/api/notifications/history?${params}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || localStorage.getItem('supabase_auth_token') || ''}`
         }
       });
 

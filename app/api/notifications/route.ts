@@ -198,6 +198,17 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
   } catch (error: any) {
     console.error('🔴 [NOTIFICATIONS] GET 오류:', error?.message || error);
+
+    // 데이터베이스 연결 오류인 경우 더 자세한 정보 제공
+    if (error?.message?.includes('relation') || error?.message?.includes('table')) {
+      console.error('🔴 [NOTIFICATIONS] 테이블 구조 오류. 필요 테이블:', {
+        user_notifications: '사용자 알림 테이블',
+        task_notifications: '업무 알림 테이블',
+        employees: '직원 테이블'
+      });
+      return createErrorResponse('알림 시스템 초기화가 필요합니다. 관리자에게 문의하세요.', 500);
+    }
+
     return createErrorResponse('알림 조회 중 오류가 발생했습니다', 500);
   }
 }, { logLevel: 'debug' });
@@ -360,20 +371,42 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
 
     // 만료된 알림 일괄 삭제
     if (deleteExpired) {
-      const { data: deletedNotifications, error } = await supabaseAdmin
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      let totalDeleted = 0;
+
+      // user_notifications에서 만료된 알림 삭제
+      const { data: deletedUserNotifications, error: userError } = await supabaseAdmin
         .from('user_notifications')
         .delete()
         .eq('user_id', userId)
-        .or(`expires_at.lt.${new Date().toISOString()},and(is_read.eq.true,read_at.lt.${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()})`)
+        .or(`expires_at.lt.${new Date().toISOString()},and(is_read.eq.true,read_at.lt.${sevenDaysAgo})`)
         .select();
 
-      if (error) throw error;
+      if (userError) {
+        console.error('🔴 [NOTIFICATIONS] 사용자 알림 삭제 오류:', userError);
+      } else {
+        totalDeleted += deletedUserNotifications?.length || 0;
+      }
 
-      console.log('✅ [NOTIFICATIONS] 만료 알림 삭제 성공:', deletedNotifications?.length || 0, '개');
+      // task_notifications에서 만료된 알림 삭제
+      const { data: deletedTaskNotifications, error: taskError } = await supabaseAdmin
+        .from('task_notifications')
+        .delete()
+        .eq('user_id', userId)
+        .or(`expires_at.lt.${new Date().toISOString()},and(is_read.eq.true,read_at.lt.${sevenDaysAgo})`)
+        .select();
+
+      if (taskError) {
+        console.error('🔴 [NOTIFICATIONS] 업무 알림 삭제 오류:', taskError);
+      } else {
+        totalDeleted += deletedTaskNotifications?.length || 0;
+      }
+
+      console.log('✅ [NOTIFICATIONS] 만료 알림 삭제 성공:', totalDeleted, '개');
 
       return createSuccessResponse({
-        deletedCount: deletedNotifications?.length || 0,
-        message: `${deletedNotifications?.length || 0}개 만료된 알림을 삭제했습니다`
+        deletedCount: totalDeleted,
+        message: `${totalDeleted}개 만료된 알림을 삭제했습니다`
       });
     }
 
