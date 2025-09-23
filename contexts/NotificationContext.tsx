@@ -187,9 +187,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         if (response.status === 401) {
-          console.warn('⚠️ [NOTIFICATIONS] 인증 실패 - 기본 설정 사용');
-          // 기본 설정으로 설정하여 로딩 상태 해제
-          setSettings({
+          console.warn('⚠️ [NOTIFICATIONS] 인증 실패 - 캐시된 설정 확인 후 기본 설정 사용');
+
+          // 먼저 캐시된 설정이 있는지 확인
+          const cachedSettings = localStorage.getItem('notification-settings');
+          if (cachedSettings) {
+            try {
+              const parsed = JSON.parse(cachedSettings);
+              setSettings(parsed);
+              console.log('✅ [NOTIFICATIONS] 캐시된 설정 로드 성공');
+              return;
+            } catch (error) {
+              console.warn('⚠️ [NOTIFICATIONS] 캐시된 설정 파싱 실패:', error);
+            }
+          }
+
+          // 캐시된 설정이 없으면 기본 설정 사용
+          const defaultSettings = {
             taskNotifications: true,
             systemNotifications: true,
             securityNotifications: true,
@@ -208,7 +222,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             quietHoursStart: '22:00:00',
             quietHoursEnd: '08:00:00',
             quietHoursEnabled: false
-          });
+          };
+          setSettings(defaultSettings);
+
+          // 기본 설정을 캐시에 저장
+          localStorage.setItem('notification-settings', JSON.stringify(defaultSettings));
+          console.log('✅ [NOTIFICATIONS] 기본 설정 적용 및 캐시 저장');
           return;
         }
         throw new Error('알림 설정을 불러오는데 실패했습니다.');
@@ -217,6 +236,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       if (data.success) {
         setSettings(data.data);
+        // 성공적으로 로드된 설정을 캐시에 저장
+        localStorage.setItem('notification-settings', JSON.stringify(data.data));
+        console.log('✅ [NOTIFICATIONS] 설정 로드 성공 및 캐시 저장');
       }
     } catch (error) {
       console.error('알림 설정 조회 오류:', error);
@@ -354,7 +376,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       const data = await response.json();
       if (data.success) {
-        setSettings(prev => prev ? { ...prev, ...newSettings } : null);
+        const updatedSettings = (prev: NotificationSettings | null) => prev ? { ...prev, ...newSettings } : null;
+        const newSettingsData = updatedSettings(settings);
+        setSettings(newSettingsData);
+
+        // 업데이트된 설정을 캐시에 저장
+        if (newSettingsData) {
+          localStorage.setItem('notification-settings', JSON.stringify(newSettingsData));
+          console.log('✅ [NOTIFICATIONS] 설정 업데이트 성공 및 캐시 갱신');
+        }
       }
     } catch (error) {
       console.error('알림 설정 업데이트 오류:', error);
@@ -397,23 +427,34 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const wsUrl = `${protocol}//${window.location.host}/api/ws/notifications?token=${token}`;
-      console.log(`🔌 WebSocket 연결 시도 ${reconnectAttempts.current + 1}/${maxReconnectAttempts}: ${wsUrl}`);
+      // Socket.IO 클라이언트 동적 임포트
+      const socketIOClient = await import('socket.io-client');
+      const io = socketIOClient.io;
 
-      wsRef.current = new WebSocket(wsUrl);
+      console.log(`🔌 WebSocket 연결 시도 ${reconnectAttempts.current + 1}/${maxReconnectAttempts}: /api/socket`);
 
-      wsRef.current.onopen = () => {
+      const socket = io({
+        path: '/api/socket',
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        timeout: 20000,
+        reconnection: false // 수동 재연결 관리
+      });
+
+      wsRef.current = socket as any;
+
+      socket.on('connect', () => {
         console.log('✅ 알림 WebSocket 연결됨');
         setIsConnected(true);
         reconnectAttempts.current = 0;
-      };
+      });
 
-      wsRef.current.onclose = (event) => {
-        console.log(`❌ 알림 WebSocket 연결 끊김: code=${event.code}, reason=${event.reason}`);
+      socket.on('disconnect', (reason) => {
+        console.log(`❌ 알림 WebSocket 연결 끊김: ${reason}`);
         setIsConnected(false);
 
-        // 정상적인 종료(1000)가 아닌 경우에만 재연결 시도
-        if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
+        // 정상적인 종료가 아닌 경우에만 재연결 시도
+        if (reason !== 'io client disconnect' && reconnectAttempts.current < maxReconnectAttempts) {
           reconnectAttempts.current++;
 
           // 지수 백오프 계산 (1초 ~ 30초)
@@ -427,117 +468,105 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           reconnectTimeoutRef.current = setTimeout(() => {
             connectWebSocket();
           }, backoffDelay);
-        } else if (event.code !== 1000) {
+        } else if (reason !== 'io client disconnect') {
           console.error(`❌ WebSocket 최대 재시도 횟수 초과: Circuit Breaker 활성화 (${circuitBreakerTimeout / 1000}초)`);
         }
-      };
+      });
 
-      wsRef.current.onerror = (error) => {
+      socket.on('connect_error', (error) => {
         console.error('❌ 알림 WebSocket 오류:', error);
         setIsConnected(false);
-      };
+      });
 
-      wsRef.current.onmessage = (event) => {
+      // 일반 알림 이벤트 핸들러
+      socket.on('new_notification', (data) => {
         try {
-          const data = JSON.parse(event.data);
+          console.log('🔔 새 알림 수신:', data);
 
-          switch (data.type) {
-            case 'notification_created':
-              // 새 알림 추가
-              setNotifications(prev => [data.notification, ...prev]);
+          // 새 알림 추가
+          setNotifications(prev => [data, ...prev]);
 
-              // 브라우저 알림 표시 (권한이 있는 경우)
-              if (settings?.pushNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
-                new Notification(data.notification.title, {
-                  body: data.notification.message,
-                  icon: '/icon-192x192.png',
-                  badge: '/icon-192x192.png',
-                  tag: data.notification.id
-                });
-              }
+          // 브라우저 알림 표시 (권한이 있는 경우)
+          if (settings?.pushNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
+            new Notification(data.title, {
+              body: data.message,
+              icon: '/icon-192x192.png',
+              badge: '/icon-192x192.png',
+              tag: data.id
+            });
+          }
 
-              // 소리 알림 (설정된 경우)
-              if (settings?.soundNotificationsEnabled) {
-                playNotificationSound(data.notification.priority);
-              }
-              break;
-
-            case 'notification_updated':
-              // 알림 업데이트
-              setNotifications(prev =>
-                prev.map(notification =>
-                  notification.id === data.notification.id ? data.notification : notification
-                )
-              );
-              break;
-
-            case 'notification_deleted':
-              // 알림 삭제
-              setNotifications(prev =>
-                prev.filter(notification => notification.id !== data.notificationId)
-              );
-              break;
-
-            case 'task_notification_created':
-              // 업무 알림 생성 (task_notifications 테이블 기반)
-              if (data.notification) {
-                // 기존 알림 형식으로 변환하여 추가
-                const taskNotification = {
-                  id: data.notification.id,
-                  title: '업무 알림',
-                  message: data.notification.message,
-                  category: 'task_assigned' as NotificationCategory,
-                  priority: data.notification.priority === 'urgent' ? 'critical' as NotificationPriority :
-                           data.notification.priority === 'high' ? 'high' as NotificationPriority : 'medium' as NotificationPriority,
-                  relatedResourceType: 'task',
-                  relatedResourceId: data.notification.task_id,
-                  metadata: {
-                    business_name: data.notification.business_name,
-                    notification_type: data.notification.notification_type
-                  },
-                  createdAt: data.notification.created_at,
-                  expiresAt: data.notification.expires_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-                  isSystemNotification: false,
-                  isRead: false
-                };
-
-                setNotifications(prev => [taskNotification, ...prev]);
-
-                // 브라우저 알림 표시
-                if (settings?.pushNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
-                  new Notification('업무 알림', {
-                    body: data.notification.message,
-                    icon: '/icon-192x192.png',
-                    badge: '/icon-192x192.png',
-                    tag: data.notification.id
-                  });
-                }
-
-                // 소리 알림
-                if (settings?.soundNotificationsEnabled) {
-                  playNotificationSound(taskNotification.priority);
-                }
-              }
-              break;
-
-            case 'task_notification_updated':
-              // 업무 알림 읽음 처리
-              if (data.notificationId) {
-                setNotifications(prev =>
-                  prev.map(notification =>
-                    notification.id === data.notificationId ? { ...notification, isRead: true } : notification
-                  )
-                );
-              }
-              break;
-
-            default:
-              console.log('알 수 없는 WebSocket 메시지:', data);
+          // 소리 알림 (설정된 경우)
+          if (settings?.soundNotificationsEnabled) {
+            playNotificationSound(data.priority);
           }
         } catch (error) {
-          console.error('WebSocket 메시지 처리 오류:', error);
+          console.error('일반 알림 처리 오류:', error);
         }
-      };
+      });
+
+      // 업무 알림 이벤트 핸들러 (기존 서버에서 보내는 이벤트에 맞춤)
+      socket.on('task_notification_created', (data) => {
+        try {
+          console.log('🔔 업무 알림 수신:', data);
+
+          if (data.notification) {
+            // 기존 알림 형식으로 변환하여 추가
+            const taskNotification = {
+              id: data.notification.id,
+              title: '업무 알림',
+              message: data.notification.message,
+              category: 'task_assigned' as NotificationCategory,
+              priority: data.notification.priority === 'urgent' ? 'critical' as NotificationPriority :
+                       data.notification.priority === 'high' ? 'high' as NotificationPriority : 'medium' as NotificationPriority,
+              relatedResourceType: 'task',
+              relatedResourceId: data.notification.task_id,
+              metadata: {
+                business_name: data.notification.business_name,
+                notification_type: data.notification.notification_type
+              },
+              createdAt: data.notification.created_at,
+              expiresAt: data.notification.expires_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              isSystemNotification: false,
+              isRead: false
+            };
+
+            setNotifications(prev => [taskNotification, ...prev]);
+
+            // 브라우저 알림 표시
+            if (settings?.pushNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification('업무 알림', {
+                body: data.notification.message,
+                icon: '/icon-192x192.png',
+                badge: '/icon-192x192.png',
+                tag: data.notification.id
+              });
+            }
+
+            // 소리 알림
+            if (settings?.soundNotificationsEnabled) {
+              playNotificationSound(taskNotification.priority);
+            }
+          }
+        } catch (error) {
+          console.error('업무 알림 처리 오류:', error);
+        }
+      });
+
+      // 업무 알림 업데이트 이벤트 핸들러
+      socket.on('task_notification_updated', (data) => {
+        try {
+          if (data.notificationId) {
+            setNotifications(prev =>
+              prev.map(notification =>
+                notification.id === data.notificationId ? { ...notification, isRead: true } : notification
+              )
+            );
+          }
+        } catch (error) {
+          console.error('업무 알림 업데이트 처리 오류:', error);
+        }
+      });
     } catch (error) {
       console.error('WebSocket 연결 생성 오류:', error);
       setIsConnected(false);
@@ -553,7 +582,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     if (wsRef.current) {
-      wsRef.current.close();
+      (wsRef.current as any).disconnect();
       wsRef.current = null;
     }
 

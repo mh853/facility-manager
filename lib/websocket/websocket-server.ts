@@ -50,7 +50,8 @@ export function initializeWebSocket(
 
     io.use(async (socket, next) => {
       try {
-        const token = socket.handshake.auth.token;
+        // 토큰을 auth 헤더나 쿼리 파라미터에서 가져오기 (하위 호환성)
+        const token = socket.handshake.auth.token || socket.handshake.query.token;
         if (!token) {
           return next(new Error('인증 토큰이 필요합니다.'));
         }
@@ -114,6 +115,9 @@ export function initializeWebSocket(
 
       // 사용자를 개인 룸에 추가
       socket.join(`user:${authSocket.userId}`);
+
+      // 알림 룸에도 자동 추가 (호환성)
+      socket.join(`notifications:${authSocket.userId}`);
 
       // 부서 룸에 추가 (부서별 알림용)
       if (authSocket.departmentId) {
@@ -225,7 +229,9 @@ export function sendNotificationToUser(
   userId: string,
   notification: any
 ) {
+  // 두 룸 모두에 전송 (호환성)
   io.to(`notifications:${userId}`).emit('new_notification', notification);
+  io.to(`user:${userId}`).emit('new_notification', notification);
   console.log(`🔔 알림 전송: ${userId}`);
 }
 

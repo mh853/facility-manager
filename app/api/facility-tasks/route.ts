@@ -808,7 +808,7 @@ async function createTaskNotifications(params: {
         const io = (global as any).io;
         if (io && createdNotifications) {
           createdNotifications.forEach((notification: any) => {
-            io.to(`user_${notification.user_id}`).emit('task_notification_created', {
+            io.to(`user:${notification.user_id}`).emit('task_notification_created', {
               notification: notification
             });
           });
@@ -917,7 +917,7 @@ async function createTaskCreationNote(task: any) {
             const io = (global as any).io;
             if (io && createdNotifications) {
               createdNotifications.forEach((notification: any) => {
-                io.to(`user_${notification.user_id}`).emit('task_notification_created', {
+                io.to(`user:${notification.user_id}`).emit('task_notification_created', {
                   notification: notification
                 });
               });
