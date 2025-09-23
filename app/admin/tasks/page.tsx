@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import AdminLayout from '@/components/ui/AdminLayout'
 import { withAuth, useAuth } from '@/contexts/AuthContext'
+import { TokenManager } from '@/lib/api-client'
 import MultiAssigneeSelector, { SelectedAssignee } from '@/components/ui/MultiAssigneeSelector'
 import {
   Plus,
@@ -190,7 +191,20 @@ function TaskManagementPage() {
       setIsLoading(true)
       console.log('📋 시설 업무 목록 로딩 시작...')
 
-      const response = await fetch('/api/facility-tasks')
+      const token = TokenManager.getToken()
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch('/api/facility-tasks', {
+        method: 'GET',
+        headers
+      })
+
       if (!response.ok) {
         throw new Error('업무 목록을 불러오는데 실패했습니다.')
       }
