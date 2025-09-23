@@ -171,7 +171,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         created_at,
         expires_at
       `)
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -363,7 +363,7 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
       const { data: deletedNotifications, error } = await supabaseAdmin
         .from('user_notifications')
         .delete()
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .or(`expires_at.lt.${new Date().toISOString()},and(is_read.eq.true,read_at.lt.${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()})`)
         .select();
 

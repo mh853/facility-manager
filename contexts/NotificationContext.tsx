@@ -94,6 +94,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+  const lastConnectAttempt = useRef<number>(0);
+  const minReconnectDelay = 1000; // 1초
+  const maxReconnectDelay = 30000; // 30초
+  const circuitBreakerTimeout = 300000; // 5분 후 재시도 허용
 
   // 알림 목록 조회
   const fetchNotifications = useCallback(async () => {
@@ -284,14 +288,44 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  // WebSocket 연결
+  // WebSocket 연결 (백오프 및 Circuit Breaker 패턴)
   const connectWebSocket = useCallback(() => {
     if (!user || wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    const now = Date.now();
+
+    // Circuit Breaker: 최대 재시도 횟수 초과 시 5분 대기
+    if (reconnectAttempts.current >= maxReconnectAttempts) {
+      if (now - lastConnectAttempt.current < circuitBreakerTimeout) {
+        console.warn(`⚠️ WebSocket Circuit Breaker 활성화: ${Math.floor((circuitBreakerTimeout - (now - lastConnectAttempt.current)) / 1000)}초 후 재시도 가능`);
+        return;
+      } else {
+        // Circuit Breaker 타임아웃 후 재시도 허용
+        reconnectAttempts.current = 0;
+        console.log('🔄 WebSocket Circuit Breaker 해제: 재연결 시도 재개');
+      }
+    }
+
+    // 너무 빠른 재시도 방지 (최소 1초 간격)
+    if (now - lastConnectAttempt.current < minReconnectDelay) {
+      console.warn('⚠️ WebSocket 재연결 시도가 너무 빨름: 1초 후 재시도');
+      setTimeout(() => connectWebSocket(), minReconnectDelay);
+      return;
+    }
+
+    lastConnectAttempt.current = now;
 
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const token = TokenManager.getToken();
+
+      if (!token) {
+        console.warn('⚠️ WebSocket 연결 중단: 인증 토큰 없음');
+        return;
+      }
+
       const wsUrl = `${protocol}//${window.location.host}/api/ws/notifications?token=${token}`;
+      console.log(`🔌 WebSocket 연결 시도 ${reconnectAttempts.current + 1}/${maxReconnectAttempts}: ${wsUrl}`);
 
       wsRef.current = new WebSocket(wsUrl);
 
@@ -301,16 +335,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         reconnectAttempts.current = 0;
       };
 
-      wsRef.current.onclose = () => {
-        console.log('❌ 알림 WebSocket 연결 끊김');
+      wsRef.current.onclose = (event) => {
+        console.log(`❌ 알림 WebSocket 연결 끊김: code=${event.code}, reason=${event.reason}`);
         setIsConnected(false);
 
-        // 자동 재연결 시도
-        if (reconnectAttempts.current < maxReconnectAttempts) {
+        // 정상적인 종료(1000)가 아닌 경우에만 재연결 시도
+        if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
           reconnectAttempts.current++;
+
+          // 지수 백오프 계산 (1초 ~ 30초)
+          const backoffDelay = Math.min(
+            Math.pow(2, reconnectAttempts.current) * 1000 + Math.random() * 1000,
+            maxReconnectDelay
+          );
+
+          console.log(`🔄 WebSocket 재연결 예약: ${Math.floor(backoffDelay / 1000)}초 후 (시도 ${reconnectAttempts.current}/${maxReconnectAttempts})`);
+
           reconnectTimeoutRef.current = setTimeout(() => {
             connectWebSocket();
-          }, Math.pow(2, reconnectAttempts.current) * 1000); // 지수 백오프
+          }, backoffDelay);
+        } else if (event.code !== 1000) {
+          console.error(`❌ WebSocket 최대 재시도 횟수 초과: Circuit Breaker 활성화 (${circuitBreakerTimeout / 1000}초)`);
         }
       };
 
@@ -368,8 +413,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         }
       };
     } catch (error) {
-      console.error('WebSocket 연결 오류:', error);
+      console.error('WebSocket 연결 생성 오류:', error);
       setIsConnected(false);
+      reconnectAttempts.current++;
     }
   }, [user, settings]);
 
