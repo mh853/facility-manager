@@ -120,8 +120,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         })
       ]);
 
-      const notificationsData = notificationsResponse.ok ? await notificationsResponse.json() : { success: false, data: [] };
-      const taskNotificationsData = taskNotificationsResponse.ok ? await taskNotificationsResponse.json() : { success: false, data: { taskNotifications: [] } };
+      if (!notificationsResponse.ok) {
+        console.error('일반 알림 조회 실패:', notificationsResponse.status);
+        return;
+      }
+
+      const notificationsData = await notificationsResponse.json();
+
+      // 업무 알림 처리 - 실패 시 빈 배열로 fallback
+      let taskNotificationsData = { data: { taskNotifications: [] } };
+      if (taskNotificationsResponse.ok) {
+        try {
+          taskNotificationsData = await taskNotificationsResponse.json();
+        } catch (error) {
+          console.warn('업무 알림 파싱 실패:', error);
+        }
+      } else {
+        console.warn('업무 알림 조회 실패:', taskNotificationsResponse.status);
+      }
 
       // 업무 알림을 일반 알림 형식으로 변환
       const taskNotifications = (taskNotificationsData.data?.taskNotifications || []).map((taskNotif: any) => ({
@@ -143,7 +159,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         isRead: taskNotif.is_read
       }));
 
-      // 일반 알림과 업무 알림 합치기 (시간순 정렬)
+      // 일반 알림과 업무 알림을 통합하여 시간순 정렬
       const allNotifications = [
         ...(notificationsData.data || []),
         ...taskNotifications
