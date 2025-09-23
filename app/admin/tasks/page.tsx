@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import AdminLayout from '@/components/ui/AdminLayout'
-import { withAuth } from '@/contexts/AuthContext'
+import { withAuth, useAuth } from '@/contexts/AuthContext'
 import MultiAssigneeSelector, { SelectedAssignee } from '@/components/ui/MultiAssigneeSelector'
 import {
   Plus,
@@ -145,6 +145,7 @@ const asSteps: Array<{status: TaskStatus, label: string, color: string}> = [
 ]
 
 function TaskManagementPage() {
+  const { user } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedType, setSelectedType] = useState<TaskType | 'all'>('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -233,6 +234,13 @@ function TaskManagementPage() {
   useEffect(() => {
     loadTasks()
   }, [loadTasks])
+
+  // 로그인한 사용자를 담당자 필터 기본값으로 설정
+  useEffect(() => {
+    if (user && user.name && selectedAssignee === 'all') {
+      setSelectedAssignee(user.name)
+    }
+  }, [user, selectedAssignee])
 
   // 사업장 목록 로딩
   const loadBusinesses = useCallback(async () => {

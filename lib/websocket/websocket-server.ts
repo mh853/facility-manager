@@ -191,6 +191,9 @@ export function initializeWebSocket(
     });
 
     res.socket.server.io = io;
+
+    // 전역 접근을 위해 io 인스턴스 저장
+    (global as any).io = io;
   }
 
   return res.socket.server.io;

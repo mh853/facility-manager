@@ -5,6 +5,7 @@ import { useState, useEffect, ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import NotificationButton from '@/components/ui/NotificationButton'
 import {
   Home,
   Building2,
@@ -307,12 +308,15 @@ export default function AdminLayout({ children, title, description, actions }: A
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* 알림 버튼 (모바일) */}
+                    <NotificationButton />
+
                     {/* 시간 표시 (모바일) */}
                     <div className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded border">
                       <Clock className="w-3 h-3" />
                       <span>{currentTime}</span>
                     </div>
-                    
+
                     {/* Mobile Actions */}
                     {actions && (
                       <div className="flex items-center">
@@ -336,12 +340,15 @@ export default function AdminLayout({ children, title, description, actions }: A
                   </div>
 
                   <div className="flex items-center gap-4 lg:gap-6">
+                    {/* 알림 버튼 (데스크톱) */}
+                    <NotificationButton />
+
                     {/* 시간 표시 */}
                     <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg border">
                       <Clock className="w-4 h-4" />
                       <span>{currentTime}</span>
                     </div>
-                    
+
                     {/* Desktop Actions */}
                     {actions && (
                       <div className="flex items-center gap-3">

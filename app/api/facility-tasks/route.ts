@@ -2,10 +2,46 @@
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
+import { sendNotificationToUser, sendTaskUpdate } from '@/lib/websocket/websocket-server';
+import jwt from 'jsonwebtoken';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+
+// JWT 토큰에서 사용자 정보 추출하는 헬퍼 함수
+async function getUserFromToken(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return null;
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+
+    // 사용자 정보 조회
+    const { data: user, error } = await supabaseAdmin
+      .from('employees')
+      .select('id, name, email, permission_level, department_id')
+      .eq('id', decoded.userId || decoded.id)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
+      .single();
+
+    if (error || !user) {
+      console.warn('⚠️ [AUTH] 사용자 조회 실패:', error?.message);
+      return null;
+    }
+
+    return user;
+  } catch (error) {
+    console.warn('⚠️ [AUTH] JWT 토큰 검증 실패:', error);
+    return null;
+  }
+}
 
 
 // 담당자 타입 정의
@@ -39,7 +75,7 @@ export interface FacilityTask {
   is_deleted: boolean;
 }
 
-// GET: 시설 업무 목록 조회
+// GET: 시설 업무 목록 조회 (권한별 필터링 적용)
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
@@ -48,7 +84,17 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     const status = searchParams.get('status');
     const assignee = searchParams.get('assignee');
 
-    console.log('📋 [FACILITY-TASKS] 시설 업무 목록 조회:', { businessName, taskType, status, assignee });
+    // 사용자 인증 및 권한 확인
+    const user = await getUserFromToken(request);
+    if (!user) {
+      return createErrorResponse('인증이 필요합니다', 401);
+    }
+
+    console.log('📋 [FACILITY-TASKS] 시설 업무 목록 조회:', {
+      user: user.name,
+      permission: user.permission_level,
+      filters: { businessName, taskType, status, assignee }
+    });
 
     let query = supabaseAdmin
       .from('facility_tasks')
@@ -71,6 +117,10 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         due_date,
         completed_at,
         notes,
+        created_by,
+        created_by_name,
+        last_modified_by,
+        last_modified_by_name,
         is_active,
         is_deleted
       `)
@@ -78,7 +128,17 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       .eq('is_deleted', false)
       .order('created_at', { ascending: false });
 
-    // 필터 적용
+    // 권한별 필터링 적용
+    if (user.permission_level < 4) {
+      // 권한 1-3: 본인이 생성한 업무만 조회 가능
+      query = query.eq('created_by', user.id);
+      console.log('🔒 [FACILITY-TASKS] 권한 제한 적용: 사용자 본인 업무만 조회');
+    } else {
+      // 권한 4 이상: 모든 업무 조회 가능
+      console.log('🔓 [FACILITY-TASKS] 관리자 권한: 모든 업무 조회 가능');
+    }
+
+    // 추가 필터 적용
     if (businessName) {
       query = query.eq('business_name', businessName);
     }
@@ -100,14 +160,25 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       throw error;
     }
 
-    console.log('✅ [FACILITY-TASKS] 조회 성공:', tasks?.length || 0, '개 업무');
+    console.log('✅ [FACILITY-TASKS] 조회 성공:', {
+      user: user.name,
+      permission: user.permission_level,
+      taskCount: tasks?.length || 0
+    });
 
     return createSuccessResponse({
       tasks: tasks || [],
       count: tasks?.length || 0,
+      user: {
+        id: user.id,
+        name: user.name,
+        permission_level: user.permission_level
+      },
       metadata: {
         filters: { businessName, taskType, status, assignee },
-        totalCount: tasks?.length || 0
+        totalCount: tasks?.length || 0,
+        userPermission: user.permission_level,
+        isAdmin: user.permission_level >= 4
       }
     });
 
@@ -117,9 +188,15 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   }
 }, { logLevel: 'debug' });
 
-// POST: 새 시설 업무 생성
+// POST: 새 시설 업무 생성 (생성자 정보 포함)
 export const POST = withApiHandler(async (request: NextRequest) => {
   try {
+    // 사용자 인증 및 권한 확인
+    const user = await getUserFromToken(request);
+    if (!user) {
+      return createErrorResponse('인증이 필요합니다', 401);
+    }
+
     const body = await request.json();
     const {
       title,
@@ -136,7 +213,14 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       notes
     } = body;
 
-    console.log('📝 [FACILITY-TASKS] 새 시설 업무 생성:', { title, business_name, task_type, status });
+    console.log('📝 [FACILITY-TASKS] 새 시설 업무 생성:', {
+      user: user.name,
+      permission: user.permission_level,
+      title,
+      business_name,
+      task_type,
+      status
+    });
 
     // 필수 필드 검증
     if (!title || !business_name || !task_type) {
@@ -178,7 +262,12 @@ export const POST = withApiHandler(async (request: NextRequest) => {
         primary_assignee_id,
         start_date,
         due_date,
-        notes
+        notes,
+        // 생성자 정보 추가
+        created_by: user.id,
+        created_by_name: user.name,
+        last_modified_by: user.id,
+        last_modified_by_name: user.name
       })
       .select()
       .single();
@@ -193,6 +282,9 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     // 업무 생성 시 자동 메모 생성
     await createTaskCreationNote(newTask);
 
+    // 실시간 WebSocket 알림 전송
+    await sendTaskCreationNotifications(newTask, user);
+
     return createSuccessResponse({
       task: newTask,
       message: '시설 업무가 성공적으로 생성되었습니다'
@@ -204,9 +296,15 @@ export const POST = withApiHandler(async (request: NextRequest) => {
   }
 }, { logLevel: 'debug' });
 
-// PUT: 시설 업무 수정
+// PUT: 시설 업무 수정 (권한 제어 적용)
 export const PUT = withApiHandler(async (request: NextRequest) => {
   try {
+    // 사용자 인증 및 권한 확인
+    const user = await getUserFromToken(request);
+    if (!user) {
+      return createErrorResponse('인증이 필요합니다', 401);
+    }
+
     const body = await request.json();
     const {
       id,
@@ -225,7 +323,13 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       completed_at
     } = body;
 
-    console.log('📝 [FACILITY-TASKS] 시설 업무 수정:', { id, title, status });
+    console.log('📝 [FACILITY-TASKS] 시설 업무 수정:', {
+      user: user.name,
+      permission: user.permission_level,
+      id,
+      title,
+      status
+    });
 
     if (!id) {
       return createErrorResponse('업무 ID는 필수입니다', 400);
@@ -244,8 +348,17 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
+    // 권한 체크: 관리자가 아니면 본인이 생성한 업무만 수정 가능
+    if (user.permission_level < 4 && existingTask.created_by !== user.id) {
+      return createErrorResponse('이 업무를 수정할 권한이 없습니다', 403);
+    }
+
     // 업데이트할 필드만 포함
-    const updateData: any = { updated_at: new Date().toISOString() };
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+      last_modified_by: user.id,
+      last_modified_by_name: user.name
+    };
 
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
@@ -302,6 +415,9 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
     // 상태 변경 시 자동 메모 및 알림 생성
     await createAutoProgressNoteAndNotification(existingTask, updatedTask);
 
+    // 실시간 WebSocket 알림 전송
+    await sendTaskUpdateNotifications(existingTask, updatedTask, user);
+
     return createSuccessResponse({
       task: updatedTask,
       message: '시설 업무가 성공적으로 수정되었습니다'
@@ -313,23 +429,53 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
   }
 }, { logLevel: 'debug' });
 
-// DELETE: 시설 업무 삭제 (소프트 삭제)
+// DELETE: 시설 업무 삭제 (권한 제어 적용, 소프트 삭제)
 export const DELETE = withApiHandler(async (request: NextRequest) => {
   try {
+    // 사용자 인증 및 권한 확인
+    const user = await getUserFromToken(request);
+    if (!user) {
+      return createErrorResponse('인증이 필요합니다', 401);
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    console.log('🗑️ [FACILITY-TASKS] 시설 업무 삭제:', id);
+    console.log('🗑️ [FACILITY-TASKS] 시설 업무 삭제:', {
+      user: user.name,
+      permission: user.permission_level,
+      id
+    });
 
     if (!id) {
       return createErrorResponse('업무 ID는 필수입니다', 400);
+    }
+
+    // 기존 업무 정보 조회 (권한 체크용)
+    const { data: existingTask, error: fetchError } = await supabaseAdmin
+      .from('facility_tasks')
+      .select('*')
+      .eq('id', id)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
+      .single();
+
+    if (fetchError || !existingTask) {
+      return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
+    }
+
+    // 권한 체크: 관리자가 아니면 본인이 생성한 업무만 삭제 가능
+    if (user.permission_level < 4 && existingTask.created_by !== user.id) {
+      return createErrorResponse('이 업무를 삭제할 권한이 없습니다', 403);
     }
 
     const { data: deletedTask, error } = await supabaseAdmin
       .from('facility_tasks')
       .update({
         is_deleted: true,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        last_modified_by: user.id,
+        last_modified_by_name: user.name
       })
       .eq('id', id)
       .eq('is_active', true)
@@ -347,6 +493,9 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
     }
 
     console.log('✅ [FACILITY-TASKS] 삭제 성공:', deletedTask.id);
+
+    // 실시간 WebSocket 알림 전송 (삭제 알림)
+    await sendTaskDeleteNotifications(existingTask, user);
 
     return createSuccessResponse({
       message: '시설 업무가 성공적으로 삭제되었습니다'
@@ -682,5 +831,268 @@ async function createTaskCreationNote(task: any) {
   } catch (error) {
     console.error('🔴 [TASK-CREATION] 생성 메모/알림 처리 오류:', error);
     // 에러가 발생해도 메인 로직에 영향을 주지 않도록 함
+  }
+}
+
+// ============================================================================
+// 실시간 WebSocket 알림 함수들
+// ============================================================================
+
+// 업무 생성 시 실시간 알림 전송
+async function sendTaskCreationNotifications(task: any, creator: any) {
+  try {
+    // Next.js 서버에서 WebSocket 서버 인스턴스 가져오기
+    const { sendNotificationToUser, sendTaskUpdate } = await import('@/lib/websocket/websocket-server');
+
+    // 전역 서버 인스턴스 참조 (Next.js에서 사용하는 패턴)
+    const io = (global as any).io;
+    if (!io) {
+      console.warn('⚠️ [WEBSOCKET] WebSocket 서버가 초기화되지 않음');
+      return;
+    }
+
+    // 1. 업무 생성자에게 알림 (본인이 등록한 업무)
+    const creatorNotification = {
+      id: crypto.randomUUID(),
+      type: 'task_created',
+      title: '업무 등록 완료',
+      message: `"업무 ${task.title}"이 성공적으로 등록되었습니다.`,
+      task_id: task.id,
+      business_name: task.business_name,
+      priority: task.priority,
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+
+    sendNotificationToUser(io, creator.id, creatorNotification);
+    console.log('🔔 [WEBSOCKET] 업무 생성 알림 전송:', creator.name);
+
+    // 2. 담당자들에게 알림 (타인이 등록한 업무)
+    if (task.assignees && Array.isArray(task.assignees)) {
+      for (const assignee of task.assignees) {
+        if (assignee.id && assignee.id !== creator.id) {
+          const assigneeNotification = {
+            id: crypto.randomUUID(),
+            type: 'task_assigned',
+            title: '새 업무 배정',
+            message: `"${task.title}" 업무가 담당자로 배정되었습니다. (등록자: ${creator.name})`,
+            task_id: task.id,
+            business_name: task.business_name,
+            priority: task.priority,
+            timestamp: new Date().toISOString(),
+            read: false
+          };
+
+          sendNotificationToUser(io, assignee.id, assigneeNotification);
+          console.log('🔔 [WEBSOCKET] 업무 배정 알림 전송:', assignee.name);
+        }
+      }
+    }
+
+    // 3. 업무 업데이트 알림 (업무 목록 새로고침)
+    sendTaskUpdate(io, task.id, {
+      action: 'created',
+      task: task,
+      user: creator.name
+    });
+
+  } catch (error) {
+    console.error('🔴 [WEBSOCKET] 업무 생성 알림 오류:', error);
+  }
+}
+
+// 업무 수정 시 실시간 알림 전송
+async function sendTaskUpdateNotifications(oldTask: any, newTask: any, modifier: any) {
+  try {
+    const io = (global as any).io;
+    if (!io) {
+      console.warn('⚠️ [WEBSOCKET] WebSocket 서버가 초기화되지 않음');
+      return;
+    }
+
+    const { sendNotificationToUser, sendTaskUpdate } = await import('@/lib/websocket/websocket-server');
+
+    const statusChanged = oldTask.status !== newTask.status;
+    const assigneesChanged = JSON.stringify(oldTask.assignees || []) !== JSON.stringify(newTask.assignees || []);
+
+    // 알림을 받을 사용자 ID 수집
+    const userIds = new Set<string>();
+
+    // 업무 생성자
+    if (newTask.created_by) userIds.add(newTask.created_by);
+
+    // 현재 담당자들
+    if (newTask.assignees && Array.isArray(newTask.assignees)) {
+      newTask.assignees.forEach((assignee: any) => {
+        if (assignee.id) userIds.add(assignee.id);
+      });
+    }
+
+    // 이전 담당자들 (변경된 경우)
+    if (assigneesChanged && oldTask.assignees && Array.isArray(oldTask.assignees)) {
+      oldTask.assignees.forEach((assignee: any) => {
+        if (assignee.id) userIds.add(assignee.id);
+      });
+    }
+
+    const statusLabels: { [key: string]: string } = {
+      'customer_contact': '고객연락',
+      'site_inspection': '현장조사',
+      'quotation': '견적',
+      'contract': '계약',
+      'deposit_confirm': '계약금확인',
+      'product_order': '제품주문',
+      'product_shipment': '제품출하',
+      'installation_schedule': '설치협의',
+      'installation': '설치',
+      'balance_payment': '잔금결제',
+      'document_complete': '서류완료',
+      'subsidy_payment': '보조금지급',
+      'on_hold': '보류',
+      'completed': '완료',
+      'cancelled': '취소'
+    };
+
+    // 상태 변경 알림
+    if (statusChanged) {
+      const oldStatusLabel = statusLabels[oldTask.status] || oldTask.status;
+      const newStatusLabel = statusLabels[newTask.status] || newTask.status;
+
+      Array.from(userIds).forEach(userId => {
+        if (userId !== modifier.id) { // 수정자 제외
+          const notification = {
+            id: crypto.randomUUID(),
+            type: 'task_status_changed',
+            title: '업무 상태 변경',
+            message: `"${newTask.title}" 업무 상태가 ${oldStatusLabel}에서 ${newStatusLabel}로 변경되었습니다. (수정자: ${modifier.name})`,
+            task_id: newTask.id,
+            business_name: newTask.business_name,
+            priority: newTask.priority,
+            timestamp: new Date().toISOString(),
+            read: false
+          };
+
+          sendNotificationToUser(io, userId, notification);
+        }
+      });
+
+      console.log('🔔 [WEBSOCKET] 업무 상태 변경 알림 전송:', userIds.size, '명');
+    }
+
+    // 담당자 변경 알림
+    if (assigneesChanged) {
+      const oldUserIds = oldTask.assignees?.map((a: any) => a.id).filter(Boolean) || [];
+      const newUserIds = newTask.assignees?.map((a: any) => a.id).filter(Boolean) || [];
+
+      // 새로 배정된 사용자들
+      const assignedUserIds = newUserIds.filter((id: string) => !oldUserIds.includes(id));
+      assignedUserIds.forEach((userId: string) => {
+        const notification = {
+          id: crypto.randomUUID(),
+          type: 'task_assigned',
+          title: '업무 배정',
+          message: `"${newTask.title}" 업무가 담당자로 배정되었습니다. (수정자: ${modifier.name})`,
+          task_id: newTask.id,
+          business_name: newTask.business_name,
+          priority: newTask.priority,
+          timestamp: new Date().toISOString(),
+          read: false
+        };
+
+        sendNotificationToUser(io, userId, notification);
+      });
+
+      // 배정 해제된 사용자들
+      const unassignedUserIds = oldUserIds.filter((id: string) => !newUserIds.includes(id));
+      unassignedUserIds.forEach((userId: string) => {
+        const notification = {
+          id: crypto.randomUUID(),
+          type: 'task_unassigned',
+          title: '업무 배정 해제',
+          message: `"${newTask.title}" 업무의 담당자에서 해제되었습니다. (수정자: ${modifier.name})`,
+          task_id: newTask.id,
+          business_name: newTask.business_name,
+          priority: newTask.priority,
+          timestamp: new Date().toISOString(),
+          read: false
+        };
+
+        sendNotificationToUser(io, userId, notification);
+      });
+
+      console.log('🔔 [WEBSOCKET] 담당자 변경 알림 전송:', assignedUserIds.length + unassignedUserIds.length, '명');
+    }
+
+    // 업무 업데이트 알림 (업무 목록 새로고침)
+    sendTaskUpdate(io, newTask.id, {
+      action: 'updated',
+      task: newTask,
+      oldTask: oldTask,
+      user: modifier.name,
+      statusChanged,
+      assigneesChanged
+    });
+
+  } catch (error) {
+    console.error('🔴 [WEBSOCKET] 업무 수정 알림 오류:', error);
+  }
+}
+
+// 업무 삭제 시 실시간 알림 전송
+async function sendTaskDeleteNotifications(task: any, deleter: any) {
+  try {
+    const io = (global as any).io;
+    if (!io) {
+      console.warn('⚠️ [WEBSOCKET] WebSocket 서버가 초기화되지 않음');
+      return;
+    }
+
+    const { sendNotificationToUser, sendTaskUpdate } = await import('@/lib/websocket/websocket-server');
+
+    // 알림을 받을 사용자 ID 수집
+    const userIds = new Set<string>();
+
+    // 업무 생성자
+    if (task.created_by && task.created_by !== deleter.id) {
+      userIds.add(task.created_by);
+    }
+
+    // 담당자들
+    if (task.assignees && Array.isArray(task.assignees)) {
+      task.assignees.forEach((assignee: any) => {
+        if (assignee.id && assignee.id !== deleter.id) {
+          userIds.add(assignee.id);
+        }
+      });
+    }
+
+    // 삭제 알림 전송
+    Array.from(userIds).forEach(userId => {
+      const notification = {
+        id: crypto.randomUUID(),
+        type: 'task_deleted',
+        title: '업무 삭제',
+        message: `"${task.title}" 업무가 삭제되었습니다. (삭제자: ${deleter.name})`,
+        task_id: task.id,
+        business_name: task.business_name,
+        priority: task.priority,
+        timestamp: new Date().toISOString(),
+        read: false
+      };
+
+      sendNotificationToUser(io, userId, notification);
+    });
+
+    // 업무 업데이트 알림 (업무 목록에서 제거)
+    sendTaskUpdate(io, task.id, {
+      action: 'deleted',
+      task: task,
+      user: deleter.name
+    });
+
+    console.log('🔔 [WEBSOCKET] 업무 삭제 알림 전송:', userIds.size, '명');
+
+  } catch (error) {
+    console.error('🔴 [WEBSOCKET] 업무 삭제 알림 오류:', error);
   }
 }

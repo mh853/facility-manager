@@ -2,6 +2,7 @@
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 
 export default function ClientProviders({
   children,
@@ -11,7 +12,9 @@ export default function ClientProviders({
   return (
     <ErrorBoundary>
       <AuthProvider>
-        {children}
+        <NotificationProvider>
+          {children}
+        </NotificationProvider>
       </AuthProvider>
     </ErrorBoundary>
   );
