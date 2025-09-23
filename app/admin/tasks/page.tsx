@@ -153,6 +153,7 @@ function TaskManagementPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [selectedPriority, setSelectedPriority] = useState<Priority | 'all'>('all')
   const [selectedAssignee, setSelectedAssignee] = useState<string | 'all'>('all')
+  const [assigneeFilterInitialized, setAssigneeFilterInitialized] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const [isCompactMode, setIsCompactMode] = useState(true)
@@ -249,12 +250,13 @@ function TaskManagementPage() {
     loadTasks()
   }, [loadTasks])
 
-  // 로그인한 사용자를 담당자 필터 기본값으로 설정
+  // 로그인한 사용자를 담당자 필터 기본값으로 설정 (최초 1회만)
   useEffect(() => {
-    if (user && user.name && selectedAssignee === 'all') {
+    if (user && user.name && !assigneeFilterInitialized) {
       setSelectedAssignee(user.name)
+      setAssigneeFilterInitialized(true)
     }
-  }, [user, selectedAssignee])
+  }, [user, assigneeFilterInitialized])
 
   // 사업장 목록 로딩
   const loadBusinesses = useCallback(async () => {
