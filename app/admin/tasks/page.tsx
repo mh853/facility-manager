@@ -317,8 +317,12 @@ function TaskManagementPage() {
     try {
       console.log('🗑️ 업무 삭제 요청:', taskId)
 
+      const token = TokenManager.getToken()
       const response = await fetch(`/api/facility-tasks?id=${taskId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
       })
 
       if (!response.ok) {
@@ -576,10 +580,12 @@ function TaskManagementPage() {
 
     try {
       // API 호출로 실제 상태 업데이트
+      const token = TokenManager.getToken()
       const response = await fetch('/api/facility-tasks', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           id: draggedTask.id,
@@ -683,10 +689,12 @@ function TaskManagementPage() {
       console.log('📝 새 업무 생성 요청:', requestData)
 
       // 실제 데이터베이스에 저장
+      const token = TokenManager.getToken()
       const response = await fetch('/api/facility-tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(requestData)
       })
@@ -834,10 +842,12 @@ function TaskManagementPage() {
       console.log('📝 업무 수정 요청:', requestData)
 
       // 실제 데이터베이스에 저장
+      const token = TokenManager.getToken()
       const response = await fetch('/api/facility-tasks', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(requestData)
       })
