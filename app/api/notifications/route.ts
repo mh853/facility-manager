@@ -222,46 +222,76 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       }
     }
 
-    // 기본 사용자 알림 조회
-    let query = supabaseAdmin
-      .from('user_notifications')
-      .select(`
-        id,
-        user_id,
-        type,
-        title,
-        message,
-        related_task_id,
-        related_user_id,
-        is_read,
-        read_at,
-        created_at,
-        expires_at
-      `)
-      .eq('user_id', user.id)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    // 기본 사용자 알림 조회 - 테이블 존재 여부 확인 후 처리
+    try {
+      let query = supabaseAdmin
+        .from('user_notifications')
+        .select(`
+          id,
+          user_id,
+          type,
+          title,
+          message,
+          related_task_id,
+          related_user_id,
+          is_read,
+          read_at,
+          created_at,
+          expires_at
+        `)
+        .eq('user_id', user.id)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
-    // 읽지 않은 알림만 조회
-    if (unreadOnly) {
-      query = query.eq('is_read', false);
-    }
+      // 읽지 않은 알림만 조회
+      if (unreadOnly) {
+        query = query.eq('is_read', false);
+      }
 
-    const { data: notifications, error } = await query;
+      const { data: notifications, error } = await query;
 
-    if (error) {
-      console.error('🔴 [NOTIFICATIONS] 조회 오류:', error);
+      if (error) {
+        console.error('🔴 [NOTIFICATIONS] 조회 오류:', error);
+
+        // 테이블이 존재하지 않는 경우 빈 배열 반환
+        if (error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.warn('⚠️ [NOTIFICATIONS] user_notifications 테이블이 존재하지 않음 - 빈 결과 반환');
+          return createSuccessResponse({
+            notifications: [],
+            count: 0,
+            unreadCount: 0,
+            message: 'user_notifications 테이블이 아직 생성되지 않았습니다'
+          });
+        }
+        throw error;
+      }
+
+      console.log('✅ [NOTIFICATIONS] 조회 성공:', notifications?.length || 0, '개 알림');
+
+      return createSuccessResponse({
+        notifications: notifications || [],
+        count: notifications?.length || 0,
+        unreadCount: notifications?.filter(n => !n.is_read).length || 0
+      });
+
+    } catch (error: any) {
+      console.error('🔴 [NOTIFICATIONS] 예외 발생:', error?.message);
+
+      // 테이블 관련 오류인 경우 graceful degradation
+      if (error?.message?.includes('relation') ||
+          error?.message?.includes('does not exist') ||
+          error?.message?.includes('table')) {
+        console.warn('⚠️ [NOTIFICATIONS] 테이블 문제 감지 - graceful degradation 적용');
+        return createSuccessResponse({
+          notifications: [],
+          count: 0,
+          unreadCount: 0,
+          message: 'user_notifications 테이블 초기화가 필요합니다'
+        });
+      }
       throw error;
     }
-
-    console.log('✅ [NOTIFICATIONS] 조회 성공:', notifications?.length || 0, '개 알림');
-
-    return createSuccessResponse({
-      notifications: notifications || [],
-      count: notifications?.length || 0,
-      unreadCount: notifications?.filter(n => !n.is_read).length || 0
-    });
 
   } catch (error: any) {
     console.error('🔴 [NOTIFICATIONS] GET 오류:', error?.message || error);
