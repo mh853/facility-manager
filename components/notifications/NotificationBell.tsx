@@ -232,7 +232,22 @@ export default function NotificationBell() {
               </div>
             ) : notifications.length > 0 ? (
               <div className="divide-y divide-gray-200">
-                {notifications.map((notification) => (
+                {/* 읽지 않은 알림을 먼저 표시하도록 정렬 */}
+                {[...notifications]
+                  .sort((a, b) => {
+                    // 1. 읽지 않은 알림이 먼저 오도록
+                    if (a.isRead !== b.isRead) {
+                      return a.isRead ? 1 : -1;
+                    }
+                    // 2. 우선순위 순으로 (critical > high > medium > low)
+                    const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+                    if (a.priority !== b.priority) {
+                      return priorityOrder[b.priority] - priorityOrder[a.priority];
+                    }
+                    // 3. 최신 순으로
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                  })
+                  .map((notification) => (
                   <div
                     key={notification.id}
                     className={`p-4 hover:bg-gray-50 transition-colors duration-200 ${

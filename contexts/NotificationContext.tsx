@@ -195,8 +195,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setLoading(true);
 
       const token = TokenManager.getToken();
-      if (!token || token === 'null' || token === 'undefined') {
+      if (!token || token === 'null' || token === 'undefined' || token.trim() === '') {
         console.warn('⚠️ [NOTIFICATIONS] 토큰이 없거나 유효하지 않음:', token);
+        return;
+      }
+
+      // 토큰 형식 검증 (JWT 기본 구조 체크)
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        console.warn('⚠️ [NOTIFICATIONS] JWT 토큰 형식이 잘못됨:', tokenParts.length, 'parts');
         return;
       }
 

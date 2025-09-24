@@ -37,17 +37,16 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getUserFromRequest(request);
 
-    // 임시로 인증 우회 (개발 환경용)
-    const mockUser = user || {
-      id: 'demo-user',
-      name: '데모 사용자',
-      email: 'demo@example.com',
-      permission_level: 1
-    };
-
+    // 인증 확인 (필수)
     if (!user) {
-      console.log('📊 [HISTORY] 인증 우회 모드 (개발용)');
+      console.log('❌ [HISTORY] 인증되지 않은 사용자');
+      return NextResponse.json(
+        { success: false, error: '인증이 필요합니다' },
+        { status: 401 }
+      );
     }
+
+    console.log('✅ [HISTORY] 인증된 사용자:', { userId: user.id, userName: user.name });
 
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
@@ -58,7 +57,7 @@ export async function GET(request: NextRequest) {
     const days = parseInt(searchParams.get('days') || '30'); // 기본 30일
 
     console.log('📚 [HISTORY] 알림 히스토리 조회:', {
-      user: mockUser.name,
+      user: user.name,
       page,
       limit,
       search,
@@ -72,7 +71,7 @@ export async function GET(request: NextRequest) {
     startDate.setDate(startDate.getDate() - days);
 
     // 현재 알림 테이블에서 직접 조회 (뷰가 없을 경우 대안)
-    console.log('📊 [HISTORY] 히스토리 조회 시작:', { user: mockUser.name, startDate: startDate.toISOString() });
+    console.log('📊 [HISTORY] 히스토리 조회 시작:', { user: user.name, startDate: startDate.toISOString() });
 
     try {
       // 먼저 notification_history 테이블이 있는지 확인
@@ -94,6 +93,7 @@ export async function GET(request: NextRequest) {
       const { data, error } = await supabaseAdmin
         .from('task_notifications')
         .select('id, notification_type, message, business_name, priority, is_read, created_at')
+        .eq('user_id', user.id)
         .gte('created_at', startDate.toISOString());
 
       taskNotificationsResult = { data: data || [], error };
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
           type_category: item.notification_type || 'task_update',
           priority: item.priority || 'normal',
           related_url: null,
-          user_id: mockUser.id,
+          user_id: user.id,
           created_by_name: null,
           notification_created_at: item.created_at,
           read_at: item.is_read ? item.created_at : null,
