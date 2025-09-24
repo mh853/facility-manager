@@ -242,20 +242,55 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (!generalResponse.ok || !taskResponse.ok) {
-        console.error('❌ [NOTIFICATIONS] API 응답 오류:', {
-          generalStatus: generalResponse.status,
-          taskStatus: taskResponse.status,
-          generalStatusText: generalResponse.statusText,
-          taskStatusText: taskResponse.statusText
-        });
-        throw new Error(`알림 조회 실패: ${generalResponse.status} / ${taskResponse.status}`);
+      console.log('📊 [NOTIFICATIONS] API 응답 상태:', {
+        generalStatus: generalResponse.status,
+        taskStatus: taskResponse.status,
+        generalOk: generalResponse.ok,
+        taskOk: taskResponse.ok
+      });
+
+      // 개별 응답 처리 (하나가 실패해도 다른 하나는 성공할 수 있음)
+      let generalData: any = { success: true, data: [] };
+      let taskData: any = { success: true, taskNotifications: [] };
+
+      // 일반 알림 처리
+      if (generalResponse.ok) {
+        try {
+          generalData = await generalResponse.json();
+          console.log('✅ [NOTIFICATIONS] 일반 알림 조회 성공:', generalData.data?.length || 0, '개');
+        } catch (error) {
+          console.error('❌ [NOTIFICATIONS] 일반 알림 JSON 파싱 실패:', error);
+          generalData = { success: false, data: [] };
+        }
+      } else {
+        console.warn('⚠️ [NOTIFICATIONS] 일반 알림 API 실패:', generalResponse.status, generalResponse.statusText);
       }
 
-      const [generalData, taskData] = await Promise.all([
-        generalResponse.json(),
-        taskResponse.json()
-      ]);
+      // 업무 알림 처리 (500 오류 허용)
+      if (taskResponse.ok) {
+        try {
+          taskData = await taskResponse.json();
+          console.log('✅ [NOTIFICATIONS] 업무 알림 조회 성공:', taskData.taskNotifications?.length || 0, '개');
+        } catch (error) {
+          console.error('❌ [NOTIFICATIONS] 업무 알림 JSON 파싱 실패:', error);
+          taskData = { success: false, taskNotifications: [] };
+        }
+      } else if (taskResponse.status === 500) {
+        console.warn('⚠️ [NOTIFICATIONS] 업무 알림 API 500 오류 - task_notifications 테이블 미존재로 예상됨');
+        // 500 오류인 경우에도 빈 데이터로 처리하여 일반 알림은 정상 동작하도록 함
+        try {
+          const errorData = await taskResponse.json();
+          console.log('📄 [NOTIFICATIONS] 500 오류 상세:', errorData);
+          if (errorData.success === false && errorData.taskNotifications) {
+            // API에서 graceful degradation 응답을 준 경우
+            taskData = errorData;
+          }
+        } catch (error) {
+          console.warn('⚠️ [NOTIFICATIONS] 500 오류 응답 파싱 불가 - 빈 데이터 사용');
+        }
+      } else {
+        console.warn('⚠️ [NOTIFICATIONS] 업무 알림 API 기타 오류:', taskResponse.status, taskResponse.statusText);
+      }
 
       const allNotifications: Notification[] = [];
 
@@ -316,7 +351,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         total: allNotifications.length,
         unread: allNotifications.filter((n: any) => !n.isRead).length,
         general: generalData.success ? (generalData.data?.length || 0) : 0,
-        tasks: taskData.success ? (taskData.taskNotifications?.length || 0) : 0
+        tasks: taskData.success ? (taskData.taskNotifications?.length || 0) : 0,
+        generalApiOk: generalResponse.ok,
+        taskApiOk: taskResponse.ok
       });
     } catch (error) {
       console.error('❌ [NOTIFICATIONS] 알림 조회 오류:', error);

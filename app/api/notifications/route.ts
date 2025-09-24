@@ -139,50 +139,87 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       return await getTierSpecificNotifications(user, tier, unreadOnly, limit);
     }
 
-    // 업무 담당자 알림 조회
+    // 업무 담당자 알림 조회 - 테이블 존재 여부 확인 후 처리
     if (taskNotifications) {
-      let query = supabaseAdmin
-        .from('task_notifications')
-        .select(`
-          id,
-          user_id,
-          user_name,
-          task_id,
-          business_name,
-          message,
-          notification_type,
-          priority,
-          is_read,
-          read_at,
-          created_at,
-          expires_at
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      try {
+        // 먼저 테이블 존재 여부 확인
+        const { data: tableExists } = await supabaseAdmin
+          .from('task_notifications')
+          .select('id')
+          .limit(1)
+          .maybeSingle();
 
-      // 읽지 않은 알림만 필터링
-      if (unreadOnly) {
-        query = query.eq('is_read', false);
-      }
+        let query = supabaseAdmin
+          .from('task_notifications')
+          .select(`
+            id,
+            user_id,
+            user_name,
+            task_id,
+            business_name,
+            message,
+            notification_type,
+            priority,
+            is_read,
+            read_at,
+            created_at,
+            expires_at
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(limit);
 
-      // 만료되지 않은 알림만 조회
-      query = query.or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+        // 읽지 않은 알림만 필터링
+        if (unreadOnly) {
+          query = query.eq('is_read', false);
+        }
 
-      const { data: notifications, error } = await query;
+        // 만료되지 않은 알림만 조회
+        query = query.or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
 
-      if (error) {
-        console.error('🔴 [TASK-NOTIFICATIONS] 조회 오류:', error);
+        const { data: notifications, error } = await query;
+
+        if (error) {
+          console.error('🔴 [TASK-NOTIFICATIONS] 조회 오류:', error);
+
+          // 테이블이 존재하지 않는 경우 빈 배열 반환
+          if (error.message.includes('relation') || error.message.includes('does not exist')) {
+            console.warn('⚠️ [TASK-NOTIFICATIONS] task_notifications 테이블이 존재하지 않음 - 빈 결과 반환');
+            return createSuccessResponse({
+              taskNotifications: [],
+              count: 0,
+              unreadCount: 0,
+              message: 'task_notifications 테이블이 아직 생성되지 않았습니다'
+            });
+          }
+          throw error;
+        }
+
+        console.log('✅ [TASK-NOTIFICATIONS] 조회 성공:', notifications?.length || 0, '개 업무 알림');
+
+        return createSuccessResponse({
+          taskNotifications: notifications || [],
+          count: notifications?.length || 0,
+          unreadCount: notifications?.filter(n => !n.is_read).length || 0
+        });
+
+      } catch (error: any) {
+        console.error('🔴 [TASK-NOTIFICATIONS] 예외 발생:', error?.message);
+
+        // 테이블 관련 오류인 경우 graceful degradation
+        if (error?.message?.includes('relation') ||
+            error?.message?.includes('does not exist') ||
+            error?.message?.includes('table')) {
+          console.warn('⚠️ [TASK-NOTIFICATIONS] 테이블 문제 감지 - graceful degradation 적용');
+          return createSuccessResponse({
+            taskNotifications: [],
+            count: 0,
+            unreadCount: 0,
+            message: 'task_notifications 테이블 초기화가 필요합니다'
+          });
+        }
         throw error;
       }
-
-      console.log('✅ [TASK-NOTIFICATIONS] 조회 성공:', notifications?.length || 0, '개 업무 알림');
-
-      return createSuccessResponse({
-        taskNotifications: notifications || [],
-        count: notifications?.length || 0,
-        unreadCount: notifications?.filter(n => !n.is_read).length || 0
-      });
     }
 
     // 기본 사용자 알림 조회
@@ -628,18 +665,26 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
         totalDeleted += deletedUserNotifications?.length || 0;
       }
 
-      // task_notifications에서 만료된 알림 삭제
-      const { data: deletedTaskNotifications, error: taskError } = await supabaseAdmin
-        .from('task_notifications')
-        .delete()
-        .eq('user_id', userId)
-        .or(`expires_at.lt.${new Date().toISOString()},and(is_read.eq.true,read_at.lt.${sevenDaysAgo})`)
-        .select();
+      // task_notifications에서 만료된 알림 삭제 (테이블 존재 시에만)
+      try {
+        const { data: deletedTaskNotifications, error: taskError } = await supabaseAdmin
+          .from('task_notifications')
+          .delete()
+          .eq('user_id', userId)
+          .or(`expires_at.lt.${new Date().toISOString()},and(is_read.eq.true,read_at.lt.${sevenDaysAgo})`)
+          .select();
 
-      if (taskError) {
-        console.error('🔴 [NOTIFICATIONS] 업무 알림 삭제 오류:', taskError);
-      } else {
-        totalDeleted += deletedTaskNotifications?.length || 0;
+        if (taskError) {
+          if (taskError.message.includes('relation') || taskError.message.includes('does not exist')) {
+            console.warn('⚠️ [NOTIFICATIONS] task_notifications 테이블이 존재하지 않음 - 스킵');
+          } else {
+            console.error('🔴 [NOTIFICATIONS] 업무 알림 삭제 오류:', taskError);
+          }
+        } else {
+          totalDeleted += deletedTaskNotifications?.length || 0;
+        }
+      } catch (error: any) {
+        console.warn('⚠️ [NOTIFICATIONS] task_notifications 테이블 처리 중 오류 - 스킵:', error?.message);
       }
 
       console.log('✅ [NOTIFICATIONS] 만료 알림 삭제 성공:', totalDeleted, '개');
