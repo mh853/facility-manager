@@ -87,7 +87,7 @@ async function getUserFromToken(request: NextRequest) {
   }
 }
 
-// GET: 사용자 알림 목록 조회
+// GET: 사용자 알림 목록 조회 (3-tier 지원)
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
     // JWT 토큰에서 사용자 정보 추출
@@ -100,14 +100,21 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
     const limit = parseInt(searchParams.get('limit') || '50');
     const taskNotifications = searchParams.get('taskNotifications') === 'true';
+    const tier = searchParams.get('tier') as 'personal' | 'team' | 'company' | 'all' || 'all';
 
     console.log('📢 [NOTIFICATIONS] 알림 목록 조회:', {
       userId: user.id,
       userName: user.name,
       unreadOnly,
       limit,
-      taskNotifications
+      taskNotifications,
+      tier
     });
+
+    // 3-tier 알림 시스템 지원
+    if (tier !== 'all') {
+      return await getTierSpecificNotifications(user, tier, unreadOnly, limit);
+    }
 
     // 업무 담당자 알림 조회
     if (taskNotifications) {
@@ -213,21 +220,165 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   }
 }, { logLevel: 'debug' });
 
-// POST: 알림 생성 (관리자용)
+// 3-tier 알림 조회 헬퍼 함수
+async function getTierSpecificNotifications(user: any, tier: string, unreadOnly: boolean, limit: number) {
+  let whereClause = '';
+  const now = new Date().toISOString();
+
+  switch (tier) {
+    case 'personal':
+      whereClause = `notification_tier = 'personal' AND target_user_id = '${user.id}'`;
+      break;
+    case 'team':
+      const teamConditions = [];
+      if (user.team_id) {
+        teamConditions.push(`target_team_id = ${user.team_id}`);
+      }
+      if (user.department_id) {
+        teamConditions.push(`target_department_id = ${user.department_id}`);
+      }
+      if (teamConditions.length === 0) {
+        whereClause = 'FALSE'; // 팀/부서 정보가 없으면 팀 알림 없음
+      } else {
+        whereClause = `notification_tier = 'team' AND (${teamConditions.join(' OR ')})`;
+      }
+      break;
+    case 'company':
+      whereClause = `notification_tier = 'company'`;
+      break;
+  }
+
+  let query = supabaseAdmin
+    .from('notifications')
+    .select(`
+      id,
+      title,
+      message,
+      category,
+      priority,
+      notification_tier,
+      target_user_id,
+      target_team_id,
+      target_department_id,
+      created_by,
+      created_by_name,
+      related_resource_type,
+      related_resource_id,
+      related_url,
+      metadata,
+      expires_at,
+      created_at,
+      user_notifications!inner(
+        is_read,
+        read_at
+      )
+    `)
+    .eq('user_notifications.user_id', user.id)
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (unreadOnly) {
+    query = query.eq('user_notifications.is_read', false);
+  }
+
+  const { data: notifications, error } = await query;
+
+  if (error) {
+    console.error('🔴 [TIER-NOTIFICATIONS] 조회 오류:', error);
+    throw error;
+  }
+
+  const formattedNotifications = notifications?.map(n => ({
+    id: n.id,
+    title: n.title,
+    message: n.message,
+    category: n.category,
+    priority: n.priority,
+    tier: n.notification_tier,
+    isRead: n.user_notifications?.[0]?.is_read || false,
+    readAt: n.user_notifications?.[0]?.read_at,
+    createdAt: n.created_at,
+    createdByName: n.created_by_name,
+    relatedResourceType: n.related_resource_type,
+    relatedUrl: n.related_url,
+    metadata: n.metadata
+  })) || [];
+
+  console.log(`✅ [${tier.toUpperCase()}-NOTIFICATIONS] 조회 성공:`, formattedNotifications.length, '개 알림');
+
+  return createSuccessResponse({
+    notifications: formattedNotifications,
+    count: formattedNotifications.length,
+    unreadCount: formattedNotifications.filter(n => !n.isRead).length,
+    tier
+  });
+}
+
+// POST: 알림 생성 (3-tier 지원)
 export const POST = withApiHandler(async (request: NextRequest) => {
   try {
     const body = await request.json();
     const {
-      user_id,
-      type,
       title,
       message,
+      category,
+      priority = 'medium',
+      notification_tier,
+      target_user_id,
+      target_team_id,
+      target_department_id,
+      related_resource_type,
+      related_resource_id,
+      related_url,
+      expires_at,
+      metadata,
+      // 기존 호환성 필드
+      user_id,
+      type,
       related_task_id,
       related_user_id,
       target_permission_level
     } = body;
 
-    console.log('📢 [NOTIFICATIONS] 알림 생성:', { type, title, user_id, target_permission_level });
+    // JWT 토큰에서 생성자 정보 추출
+    const creator = await getUserFromToken(request);
+    if (!creator) {
+      return createErrorResponse('인증이 필요합니다', 401);
+    }
+
+    console.log('📢 [NOTIFICATIONS] 알림 생성:', {
+      notification_tier,
+      title,
+      target_user_id,
+      target_team_id,
+      target_department_id,
+      creator: creator.name
+    });
+
+    // 3-tier 알림 생성
+    if (notification_tier) {
+      return await createTierNotification({
+        title,
+        message,
+        category: category || 'general',
+        priority,
+        notification_tier,
+        target_user_id,
+        target_team_id,
+        target_department_id,
+        created_by: creator.id,
+        created_by_name: creator.name,
+        related_resource_type,
+        related_resource_id,
+        related_url,
+        expires_at,
+        metadata
+      });
+    }
+
+    // 기존 호환성 로직
+    console.log('📢 [LEGACY-NOTIFICATIONS] 레거시 알림 생성:', { type, title, user_id, target_permission_level });
 
     // 시스템 공지인 경우 (여러 사용자에게)
     if (type === 'system_notice' && target_permission_level) {
@@ -301,6 +452,72 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     return createErrorResponse('알림 생성 중 오류가 발생했습니다', 500);
   }
 }, { logLevel: 'debug' });
+
+// 3-tier 알림 생성 헬퍼 함수
+async function createTierNotification(notificationData: any) {
+  const {
+    title,
+    message,
+    category,
+    priority,
+    notification_tier,
+    target_user_id,
+    target_team_id,
+    target_department_id,
+    created_by,
+    created_by_name,
+    related_resource_type,
+    related_resource_id,
+    related_url,
+    expires_at,
+    metadata
+  } = notificationData;
+
+  // 타겟 유효성 검증
+  if (notification_tier === 'personal' && !target_user_id) {
+    return createErrorResponse('개인 알림에는 target_user_id가 필요합니다', 400);
+  }
+
+  if (notification_tier === 'team' && !target_team_id && !target_department_id) {
+    return createErrorResponse('팀 알림에는 target_team_id 또는 target_department_id가 필요합니다', 400);
+  }
+
+  // 알림 생성
+  const { data: newNotification, error: notificationError } = await supabaseAdmin
+    .from('notifications')
+    .insert({
+      title,
+      message,
+      category,
+      priority,
+      notification_tier,
+      target_user_id,
+      target_team_id,
+      target_department_id,
+      created_by,
+      created_by_name,
+      related_resource_type,
+      related_resource_id,
+      related_url,
+      expires_at,
+      metadata
+    })
+    .select()
+    .single();
+
+  if (notificationError) {
+    console.error('🔴 [TIER-NOTIFICATIONS] 생성 오류:', notificationError);
+    throw notificationError;
+  }
+
+  // 대상 사용자 결정 및 user_notifications 생성은 트리거에서 자동 처리됨
+  console.log('✅ [TIER-NOTIFICATIONS] 생성 성공:', newNotification.id, '- Tier:', notification_tier);
+
+  return createSuccessResponse({
+    notification: newNotification,
+    message: `${notification_tier} 알림이 성공적으로 생성되었습니다`
+  });
+}
 
 // PUT: 알림 읽음 처리
 export const PUT = withApiHandler(async (request: NextRequest) => {
