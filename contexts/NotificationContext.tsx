@@ -299,7 +299,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (generalResponse.ok) {
         try {
           generalData = await generalResponse.json();
-          console.log('✅ [NOTIFICATIONS] 일반 알림 조회 성공:', generalData.data?.length || 0, '개');
+          const generalCount = generalData?.data?.notifications?.length || generalData?.notifications?.length || 0;
+          console.log('✅ [NOTIFICATIONS] 일반 알림 조회 성공:', generalCount, '개');
         } catch (error) {
           console.error('❌ [NOTIFICATIONS] 일반 알림 JSON 파싱 실패:', error);
           generalData = { success: false, data: [] };
@@ -312,7 +313,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (taskResponse.ok) {
         try {
           taskData = await taskResponse.json();
-          console.log('✅ [NOTIFICATIONS] 업무 알림 조회 성공:', taskData.taskNotifications?.length || 0, '개');
+          const taskCount = taskData?.data?.taskNotifications?.length || taskData?.taskNotifications?.length || 0;
+          console.log('✅ [NOTIFICATIONS] 업무 알림 조회 성공:', taskCount, '개');
         } catch (error) {
           console.error('❌ [NOTIFICATIONS] 업무 알림 JSON 파싱 실패:', error);
           taskData = { success: false, taskNotifications: [] };
@@ -337,8 +339,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const allNotifications: Notification[] = [];
 
       // 일반 알림 변환 (기존 notifications 테이블)
-      if (generalData.success && generalData.data) {
-        const generalNotifications = generalData.data.map((notif: any) => ({
+      // API 응답 구조: { success: true, data: { notifications: [], count: 0, unreadCount: 0 } }
+      const generalNotificationsArray = generalData?.data?.notifications || generalData?.notifications || [];
+      if (generalData.success && Array.isArray(generalNotificationsArray)) {
+        const generalNotifications = generalNotificationsArray.map((notif: any) => ({
           id: notif.id,
           title: notif.title,
           message: notif.message,
@@ -359,8 +363,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
 
       // 업무 알림 변환 (task_notifications 테이블)
-      if (taskData.success && taskData.taskNotifications) {
-        const taskNotifications = taskData.taskNotifications.map((notif: any) => ({
+      // API 응답 구조: { success: true, data: { taskNotifications: [], count: 0, unreadCount: 0 } }
+      const taskNotificationsArray = taskData?.data?.taskNotifications || taskData?.taskNotifications || [];
+      if (taskData.success && Array.isArray(taskNotificationsArray)) {
+        const taskNotifications = taskNotificationsArray.map((notif: any) => ({
           id: `task-${notif.id}`, // ID 충돌 방지
           title: `업무 할당: ${notif.business_name}`, // 업무 알림 제목
           message: notif.message,
