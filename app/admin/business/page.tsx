@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { BusinessInfo } from '@/lib/database-service'
 import type { BusinessMemo, CreateBusinessMemoInput, UpdateBusinessMemoInput } from '@/types/database'
 
@@ -245,6 +246,9 @@ const KOREAN_LOCAL_GOVERNMENTS = [
 function BusinessManagementPage() {
   // 권한 확인 훅
   const { canDeleteAutoMemos } = usePermission()
+
+  // URL 파라미터 처리
+  const searchParams = useSearchParams()
 
   const [allBusinesses, setAllBusinesses] = useState<UnifiedBusinessInfo[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -1051,6 +1055,41 @@ function BusinessManagementPage() {
       }
     }
   }, [allBusinesses.length, selectedBusiness?.id]) // length 변화만 감지
+
+  // URL 파라미터 처리 - 알림에서 사업장으로 직접 이동
+  useEffect(() => {
+    const businessParam = searchParams?.get('business')
+    const focusParam = searchParams?.get('focus')
+
+    if (businessParam && allBusinesses.length > 0 && !selectedBusiness) {
+      console.log('🔍 [URL-PARAMS] 사업장 검색:', businessParam, 'focus:', focusParam)
+
+      // URL에서 받은 사업장명으로 검색 (URL 디코딩)
+      const targetBusinessName = decodeURIComponent(businessParam)
+      const foundBusiness = allBusinesses.find(b =>
+        b.사업장명 === targetBusinessName || b.business_name === targetBusinessName
+      )
+
+      if (foundBusiness) {
+        console.log('✅ [URL-PARAMS] 사업장 발견, 상세 모달 열기:', foundBusiness.사업장명)
+
+        // 사업장 선택 및 상세 모달 열기
+        setSelectedBusiness(foundBusiness)
+        setIsDetailModalOpen(true)
+
+        // focus=tasks인 경우 업무 탭으로 자동 이동 (추가 구현 필요시)
+        if (focusParam === 'tasks') {
+          console.log('🎯 [URL-PARAMS] 업무 탭에 포커스')
+          // TODO: 업무 탭 활성화 로직 추가 (탭 상태 관리가 있는 경우)
+        }
+      } else {
+        console.warn('⚠️ [URL-PARAMS] 사업장을 찾을 수 없음:', targetBusinessName)
+
+        // 사업장을 찾을 수 없으면 검색어로 설정
+        setSearchQuery(targetBusinessName)
+      }
+    }
+  }, [allBusinesses.length, searchParams, selectedBusiness])
 
   // 사업장 선택 시 메모와 업무 로드
   useEffect(() => {
