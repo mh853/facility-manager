@@ -288,13 +288,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       setNotifications(allNotifications);
 
-        console.log('✅ [NOTIFICATIONS] 초기 알림 로드 완료:', {
-          total: allNotifications.length,
-          unread: allNotifications.filter((n: any) => !n.isRead).length,
-          general: generalData.success ? (generalData.data?.length || 0) : 0,
-          tasks: taskData.success ? (taskData.taskNotifications?.length || 0) : 0
-        });
-      }
+      console.log('✅ [NOTIFICATIONS] 초기 알림 로드 완료:', {
+        total: allNotifications.length,
+        unread: allNotifications.filter((n: any) => !n.isRead).length,
+        general: generalData.success ? (generalData.data?.length || 0) : 0,
+        tasks: taskData.success ? (taskData.taskNotifications?.length || 0) : 0
+      });
     } catch (error) {
       console.error('❌ [NOTIFICATIONS] 알림 조회 오류:', error);
     } finally {
