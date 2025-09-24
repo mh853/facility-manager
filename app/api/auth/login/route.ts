@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
       'https://facility.blueon-iot.com',
       'https://www.facility.blueon-iot.com',
       'http://localhost:3000',
-      'http://127.0.0.1:3000'
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:3002'
     ];
 
     // Vercel 자동 배포 도메인 동적 허용 (프로덕션 환경에서)

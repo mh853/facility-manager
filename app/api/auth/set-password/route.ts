@@ -21,7 +21,11 @@ export async function POST(request: NextRequest) {
       'https://facility.blueon-iot.com',
       'https://www.facility.blueon-iot.com',
       'http://localhost:3000',
-      'http://127.0.0.1:3000'
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:3002'
     ];
 
     const allowedDomainPatterns = [
