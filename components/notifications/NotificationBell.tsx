@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, Clock, User, FolderOpen, AlertCircle, X, Wifi, WifiOff, RefreshCw, Trash2 } from 'lucide-react';
 import { useNotification } from '@/contexts/NotificationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // 사용자 인증 상태 확인
   const { user, loading: authLoading } = useAuth();
@@ -48,6 +50,46 @@ export default function NotificationBell() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // 알림 클릭 핸들러 - 사업장 상세 모달로 이동
+  const handleNotificationClick = (notification: any) => {
+    console.log('🔔 [NOTIFICATION-CLICK] 알림 클릭:', notification);
+
+    // 업무 알림인 경우 사업장 관리 페이지로 이동
+    if (notification.relatedResourceType === 'task' ||
+        notification.category.includes('task') ||
+        notification.metadata?.business_name) {
+
+      const businessName = notification.metadata?.business_name;
+
+      if (businessName) {
+        console.log('📍 [NOTIFICATION-CLICK] 사업장으로 이동:', businessName);
+
+        // 사업장 관리 페이지로 이동 (사업장명을 URL 파라미터로 전달)
+        const encodedBusinessName = encodeURIComponent(businessName);
+        router.push(`/admin/business?business=${encodedBusinessName}&focus=tasks`);
+
+        // 알림을 읽음으로 처리
+        if (!notification.isRead) {
+          markAsRead(notification.id);
+        }
+      } else {
+        console.warn('⚠️ [NOTIFICATION-CLICK] 사업장 정보 없음, 기본 업무 페이지로 이동');
+        router.push('/admin/tasks');
+      }
+    } else {
+      // 일반 알림인 경우 기존 URL 사용
+      if (notification.relatedUrl) {
+        console.log('🔗 [NOTIFICATION-CLICK] 기존 URL로 이동:', notification.relatedUrl);
+        router.push(notification.relatedUrl);
+      }
+
+      // 알림을 읽음으로 처리
+      if (!notification.isRead) {
+        markAsRead(notification.id);
+      }
+    }
+  };
 
   // 알림 읽음 처리는 useNotification 훅에서 제공하는 함수 사용
 
@@ -315,17 +357,17 @@ export default function NotificationBell() {
                     </div>
 
                     {/* 액션 버튼 */}
-                    {notification.relatedUrl && (
-                      <div className="mt-3">
-                        <a
-                          href={notification.relatedUrl}
-                          className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors duration-200"
-                          onClick={() => setIsOpen(false)}
-                        >
-                          보기
-                        </a>
-                      </div>
-                    )}
+                    <div className="mt-3">
+                      <button
+                        onClick={() => {
+                          setIsOpen(false);
+                          handleNotificationClick(notification);
+                        }}
+                        className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors duration-200"
+                      >
+                        보기
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

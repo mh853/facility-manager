@@ -522,26 +522,57 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     try {
+      console.log('🔄 [NOTIFICATIONS] 모든 알림 읽음 처리 시작');
+
+      const token = TokenManager.getToken();
+      if (!token || !TokenManager.isTokenValid(token)) {
+        console.warn('⚠️ [NOTIFICATIONS] markAllAsRead: 토큰이 유효하지 않음');
+        return;
+      }
+
       const response = await fetch('/api/notifications/read-all', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${TokenManager.getToken()}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
+      console.log('📊 [NOTIFICATIONS] markAllAsRead API 응답:', {
+        status: response.status,
+        ok: response.ok
+      });
+
       if (!response.ok) {
-        throw new Error('모든 알림 읽음 처리에 실패했습니다.');
+        throw new Error(`모든 알림 읽음 처리에 실패했습니다. Status: ${response.status}`);
       }
 
+      const data = await response.json();
+      console.log('✅ [NOTIFICATIONS] 서버 응답:', data);
+
       // 로컬 상태 업데이트
-      setNotifications(prev =>
-        prev.map(notification => ({ ...notification, isRead: true }))
-      );
+      setNotifications(prev => {
+        const updated = prev.map(notification => ({ ...notification, isRead: true }));
+        console.log('📱 [NOTIFICATIONS] 로컬 상태 업데이트:', {
+          before: prev.filter(n => !n.isRead).length,
+          after: updated.filter(n => !n.isRead).length
+        });
+        return updated;
+      });
+
+      // Realtime 연결이 실패한 상황이므로, 서버 상태 재확인을 위해 데이터 다시 가져오기
+      if (!isConnected) {
+        console.log('⚠️ [NOTIFICATIONS] Realtime 연결 없음 - 서버에서 최신 상태 확인');
+        setTimeout(() => {
+          fetchNotifications();
+        }, 1000);
+      }
+
     } catch (error) {
-      console.error('모든 알림 읽음 처리 오류:', error);
+      console.error('❌ [NOTIFICATIONS] 모든 알림 읽음 처리 오류:', error);
+      throw error;
     }
-  }, [user]);
+  }, [user, isConnected, fetchNotifications]);
 
   // 알림 삭제
   const deleteNotification = useCallback(async (notificationId: string) => {
