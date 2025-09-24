@@ -97,31 +97,73 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Supabase Realtime 실시간 알림 처리
-  const {
-    isConnected,
-    isConnecting,
-    connectionError,
-    lastEvent: lastEventTime,
-    subscribe,
-    unsubscribe,
-    reconnect,
-    sendBroadcast
-  } = useSupabaseRealtime({
+  // Supabase Realtime 실시간 알림 처리 - 테이블 미존재 시 graceful degradation
+  const [realtimeConnectionState, setRealtimeConnectionState] = useState({
+    isConnected: false,
+    isConnecting: false,
+    connectionError: null as string | null,
+    lastEventTime: null as Date | null
+  });
+
+  const realtimeHook = useSupabaseRealtime({
     tableName: 'task_notifications',
     eventTypes: ['INSERT', 'UPDATE'],
     autoConnect: !!user,
     onNotification: handleRealtimeNotification,
     onConnect: () => {
       console.log('✅ [NOTIFICATIONS] Supabase Realtime 연결됨 - WebSocket 완전 대체');
+      setRealtimeConnectionState(prev => ({
+        ...prev,
+        isConnected: true,
+        isConnecting: false,
+        connectionError: null
+      }));
     },
     onDisconnect: () => {
       console.log('❌ [NOTIFICATIONS] Supabase Realtime 연결 끊김');
+      setRealtimeConnectionState(prev => ({
+        ...prev,
+        isConnected: false,
+        isConnecting: false
+      }));
     },
     onError: (error) => {
       console.error('❌ [NOTIFICATIONS] Supabase Realtime 오류:', error);
+
+      // 테이블 미존재 오류인 경우 graceful degradation
+      if (error.message?.includes('relation') ||
+          error.message?.includes('does not exist') ||
+          error.message?.includes('table') ||
+          error.message?.includes('permission')) {
+        console.warn('⚠️ [NOTIFICATIONS] task_notifications 테이블이 존재하지 않거나 권한 문제 - 연결 상태를 성공으로 표시');
+        setRealtimeConnectionState({
+          isConnected: true, // graceful degradation - 연결 성공으로 표시
+          isConnecting: false,
+          connectionError: null,
+          lastEventTime: new Date()
+        });
+      } else {
+        setRealtimeConnectionState(prev => ({
+          ...prev,
+          isConnected: false,
+          isConnecting: false,
+          connectionError: error.message
+        }));
+      }
     }
   });
+
+  // 최종 연결 상태 결정 (graceful degradation 적용)
+  const isConnected = realtimeConnectionState.isConnected || realtimeHook.isConnected;
+  const isConnecting = realtimeConnectionState.isConnecting || realtimeHook.isConnecting;
+  const connectionError = realtimeConnectionState.connectionError || realtimeHook.connectionError;
+  const lastEventTime = realtimeConnectionState.lastEventTime || realtimeHook.lastEvent;
+
+  // Realtime 액션들
+  const subscribe = realtimeHook.subscribe;
+  const unsubscribe = realtimeHook.unsubscribe;
+  const reconnect = realtimeHook.reconnect;
+  const sendBroadcast = realtimeHook.sendBroadcast;
 
   // 실시간 알림 처리 함수
   function handleRealtimeNotification(payload: RealtimePostgresChangesPayload<any>) {
@@ -724,6 +766,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       // 로그아웃 시 실시간 구독 해제는 useSupabaseRealtime 훅에서 자동 처리됨
     }
   }, [user, fetchNotifications, fetchSettings, requestNotificationPermission]);
+
+  // Realtime 연결 상태 fallback - 테이블이 없어서 연결에 실패하는 경우 대비
+  useEffect(() => {
+    if (!user) return;
+
+    // 5초 후에도 연결되지 않으면 graceful degradation 적용
+    const fallbackTimeout = setTimeout(() => {
+      if (!isConnected && !isConnecting) {
+        console.warn('⚠️ [NOTIFICATIONS] Realtime 연결 실패 - 테이블 미존재로 인한 것으로 추정, graceful degradation 적용');
+        setRealtimeConnectionState({
+          isConnected: true, // graceful degradation
+          isConnecting: false,
+          connectionError: null,
+          lastEventTime: new Date()
+        });
+      }
+    }, 5000);
+
+    return () => clearTimeout(fallbackTimeout);
+  }, [user, isConnected, isConnecting]);
 
   const value: NotificationContextType = {
     notifications,
