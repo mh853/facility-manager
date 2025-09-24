@@ -135,24 +135,24 @@ function NavigationItems({ pathname, onItemClick }: { pathname: string, onItemCl
               onItemClick()
             }}
             className={`
-              group flex items-center px-4 py-3 lg:px-4 lg:py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer
+              group flex items-center px-3 py-2 lg:px-3 lg:py-2 rounded-xl text-xs lg:text-sm font-medium transition-all duration-200 cursor-pointer
               ${isActive
                 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 lg:bg-gradient-to-br lg:from-blue-100 lg:to-indigo-100 text-blue-700 shadow-sm border border-blue-200'
                 : 'text-gray-600 hover:bg-gray-50 lg:hover:bg-gray-100 hover:text-gray-900'
               }
             `}
           >
-            <Icon className={`w-5 h-5 lg:w-5 lg:h-5 mr-3 lg:mr-3 ${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+            <Icon className={`w-4 h-4 lg:w-4 lg:h-4 mr-2 lg:mr-2 ${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
             <div className="flex-1 min-w-0">
-              <div className={`font-medium text-sm lg:text-base ${isActive ? 'text-blue-900' : ''}`}>
+              <div className={`font-medium text-xs lg:text-sm ${isActive ? 'text-blue-900' : ''}`}>
                 {item.name}
               </div>
-              <div className={`text-xs lg:text-sm mt-0.5 ${isActive ? 'text-blue-600' : 'text-gray-400'} truncate`}>
+              <div className={`text-xs lg:text-xs mt-0.5 ${isActive ? 'text-blue-600' : 'text-gray-400'} truncate`}
                 {item.description}
               </div>
             </div>
             {isActive && (
-              <ChevronRight className="w-4 h-4 lg:w-3 lg:h-3 text-blue-600" />
+              <ChevronRight className="w-3 h-3 lg:w-3 lg:h-3 text-blue-600" />
             )}
           </div>
         )
@@ -258,18 +258,18 @@ export default function AdminLayout({ children, title, description, actions }: A
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 px-4 lg:px-3 py-4 lg:py-3 space-y-2 lg:space-y-1 lg:overflow-y-auto">
+            <nav className="flex-1 px-3 lg:px-3 py-2 lg:py-3 space-y-1 lg:space-y-1 lg:overflow-y-auto">
               <NavigationItems pathname={pathname || ''} onItemClick={() => setSidebarOpen(false)} />
             </nav>
 
             {/* Footer */}
-            <div className="border-t border-gray-200 lg:border-gray-300 p-4 lg:p-3 lg:bg-gradient-to-r lg:from-gray-50 lg:to-blue-50 lg:rounded-xl lg:border lg:m-2 lg:mt-0">
-              <Link href="/profile" className="flex items-center gap-3 lg:gap-2 hover:bg-white/50 lg:hover:bg-blue-100/50 rounded-lg p-2 -m-2 transition-colors duration-200">
-                <div className="w-8 h-8 lg:w-7 lg:h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-sm">
-                  <User className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-white" />
+            <div className="border-t border-gray-200 lg:border-gray-300 p-3 lg:p-3 lg:bg-gradient-to-r lg:from-gray-50 lg:to-blue-50 lg:rounded-xl lg:border lg:m-2 lg:mt-0">
+              <Link href="/profile" className="flex items-center gap-2 lg:gap-2 hover:bg-white/50 lg:hover:bg-blue-100/50 rounded-lg p-2 -m-2 transition-colors duration-200">
+                <div className="w-7 h-7 lg:w-7 lg:h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-sm">
+                  <User className="w-3.5 h-3.5 lg:w-3.5 lg:h-3.5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="text-sm lg:text-xs font-medium text-gray-900">
+                  <div className="text-xs lg:text-xs font-medium text-gray-900">
                     {user?.name || '관리자'}
                   </div>
                   <div className="text-xs lg:text-xs text-gray-500 lg:hidden">
