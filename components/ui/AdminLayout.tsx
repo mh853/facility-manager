@@ -103,10 +103,10 @@ const navigationItems: NavigationItem[] = [
     requiredLevel: 1
   },
   {
-    name: '지연 기준 설정',
-    href: '/admin/settings/delay-criteria',
+    name: '관리자 설정',
+    href: '/admin/settings',
     icon: Sliders,
-    description: '업무 지연/위험 판단 기준 관리',
+    description: '지연 기준, 알림 관리 등 시스템 설정',
     requiredLevel: 3
   },
 ]
