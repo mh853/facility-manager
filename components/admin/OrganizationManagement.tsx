@@ -21,8 +21,8 @@ interface Department {
   id: number;
   name: string;
   description?: string;
-  display_order: number;
-  is_active: boolean;
+  display_order?: number;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
   teams?: Team[];
@@ -33,8 +33,8 @@ interface Team {
   name: string;
   description?: string;
   department_id: number;
-  display_order: number;
-  is_active: boolean;
+  display_order?: number;
+  is_active?: boolean;
   manager_user_id?: string;
   created_at: string;
   updated_at: string;

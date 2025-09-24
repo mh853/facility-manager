@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import AdminLayout from '@/components/ui/AdminLayout'
 import StatsCard from '@/components/ui/StatsCard'
+import OrganizationChart from '@/components/admin/OrganizationChart'
 import {
   Building2,
   Users,
@@ -281,6 +282,9 @@ export default function AdminDashboard() {
             description="예정된 설치 건수"
           />
         </div>
+
+        {/* 조직 현황 섹션 */}
+        <OrganizationChart />
 
         {/* 빠른 액션 섹션 */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

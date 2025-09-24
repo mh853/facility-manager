@@ -36,23 +36,21 @@ export async function GET(request: NextRequest) {
         id,
         name,
         description,
-        display_order,
-        is_active,
         created_at,
         updated_at,
         teams:teams(
           id,
           name,
           description,
-          is_active,
-          display_order
+          department_id
         )
       `)
-      .order('display_order', { ascending: true });
+      .order('id', { ascending: true });
 
-    if (!includeInactive) {
-      query = query.eq('is_active', true);
-    }
+    // is_active 컬럼이 없을 수 있으므로 일단 모든 데이터를 조회
+    // if (!includeInactive) {
+    //   query = query.eq('is_active', true);
+    // }
 
     const { data: departments, error } = await query;
 

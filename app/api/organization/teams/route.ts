@@ -36,9 +36,6 @@ export async function GET(request: NextRequest) {
         name,
         description,
         department_id,
-        display_order,
-        is_active,
-        manager_user_id,
         created_at,
         updated_at,
         department:departments(
@@ -46,15 +43,16 @@ export async function GET(request: NextRequest) {
           name
         )
       `)
-      .order('display_order', { ascending: true });
+      .order('id', { ascending: true });
 
     if (departmentId) {
       query = query.eq('department_id', departmentId);
     }
 
-    if (!includeInactive) {
-      query = query.eq('is_active', true);
-    }
+    // is_active 컬럼이 없을 수 있으므로 일단 모든 데이터를 조회
+    // if (!includeInactive) {
+    //   query = query.eq('is_active', true);
+    // }
 
     const { data: teams, error } = await query;
 
