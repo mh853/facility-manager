@@ -16,6 +16,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface HistoryNotification {
   id: string;
@@ -48,6 +49,7 @@ interface TypeBreakdown {
 }
 
 export default function NotificationHistoryPage() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<HistoryNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -173,13 +175,13 @@ export default function NotificationHistoryPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
-              <Link
-                href="/"
+              <button
+                onClick={() => router.back()}
                 className="flex items-center text-gray-600 hover:text-gray-900"
               >
                 <ArrowLeft className="w-5 h-5 mr-2" />
                 <span>돌아가기</span>
-              </Link>
+              </button>
               <div className="h-6 border-l border-gray-300" />
               <div className="flex items-center space-x-2">
                 <Clock className="w-5 h-5 text-blue-600" />

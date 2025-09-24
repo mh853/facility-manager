@@ -65,6 +65,14 @@ async function getUserFromToken(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
+
+    // JWT 토큰 형식 검증
+    const tokenParts = token.split('.');
+    if (tokenParts.length !== 3) {
+      console.warn('⚠️ [NOTIFICATIONS] JWT 토큰 형식이 잘못됨:', tokenParts.length, 'parts');
+      return null;
+    }
+
     const decoded = jwt.verify(token, JWT_SECRET) as any;
 
     // 사용자 정보 조회
