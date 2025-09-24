@@ -196,20 +196,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       const token = TokenManager.getToken();
       if (!token || token === 'null' || token === 'undefined' || token.trim() === '') {
-        console.warn('⚠️ [NOTIFICATIONS] 토큰이 없거나 유효하지 않음:', token);
+        console.warn('⚠️ [NOTIFICATIONS] 토큰이 없음 - 알림 조회 스킵');
+        setLoading(false);
         return;
       }
 
       // 토큰 형식 검증 (JWT 기본 구조 체크)
       const tokenParts = token.split('.');
       if (tokenParts.length !== 3) {
-        console.warn('⚠️ [NOTIFICATIONS] JWT 토큰 형식이 잘못됨:', tokenParts.length, 'parts');
+        console.warn('⚠️ [NOTIFICATIONS] JWT 토큰 형식이 잘못됨 - 알림 조회 스킵');
+        setLoading(false);
         return;
       }
 
       // 토큰 유효성 검사
       if (!TokenManager.isTokenValid(token)) {
-        console.warn('⚠️ [NOTIFICATIONS] 토큰이 만료됨');
+        console.warn('⚠️ [NOTIFICATIONS] 토큰이 만료됨 - 알림 조회 스킵');
+        setLoading(false);
         return;
       }
 
@@ -231,7 +234,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         })
       ]);
 
+      // 인증 오류인 경우 토큰 정리
+      if (generalResponse.status === 401 || taskResponse.status === 401) {
+        console.warn('⚠️ [NOTIFICATIONS] 인증 만료됨 - 토큰 정리');
+        TokenManager.removeTokens();
+        setLoading(false);
+        return;
+      }
+
       if (!generalResponse.ok || !taskResponse.ok) {
+        console.error('❌ [NOTIFICATIONS] API 응답 오류:', {
+          generalStatus: generalResponse.status,
+          taskStatus: taskResponse.status,
+          generalStatusText: generalResponse.statusText,
+          taskStatusText: taskResponse.statusText
+        });
         throw new Error(`알림 조회 실패: ${generalResponse.status} / ${taskResponse.status}`);
       }
 

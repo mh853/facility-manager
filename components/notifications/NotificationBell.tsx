@@ -3,10 +3,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, Clock, User, FolderOpen, AlertCircle, X, Wifi, WifiOff, RefreshCw, Trash2 } from 'lucide-react';
 import { useNotification } from '@/contexts/NotificationContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 사용자 인증 상태 확인
+  const { user, loading: authLoading } = useAuth();
 
   // Supabase Realtime 기반 알림 시스템 사용
   const {
@@ -111,6 +115,11 @@ export default function NotificationBell() {
       return `${Math.floor(diffInMinutes / 1440)}일 전`;
     }
   };
+
+  // 사용자가 로그인하지 않았으면 알림 벨 숨기기
+  if (authLoading || !user) {
+    return null;
+  }
 
   return (
     <div className="relative" ref={dropdownRef}>

@@ -75,6 +75,11 @@ async function getUserFromToken(request: NextRequest) {
 
     const decoded = jwt.verify(token, JWT_SECRET) as any;
 
+    console.log('🔍 [AUTH] JWT 디코딩 성공:', {
+      userId: decoded.userId || decoded.id,
+      hasExpiry: !!decoded.exp
+    });
+
     // 사용자 정보 조회
     const { data: user, error } = await supabaseAdmin
       .from('employees')
@@ -84,7 +89,11 @@ async function getUserFromToken(request: NextRequest) {
       .single();
 
     if (error || !user) {
-      console.warn('⚠️ [AUTH] 사용자 조회 실패:', error?.message);
+      console.error('❌ [AUTH] 사용자 조회 실패:', {
+        error: error?.message,
+        userId: decoded.userId || decoded.id,
+        hasUser: !!user
+      });
       return null;
     }
 
@@ -98,9 +107,15 @@ async function getUserFromToken(request: NextRequest) {
 // GET: 사용자 알림 목록 조회 (3-tier 지원)
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
+    console.log('🚀 [NOTIFICATIONS] API 호출됨:', {
+      url: request.url,
+      hasAuth: !!request.headers.get('authorization')
+    });
+
     // JWT 토큰에서 사용자 정보 추출
     const user = await getUserFromToken(request);
     if (!user) {
+      console.error('❌ [NOTIFICATIONS] 사용자 인증 실패');
       return createErrorResponse('인증이 필요합니다', 401);
     }
 
