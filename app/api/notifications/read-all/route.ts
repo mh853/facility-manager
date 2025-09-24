@@ -37,95 +37,76 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 현재 읽지 않은 알림 목록 조회 (user_notifications 테이블에서)
-    const { data: unreadUserNotifications, error: userFetchError } = await supabase
-      .from('user_notifications')
-      .select('id, title')
-      .eq('user_id', user.id)
-      .eq('is_read', false)
-      .gt('expires_at', new Date().toISOString());
-
-    // 업무 알림도 조회
+    // 업무 알림 조회 (task_notifications 테이블의 안읽은 알림만)
     const { data: unreadTaskNotifications, error: taskFetchError } = await supabase
       .from('task_notifications')
-      .select('id, message')
+      .select('id, message, business_name')
       .eq('user_id', user.id)
       .eq('is_read', false);
 
-    // 통합된 읽지 않은 알림 목록
-    const unreadNotifications = [
-      ...(unreadUserNotifications || []),
-      ...(unreadTaskNotifications || []).map(item => ({ id: item.id, title: item.message }))
-    ];
+    console.log('📊 [READ-ALL] 조회 결과:', {
+      taskNotifications: unreadTaskNotifications?.length || 0,
+      error: taskFetchError?.message || 'none'
+    });
 
-    if (userFetchError && taskFetchError) {
-      console.error('읽지 않은 알림 조회 오류:', { userFetchError, taskFetchError });
+    if (taskFetchError) {
+      console.error('업무 알림 조회 오류:', taskFetchError);
       return NextResponse.json(
         { success: false, error: { message: '알림 조회에 실패했습니다.' } },
         { status: 500 }
       );
     }
 
-    // 읽지 않은 알림이 없는 경우
-    if (!unreadNotifications || unreadNotifications.length === 0) {
+    // 읽지 않은 업무 알림이 없는 경우
+    if (!unreadTaskNotifications || unreadTaskNotifications.length === 0) {
       return NextResponse.json({
         success: true,
         data: {
           processedCount: 0,
-          message: '읽지 않은 알림이 없습니다.'
+          message: '읽지 않은 업무 알림이 없습니다.'
         }
       });
     }
 
-    // 모든 읽지 않은 알림을 읽음 처리
-    let totalProcessed = 0;
+    // 모든 업무 알림을 읽음 처리
+    const taskNotificationIds = unreadTaskNotifications.map(n => n.id);
 
-    // user_notifications 업데이트
-    if (unreadUserNotifications && unreadUserNotifications.length > 0) {
-      const userNotificationIds = unreadUserNotifications.map(n => n.id);
-      const { data: updatedUserNotifications, error: userUpdateError } = await supabase
-        .from('user_notifications')
-        .update({
-          is_read: true,
-          read_at: new Date().toISOString()
-        })
-        .in('id', userNotificationIds)
-        .eq('user_id', user.id)
-        .select();
+    console.log('🔄 [READ-ALL] 업무 알림 읽음 처리 시작:', {
+      totalCount: taskNotificationIds.length,
+      ids: taskNotificationIds
+    });
 
-      if (userUpdateError) {
-        console.error('사용자 알림 읽음 처리 오류:', userUpdateError);
-      } else {
-        totalProcessed += updatedUserNotifications?.length || 0;
-      }
+    const { data: updatedTaskNotifications, error: taskUpdateError } = await supabase
+      .from('task_notifications')
+      .update({
+        is_read: true,
+        read_at: new Date().toISOString()
+      })
+      .in('id', taskNotificationIds)
+      .eq('user_id', user.id)
+      .select();
+
+    if (taskUpdateError) {
+      console.error('❌ [READ-ALL] 업무 알림 읽음 처리 오류:', taskUpdateError);
+      return NextResponse.json(
+        { success: false, error: { message: '읽음 처리에 실패했습니다.' } },
+        { status: 500 }
+      );
     }
 
-    // task_notifications 업데이트
-    if (unreadTaskNotifications && unreadTaskNotifications.length > 0) {
-      const taskNotificationIds = unreadTaskNotifications.map(n => n.id);
-      const { data: updatedTaskNotifications, error: taskUpdateError } = await supabase
-        .from('task_notifications')
-        .update({
-          is_read: true,
-          read_at: new Date().toISOString()
-        })
-        .in('id', taskNotificationIds)
-        .eq('user_id', user.id)
-        .select();
+    const totalProcessed = updatedTaskNotifications?.length || 0;
 
-      if (taskUpdateError) {
-        console.error('업무 알림 읽음 처리 오류:', taskUpdateError);
-      } else {
-        totalProcessed += updatedTaskNotifications?.length || 0;
-      }
-    }
+    console.log('✅ [READ-ALL] 업무 알림 읽음 처리 완료:', {
+      processed: totalProcessed,
+      requested: taskNotificationIds.length
+    });
 
     return NextResponse.json({
       success: true,
       data: {
         processedCount: totalProcessed,
         readAt: new Date().toISOString(),
-        message: `${totalProcessed}개의 알림이 읽음 처리되었습니다.`
+        message: `${totalProcessed}개의 업무 알림이 읽음 처리되었습니다.`
       }
     });
 
