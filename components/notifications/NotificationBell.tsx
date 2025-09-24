@@ -313,20 +313,18 @@ export default function NotificationBell() {
             )}
           </div>
 
-          {/* 더보기 버튼 */}
-          {notifications.length > 0 && (
-            <div className="border-t border-gray-200 p-2">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  window.location.href = '/notifications/history';
-                }}
-                className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium py-2 hover:bg-gray-50 rounded-md transition-colors duration-200"
-              >
-                이전 알림 보기
-              </button>
-            </div>
-          )}
+          {/* 더보기 버튼 - 항상 표시 */}
+          <div className="border-t border-gray-200 p-2">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                window.location.href = '/notifications/history';
+              }}
+              className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium py-2 hover:bg-gray-50 rounded-md transition-colors duration-200"
+            >
+              이전 알림 보기
+            </button>
+          </div>
         </div>
       )}
     </div>

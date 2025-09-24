@@ -194,9 +194,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
 
+      const token = TokenManager.getToken();
+      if (!token || token === 'null' || token === 'undefined') {
+        console.warn('⚠️ [NOTIFICATIONS] 토큰이 없거나 유효하지 않음:', token);
+        return;
+      }
+
+      // 토큰 유효성 검사
+      if (!TokenManager.isTokenValid(token)) {
+        console.warn('⚠️ [NOTIFICATIONS] 토큰이 만료됨');
+        return;
+      }
+
+      console.log('🔑 [NOTIFICATIONS] 토큰 확인됨, 알림 조회 시작');
+
       const response = await fetch('/api/notifications?taskNotifications=true', {
         headers: {
-          'Authorization': `Bearer ${TokenManager.getToken()}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -317,10 +331,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     try {
+      const token = TokenManager.getToken();
+      if (!token || !TokenManager.isTokenValid(token)) {
+        console.warn('⚠️ [NOTIFICATIONS] markAsRead: 토큰이 유효하지 않음');
+        return;
+      }
+
       const response = await fetch(`/api/notifications/${notificationId}/read`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${TokenManager.getToken()}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -398,10 +418,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     try {
+      const token = TokenManager.getToken();
+      if (!token || !TokenManager.isTokenValid(token)) {
+        console.warn('⚠️ [NOTIFICATIONS] deleteAllNotifications: 토큰이 유효하지 않음');
+        return;
+      }
+
       const response = await fetch('/api/notifications/delete-all', {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${TokenManager.getToken()}`
+          'Authorization': `Bearer ${token}`
         }
       });
 
