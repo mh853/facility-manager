@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNotification, notificationHelpers, NotificationCategory, NotificationPriority } from '@/contexts/NotificationContext';
 import { withAuth } from '@/contexts/AuthContext';
+import AdminLayout from '@/components/ui/AdminLayout';
 import {
   Bell,
   Filter,
@@ -72,6 +73,8 @@ function NotificationsPage() {
   const [showReadStatus, setShowReadStatus] = useState<'all' | 'unread' | 'read'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'priority'>('newest');
   const [showFilters, setShowFilters] = useState(false);
+  const [daysFilter, setDaysFilter] = useState(30); // 히스토리 기간 필터
+  const [showArchived, setShowArchived] = useState(false); // 보관된 알림 표시
 
   // 페이지네이션
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,13 +83,25 @@ function NotificationsPage() {
   // 필터링된 알림
   const filteredNotifications = useMemo(() => {
     let filtered = notifications.filter(notification => {
+      // 기간 필터 (히스토리 통합 기능)
+      if (daysFilter > 0) {
+        const notificationDate = new Date(notification.createdAt);
+        const filterDate = new Date();
+        filterDate.setDate(filterDate.getDate() - daysFilter);
+
+        if (notificationDate < filterDate) {
+          return false;
+        }
+      }
+
       // 검색어 필터
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
         if (
           !notification.title.toLowerCase().includes(searchLower) &&
           !notification.message.toLowerCase().includes(searchLower) &&
-          !notification.createdByName?.toLowerCase().includes(searchLower)
+          !notification.createdByName?.toLowerCase().includes(searchLower) &&
+          !notification.metadata?.business_name?.toLowerCase().includes(searchLower)
         ) {
           return false;
         }
@@ -128,7 +143,7 @@ function NotificationsPage() {
     });
 
     return filtered;
-  }, [notifications, searchTerm, selectedCategory, selectedPriority, showReadStatus, sortBy]);
+  }, [notifications, searchTerm, selectedCategory, selectedPriority, showReadStatus, sortBy, daysFilter]);
 
   // 페이지네이션된 알림
   const paginatedNotifications = useMemo(() => {
@@ -157,6 +172,8 @@ function NotificationsPage() {
     setSelectedPriority('all');
     setShowReadStatus('all');
     setSortBy('newest');
+    setDaysFilter(30); // 기본 30일
+    setShowArchived(false);
     setCurrentPage(1);
   };
 
@@ -171,86 +188,78 @@ function NotificationsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">알림을 불러오는 중...</p>
+      <AdminLayout title="알림 관리" description="시스템 알림 및 업무 관련 알림을 관리합니다">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">알림을 불러오는 중...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 헤더 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Bell className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">알림 관리</h1>
-                <p className="text-gray-600">시스템 알림 및 업무 관련 알림을 관리합니다</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* 연결 상태 */}
-              <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-                isConnected
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-red-100 text-red-700'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${
-                  isConnected ? 'bg-green-500' : 'bg-red-500'
-                }`} />
-                {isConnected ? '실시간 연결됨' : '연결 끊김'}
-              </div>
-
-              {/* 새로고침 */}
-              <button
-                onClick={fetchNotifications}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
-                title="새로고침"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </button>
-
-              {/* 설정 */}
-              <Link
-                href="/notifications/settings"
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
-                title="알림 설정"
-              >
-                <Settings className="w-5 h-5" />
-              </Link>
-            </div>
+    <AdminLayout
+      title="알림 관리"
+      description="시스템 알림 및 업무 관련 알림을 관리합니다"
+      actions={
+        <div className="flex items-center gap-3">
+          {/* 연결 상태 */}
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
+            isConnected
+              ? 'bg-green-100 text-green-700'
+              : 'bg-red-100 text-red-700'
+          }`}>
+            <div className={`w-2 h-2 rounded-full ${
+              isConnected ? 'bg-green-500' : 'bg-red-500'
+            }`} />
+            {isConnected ? '실시간 연결됨' : '연결 끊김'}
           </div>
 
-          {/* 통계 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-blue-600">{notifications.length}</div>
-              <div className="text-sm text-blue-600">전체 알림</div>
+          {/* 새로고침 */}
+          <button
+            onClick={fetchNotifications}
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+            title="새로고침"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+
+          {/* 설정 */}
+          <Link
+            href="/notifications/settings"
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+            title="알림 설정"
+          >
+            <Settings className="w-5 h-5" />
+          </Link>
+        </div>
+      }
+    >
+      {/* 통계 */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4">
+            <div className="text-2xl font-bold text-blue-600">{notifications.length}</div>
+            <div className="text-sm text-blue-600">전체 알림</div>
+          </div>
+          <div className="bg-orange-50 rounded-lg p-4">
+            <div className="text-2xl font-bold text-orange-600">{unreadCount}</div>
+            <div className="text-sm text-orange-600">읽지 않음</div>
+          </div>
+          <div className="bg-green-50 rounded-lg p-4">
+            <div className="text-2xl font-bold text-green-600">{notifications.length - unreadCount}</div>
+            <div className="text-sm text-green-600">읽음</div>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4">
+            <div className="text-2xl font-bold text-purple-600">
+              {notifications.filter(n => n.priority === 'high' || n.priority === 'critical').length}
             </div>
-            <div className="bg-orange-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-orange-600">{unreadCount}</div>
-              <div className="text-sm text-orange-600">읽지 않음</div>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-green-600">{notifications.length - unreadCount}</div>
-              <div className="text-sm text-green-600">읽음</div>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-purple-600">
-                {notifications.filter(n => n.priority === 'high' || n.priority === 'critical').length}
-              </div>
-              <div className="text-sm text-purple-600">높은 우선순위</div>
-            </div>
+            <div className="text-sm text-purple-600">높은 우선순위</div>
           </div>
         </div>
+      </div>
 
         {/* 필터 및 액션 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -296,7 +305,7 @@ function NotificationsPage() {
           {/* 필터 옵션 */}
           {showFilters && (
             <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {/* 카테고리 필터 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
@@ -340,6 +349,22 @@ function NotificationsPage() {
                     <option value="all">전체</option>
                     <option value="unread">읽지 않음</option>
                     <option value="read">읽음</option>
+                  </select>
+                </div>
+
+                {/* 기간 필터 (히스토리 통합) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">기간</label>
+                  <select
+                    value={daysFilter}
+                    onChange={(e) => setDaysFilter(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={0}>전체 기간</option>
+                    <option value={7}>7일</option>
+                    <option value={30}>30일</option>
+                    <option value={90}>90일</option>
+                    <option value={365}>1년</option>
                   </select>
                 </div>
 
@@ -539,8 +564,7 @@ function NotificationsPage() {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </AdminLayout>
   );
 }
 
