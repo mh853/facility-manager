@@ -384,11 +384,11 @@ export default function NotificationBell() {
             <button
               onClick={() => {
                 setIsOpen(false);
-                window.location.href = '/notifications/history';
+                window.location.href = '/notifications';
               }}
               className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium py-2 hover:bg-gray-50 rounded-md transition-colors duration-200"
             >
-              이전 알림 보기
+              모든 알림 보기
             </button>
           </div>
         </div>

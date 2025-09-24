@@ -90,17 +90,20 @@ export async function GET(request: NextRequest) {
     let taskNotificationsResult: any = { data: [], error: null };
 
     try {
+      // 기간 필터를 제거하고 모든 알림 조회 (디버깅용)
       const { data, error } = await supabaseAdmin
         .from('task_notifications')
-        .select('id, notification_type, message, business_name, priority, is_read, created_at')
+        .select('id, notification_type, message, business_name, priority, is_read, created_at, read_at, expires_at')
         .eq('user_id', user.id)
-        .gte('created_at', startDate.toISOString());
+        .order('created_at', { ascending: false });
 
       taskNotificationsResult = { data: data || [], error };
 
       console.log('📊 [HISTORY] task_notifications 조회 결과:', {
         count: data?.length || 0,
-        error: error?.message || 'none'
+        error: error?.message || 'none',
+        userId: user.id,
+        samples: data?.slice(0, 2) || []
       });
 
     } catch (e: any) {
@@ -108,29 +111,23 @@ export async function GET(request: NextRequest) {
       taskNotificationsResult = { data: [], error: e };
     }
 
-    // 기본 더미 데이터로 테스트 (테이블이 비어있는 경우)
+    // 더미 데이터 제거 - 실제 데이터만 표시
     if (!taskNotificationsResult.data || taskNotificationsResult.data.length === 0) {
-      console.log('📊 [HISTORY] 빈 테이블, 더미 데이터 생성');
-      taskNotificationsResult.data = [
-        {
-          id: 'demo-1',
-          notification_type: 'assignment',
-          message: '새로운 시설 점검 업무가 배정되었습니다.',
-          business_name: 'BlueON IoT',
-          priority: 'normal',
-          is_read: true,
-          created_at: new Date().toISOString()
+      console.log('📊 [HISTORY] 실제 데이터 없음 - 빈 결과 반환');
+      return NextResponse.json({
+        success: true,
+        history: [],
+        stats: {
+          totalCount: 0,
+          currentPage: 1,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false
         },
-        {
-          id: 'demo-2',
-          notification_type: 'status_change',
-          message: '업무 상태가 완료로 변경되었습니다.',
-          business_name: '테스트 업체',
-          priority: 'high',
-          is_read: false,
-          created_at: new Date(Date.now() - 3600000).toISOString()
-        }
-      ];
+        typeBreakdown: { global: 0, task: 0 },
+        filters: { search, type, priority, days },
+        message: '조건에 맞는 알림 히스토리가 없습니다'
+      });
     }
 
     // 데이터 통합 및 정렬 (task_notifications만 사용)
@@ -140,21 +137,21 @@ export async function GET(request: NextRequest) {
     if (taskNotificationsResult.data) {
       taskNotificationsResult.data.forEach((item: any) => {
         combinedHistory.push({
-          id: item.id,
-          title: `업무 알림: ${item.business_name}`,
+          id: `task-${item.id}`, // NotificationContext와 일치하는 ID 형식
+          title: `업무 할당: ${item.business_name}`,
           message: item.message,
-          type_category: item.notification_type || 'task_update',
-          priority: item.priority || 'normal',
-          related_url: null,
+          type_category: item.notification_type || 'task_assigned',
+          priority: item.priority === 'urgent' ? 'critical' : (item.priority || 'medium'),
+          related_url: `/admin/tasks/${item.id}`,
           user_id: user.id,
-          created_by_name: null,
+          created_by_name: '시스템',
           notification_created_at: item.created_at,
-          read_at: item.is_read ? item.created_at : null,
+          read_at: item.is_read ? (item.read_at || item.created_at) : null,
           archived_at: item.created_at,
           source_type: 'task',
           task_id: item.id,
           business_name: item.business_name,
-          metadata: {}
+          metadata: { business_name: item.business_name, task_id: item.id }
         });
       });
     }
