@@ -147,7 +147,7 @@ function NavigationItems({ pathname, onItemClick }: { pathname: string, onItemCl
               <div className={`font-medium text-xs lg:text-sm ${isActive ? 'text-blue-900' : ''}`}>
                 {item.name}
               </div>
-              <div className={`text-xs lg:text-xs mt-0.5 ${isActive ? 'text-blue-600' : 'text-gray-400'} truncate`}
+              <div className={`text-xs lg:text-xs mt-0.5 ${isActive ? 'text-blue-600' : 'text-gray-400'} truncate`}>
                 {item.description}
               </div>
             </div>
