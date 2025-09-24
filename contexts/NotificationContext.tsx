@@ -601,6 +601,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    deleteAllNotifications,
+    deleteReadNotifications,
     createNotification,
     updateSettings,
     isConnected,

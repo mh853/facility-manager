@@ -17,7 +17,7 @@ import {
   BarChart3,
   ClipboardList
 } from 'lucide-react';
-import RealtimeNotificationBell from '@/components/notifications/RealtimeNotificationBell';
+import NotificationBell from '@/components/notifications/NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface NavigationItem {
@@ -191,7 +191,7 @@ export default function Navigation() {
               <Bell className="mr-3 h-5 w-5" />
               <span>알림</span>
               <div className="ml-auto">
-                <RealtimeNotificationBell userId={user?.id} />
+                <NotificationBell />
               </div>
             </div>
           </div>
