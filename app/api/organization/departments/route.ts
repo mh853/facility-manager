@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyTokenHybrid } from '@/lib/secure-jwt';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -7,21 +8,44 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // 사용자 권한 확인 헬퍼
 async function checkUserPermission(request: NextRequest) {
+  console.log('🔐 [DEPT-JWT-DEBUG] 권한 확인 시작');
+
   const authHeader = request.headers.get('authorization');
+  console.log('🔐 [DEPT-JWT-DEBUG] Authorization 헤더:', authHeader ? `Bearer ${authHeader.slice(7, 20)}...` : 'null');
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('❌ [DEPT-JWT-DEBUG] Authorization 헤더 없음 또는 형식 오류');
     return { authorized: false, user: null };
   }
 
-  // JWT 토큰 검증 로직 (실제 구현 시 필요)
-  // 현재는 권한 레벨 3 이상 체크로 가정
-  return {
-    authorized: true,
-    user: {
-      id: 'admin-user',
-      permission_level: 3,
-      name: '관리자'
+  try {
+    const token = authHeader.replace('Bearer ', '');
+    console.log('🔐 [DEPT-JWT-DEBUG] 토큰 추출 성공, 길이:', token.length);
+
+    const result = await verifyTokenHybrid(token);
+    console.log('🔐 [DEPT-JWT-DEBUG] verifyTokenHybrid 결과:', {
+      success: !!result.user,
+      userId: result.user?.id,
+      userName: result.user?.name,
+      userLevel: result.user?.permission_level,
+      levelType: typeof result.user?.permission_level,
+      error: result.error
+    });
+
+    if (!result.user) {
+      console.log('❌ [DEPT-JWT-DEBUG] 사용자 정보 없음:', result.error);
+      return { authorized: false, user: null };
     }
-  };
+
+    console.log('✅ [DEPT-JWT-DEBUG] 사용자 인증 성공');
+    return {
+      authorized: true,
+      user: result.user
+    };
+  } catch (error) {
+    console.error('❌ [DEPT-JWT-DEBUG] 권한 확인 오류:', error);
+    return { authorized: false, user: null };
+  }
 }
 
 // GET: 부서 목록 조회
@@ -115,7 +139,6 @@ export async function POST(request: NextRequest) {
         name,
         description,
         display_order: nextOrder,
-        updated_by: user.id
       })
       .select()
       .single();
@@ -193,7 +216,6 @@ export async function PUT(request: NextRequest) {
         name,
         description,
         display_order: display_order !== undefined ? display_order : oldData.display_order,
-        updated_by: user.id,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -297,7 +319,6 @@ export async function DELETE(request: NextRequest) {
       .from('departments')
       .update({
         is_active: false,
-        updated_by: user.id,
         updated_at: new Date().toISOString()
       })
       .eq('id', id);
@@ -313,7 +334,6 @@ export async function DELETE(request: NextRequest) {
         .from('teams')
         .update({
           is_active: false,
-          updated_by: user.id,
           updated_at: new Date().toISOString()
         })
         .eq('department_id', id);
