@@ -76,8 +76,9 @@ export function createStatusChangeMessage(
   const oldStatusKR = getTaskStatusKR(oldStatus);
   const newStatusKR = getTaskStatusKR(newStatus);
 
-  const modifier = modifierName ? ` (${modifierName}님이 수정)` : '';
-  return `${businessName} 업무가 "${oldStatusKR}"에서 "${newStatusKR}"로 변경되었습니다.${modifier}`;
+  // 수정자 정보가 있으면 수정자 이름을, 없으면 사업장명을 괄호에 표시
+  const suffix = modifierName ? `(${modifierName}님이 수정)` : `(${businessName})`;
+  return `"${businessName}" 업무 상태가 ${oldStatusKR}에서 ${newStatusKR}로 변경되었습니다. ${suffix}`;
 }
 
 /**
