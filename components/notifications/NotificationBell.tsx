@@ -254,7 +254,7 @@ export default function NotificationBell() {
               )}
 
               {/* 모든 알림 제거 버튼 */}
-              {notifications.length > 0 && (
+              {notifications.filter(n => !n.isRead).length > 0 && (
                 <button
                   onClick={deleteAllNotifications}
                   className="text-sm text-red-600 hover:text-red-800 font-medium flex items-center space-x-1"
@@ -281,21 +281,18 @@ export default function NotificationBell() {
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
               </div>
-            ) : notifications.length > 0 ? (
+            ) : notifications.filter(n => !n.isRead).length > 0 ? (
               <div className="divide-y divide-gray-200">
-                {/* 읽지 않은 알림을 먼저 표시하도록 정렬 */}
+                {/* 알림창에서는 읽지 않은 알림만 표시 (읽은 알림은 숨김) */}
                 {[...notifications]
+                  .filter(notification => !notification.isRead) // 읽지 않은 알림만 필터링
                   .sort((a, b) => {
-                    // 1. 읽지 않은 알림이 먼저 오도록
-                    if (a.isRead !== b.isRead) {
-                      return a.isRead ? 1 : -1;
-                    }
-                    // 2. 우선순위 순으로 (critical > high > medium > low)
+                    // 1. 우선순위 순으로 (critical > high > medium > low)
                     const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
                     if (a.priority !== b.priority) {
                       return priorityOrder[b.priority] - priorityOrder[a.priority];
                     }
-                    // 3. 최신 순으로
+                    // 2. 최신 순으로
                     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                   })
                   .map((notification) => (
