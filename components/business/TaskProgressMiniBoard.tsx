@@ -402,11 +402,21 @@ export default function TaskProgressMiniBoard({
                   <div key={`${taskType}-${step.status}`} className="flex-shrink-0">
                     <button
                       onClick={() => setExpandedStatus(isExpanded ? null : `${taskType}-${step.status}`)}
-                      className={`text-xs px-2 py-1 rounded border transition-colors hover:opacity-80 whitespace-nowrap ${colorClasses.color}`}
+                      className={`
+                        ${stepTasks.length > 0
+                          ? 'text-sm px-3 py-2 font-medium shadow-sm border-2'
+                          : 'text-xs px-2 py-1 font-normal border opacity-60'
+                        }
+                        rounded transition-all duration-200 hover:opacity-80 whitespace-nowrap
+                        ${colorClasses.color}
+                        ${stepTasks.length > 0 ? 'hover:scale-105' : ''}
+                      `}
                     >
                       <div className="flex items-center gap-1">
                         <span>{step.label}</span>
-                        <span className="font-medium">{stepTasks.length}</span>
+                        <span className={`font-bold ${stepTasks.length > 0 ? 'text-base' : 'text-xs'}`}>
+                          {stepTasks.length}
+                        </span>
                         {stepTasks.length > 0 && (
                           isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
                         )}
