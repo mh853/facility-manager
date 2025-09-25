@@ -157,7 +157,6 @@ export async function POST(request: NextRequest) {
       .from('departments')
       .select('id, name')
       .eq('id', department_id)
-      .eq('is_active', true)
       .single();
 
     if (!department) {
@@ -308,7 +307,6 @@ export async function PUT(request: NextRequest) {
       .from('departments')
       .select('id, name')
       .eq('id', department_id)
-      .eq('is_active', true)
       .single();
 
     if (!newDepartment) {
