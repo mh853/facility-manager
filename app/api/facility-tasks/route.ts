@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getTaskStatusKR, createStatusChangeMessage } from '@/lib/task-status-utils';
 import { createTaskAssignmentNotifications, updateTaskAssignmentNotifications, type TaskAssignee } from '@/lib/task-notification-service';
 import { getUserFromToken } from '@/lib/secure-jwt';
 
@@ -707,7 +708,8 @@ async function createAutoProgressNoteAndNotification(existingTask: any, updatedT
         task: updatedTask,
         oldTask: existingTask,
         statusChanged,
-        assigneesChanged
+        assigneesChanged,
+        modifierName: user.name // 수정자 정보 추가
       });
     }
 
@@ -745,8 +747,8 @@ async function createAutoProgressNote(params: {
       'quotation': '견적',
       'contract': '계약',
       'deposit_confirm': '계약금확인',
-      'product_order': '제품주문',
-      'product_shipment': '제품출하',
+      'product_order': '제품 주문',
+      'product_shipment': '제품 배송',
       'installation_schedule': '설치협의',
       'installation': '설치',
       'balance_payment': '잔금결제',
@@ -815,8 +817,9 @@ async function createTaskNotifications(params: {
   oldTask: any;
   statusChanged: boolean;
   assigneesChanged: boolean;
+  modifierName?: string;
 }) {
-  const { task, oldTask, statusChanged, assigneesChanged } = params;
+  const { task, oldTask, statusChanged, assigneesChanged, modifierName } = params;
 
   // 알림을 받을 사용자 ID 수집
   const userIds = new Set<string>();
@@ -842,26 +845,20 @@ async function createTaskNotifications(params: {
   const notifications: any[] = [];
 
   if (statusChanged) {
-    const statusLabels: { [key: string]: string } = {
-      'pending': '대기',
-      'in_progress': '진행중',
-      'quote_requested': '견적 요청',
-      'quote_received': '견적 수신',
-      'work_scheduled': '작업 예정',
-      'work_in_progress': '작업중',
-      'completed': '완료',
-      'cancelled': '취소'
-    };
-
-    const oldStatusLabel = statusLabels[oldTask.status] || oldTask.status;
-    const newStatusLabel = statusLabels[task.status] || task.status;
+    // 새로운 한글 상태 매핑과 수정자 정보를 사용하여 알림 메시지 생성
+    const message = createStatusChangeMessage(
+      oldTask.status,
+      task.status,
+      task.business_name,
+      modifierName
+    );
 
     userIdArray.forEach(userId => {
       notifications.push({
         user_id: userId,
         task_id: task.id,
         business_name: task.business_name,
-        message: `${task.business_name}의 업무 "${task.title}"이 ${oldStatusLabel}에서 ${newStatusLabel}로 변경되었습니다.`,
+        message: message,
         notification_type: 'status_change',
         priority: task.priority === 'urgent' ? 'urgent' : task.priority === 'high' ? 'high' : 'normal'
       });
