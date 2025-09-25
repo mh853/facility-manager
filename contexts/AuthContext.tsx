@@ -64,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       import('@/lib/realtime-manager').then(({ initializeRealtimeConnection }) => {
         initializeRealtimeConnection().catch(console.error);
         console.log('⚡ [AUTH] 백그라운드 Realtime 연결 시작됨');
+      }).catch((error) => {
+        console.warn('⚠️ [AUTH] Realtime 연결 초기화 실패 (기능 무시):', error.message);
       });
 
       console.log('✅ [AUTH-CONTEXT] 일반 로그인 성공:', {
@@ -102,6 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         import('@/lib/realtime-manager').then(({ initializeRealtimeConnection }) => {
           initializeRealtimeConnection().catch(console.error);
           console.log('⚡ [AUTH] 백그라운드 Realtime 연결 시작됨');
+        }).catch((error) => {
+          console.warn('⚠️ [AUTH] Realtime 연결 초기화 실패 (기능 무시):', error.message);
         });
 
         console.log('✅ [AUTH-CONTEXT] 소셜 로그인 성공:', {
