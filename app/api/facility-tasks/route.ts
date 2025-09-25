@@ -398,8 +398,32 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
-    // 권한 체크: 관리자가 아니면 본인이 생성한 업무만 수정 가능
-    if (user.permission_level < 4 && existingTask.created_by !== user.id) {
+    // 권한 체크:
+    // - 레벨 3 이상: 모든 업무 수정 가능
+    // - 레벨 2: 본인이 생성했거나 담당자인 업무 수정 가능
+    // - 레벨 1: 상태 변경만 가능 (제목, 설명 등은 제한)
+    const canEditAll = user.permission_level >= 3;
+    const canEditOwn = user.permission_level >= 2 && (
+      existingTask.created_by === user.id ||
+      existingTask.assignee === user.name ||
+      (existingTask.assignees && existingTask.assignees.some((a: any) => a.name === user.name))
+    );
+    const canUpdateStatus = user.permission_level >= 1;
+
+    // 상태 변경만 하는 경우 (드래그 앤 드롭) - 레벨 1도 허용
+    const isStatusOnlyUpdate = status !== undefined &&
+      title === undefined &&
+      description === undefined &&
+      business_name === undefined &&
+      task_type === undefined;
+
+    if (!canEditAll && !canEditOwn && !(canUpdateStatus && isStatusOnlyUpdate)) {
+      console.warn('❌ [FACILITY-TASKS] 권한 부족:', {
+        user: user.name,
+        level: user.permission_level,
+        taskCreator: existingTask.created_by_name,
+        isStatusOnly: isStatusOnlyUpdate
+      });
       return createErrorResponse('이 업무를 수정할 권한이 없습니다', 403);
     }
 
