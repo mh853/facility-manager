@@ -103,13 +103,6 @@ const navigationItems: NavigationItem[] = [
     requiredLevel: 1
   },
   {
-    name: '알림 관리',
-    href: '/notifications',
-    icon: Clock,
-    description: '시스템 알림 및 업무 관련 알림 확인',
-    requiredLevel: 1
-  },
-  {
     name: '관리자 설정',
     href: '/admin/settings',
     icon: Sliders,
