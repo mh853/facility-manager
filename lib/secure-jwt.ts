@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server';
 
 // 환경 변수 (기본값은 개발용)
 const OLD_JWT_SECRET = 'your-secret-key-change-this-in-production';
-const NEW_JWT_SECRET = process.env.JWT_SECRET_V2 || generateSecureSecret();
+const NEW_JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_SECRET_V2 || generateSecureSecret();
 const MIGRATION_PERIOD_DAYS = 7; // 기존 토큰 지원 기간
 
 // Supabase 클라이언트
