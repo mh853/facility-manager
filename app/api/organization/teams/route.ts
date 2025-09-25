@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getUserFromToken } from '@/lib/secure-jwt';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -14,22 +15,15 @@ async function checkUserPermission(request: NextRequest) {
 
   try {
     const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
 
-    // JWT 토큰 검증 (실제 JWT 검증 로직 필요)
-    // 임시로 기본 검사만 수행
-    if (!token || token.length < 10) {
+    if (!user) {
       return { authorized: false, user: null };
     }
 
-    // 실제로는 JWT 토큰을 디코딩해서 사용자 정보를 가져와야 함
-    // 지금은 임시로 관리자 권한 부여
     return {
       authorized: true,
-      user: {
-        id: 'admin-user',
-        permission_level: 3,
-        name: '관리자'
-      }
+      user: user
     };
   } catch (error) {
     console.error('권한 확인 오류:', error);
