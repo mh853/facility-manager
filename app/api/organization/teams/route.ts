@@ -86,7 +86,18 @@ export async function POST(request: NextRequest) {
   try {
     const { authorized, user } = await checkUserPermission(request);
     if (!authorized || !user || user.permission_level < 3) {
-      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+      console.error('조직 관리 권한 부족:', {
+        authorized,
+        userId: user?.id,
+        userName: user?.name,
+        userLevel: user?.permission_level,
+        requiredLevel: 3
+      });
+      return NextResponse.json({
+        error: '권한이 없습니다. 조직 관리는 레벨 3 이상의 권한이 필요합니다.',
+        userLevel: user?.permission_level,
+        requiredLevel: 3
+      }, { status: 403 });
     }
 
     const body = await request.json();
@@ -184,7 +195,18 @@ export async function PUT(request: NextRequest) {
   try {
     const { authorized, user } = await checkUserPermission(request);
     if (!authorized || !user || user.permission_level < 3) {
-      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+      console.error('조직 관리 권한 부족:', {
+        authorized,
+        userId: user?.id,
+        userName: user?.name,
+        userLevel: user?.permission_level,
+        requiredLevel: 3
+      });
+      return NextResponse.json({
+        error: '권한이 없습니다. 조직 관리는 레벨 3 이상의 권한이 필요합니다.',
+        userLevel: user?.permission_level,
+        requiredLevel: 3
+      }, { status: 403 });
     }
 
     const body = await request.json();
@@ -333,7 +355,18 @@ export async function DELETE(request: NextRequest) {
   try {
     const { authorized, user } = await checkUserPermission(request);
     if (!authorized || !user || user.permission_level < 3) {
-      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+      console.error('조직 관리 권한 부족:', {
+        authorized,
+        userId: user?.id,
+        userName: user?.name,
+        userLevel: user?.permission_level,
+        requiredLevel: 3
+      });
+      return NextResponse.json({
+        error: '권한이 없습니다. 조직 관리는 레벨 3 이상의 권한이 필요합니다.',
+        userLevel: user?.permission_level,
+        requiredLevel: 3
+      }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
