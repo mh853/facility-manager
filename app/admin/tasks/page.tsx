@@ -250,13 +250,13 @@ function TaskManagementPage() {
     loadTasks()
   }, [loadTasks])
 
-  // 로그인한 사용자를 담당자 필터 기본값으로 설정 (최초 1회만)
-  useEffect(() => {
-    if (user && user.name && !assigneeFilterInitialized) {
-      setSelectedAssignee(user.name)
-      setAssigneeFilterInitialized(true)
-    }
-  }, [user, assigneeFilterInitialized])
+  // 필터 초기화는 사용자가 직접 선택하도록 변경 - 기본은 "전체"로 유지
+  // useEffect(() => {
+  //   if (user && user.name && !assigneeFilterInitialized) {
+  //     setSelectedAssignee(user.name)
+  //     setAssigneeFilterInitialized(true)
+  //   }
+  // }, [user, assigneeFilterInitialized])
 
   // 사업장 목록 로딩
   const loadBusinesses = useCallback(async () => {
@@ -520,7 +520,11 @@ function TaskManagementPage() {
 
       const matchesType = selectedType === 'all' || task.type === selectedType
       const matchesPriority = selectedPriority === 'all' || task.priority === selectedPriority
-      const matchesAssignee = selectedAssignee === 'all' || task.assignee === selectedAssignee
+      // 다중 담당자 지원: assignees 배열과 기존 assignee 필드 모두 확인
+      const matchesAssignee = selectedAssignee === 'all' ||
+        task.assignee === selectedAssignee ||
+        (task.assignees && Array.isArray(task.assignees) &&
+         task.assignees.some((assignee: any) => assignee.name === selectedAssignee))
 
       return matchesSearch && matchesType && matchesPriority && matchesAssignee
     })
@@ -564,8 +568,25 @@ function TaskManagementPage() {
 
   // 담당자 목록
   const assignees = useMemo(() => {
-    const uniqueAssignees = Array.from(new Set(tasks.filter(t => t.assignee).map(t => t.assignee)))
-    return uniqueAssignees.sort()
+    const assigneeSet = new Set<string>()
+
+    tasks.forEach(task => {
+      // 기존 assignee 필드
+      if (task.assignee) {
+        assigneeSet.add(task.assignee)
+      }
+
+      // 새로운 assignees 배열
+      if (task.assignees && Array.isArray(task.assignees)) {
+        task.assignees.forEach((assignee: any) => {
+          if (assignee.name) {
+            assigneeSet.add(assignee.name)
+          }
+        })
+      }
+    })
+
+    return Array.from(assigneeSet).sort()
   }, [tasks])
 
   // 드래그 앤 드롭 핸들러
@@ -893,11 +914,12 @@ function TaskManagementPage() {
       title="업무 관리"
       description="시설 설치 업무 흐름을 체계적으로 관리합니다"
       actions={
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* 데스크탑에서만 표시 */}
           <button
             onClick={refreshTasks}
             disabled={isRefreshing}
-            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+            className="hidden md:flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
           >
             {isRefreshing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -906,15 +928,18 @@ function TaskManagementPage() {
             )}
             새로고침
           </button>
-          <div className="text-xs text-gray-500">
+          <div className="hidden md:block text-xs text-gray-500">
             마지막 업데이트: {lastRefresh.toLocaleTimeString('ko-KR')}
           </div>
+
+          {/* 핵심 액션 - 모든 화면에서 표시 */}
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base"
           >
             <Plus className="w-4 h-4" />
-            새 업무
+            <span className="sm:hidden">추가</span>
+            <span className="hidden sm:inline">새 업무</span>
           </button>
         </div>
       }

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode, useCa
 import { useAuth } from './AuthContext';
 import { TokenManager } from '@/lib/api-client';
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
+import { subscribeToRealtime, unsubscribeFromRealtime, getRealtimeConnectionState } from '@/lib/realtime-manager';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 // 알림 타입 정의
@@ -105,57 +106,84 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     lastEventTime: null as Date | null
   });
 
+  // 🚀 Global Realtime Manager 사용 - 즉시 연결 경험 제공
+  useEffect(() => {
+    if (!user) return;
+
+    const subscriptionId = `notifications-${user.id}`;
+
+    console.log('📡 [NOTIFICATIONS] Global Realtime Manager 구독 시작');
+
+    // 즉시 연결 상태 표시 (Optimistic UI)
+    setRealtimeConnectionState({
+      isConnected: true,
+      isConnecting: false,
+      connectionError: null,
+      lastEventTime: new Date()
+    });
+
+    // Global Manager를 통한 구독
+    subscribeToRealtime(
+      subscriptionId,
+      'task_notifications',
+      ['INSERT', 'UPDATE'],
+      handleRealtimeNotification,
+      (state, error) => {
+        console.log(`📡 [NOTIFICATIONS] 연결 상태 업데이트: ${state}`, error ? { error } : {});
+
+        // 실제 연결 실패 시에만 상태 변경
+        if (state === 'disconnected' && error && !error.includes('relation')) {
+          setRealtimeConnectionState(prev => ({
+            ...prev,
+            isConnected: false,
+            connectionError: error
+          }));
+        }
+      }
+    );
+
+    return () => {
+      console.log('📡 [NOTIFICATIONS] Global Realtime Manager 구독 해제');
+      unsubscribeFromRealtime(subscriptionId);
+    };
+  }, [user]);
+
+  // 레거시 hook - 호환성을 위해 유지하되 비활성화
   const realtimeHook = useSupabaseRealtime({
     tableName: 'task_notifications',
     eventTypes: ['INSERT', 'UPDATE'],
-    autoConnect: !!user,
-    onNotification: handleRealtimeNotification,
-    onConnect: () => {
-      console.log('✅ [NOTIFICATIONS] Supabase Realtime 연결됨 - WebSocket 완전 대체');
-      setRealtimeConnectionState(prev => ({
-        ...prev,
-        isConnected: true,
-        isConnecting: false,
-        connectionError: null
-      }));
-    },
-    onDisconnect: () => {
-      console.log('❌ [NOTIFICATIONS] Supabase Realtime 연결 끊김');
-      setRealtimeConnectionState(prev => ({
-        ...prev,
-        isConnected: false,
-        isConnecting: false
-      }));
-    },
-    onError: (error) => {
-      console.error('❌ [NOTIFICATIONS] Supabase Realtime 오류:', error);
-
-      // 테이블 미존재 오류인 경우 graceful degradation
-      if (error.message?.includes('relation') ||
-          error.message?.includes('does not exist') ||
-          error.message?.includes('table') ||
-          error.message?.includes('permission')) {
-        console.warn('⚠️ [NOTIFICATIONS] task_notifications 테이블이 존재하지 않거나 권한 문제 - 연결 상태를 성공으로 표시');
-        setRealtimeConnectionState({
-          isConnected: true, // graceful degradation - 연결 성공으로 표시
-          isConnecting: false,
-          connectionError: null,
-          lastEventTime: new Date()
-        });
-      } else {
-        setRealtimeConnectionState(prev => ({
-          ...prev,
-          isConnected: false,
-          isConnecting: false,
-          connectionError: error.message
-        }));
-      }
-    }
+    autoConnect: false, // Global Manager 사용으로 비활성화
+    onNotification: () => {}, // 빈 함수
+    onConnect: () => {},
+    onDisconnect: () => {},
+    onError: () => {}
   });
 
-  // 최종 연결 상태 결정 (graceful degradation 적용)
-  const isConnected = realtimeConnectionState.isConnected || realtimeHook.isConnected;
-  const isConnecting = realtimeConnectionState.isConnecting || realtimeHook.isConnecting;
+  // Optimistic UI: 사용자 로그인 시 즉시 연결 상태 표시
+  const [optimisticConnection, setOptimisticConnection] = useState(false);
+
+  useEffect(() => {
+    if (user && !optimisticConnection) {
+      // 사용자가 로그인하면 즉시 "연결됨" 상태 표시 (0.1초 지연으로 자연스러운 UI)
+      setTimeout(() => {
+        setOptimisticConnection(true);
+        console.log('⚡ [OPTIMISTIC] 즉시 연결 상태 활성화 - 사용자 경험 최적화');
+      }, 100);
+    } else if (!user) {
+      setOptimisticConnection(false);
+    }
+  }, [user, optimisticConnection]);
+
+  // 실제 연결 실패 시에만 optimistic 상태 해제
+  useEffect(() => {
+    if (realtimeConnectionState.connectionError && !realtimeConnectionState.connectionError.includes('relation')) {
+      setOptimisticConnection(false);
+    }
+  }, [realtimeConnectionState.connectionError]);
+
+  // 최종 연결 상태 결정 (optimistic + graceful degradation 적용)
+  const isConnected = optimisticConnection || realtimeConnectionState.isConnected || realtimeHook.isConnected;
+  const isConnecting = !optimisticConnection && (realtimeConnectionState.isConnecting || realtimeHook.isConnecting);
   const connectionError = realtimeConnectionState.connectionError || realtimeHook.connectionError;
   const lastEventTime = realtimeConnectionState.lastEventTime || realtimeHook.lastEvent;
 

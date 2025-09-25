@@ -294,16 +294,49 @@ export default function AdminLayout({ children, title, description, actions }: A
             {/* Top bar - Mobile optimized */}
             <header className="bg-white lg:bg-transparent border-b border-gray-200 lg:border-gray-300 shadow-sm lg:shadow-none">
               <div className="px-4 py-3 lg:px-8 lg:py-6">
-                {/* Mobile Layout (< 768px) */}
-                <div className="flex items-center justify-between md:hidden">
+                {/* Mobile Layout (< 640px) - Minimal */}
+                <div className="flex items-center justify-between sm:hidden">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <button
+                      onClick={() => setSidebarOpen(true)}
+                      className="flex-shrink-0 p-3 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors duration-200 touch-manipulation"
+                      aria-label="메뉴 열기"
+                    >
+                      <Menu className="w-6 h-6" />
+                    </button>
+
+                    <div className="min-w-0 flex-1">
+                      {title && (
+                        <h1 className="text-base font-semibold text-gray-900 truncate">{title}</h1>
+                      )}
+                      {/* Description hidden on very small screens */}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* 매우 작은 모바일에서도 핵심 액션 표시 */}
+                    {actions && (
+                      <div className="flex items-center">
+                        {actions}
+                      </div>
+                    )}
+
+                    {/* 알림 버튼 */}
+                    <NotificationBell />
+                  </div>
+                </div>
+
+                {/* Small Mobile Layout (640px - 768px) - Add Description */}
+                <div className="hidden sm:flex md:hidden items-center justify-between">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <button
                       onClick={() => setSidebarOpen(true)}
                       className="flex-shrink-0 p-2.5 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors duration-200 touch-manipulation"
+                      aria-label="메뉴 열기"
                     >
                       <Menu className="w-5 h-5" />
                     </button>
-                    
+
                     <div className="min-w-0 flex-1">
                       {title && (
                         <h1 className="text-lg font-semibold text-gray-900 truncate">{title}</h1>
@@ -315,20 +348,14 @@ export default function AdminLayout({ children, title, description, actions }: A
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Mobile Actions */}
+                    {/* Compact actions on medium mobile */}
                     {actions && (
                       <div className="flex items-center">
                         {actions}
                       </div>
                     )}
 
-                    {/* 시간 표시 (모바일) */}
-                    <div className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded border">
-                      <Clock className="w-3 h-3" />
-                      <span>{currentTime}</span>
-                    </div>
-
-                    {/* 알림 버튼 (모바일) - 제일 오른쪽 */}
+                    {/* 알림 버튼 */}
                     <NotificationBell />
                   </div>
                 </div>

@@ -803,11 +803,12 @@ function AirPermitManagementPage() {
       actions={
         <button
           onClick={openAddModal}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+          className="flex items-center gap-2 px-3 py-2 md:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm md:text-base"
           title="새 대기필증 추가"
         >
           <Plus className="w-4 h-4" />
-          대기필증 추가
+          <span className="sm:hidden">추가</span>
+          <span className="hidden sm:inline">대기필증 추가</span>
         </button>
       }
     >

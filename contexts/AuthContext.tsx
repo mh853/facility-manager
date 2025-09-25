@@ -60,6 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPermissions(userData.permissions);
       setSocialAccounts([]); // 일반 로그인은 소셜 계정 없음
 
+      // 🚀 즉시 백그라운드 Realtime 연결 시작
+      import('@/lib/realtime-manager').then(({ initializeRealtimeConnection }) => {
+        initializeRealtimeConnection().catch(console.error);
+        console.log('⚡ [AUTH] 백그라운드 Realtime 연결 시작됨');
+      });
+
       console.log('✅ [AUTH-CONTEXT] 일반 로그인 성공:', {
         user: userData.user
       });
@@ -91,6 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(response.data.user);
         setPermissions(response.data.permissions);
         setSocialAccounts(response.data.socialAccounts || []);
+
+        // 🚀 즉시 백그라운드 Realtime 연결 시작
+        import('@/lib/realtime-manager').then(({ initializeRealtimeConnection }) => {
+          initializeRealtimeConnection().catch(console.error);
+          console.log('⚡ [AUTH] 백그라운드 Realtime 연결 시작됨');
+        });
 
         console.log('✅ [AUTH-CONTEXT] 소셜 로그인 성공:', {
           user: response.data.user,
