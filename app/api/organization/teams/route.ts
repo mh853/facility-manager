@@ -170,7 +170,6 @@ export async function POST(request: NextRequest) {
       .select('id')
       .eq('name', name)
       .eq('department_id', department_id)
-      .eq('is_active', true)
       .single();
 
     if (existing) {
@@ -317,7 +316,6 @@ export async function PUT(request: NextRequest) {
       .select('id')
       .eq('name', name)
       .eq('department_id', department_id)
-      .eq('is_active', true)
       .neq('id', id)
       .single();
 
@@ -517,14 +515,10 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    // 팀 삭제 (soft delete)
+    // 팀 삭제 (실제 삭제 - teams 테이블에 is_active 컬럼이 없음)
     const { error: deleteError } = await supabase
       .from('teams')
-      .update({
-        is_active: false,
-        updated_by: user.id,
-        updated_at: new Date().toISOString()
-      })
+      .delete()
       .eq('id', id);
 
     if (deleteError) {

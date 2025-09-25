@@ -167,7 +167,7 @@ export default function OrganizationManagement() {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer dummy-token' // 실제 구현시 적절한 토큰 사용
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify(body)
       });
@@ -207,7 +207,7 @@ export default function OrganizationManagement() {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer dummy-token' // 실제 구현시 적절한 토큰 사용
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify(body)
       });
@@ -241,7 +241,7 @@ export default function OrganizationManagement() {
       const response = await fetch(endpoint, {
         method: 'DELETE',
         headers: {
-          'Authorization': 'Bearer dummy-token' // 실제 구현시 적절한 토큰 사용
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
@@ -272,7 +272,7 @@ export default function OrganizationManagement() {
       const response = await fetch(endpoint, {
         method: 'DELETE',
         headers: {
-          'Authorization': 'Bearer dummy-token' // 실제 구현시 적절한 토큰 사용
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
