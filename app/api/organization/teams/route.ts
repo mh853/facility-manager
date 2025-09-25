@@ -236,6 +236,11 @@ export async function POST(request: NextRequest) {
 
 // PUT: 팀 수정/이동
 export async function PUT(request: NextRequest) {
+  console.log('🔄 [PUT-DEBUG] PUT 요청 시작:', {
+    method: request.method,
+    url: request.url,
+    headers: Object.fromEntries(request.headers.entries())
+  });
   try {
     const { authorized, user } = await checkUserPermission(request);
     // 강화된 권한 검증 및 디버깅
