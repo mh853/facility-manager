@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Notification Debug Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-left: 4px solid #007cba; background: #f0f8ff; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        button { padding: 10px 20px; margin: 5px; background: #007cba; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Notification System Debug Tool</h1>
+    <p>이 도구는 알림 시스템의 API 호출을 테스트합니다.</p>
+
+    <div>
+        <button onclick="checkAuth()">1. 인증 상태 확인</button>
+        <button onclick="testTaskNotifications()">2. task_notifications API 테스트</button>
+        <button onclick="testGeneralNotifications()">3. 일반 알림 API 테스트</button>
+        <button onclick="runAllTests()">🚀 전체 테스트 실행</button>
+        <button onclick="clearResults()">🗑️ 결과 지우기</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        function log(message, type = 'result') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = type;
+            if (typeof message === 'object') {
+                div.innerHTML = `<pre>${JSON.stringify(message, null, 2)}</pre>`;
+            } else {
+                div.textContent = message;
+            }
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        function checkAuth() {
+            log('🔍 인증 상태 확인 중...');
+
+            const authToken = localStorage.getItem('auth_token');
+            const supabaseToken = localStorage.getItem('supabase_auth_token');
+            const supabaseKey = localStorage.getItem('sb-qdfqoykhmuiambtrrlnf-auth-token');
+
+            log({
+                auth_token: authToken ? '존재함 (' + authToken.substring(0, 20) + '...)' : '없음',
+                supabase_auth_token: supabaseToken ? '존재함 (' + supabaseToken.substring(0, 20) + '...)' : '없음',
+                supabase_key: supabaseKey ? '존재함' : '없음',
+                current_url: window.location.href
+            });
+
+            if (!authToken && !supabaseToken && !supabaseKey) {
+                log('❌ 모든 인증 토큰이 없습니다. 로그인이 필요합니다.', 'error');
+            } else {
+                log('✅ 인증 토큰이 발견되었습니다.', 'success');
+            }
+        }
+
+        async function testTaskNotifications() {
+            log('📊 task_notifications API 테스트 시작...');
+
+            const token = localStorage.getItem('auth_token') || localStorage.getItem('supabase_auth_token') || '';
+
+            try {
+                const response = await fetch('/api/notifications?taskNotifications=true', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                log(`API 응답 상태: ${response.status} ${response.statusText}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ task_notifications API 성공:', 'success');
+
+                    const notifications = data.data?.taskNotifications || data.taskNotifications || [];
+                    log({
+                        success: data.success,
+                        count: notifications.length,
+                        unreadCount: notifications.filter(n => !n.is_read).length,
+                        sample: notifications.slice(0, 2).map(n => ({
+                            id: n.id,
+                            business_name: n.business_name,
+                            message: n.message?.substring(0, 50) + '...',
+                            is_read: n.is_read
+                        }))
+                    });
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ task_notifications API 실패: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                log(`💥 task_notifications API 오류: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGeneralNotifications() {
+            log('📊 일반 알림 API 테스트 시작...');
+
+            const token = localStorage.getItem('auth_token') || localStorage.getItem('supabase_auth_token') || '';
+
+            try {
+                const response = await fetch('/api/notifications', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                log(`API 응답 상태: ${response.status} ${response.statusText}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ 일반 알림 API 성공:', 'success');
+
+                    const notifications = data.data?.notifications || data.notifications || [];
+                    log({
+                        success: data.success,
+                        count: notifications.length,
+                        structure: Object.keys(data)
+                    });
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ 일반 알림 API 실패: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                log(`💥 일반 알림 API 오류: ${error.message}`, 'error');
+            }
+        }
+
+        async function runAllTests() {
+            clearResults();
+            log('🚀 전체 테스트 시작...');
+
+            checkAuth();
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            await testTaskNotifications();
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            await testGeneralNotifications();
+
+            log('✅ 전체 테스트 완료!', 'success');
+        }
+
+        // 페이지 로드 시 자동 실행
+        window.onload = function() {
+            log('🔧 Notification Debug Tool 로드 완료');
+            log('브라우저에서 로그인 후 테스트를 실행하세요.');
+        };
+    </script>
+</body>
+</html>

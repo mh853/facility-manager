@@ -398,34 +398,34 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
-    // 권한 체크:
-    // - 레벨 3 이상: 모든 업무 수정 가능
-    // - 레벨 2: 본인이 생성했거나 담당자인 업무 수정 가능
-    // - 레벨 1: 상태 변경만 가능 (제목, 설명 등은 제한)
-    const canEditAll = user.permission_level >= 3;
-    const canEditOwn = user.permission_level >= 2 && (
-      existingTask.created_by === user.id ||
-      existingTask.assignee === user.name ||
-      (existingTask.assignees && existingTask.assignees.some((a: any) => a.name === user.name))
-    );
-    const canUpdateStatus = user.permission_level >= 1;
+    // 권한 체크: 모든 레벨 사용자가 업무 수정 가능 (이력 추적으로 투명성 확보)
+    // - 레벨 1+: 모든 업무 수정 가능 (단, 수정 이력은 모두 기록됨)
+    const canEdit = user.permission_level >= 1;
 
-    // 상태 변경만 하는 경우 (드래그 앤 드롭) - 레벨 1도 허용
-    const isStatusOnlyUpdate = status !== undefined &&
-      title === undefined &&
-      description === undefined &&
-      business_name === undefined &&
-      task_type === undefined;
-
-    if (!canEditAll && !canEditOwn && !(canUpdateStatus && isStatusOnlyUpdate)) {
+    if (!canEdit) {
       console.warn('❌ [FACILITY-TASKS] 권한 부족:', {
         user: user.name,
         level: user.permission_level,
-        taskCreator: existingTask.created_by_name,
-        isStatusOnly: isStatusOnlyUpdate
+        taskId: existingTask.id
       });
-      return createErrorResponse('이 업무를 수정할 권한이 없습니다', 403);
+      return createErrorResponse('업무를 수정할 권한이 없습니다', 403);
     }
+
+    // 수정 이력 로깅 강화
+    console.log('📝 [FACILITY-TASKS] 업무 수정 시작:', {
+      taskId: existingTask.id,
+      taskTitle: existingTask.title,
+      editor: user.name,
+      editorLevel: user.permission_level,
+      originalCreator: existingTask.created_by_name,
+      changes: {
+        title: title !== undefined,
+        description: description !== undefined,
+        status: status !== undefined,
+        assignees: assignees !== undefined,
+        priority: priority !== undefined
+      }
+    });
 
     // 업데이트할 필드만 포함
     const updateData: any = {
@@ -532,6 +532,32 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
     }
 
     console.log('✅ [FACILITY-TASKS] 수정 성공:', updatedTask.id);
+
+    // 📝 수정 이력 상세 로깅
+    const changedFields = Object.keys(updateData).filter(key =>
+      !['updated_at', 'last_modified_by', 'last_modified_by_name'].includes(key)
+    );
+
+    if (changedFields.length > 0) {
+      console.log('📋 [EDIT-HISTORY] 수정 내역:', {
+        taskId: updatedTask.id,
+        taskTitle: updatedTask.title,
+        editor: user.name,
+        editorId: user.id,
+        editorLevel: user.permission_level,
+        changedFields,
+        timestamp: new Date().toISOString(),
+        summary: `${changedFields.join(', ')} 필드 수정됨`
+      });
+
+      // 수정 요약 업데이트
+      await supabaseAdmin
+        .from('facility_tasks')
+        .update({
+          last_edit_summary: `${user.name}이(가) ${changedFields.join(', ')} 수정함`
+        })
+        .eq('id', updatedTask.id);
+    }
 
     // 상태 변경 시 자동 메모 및 알림 생성
     await createAutoProgressNoteAndNotification(existingTask, updatedTask);

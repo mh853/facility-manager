@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Database Direct Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .result { margin: 10px 0; padding: 15px; border-left: 4px solid #007cba; background: #f0f8ff; border-radius: 4px; }
+        .error { border-left-color: #dc3545; background: #f8d7da; color: #721c24; }
+        .success { border-left-color: #28a745; background: #d4edda; color: #155724; }
+        .warning { border-left-color: #ffc107; background: #fff3cd; color: #856404; }
+        button { padding: 12px 20px; margin: 5px; background: #007cba; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        pre { background: #f8f9fa; padding: 15px; overflow-x: auto; border-radius: 4px; font-size: 12px; white-space: pre-wrap; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #dee2e6; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Database Direct Test Tool</h1>
+        <p>Supabase 데이터베이스와 직접 연결하여 task_notifications 테이블 상태를 확인합니다.</p>
+
+        <div class="section">
+            <button onclick="testDatabaseConnection()">1. 데이터베이스 연결 테스트</button>
+            <button onclick="checkTableStructure()">2. 테이블 구조 확인</button>
+            <button onclick="queryTaskNotifications()">3. task_notifications 직접 조회</button>
+            <button onclick="testRLSStatus()">4. RLS 상태 확인</button>
+            <button onclick="runFullCheck()">🚀 전체 검사</button>
+            <button onclick="clearResults()">🗑️ 지우기</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Supabase 설정 (프로덕션 환경에서 가져오기)
+        let supabase = null;
+
+        // 환경 변수는 서버에서만 접근 가능하므로 API를 통해 확인
+
+        function log(message, type = 'result') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = type;
+
+            if (typeof message === 'object') {
+                div.innerHTML = `<pre>${JSON.stringify(message, null, 2)}</pre>`;
+            } else {
+                div.innerHTML = message;
+            }
+
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testDatabaseConnection() {
+            log('🔄 데이터베이스 연결 테스트 중...', 'result');
+
+            try {
+                // API 엔드포인트를 통한 연결 테스트
+                const response = await fetch('/api/notifications', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                log(`데이터베이스 연결 상태: ${response.status} ${response.statusText}`,
+                     response.ok ? 'success' : 'error');
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`연결 오류 상세: ${errorText}`, 'error');
+                }
+
+            } catch (error) {
+                log(`연결 테스트 실패: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkTableStructure() {
+            log('🔄 테이블 구조 확인 중...', 'result');
+
+            try {
+                // 특별한 API 엔드포인트를 통한 테이블 구조 확인
+                const response = await fetch('/api/debug/table-info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        table: 'task_notifications',
+                        action: 'structure'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ 테이블 구조:', 'success');
+                    log(data);
+                } else {
+                    log('❌ 테이블 구조 확인 실패 - 테이블이 존재하지 않을 수 있습니다', 'error');
+                }
+
+            } catch (error) {
+                log(`테이블 구조 확인 오류: ${error.message}`, 'error');
+            }
+        }
+
+        async function queryTaskNotifications() {
+            log('🔄 task_notifications 직접 조회 중...', 'result');
+
+            try {
+                // 인증 토큰 확인
+                const authToken = localStorage.getItem('auth_token') ||
+                                 (document.cookie.split('; ').find(row => row.startsWith('auth_token=')) || '').split('=')[1];
+
+                if (!authToken) {
+                    log('❌ 인증 토큰이 없습니다. 먼저 로그인하세요.', 'error');
+                    return;
+                }
+
+                // task_notifications API 직접 호출
+                const response = await fetch('/api/notifications?taskNotifications=true', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                log(`API 응답 상태: ${response.status} ${response.statusText}`,
+                     response.ok ? 'success' : 'error');
+
+                const data = await response.json();
+                log('API 응답 데이터:', 'result');
+                log(data);
+
+                // 데이터 분석
+                if (data.success) {
+                    const taskNotifications = data.data?.taskNotifications || data.taskNotifications || [];
+                    log(`📊 분석 결과:
+                    - 성공: ${data.success}
+                    - 알림 개수: ${taskNotifications.length}
+                    - 데이터 구조: ${data.data ? 'data.taskNotifications' : 'taskNotifications'}
+                    - 실제 배열: ${Array.isArray(taskNotifications)}`, 'success');
+
+                    if (taskNotifications.length > 0) {
+                        log('샘플 알림:', 'success');
+                        log(taskNotifications[0]);
+                    } else {
+                        log('⚠️ 알림 데이터가 비어있습니다', 'warning');
+                    }
+                } else {
+                    log('❌ API 호출 실패', 'error');
+                    log(data);
+                }
+
+            } catch (error) {
+                log(`직접 조회 오류: ${error.message}`, 'error');
+            }
+        }
+
+        async function testRLSStatus() {
+            log('🔄 RLS 상태 확인 중...', 'result');
+
+            try {
+                const response = await fetch('/api/debug/rls-status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        table: 'task_notifications'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ RLS 상태 확인:', 'success');
+                    log(data);
+                } else {
+                    log('❌ RLS 상태 확인 실패', 'error');
+                }
+
+            } catch (error) {
+                log(`RLS 상태 확인 오류: ${error.message}`, 'error');
+            }
+        }
+
+        async function runFullCheck() {
+            clearResults();
+            log('🚀 전체 검사 시작...', 'result');
+
+            await testDatabaseConnection();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            await checkTableStructure();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            await queryTaskNotifications();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            await testRLSStatus();
+
+            log('✅ 전체 검사 완료', 'success');
+        }
+
+        window.onload = function() {
+            log('🔧 Database Direct Test Tool 로드 완료');
+            log('이 도구는 Supabase 데이터베이스와 직접 통신하여 문제를 진단합니다.');
+        };
+    </script>
+</body>
+</html>

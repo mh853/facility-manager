@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Production Notification Debug Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .result { margin: 10px 0; padding: 15px; border-left: 4px solid #007cba; background: #f0f8ff; border-radius: 4px; }
+        .error { border-left-color: #dc3545; background: #f8d7da; color: #721c24; }
+        .success { border-left-color: #28a745; background: #d4edda; color: #155724; }
+        .warning { border-left-color: #ffc107; background: #fff3cd; color: #856404; }
+        button { padding: 12px 20px; margin: 5px; background: #007cba; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 14px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        pre { background: #f8f9fa; padding: 15px; overflow-x: auto; border-radius: 4px; font-size: 12px; white-space: pre-wrap; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-number { font-size: 24px; font-weight: bold; color: #007cba; }
+        .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #dee2e6; border-radius: 8px; }
+        .section-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Production Notification Debug Tool</h1>
+        <p>배포된 환경에서 알림 시스템 API 응답 구조를 분석합니다.</p>
+
+        <div class="section">
+            <div class="section-title">🔧 Quick Actions</div>
+            <button onclick="checkAuth()" id="authBtn">1. 인증 상태 확인</button>
+            <button onclick="testNotificationAPIs()" id="apiBtn" disabled>2. 알림 API 테스트</button>
+            <button onclick="analyzeResponseStructure()" id="structBtn" disabled>3. 응답 구조 분석</button>
+            <button onclick="runFullDiagnosis()" id="diagBtn" disabled>4. 전체 진단 실행</button>
+            <button onclick="clearResults()">🗑️ 결과 지우기</button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-number" id="generalCount">0</div>
+                <div class="stat-label">일반 알림</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="taskCount">0</div>
+                <div class="stat-label">업무 알림</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="unreadCount">0</div>
+                <div class="stat-label">읽지 않음</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalCount">0</div>
+                <div class="stat-label">전체 알림</div>
+            </div>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let apiResponses = {};
+
+        function log(message, type = 'result') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = type;
+
+            if (typeof message === 'object') {
+                div.innerHTML = `<pre>${JSON.stringify(message, null, 2)}</pre>`;
+            } else {
+                div.innerHTML = message;
+            }
+
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('stats').style.display = 'none';
+        }
+
+        function updateStats(general = 0, tasks = 0, unread = 0) {
+            document.getElementById('generalCount').textContent = general;
+            document.getElementById('taskCount').textContent = tasks;
+            document.getElementById('unreadCount').textContent = unread;
+            document.getElementById('totalCount').textContent = general + tasks;
+            document.getElementById('stats').style.display = 'grid';
+        }
+
+        async function checkAuth() {
+            log('🔍 인증 상태 확인 중...', 'result');
+
+            // 다양한 토큰 위치 확인
+            const localToken = localStorage.getItem('auth_token');
+            const supabaseToken = localStorage.getItem('supabase_auth_token');
+            const cookieToken = document.cookie.split('; ').find(row => row.startsWith('auth_token='));
+
+            log({
+                'localStorage auth_token': localToken ? `존재함 (${localToken.substring(0, 30)}...)` : '없음',
+                'localStorage supabase_token': supabaseToken ? `존재함` : '없음',
+                'cookie auth_token': cookieToken ? `존재함 (${cookieToken.split('=')[1].substring(0, 30)}...)` : '없음',
+                'current_url': window.location.href,
+                'timestamp': new Date().toISOString()
+            });
+
+            authToken = localToken || (cookieToken ? cookieToken.split('=')[1] : null);
+
+            if (authToken) {
+                log('✅ 인증 토큰 발견 - API 테스트 가능', 'success');
+                document.getElementById('apiBtn').disabled = false;
+                return true;
+            } else {
+                log('❌ 인증 토큰 없음 - 로그인 후 다시 시도하세요', 'error');
+                return false;
+            }
+        }
+
+        async function testNotificationAPIs() {
+            if (!authToken) {
+                log('❌ 인증 토큰이 없습니다. 먼저 인증 확인을 해주세요.', 'error');
+                return;
+            }
+
+            log('📊 알림 API 테스트 시작...', 'result');
+
+            try {
+                // 1. 일반 알림 API
+                log('🔄 일반 알림 API 호출 중...', 'result');
+                const generalResponse = await fetch('/api/notifications', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                // 2. 업무 알림 API
+                log('🔄 업무 알림 API 호출 중...', 'result');
+                const taskResponse = await fetch('/api/notifications?taskNotifications=true', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                // 응답 분석
+                if (generalResponse.ok) {
+                    const generalData = await generalResponse.json();
+                    apiResponses.general = generalData;
+                    log(`✅ 일반 알림 API 성공 (${generalResponse.status})`, 'success');
+                    log({ 'general_response_structure': generalData });
+                } else {
+                    const generalError = await generalResponse.text();
+                    log(`❌ 일반 알림 API 실패 (${generalResponse.status}): ${generalError}`, 'error');
+                }
+
+                if (taskResponse.ok) {
+                    const taskData = await taskResponse.json();
+                    apiResponses.task = taskData;
+                    log(`✅ 업무 알림 API 성공 (${taskResponse.status})`, 'success');
+                    log({ 'task_response_structure': taskData });
+                } else {
+                    const taskError = await taskResponse.text();
+                    log(`❌ 업무 알림 API 실패 (${taskResponse.status}): ${taskError}`, 'error');
+                }
+
+                document.getElementById('structBtn').disabled = false;
+                document.getElementById('diagBtn').disabled = false;
+
+            } catch (error) {
+                log(`💥 API 호출 오류: ${error.message}`, 'error');
+            }
+        }
+
+        async function analyzeResponseStructure() {
+            log('🔍 API 응답 구조 분석...', 'result');
+
+            if (!apiResponses.general && !apiResponses.task) {
+                log('❌ 먼저 API 테스트를 실행해주세요.', 'error');
+                return;
+            }
+
+            // 일반 알림 구조 분석
+            if (apiResponses.general) {
+                log('📋 일반 알림 API 응답 구조 분석:', 'result');
+                const general = apiResponses.general;
+
+                log({
+                    'response_keys': Object.keys(general),
+                    'success': general.success,
+                    'data_structure': general.data ? Object.keys(general.data) : 'no data key',
+                    'notifications_array': Array.isArray(general.data) ? `배열 (길이: ${general.data.length})` :
+                                         Array.isArray(general.notifications) ? `배열 (길이: ${general.notifications.length})` : '배열 아님',
+                    'first_item_structure': (general.data && general.data[0]) ? Object.keys(general.data[0]) :
+                                          (general.notifications && general.notifications[0]) ? Object.keys(general.notifications[0]) : '항목 없음'
+                });
+            }
+
+            // 업무 알림 구조 분석
+            if (apiResponses.task) {
+                log('📋 업무 알림 API 응답 구조 분석:', 'result');
+                const task = apiResponses.task;
+
+                log({
+                    'response_keys': Object.keys(task),
+                    'success': task.success,
+                    'data_structure': task.data ? Object.keys(task.data) : 'no data key',
+                    'taskNotifications_array': task.data?.taskNotifications ?
+                                             `배열 (길이: ${task.data.taskNotifications.length})` :
+                                             task.taskNotifications ? `직접 배열 (길이: ${task.taskNotifications.length})` : '없음',
+                    'first_item_structure': (task.data?.taskNotifications && task.data.taskNotifications[0]) ?
+                                          Object.keys(task.data.taskNotifications[0]) :
+                                          (task.taskNotifications && task.taskNotifications[0]) ?
+                                          Object.keys(task.taskNotifications[0]) : '항목 없음'
+                });
+            }
+
+            // 통계 업데이트
+            const generalCount = apiResponses.general?.data?.length || apiResponses.general?.notifications?.length || 0;
+            const taskCount = apiResponses.task?.data?.taskNotifications?.length || apiResponses.task?.taskNotifications?.length || 0;
+            const generalUnread = apiResponses.general?.data?.filter(n => !n.is_read)?.length || 0;
+            const taskUnread = apiResponses.task?.data?.taskNotifications?.filter(n => !n.is_read)?.length || 0;
+
+            updateStats(generalCount, taskCount, generalUnread + taskUnread);
+        }
+
+        async function runFullDiagnosis() {
+            log('🚀 전체 진단 시작...', 'result');
+
+            // NotificationContext 로직 시뮬레이션
+            log('🔄 NotificationContext 데이터 통합 로직 시뮬레이션...', 'result');
+
+            try {
+                const general = apiResponses.general;
+                const task = apiResponses.task;
+
+                // 일반 알림 변환 (실제 코드와 동일한 로직)
+                let allNotifications = [];
+
+                if (general && general.success && general.data) {
+                    const generalNotifications = Array.isArray(general.data) ? general.data : [];
+                    log(`📝 일반 알림 변환: ${generalNotifications.length}개`, 'result');
+                    allNotifications.push(...generalNotifications);
+                }
+
+                // 업무 알림 변환 (실제 코드와 동일한 로직)
+                const taskNotificationsArray = task?.data?.taskNotifications || task?.taskNotifications || [];
+                if (task && task.success && Array.isArray(taskNotificationsArray)) {
+                    log(`📝 업무 알림 변환: ${taskNotificationsArray.length}개`, 'result');
+
+                    const taskNotifications = taskNotificationsArray.map(notif => ({
+                        id: `task-${notif.id}`,
+                        title: `업무 할당: ${notif.business_name}`,
+                        message: notif.message,
+                        category: 'task_assigned',
+                        priority: (notif.priority === 'urgent' ? 'critical' : notif.priority),
+                        relatedResourceType: 'task',
+                        relatedResourceId: notif.task_id,
+                        relatedUrl: `/admin/tasks/${notif.task_id}`,
+                        metadata: {
+                            business_name: notif.business_name,
+                            task_id: notif.task_id,
+                            notification_type: notif.notification_type
+                        },
+                        createdById: notif.user_id,
+                        createdByName: notif.user_name || '시스템',
+                        createdAt: notif.created_at,
+                        expiresAt: notif.expires_at || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                        isSystemNotification: false,
+                        isRead: notif.is_read
+                    }));
+
+                    allNotifications.push(...taskNotifications);
+                    log(`✅ 업무 알림 변환 완료: ${taskNotifications.length}개`, 'success');
+                    log({ 'converted_task_notifications_sample': taskNotifications[0] || 'no items' });
+                } else {
+                    log(`⚠️ 업무 알림 변환 실패: task.success=${task?.success}, isArray=${Array.isArray(taskNotificationsArray)}, length=${taskNotificationsArray.length}`, 'warning');
+                }
+
+                // 최종 결과
+                allNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+                log('🎯 최종 진단 결과:', 'result');
+                log({
+                    '전체_알림_수': allNotifications.length,
+                    '읽지_않은_알림': allNotifications.filter(n => !n.isRead).length,
+                    'API_상태': {
+                        '일반_알림_API': apiResponses.general?.success ? '성공' : '실패',
+                        '업무_알림_API': apiResponses.task?.success ? '성공' : '실패'
+                    },
+                    '데이터_구조_문제': {
+                        '일반_알림_배열': Array.isArray(apiResponses.general?.data),
+                        '업무_알림_배열': Array.isArray(taskNotificationsArray),
+                        '업무_알림_경로': task?.data?.taskNotifications ? 'data.taskNotifications' :
+                                       task?.taskNotifications ? 'taskNotifications' : '없음'
+                    }
+                });
+
+                if (allNotifications.length === 0) {
+                    log('❌ 최종 결과: 알림이 전혀 표시되지 않는 이유를 찾았습니다!', 'error');
+                } else {
+                    log('✅ 데이터 통합 성공 - 화면에 표시되어야 합니다.', 'success');
+                }
+
+            } catch (error) {
+                log(`💥 진단 중 오류 발생: ${error.message}`, 'error');
+            }
+        }
+
+        // 자동 실행
+        window.onload = function() {
+            log('🔧 Production Notification Debug Tool 로드 완료');
+            log('배포된 환경에서 알림 시스템 문제를 진단합니다.');
+            log('1. 인증 상태 확인부터 시작하세요.');
+        };
+    </script>
+</body>
+</html>
