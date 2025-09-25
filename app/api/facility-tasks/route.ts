@@ -2,7 +2,7 @@
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
-// WebSocket 제거: Supabase Realtime + PostgreSQL 트리거로 대체
+import { createTaskAssignmentNotifications, updateTaskAssignmentNotifications, type TaskAssignee } from '@/lib/task-notification-service';
 import jwt from 'jsonwebtoken';
 
 // Force dynamic rendering for API routes
@@ -43,13 +43,7 @@ async function getUserFromToken(request: NextRequest) {
 }
 
 
-// 담당자 타입 정의
-export interface TaskAssignee {
-  id: string;
-  name: string;
-  position: string;
-  email: string;
-}
+// 담당자 타입은 lib/task-notification-service.ts에서 import됨
 
 // Facility Task 타입 정의 (다중 담당자 지원)
 export interface FacilityTask {
@@ -305,8 +299,29 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     // 업무 생성 시 자동 메모 생성
     await createTaskCreationNote(newTask);
 
-    // Supabase Realtime: PostgreSQL 트리거가 자동으로 알림 생성
-    console.log('🔔 [REALTIME] 업무 생성 - 트리거가 자동으로 알림 생성:', newTask.id);
+    // 다중 담당자 알림 생성 (PostgreSQL 함수 사용)
+    if (finalAssignees.length > 0) {
+      try {
+        const notificationResult = await createTaskAssignmentNotifications(
+          newTask.id,
+          finalAssignees.map(a => ({
+            id: a.id,
+            name: a.name,
+            email: a.email,
+            position: a.position
+          })),
+          newTask.business_name,
+          newTask.title,
+          newTask.task_type,
+          newTask.priority,
+          user.name
+        );
+
+        console.log('✅ [NOTIFICATION] 업무 할당 알림 생성:', notificationResult);
+      } catch (notificationError) {
+        console.error('❌ [NOTIFICATION] 업무 할당 알림 생성 실패:', notificationError);
+      }
+    }
 
     return createSuccessResponse({
       task: newTask,
@@ -485,8 +500,26 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
     // 상태 변경 시 자동 메모 및 알림 생성
     await createAutoProgressNoteAndNotification(existingTask, updatedTask);
 
-    // Supabase Realtime: PostgreSQL 트리거가 자동으로 알림 생성
-    console.log('🔔 [REALTIME] 업무 수정 - 트리거가 자동으로 알림 생성:', updatedTask.id);
+    // 담당자 변경 시 다중 담당자 알림 업데이트 (PostgreSQL 함수 사용)
+    const assigneesChanged = JSON.stringify(existingTask.assignees || []) !== JSON.stringify(updatedTask.assignees || []);
+    if (assigneesChanged) {
+      try {
+        const updateResult = await updateTaskAssignmentNotifications(
+          updatedTask.id,
+          existingTask.assignees || [],
+          updatedTask.assignees || [],
+          updatedTask.business_name,
+          updatedTask.title,
+          updatedTask.task_type,
+          updatedTask.priority,
+          user.name
+        );
+
+        console.log('✅ [NOTIFICATION] 담당자 변경 알림 업데이트:', updateResult);
+      } catch (notificationError) {
+        console.error('❌ [NOTIFICATION] 담당자 변경 알림 업데이트 실패:', notificationError);
+      }
+    }
 
     return createSuccessResponse({
       task: updatedTask,
@@ -888,47 +921,7 @@ async function createTaskCreationNote(task: any) {
       console.log('✅ [TASK-CREATION] 생성 메모 성공:', task.id);
     }
 
-    // 담당자가 있는 경우 알림도 생성
-    if (task.assignees && task.assignees.length > 0) {
-      const userIds = task.assignees.map((a: any) => a.id).filter(Boolean);
-
-      if (userIds.length > 0) {
-        const notifications = userIds.map((userId: string) => ({
-          user_id: userId,
-          task_id: task.id,
-          business_name: task.business_name,
-          message: `${task.business_name}의 새 업무 "${task.title}"이 담당자로 배정되었습니다.`,
-          notification_type: 'assignment',
-          priority: task.priority === 'high' ? 'high' : 'normal'
-        }));
-
-        const { data: createdNotifications, error: notificationError } = await supabaseAdmin
-          .from('task_notifications')
-          .insert(notifications)
-          .select();
-
-        if (notificationError) {
-          console.error('🔴 [TASK-CREATION] 생성 알림 오류:', notificationError);
-        } else {
-          console.log('✅ [TASK-CREATION] 생성 알림 성공:', notifications.length, '개');
-
-          // WebSocket으로 실시간 알림 전송
-          try {
-            const io = (global as any).io;
-            if (io && createdNotifications) {
-              createdNotifications.forEach((notification: any) => {
-                io.to(`user:${notification.user_id}`).emit('task_notification_created', {
-                  notification: notification
-                });
-              });
-              console.log('🔔 [WEBSOCKET] 업무 생성 알림 WebSocket 전송 성공:', createdNotifications.length, '개');
-            }
-          } catch (wsError) {
-            console.warn('⚠️ [WEBSOCKET] 업무 생성 알림 WebSocket 전송 실패:', wsError);
-          }
-        }
-      }
-    }
+    // 알림은 이미 createTaskAssignmentNotifications에서 생성됨 (중복 제거)
 
   } catch (error) {
     console.error('🔴 [TASK-CREATION] 생성 메모/알림 처리 오류:', error);

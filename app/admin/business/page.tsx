@@ -189,6 +189,7 @@ import { withAuth, usePermission } from '@/contexts/AuthContext'
 import StatsCard from '@/components/ui/StatsCard'
 import DataTable, { commonActions } from '@/components/ui/DataTable'
 import { ConfirmModal } from '@/components/ui/Modal'
+import TaskProgressMiniBoard from '@/components/business/TaskProgressMiniBoard'
 import { 
   Users, 
   FileText, 
@@ -507,8 +508,16 @@ function BusinessManagementPage() {
       })
     })
 
-    // 최신순으로 정렬 (created_at 기준)
-    return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    // 업무를 먼저, 그 다음 메모를 최신순으로 정렬
+    return items.sort((a, b) => {
+      // 타입이 다르면 업무(task)를 먼저
+      if (a.type !== b.type) {
+        if (a.type === 'task') return -1;
+        if (b.type === 'task') return 1;
+      }
+      // 같은 타입 내에서는 최신순으로 정렬
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    })
   }
 
   // 엑셀 템플릿 다운로드 함수 (API 엔드포인트 사용)
@@ -1832,19 +1841,23 @@ function BusinessManagementPage() {
       description="사업장 정보 등록 및 관리 시스템"
       actions={
         <>
+          {/* 데스크탑에서는 모든 버튼 표시 */}
           <button
             onClick={() => setIsUploadModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Upload className="w-4 h-4" />
             엑셀 업로드
           </button>
+
+          {/* 모바일과 데스크탑 모두에서 표시 - 핵심 액션 */}
           <button
             onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 md:px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm md:text-base"
           >
             <Plus className="w-4 h-4" />
-            새 사업장 추가
+            <span className="sm:hidden">추가</span>
+            <span className="hidden sm:inline">새 사업장 추가</span>
           </button>
         </>
       }
@@ -2195,16 +2208,13 @@ function BusinessManagementPage() {
                       </div>
                       
                       <div className="space-y-4">
-                        {/* Current Status */}
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-2">
-                            <Clock className="w-4 h-4 mr-2 text-orange-500" />
-                            현재 진행 단계
-                          </div>
-                          <div className="text-base font-medium text-gray-900">
-                            {selectedBusiness.progress_status || '설치 대기'}
-                          </div>
-                        </div>
+                        {/* Task Progress Mini Board */}
+                        <TaskProgressMiniBoard
+                          businessName={selectedBusiness.사업장명}
+                          onStatusChange={(taskId, newStatus) => {
+                            console.log('업무 상태 변경:', { taskId, newStatus, business: selectedBusiness.사업장명 });
+                          }}
+                        />
 
                         {/* Team Communication */}
                         <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -2260,9 +2270,10 @@ function BusinessManagementPage() {
                           <div className="bg-white rounded-lg p-4 shadow-sm">
                             <div className="flex items-center text-sm text-gray-600 mb-3">
                               <MessageSquare className="w-4 h-4 mr-2 text-indigo-500" />
-                              메모 및 업무 ({businessMemos.length + businessTasks.length}개, 최신순)
+                              메모 및 업무 ({businessMemos.length + businessTasks.length}개)
                             </div>
-                            <div className="space-y-3">
+                            {/* 스크롤 가능한 컨테이너 추가 - 최대 높이 제한으로 내용이 많아져도 스크롤 가능 */}
+                            <div className="space-y-3 max-h-96 overflow-y-auto pr-2" style={{scrollbarWidth: 'thin'}}>
                               {getIntegratedItems().map((item, index) => {
                                 if (item.type === 'memo') {
                                   const memo = item.data

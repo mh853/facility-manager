@@ -1,27 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import jwt from 'jsonwebtoken';
 
 // Supabase 클라이언트 설정
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// 토큰에서 사용자 정보 추출
-function getUserFromToken(authHeader: string | null) {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 
+// JWT 토큰에서 사용자 정보 추출하는 헬퍼 함수 (facility-tasks와 동일한 로직)
+async function getUserFromToken(request: NextRequest) {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return null;
+    }
+
     const token = authHeader.substring(7);
-    // 임시 사용자 정보 (실제로는 토큰에서 추출)
-    return {
-      id: 'user_1',
-      name: '관리자',
-      email: 'admin@blueon.kr'
-    };
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+
+    // 사용자 정보 조회
+    const { data: user, error } = await supabase
+      .from('employees')
+      .select('id, name, email, permission_level, department')
+      .eq('id', decoded.userId || decoded.id)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !user) {
+      console.warn('⚠️ [AUTH] 사용자 조회 실패:', error?.message);
+      return null;
+    }
+
+    return user;
   } catch (error) {
-    console.error('토큰 파싱 오류:', error);
+    console.warn('⚠️ [AUTH] JWT 토큰 검증 실패:', error);
     return null;
   }
 }
@@ -32,7 +46,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = getUserFromToken(request.headers.get('authorization'));
+    const user = await getUserFromToken(request);
     if (!user) {
       return NextResponse.json(
         { success: false, error: { message: '인증이 필요합니다.' } },
