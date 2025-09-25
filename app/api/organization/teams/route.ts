@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getUserFromToken } from '@/lib/secure-jwt';
+import { verifyTokenHybrid } from '@/lib/secure-jwt';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -8,25 +8,46 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // 사용자 권한 확인 헬퍼
 async function checkUserPermission(request: NextRequest) {
+  console.log('🔐 [JWT-DEBUG] 권한 확인 시작');
+
   const authHeader = request.headers.get('authorization');
+  console.log('🔐 [JWT-DEBUG] Authorization 헤더:', authHeader ? `Bearer ${authHeader.slice(7, 20)}...` : 'null');
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('❌ [JWT-DEBUG] Authorization 헤더 없음 또는 형식 오류');
     return { authorized: false, user: null };
   }
 
   try {
     const token = authHeader.replace('Bearer ', '');
-    const user = await getUserFromToken(token);
+    console.log('🔐 [JWT-DEBUG] 토큰 추출 성공, 길이:', token.length);
+    console.log('🔐 [JWT-DEBUG] 토큰 앞부분:', token.slice(0, 20) + '...');
 
-    if (!user) {
+    const result = await verifyTokenHybrid(token);
+    console.log('🔐 [JWT-DEBUG] verifyTokenHybrid 결과:', {
+      success: !!result.user,
+      userId: result.user?.id,
+      userName: result.user?.name,
+      userLevel: result.user?.permission_level,
+      levelType: typeof result.user?.permission_level,
+      isOldToken: result.isOldToken,
+      shouldRefresh: result.shouldRefresh,
+      error: result.error
+    });
+
+    if (!result.user) {
+      console.log('❌ [JWT-DEBUG] 사용자 정보 없음:', result.error);
       return { authorized: false, user: null };
     }
 
+    console.log('✅ [JWT-DEBUG] 사용자 인증 성공');
     return {
       authorized: true,
-      user: user
+      user: result.user
     };
   } catch (error) {
-    console.error('권한 확인 오류:', error);
+    console.error('❌ [JWT-DEBUG] 권한 확인 오류:', error);
+    console.error('❌ [JWT-DEBUG] 오류 스택:', error.stack);
     return { authorized: false, user: null };
   }
 }
