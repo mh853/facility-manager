@@ -6,6 +6,9 @@
     "app/api/**/*.ts": {
       "maxDuration": 30
     },
+    "app/api/organization/**/*.ts": {
+      "maxDuration": 45
+    },
     "app/api/upload/route.ts": {
       "maxDuration": 60
     },
