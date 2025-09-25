@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { BusinessInfo } from '@/lib/database-service'
 import type { BusinessMemo, CreateBusinessMemoInput, UpdateBusinessMemoInput } from '@/types/database'
+import { getBusinessTaskStatus, getTaskSummary } from '@/lib/business-task-utils'
 
 interface Contact {
   name: string;
@@ -431,6 +432,17 @@ function BusinessManagementPage() {
 
   // 업무 관련 상태
   const [businessTasks, setBusinessTasks] = useState<any[]>([])
+
+  // 사업장별 업무 상태 정보
+  const [businessTaskStatuses, setBusinessTaskStatuses] = useState<{
+    [businessName: string]: {
+      statusText: string
+      colorClass: string
+      lastUpdated: string
+      taskCount: number
+      hasActiveTasks: boolean
+    }
+  }>({})
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
 
   // 업무 상태 매핑 유틸리티 함수들
@@ -1049,10 +1061,63 @@ function BusinessManagementPage() {
     }
   }, [airPermitData])
 
+  // 사업장별 업무 상태 로딩 함수
+  const loadBusinessTaskStatuses = useCallback(async (businesses: UnifiedBusinessInfo[]) => {
+    if (businesses.length === 0) return
+
+    setIsLoadingTasks(true)
+    const statusMap: typeof businessTaskStatuses = {}
+
+    try {
+      // 각 사업장의 업무 상태를 병렬로 조회
+      const statusPromises = businesses.map(async (business) => {
+        try {
+          const status = await getBusinessTaskStatus(business.사업장명 || business.business_name || '')
+          return { businessName: business.사업장명 || business.business_name || '', status }
+        } catch (error) {
+          console.error(`업무 상태 조회 실패 (${business.사업장명}):`, error)
+          return {
+            businessName: business.사업장명 || business.business_name || '',
+            status: {
+              statusText: '조회 실패',
+              colorClass: 'bg-gray-100 text-gray-600',
+              lastUpdated: '',
+              taskCount: 0,
+              hasActiveTasks: false
+            }
+          }
+        }
+      })
+
+      const results = await Promise.all(statusPromises)
+
+      results.forEach(({ businessName, status }) => {
+        if (businessName) {
+          statusMap[businessName] = status
+        }
+      })
+
+      setBusinessTaskStatuses(statusMap)
+      console.log('✅ 업무 상태 로딩 완료:', Object.keys(statusMap).length, '개 사업장')
+
+    } catch (error) {
+      console.error('업무 상태 로딩 전체 오류:', error)
+    } finally {
+      setIsLoadingTasks(false)
+    }
+  }, [])
+
   // 초기 데이터 로딩 - 의존성 제거하여 무한루프 방지
   useEffect(() => {
     loadAllBusinesses()
   }, [])
+
+  // 사업장 데이터 로드 후 업무 상태 조회
+  useEffect(() => {
+    if (allBusinesses.length > 0) {
+      loadBusinessTaskStatuses(allBusinesses)
+    }
+  }, [allBusinesses.length, loadBusinessTaskStatuses])
 
   // selectedBusiness 동기화를 위한 별도 useEffect (완전 최적화)
   useEffect(() => {
@@ -1798,20 +1863,54 @@ function BusinessManagementPage() {
         </div>
       )
     },
-    { 
-      key: '현재단계', 
+    {
+      key: '현재단계',
       title: '현재 단계',
-      width: '120px',
-      render: (item: any) => (
-        <div className="text-center">
-          <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            준비 중
-          </span>
-          <div className="text-xs text-gray-500 mt-1">
-            향후 구현
+      width: '140px',
+      render: (item: any) => {
+        const businessName = item.사업장명 || item.business_name || ''
+        const taskStatus = businessTaskStatuses[businessName]
+
+        // 로딩 중일 때
+        if (isLoadingTasks && !taskStatus) {
+          return (
+            <div className="text-center">
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                조회 중...
+              </span>
+              <div className="text-xs text-gray-500 mt-1">
+                잠시만요
+              </div>
+            </div>
+          )
+        }
+
+        // 업무 상태 정보가 있을 때
+        if (taskStatus) {
+          return (
+            <div className="text-center">
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${taskStatus.colorClass}`}>
+                {taskStatus.statusText}
+              </span>
+              <div className="text-xs text-gray-500 mt-1">
+                {getTaskSummary(taskStatus.taskCount, taskStatus.hasActiveTasks, taskStatus.lastUpdated)}
+              </div>
+            </div>
+          )
+        }
+
+        // 기본값 (오류 상황)
+        return (
+          <div className="text-center">
+            <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+              업무 미등록
+            </span>
+            <div className="text-xs text-gray-500 mt-1">
+              등록 필요
+            </div>
           </div>
-        </div>
-      )
+        )
+      }
     }
   ]
 
