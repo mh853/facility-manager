@@ -194,8 +194,7 @@ export async function POST(request: NextRequest) {
         description,
         department_id,
         manager_user_id,
-        display_order: nextOrder,
-        updated_by: user.id
+        display_order: nextOrder
       })
       .select(`
         *,
@@ -351,7 +350,6 @@ export async function PUT(request: NextRequest) {
         department_id,
         manager_user_id,
         display_order: finalDisplayOrder,
-        updated_by: user.id,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
