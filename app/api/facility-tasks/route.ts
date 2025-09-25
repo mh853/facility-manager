@@ -99,14 +99,26 @@ export interface FacilityTask {
 // GET: 시설 업무 목록 조회 (권한별 필터링 적용)
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
+    console.log('🚀 [FACILITY-TASKS] GET 요청 시작');
+
     const { searchParams } = new URL(request.url);
     const businessName = searchParams.get('businessName');
     const taskType = searchParams.get('type');
     const status = searchParams.get('status');
     const assignee = searchParams.get('assignee');
 
+    console.log('📋 [FACILITY-TASKS] 파라미터 파싱 완료:', { businessName, taskType, status, assignee });
+
     // 사용자 인증 및 권한 확인 (임시로 선택적 인증 적용)
-    const user = await getUserFromToken(request);
+    let user = null;
+    try {
+      console.log('🔐 [FACILITY-TASKS] 사용자 인증 시작');
+      user = await getUserFromToken(request);
+      console.log('🔐 [FACILITY-TASKS] 사용자 인증 결과:', user ? '성공' : '실패');
+    } catch (authError) {
+      console.error('❌ [FACILITY-TASKS] 인증 중 예외 발생:', authError);
+    }
+
     if (!user) {
       console.log('⚠️ [FACILITY-TASKS] GET 인증 실패 - 기본 권한으로 진행');
       // 임시로 기본 권한으로 진행 (디버깅 목적)
@@ -156,53 +168,95 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     // 임시로 권한 필터링 제거 - 모든 업무 조회 가능하도록 설정
     console.log('🔓 [FACILITY-TASKS] 임시 설정: 모든 업무 조회 가능 (테스트용)');
 
+    console.log('🔍 [FACILITY-TASKS] 쿼리 필터 적용 시작');
+
     // 추가 필터 적용
     if (businessName) {
+      console.log('🔍 [FACILITY-TASKS] businessName 필터 적용:', businessName);
       query = query.eq('business_name', businessName);
     }
     if (taskType && taskType !== 'all') {
+      console.log('🔍 [FACILITY-TASKS] taskType 필터 적용:', taskType);
       query = query.eq('task_type', taskType);
     }
     if (status) {
+      console.log('🔍 [FACILITY-TASKS] status 필터 적용:', status);
       query = query.eq('status', status);
     }
     if (assignee) {
+      console.log('🔍 [FACILITY-TASKS] assignee 필터 적용:', assignee);
       // 다중 담당자 지원: assignees JSON 배열에서 검색
       query = query.or(`assignee.eq.${assignee},assignees.cs.[{"name":"${assignee}"}]`);
     }
 
-    const { data: tasks, error } = await query;
+    console.log('🗄️ [FACILITY-TASKS] Supabase 쿼리 실행 시작');
+    let tasks, error;
+    try {
+      const result = await query;
+      tasks = result.data;
+      error = result.error;
+      console.log('🗄️ [FACILITY-TASKS] Supabase 쿼리 완료:', {
+        taskCount: tasks?.length || 0,
+        hasError: !!error
+      });
+    } catch (queryError) {
+      console.error('❌ [FACILITY-TASKS] Supabase 쿼리 예외:', queryError);
+      throw queryError;
+    }
 
     if (error) {
-      console.error('🔴 [FACILITY-TASKS] 조회 오류:', error);
+      console.error('🔴 [FACILITY-TASKS] Supabase 조회 오류:', error);
       throw error;
     }
 
     console.log('✅ [FACILITY-TASKS] 조회 성공:', {
-      user: user.name,
-      permission: user.permission_level,
+      user: user ? user.name : 'anonymous',
+      permission: user ? user.permission_level : 'guest',
       taskCount: tasks?.length || 0
     });
 
     return createSuccessResponse({
       tasks: tasks || [],
       count: tasks?.length || 0,
-      user: {
+      user: user ? {
         id: user.id,
         name: user.name,
         permission_level: user.permission_level
+      } : {
+        id: 'anonymous',
+        name: 'Anonymous User',
+        permission_level: 1
       },
       metadata: {
         filters: { businessName, taskType, status, assignee },
         totalCount: tasks?.length || 0,
-        userPermission: user.permission_level,
-        isAdmin: user.permission_level >= 4
+        userPermission: user ? user.permission_level : 1,
+        isAdmin: user ? user.permission_level >= 4 : false,
+        authStatus: user ? 'authenticated' : 'anonymous'
       }
     });
 
   } catch (error: any) {
-    console.error('🔴 [FACILITY-TASKS] GET 오류:', error?.message || error);
-    return createErrorResponse('시설 업무 목록 조회 중 오류가 발생했습니다', 500);
+    console.error('❌ [FACILITY-TASKS] GET 예외 발생:', {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack?.substring(0, 500), // 스택 트레이스 일부만
+      type: typeof error
+    });
+
+    // 구체적인 에러 메시지 제공
+    let errorMessage = '시설 업무 목록 조회 중 오류가 발생했습니다';
+    if (error?.message) {
+      if (error.message.includes('JWT')) {
+        errorMessage = 'JWT 토큰 인증 오류';
+      } else if (error.message.includes('database') || error.message.includes('supabase')) {
+        errorMessage = '데이터베이스 연결 오류';
+      } else if (error.message.includes('network')) {
+        errorMessage = '네트워크 연결 오류';
+      }
+    }
+
+    return createErrorResponse(errorMessage, 500);
   }
 }, { logLevel: 'debug' });
 
