@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/ui/AdminLayout';
 import {
   Settings,
@@ -37,6 +38,7 @@ const DEFAULT_CRITERIA: DelayCriteria = {
 };
 
 export default function AdminSettingsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTab>('delay-criteria');
 
   // 지연 기준 설정 상태
@@ -439,7 +441,7 @@ export default function AdminSettingsPage() {
                     개인, 팀, 전사 알림을 생성하고 관리할 수 있습니다.
                   </p>
                   <button
-                    onClick={() => window.open('/admin/notifications', '_blank')}
+                    onClick={() => router.push('/admin/notifications')}
                     className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     알림 관리 페이지 열기
@@ -456,7 +458,7 @@ export default function AdminSettingsPage() {
                     3-tier 알림 시스템의 데이터베이스 상태를 확인하고 관리할 수 있습니다.
                   </p>
                   <button
-                    onClick={() => window.open('/admin/migrate', '_blank')}
+                    onClick={() => router.push('/admin/migrate')}
                     className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                   >
                     시스템 관리 도구 열기
