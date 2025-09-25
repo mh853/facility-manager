@@ -4,13 +4,55 @@ import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/li
 import { supabaseAdmin } from '@/lib/supabase';
 import { getTaskStatusKR, createStatusChangeMessage } from '@/lib/task-status-utils';
 import { createTaskAssignmentNotifications, updateTaskAssignmentNotifications, type TaskAssignee } from '@/lib/task-notification-service';
-import { getUserFromToken } from '@/lib/secure-jwt';
+import { verifyTokenHybrid } from '@/lib/secure-jwt';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// 새로운 보안 JWT 시스템 사용 (getUserFromToken은 secure-jwt.ts에서 import됨)
+// 새로운 보안 JWT 시스템 사용 (verifyTokenHybrid는 secure-jwt.ts에서 import됨)
+
+// 사용자 권한 확인 헬퍼 함수
+async function checkUserPermission(request: NextRequest) {
+  console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] 권한 확인 시작');
+
+  const authHeader = request.headers.get('authorization');
+  console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] Authorization 헤더:', authHeader ? `Bearer ${authHeader.slice(7, 20)}...` : 'null');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('❌ [FACILITY-TASKS-JWT-DEBUG] Authorization 헤더 없음 또는 형식 오류');
+    return { authorized: false, user: null };
+  }
+
+  try {
+    const token = authHeader.replace('Bearer ', '');
+    console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] 토큰 추출 성공, 길이:', token.length);
+
+    const result = await verifyTokenHybrid(token);
+    console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] verifyTokenHybrid 결과:', {
+      success: !!result.user,
+      userId: result.user?.id,
+      userName: result.user?.name,
+      userLevel: result.user?.permission_level,
+      levelType: typeof result.user?.permission_level,
+      error: result.error
+    });
+
+    if (!result.user) {
+      console.log('❌ [FACILITY-TASKS-JWT-DEBUG] 사용자 정보 없음:', result.error);
+      return { authorized: false, user: null };
+    }
+
+    console.log('✅ [FACILITY-TASKS-JWT-DEBUG] 사용자 인증 성공');
+    return {
+      authorized: true,
+      user: result.user
+    };
+  } catch (error) {
+    console.error('❌ [FACILITY-TASKS-JWT-DEBUG] 권한 확인 오류:', error);
+    return { authorized: false, user: null };
+  }
+}
 
 
 // 담당자 타입은 lib/task-notification-service.ts에서 import됨
@@ -52,8 +94,8 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     console.log('📋 [FACILITY-TASKS] 파라미터 파싱 완료:', { businessName, taskType, status, assignee });
 
     // 사용자 인증 및 권한 확인 (보안 강화된 JWT 시스템)
-    const user = await getUserFromToken(request);
-    if (!user) {
+    const { authorized, user } = await checkUserPermission(request);
+    if (!authorized || !user) {
       console.log('❌ [FACILITY-TASKS] GET 인증 실패');
       return createErrorResponse('인증이 필요합니다', 401);
     }
@@ -193,8 +235,8 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 export const POST = withApiHandler(async (request: NextRequest) => {
   try {
     // 사용자 인증 및 권한 확인
-    const user = await getUserFromToken(request);
-    if (!user) {
+    const { authorized, user } = await checkUserPermission(request);
+    if (!authorized || !user) {
       return createErrorResponse('인증이 필요합니다', 401);
     }
 
@@ -351,8 +393,8 @@ export const POST = withApiHandler(async (request: NextRequest) => {
 export const PUT = withApiHandler(async (request: NextRequest) => {
   try {
     // 사용자 인증 및 권한 확인
-    const user = await getUserFromToken(request);
-    if (!user) {
+    const { authorized, user } = await checkUserPermission(request);
+    if (!authorized || !user) {
       return createErrorResponse('인증이 필요합니다', 401);
     }
 
@@ -599,8 +641,8 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
 export const DELETE = withApiHandler(async (request: NextRequest) => {
   try {
     // 사용자 인증 및 권한 확인
-    const user = await getUserFromToken(request);
-    if (!user) {
+    const { authorized, user } = await checkUserPermission(request);
+    if (!authorized || !user) {
       return createErrorResponse('인증이 필요합니다', 401);
     }
 
