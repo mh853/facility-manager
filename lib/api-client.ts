@@ -44,6 +44,46 @@ export class TokenManager {
       return false;
     }
   }
+
+  /**
+   * API 응답에서 새 토큰을 확인하고 자동 업데이트
+   */
+  static checkAndUpdateToken(response: Response): void {
+    const newToken = response.headers.get('X-New-Token');
+    const isRefreshed = response.headers.get('X-Token-Refreshed');
+
+    if (newToken && isRefreshed === 'true') {
+      console.log('🔄 [TOKEN] 서버에서 새 토큰 받음, 자동 업데이트');
+      this.setToken(newToken);
+    }
+  }
+
+  /**
+   * fetch 요청 시 토큰 자동 갱신 체크
+   */
+  static async fetchWithTokenRefresh(url: string, options: RequestInit = {}): Promise<Response> {
+    const token = this.getToken();
+    if (!token) {
+      throw new Error('인증 토큰이 없습니다');
+    }
+
+    // Authorization 헤더 추가
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers,
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    // 응답에서 새 토큰 체크 및 업데이트
+    this.checkAndUpdateToken(response);
+
+    return response;
+  }
 }
 
 class ApiClient {

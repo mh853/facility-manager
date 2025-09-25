@@ -3,72 +3,13 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createTaskAssignmentNotifications, updateTaskAssignmentNotifications, type TaskAssignee } from '@/lib/task-notification-service';
-import jwt from 'jsonwebtoken';
+import { getUserFromToken } from '@/lib/secure-jwt';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
-
-// JWT 토큰에서 사용자 정보 추출하는 헬퍼 함수
-async function getUserFromToken(request: NextRequest) {
-  try {
-    console.log('🔍 [AUTH DEBUG] 인증 헤더 확인 시작');
-
-    const authHeader = request.headers.get('authorization');
-    console.log('🔍 [AUTH DEBUG] Authorization 헤더:', authHeader ? 'Bearer로 시작하는지: ' + authHeader.startsWith('Bearer ') : 'null');
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ [AUTH DEBUG] Authorization 헤더 없음 또는 형식 오류');
-      return null;
-    }
-
-    const token = authHeader.substring(7);
-    console.log('🔍 [AUTH DEBUG] 토큰 추출 완료, 길이:', token.length);
-    console.log('🔍 [AUTH DEBUG] JWT_SECRET 길이:', JWT_SECRET.length);
-
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    console.log('🔍 [AUTH DEBUG] JWT 검증 성공, 페이로드:', {
-      userId: decoded.userId,
-      id: decoded.id,
-      name: decoded.name,
-      exp: decoded.exp ? new Date(decoded.exp * 1000).toISOString() : 'no expiration'
-    });
-
-    const targetUserId = decoded.userId || decoded.id;
-    console.log('🔍 [AUTH DEBUG] 조회할 사용자 ID:', targetUserId);
-
-    // 사용자 정보 조회
-    const { data: user, error } = await supabaseAdmin
-      .from('employees')
-      .select('id, name, email, permission_level, department')
-      .eq('id', targetUserId)
-      .eq('is_active', true)
-      .single();
-
-    console.log('🔍 [AUTH DEBUG] DB 조회 결과:', {
-      found: !!user,
-      error: error?.message || 'none',
-      userData: user ? { id: user.id, name: user.name, permission: user.permission_level } : null
-    });
-
-    if (error || !user) {
-      console.warn('❌ [AUTH DEBUG] 사용자 조회 실패:', error?.message);
-      return null;
-    }
-
-    console.log('✅ [AUTH DEBUG] 사용자 인증 성공:', user.name);
-    return user;
-  } catch (error) {
-    console.error('❌ [AUTH DEBUG] JWT 토큰 검증 실패:', {
-      name: error.name,
-      message: error.message,
-      JWT_SECRET_length: JWT_SECRET.length
-    });
-    return null;
-  }
-}
+// 새로운 보안 JWT 시스템 사용 (getUserFromToken은 secure-jwt.ts에서 import됨)
 
 
 // 담당자 타입은 lib/task-notification-service.ts에서 import됨
@@ -109,25 +50,16 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
     console.log('📋 [FACILITY-TASKS] 파라미터 파싱 완료:', { businessName, taskType, status, assignee });
 
-    // 사용자 인증 및 권한 확인 (임시로 선택적 인증 적용)
-    let user = null;
-    try {
-      console.log('🔐 [FACILITY-TASKS] 사용자 인증 시작');
-      user = await getUserFromToken(request);
-      console.log('🔐 [FACILITY-TASKS] 사용자 인증 결과:', user ? '성공' : '실패');
-    } catch (authError) {
-      console.error('❌ [FACILITY-TASKS] 인증 중 예외 발생:', authError);
-    }
-
+    // 사용자 인증 및 권한 확인 (보안 강화된 JWT 시스템)
+    const user = await getUserFromToken(request);
     if (!user) {
-      console.log('⚠️ [FACILITY-TASKS] GET 인증 실패 - 기본 권한으로 진행');
-      // 임시로 기본 권한으로 진행 (디버깅 목적)
-      // return createErrorResponse('인증이 필요합니다', 401);
+      console.log('❌ [FACILITY-TASKS] GET 인증 실패');
+      return createErrorResponse('인증이 필요합니다', 401);
     }
 
     console.log('📋 [FACILITY-TASKS] 시설 업무 목록 조회:', {
-      user: user ? user.name : 'anonymous',
-      permission: user ? user.permission_level : 'guest',
+      user: user.name,
+      permission: user.permission_level,
       filters: { businessName, taskType, status, assignee }
     });
 
@@ -210,29 +142,25 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     }
 
     console.log('✅ [FACILITY-TASKS] 조회 성공:', {
-      user: user ? user.name : 'anonymous',
-      permission: user ? user.permission_level : 'guest',
+      user: user.name,
+      permission: user.permission_level,
       taskCount: tasks?.length || 0
     });
 
     return createSuccessResponse({
       tasks: tasks || [],
       count: tasks?.length || 0,
-      user: user ? {
+      user: {
         id: user.id,
         name: user.name,
         permission_level: user.permission_level
-      } : {
-        id: 'anonymous',
-        name: 'Anonymous User',
-        permission_level: 1
       },
       metadata: {
         filters: { businessName, taskType, status, assignee },
         totalCount: tasks?.length || 0,
-        userPermission: user ? user.permission_level : 1,
-        isAdmin: user ? user.permission_level >= 4 : false,
-        authStatus: user ? 'authenticated' : 'anonymous'
+        userPermission: user.permission_level,
+        isAdmin: user.permission_level >= 4,
+        authStatus: 'authenticated'
       }
     });
 
