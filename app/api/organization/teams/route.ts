@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
         debug: {
           userLevel: user?.permission_level,
           userLevelType: typeof user?.permission_level,
-          requiredLevel: 1 // 임시로 레벨 1로 낮춤,
+          requiredLevel: 1, // 임시로 레벨 1로 낮춤
           authorized,
           hasUser: !!user
         }
@@ -271,7 +271,7 @@ export async function PUT(request: NextRequest) {
         debug: {
           userLevel: user?.permission_level,
           userLevelType: typeof user?.permission_level,
-          requiredLevel: 1 // 임시로 레벨 1로 낮춤,
+          requiredLevel: 1, // 임시로 레벨 1로 낮춤
           authorized,
           hasUser: !!user
         }
@@ -455,7 +455,7 @@ export async function DELETE(request: NextRequest) {
         debug: {
           userLevel: user?.permission_level,
           userLevelType: typeof user?.permission_level,
-          requiredLevel: 1 // 임시로 레벨 1로 낮춤,
+          requiredLevel: 1, // 임시로 레벨 1로 낮춤
           authorized,
           hasUser: !!user
         }
