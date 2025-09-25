@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, department_id, manager_user_id } = body;
+    const { name, description, department_id } = body;
 
     if (!name || !department_id) {
       return NextResponse.json({ error: '팀명과 소속 부서는 필수입니다.' }, { status: 400 });
@@ -193,7 +193,6 @@ export async function POST(request: NextRequest) {
         name,
         description,
         department_id,
-        manager_user_id,
         display_order: nextOrder
       })
       .select(`
@@ -281,7 +280,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, description, department_id, manager_user_id, display_order } = body;
+    const { id, name, description, department_id, display_order } = body;
 
     if (!id || !name || !department_id) {
       return NextResponse.json({ error: '팀 ID, 팀명, 소속 부서는 필수입니다.' }, { status: 400 });
@@ -348,7 +347,6 @@ export async function PUT(request: NextRequest) {
         name,
         description,
         department_id,
-        manager_user_id,
         display_order: finalDisplayOrder,
         updated_at: new Date().toISOString()
       })
