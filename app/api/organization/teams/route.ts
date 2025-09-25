@@ -12,14 +12,29 @@ async function checkUserPermission(request: NextRequest) {
     return { authorized: false, user: null };
   }
 
-  return {
-    authorized: true,
-    user: {
-      id: 'admin-user',
-      permission_level: 3,
-      name: '관리자'
+  try {
+    const token = authHeader.replace('Bearer ', '');
+
+    // JWT 토큰 검증 (실제 JWT 검증 로직 필요)
+    // 임시로 기본 검사만 수행
+    if (!token || token.length < 10) {
+      return { authorized: false, user: null };
     }
-  };
+
+    // 실제로는 JWT 토큰을 디코딩해서 사용자 정보를 가져와야 함
+    // 지금은 임시로 관리자 권한 부여
+    return {
+      authorized: true,
+      user: {
+        id: 'admin-user',
+        permission_level: 3,
+        name: '관리자'
+      }
+    };
+  } catch (error) {
+    console.error('권한 확인 오류:', error);
+    return { authorized: false, user: null };
+  }
 }
 
 // GET: 팀 목록 조회
@@ -393,8 +408,15 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id);
 
     if (deleteError) {
-      console.error('팀 삭제 오류:', deleteError);
-      return NextResponse.json({ error: '팀을 삭제할 수 없습니다.' }, { status: 500 });
+      console.error('팀 삭제 오류:', {
+        error: deleteError,
+        teamId: id,
+        userId: user.id
+      });
+      return NextResponse.json({
+        error: '팀을 삭제할 수 없습니다.',
+        details: deleteError.message
+      }, { status: 500 });
     }
 
     // 관련 알림들을 부서 알림으로 변경
@@ -424,14 +446,25 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 변경 히스토리 기록
-    await supabase.from('organization_changes').insert({
+    const entityId = parseInt(id);
+    if (isNaN(entityId)) {
+      console.error('팀 ID 변환 실패:', id);
+      return NextResponse.json({ error: '유효하지 않은 팀 ID입니다.' }, { status: 400 });
+    }
+
+    const { error: historyError } = await supabase.from('organization_changes').insert({
       change_type: 'delete',
       entity_type: 'team',
-      entity_id: parseInt(id),
+      entity_id: entityId,
       old_data: team,
       changed_by: user.id,
       impact_summary: `팀 삭제 - 알림 ${impact.affectedNotifications}개, 사용자 ${impact.affectedUsers}명 영향`
     });
+
+    if (historyError) {
+      console.error('히스토리 기록 오류:', historyError);
+      // 히스토리 기록 실패는 중요하지 않으므로 계속 진행
+    }
 
     return NextResponse.json({
       success: true,
