@@ -14,30 +14,58 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-pro
 // JWT 토큰에서 사용자 정보 추출하는 헬퍼 함수
 async function getUserFromToken(request: NextRequest) {
   try {
+    console.log('🔍 [AUTH DEBUG] 인증 헤더 확인 시작');
+
     const authHeader = request.headers.get('authorization');
+    console.log('🔍 [AUTH DEBUG] Authorization 헤더:', authHeader ? 'Bearer로 시작하는지: ' + authHeader.startsWith('Bearer ') : 'null');
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ [AUTH DEBUG] Authorization 헤더 없음 또는 형식 오류');
       return null;
     }
 
     const token = authHeader.substring(7);
+    console.log('🔍 [AUTH DEBUG] 토큰 추출 완료, 길이:', token.length);
+    console.log('🔍 [AUTH DEBUG] JWT_SECRET 길이:', JWT_SECRET.length);
+
     const decoded = jwt.verify(token, JWT_SECRET) as any;
+    console.log('🔍 [AUTH DEBUG] JWT 검증 성공, 페이로드:', {
+      userId: decoded.userId,
+      id: decoded.id,
+      name: decoded.name,
+      exp: decoded.exp ? new Date(decoded.exp * 1000).toISOString() : 'no expiration'
+    });
+
+    const targetUserId = decoded.userId || decoded.id;
+    console.log('🔍 [AUTH DEBUG] 조회할 사용자 ID:', targetUserId);
 
     // 사용자 정보 조회
     const { data: user, error } = await supabaseAdmin
       .from('employees')
       .select('id, name, email, permission_level, department')
-      .eq('id', decoded.userId || decoded.id)
+      .eq('id', targetUserId)
       .eq('is_active', true)
       .single();
 
+    console.log('🔍 [AUTH DEBUG] DB 조회 결과:', {
+      found: !!user,
+      error: error?.message || 'none',
+      userData: user ? { id: user.id, name: user.name, permission: user.permission_level } : null
+    });
+
     if (error || !user) {
-      console.warn('⚠️ [AUTH] 사용자 조회 실패:', error?.message);
+      console.warn('❌ [AUTH DEBUG] 사용자 조회 실패:', error?.message);
       return null;
     }
 
+    console.log('✅ [AUTH DEBUG] 사용자 인증 성공:', user.name);
     return user;
   } catch (error) {
-    console.warn('⚠️ [AUTH] JWT 토큰 검증 실패:', error);
+    console.error('❌ [AUTH DEBUG] JWT 토큰 검증 실패:', {
+      name: error.name,
+      message: error.message,
+      JWT_SECRET_length: JWT_SECRET.length
+    });
     return null;
   }
 }
