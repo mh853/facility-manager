@@ -85,18 +85,42 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { authorized, user } = await checkUserPermission(request);
-    if (!authorized || !user || user.permission_level < 3) {
-      console.error('조직 관리 권한 부족:', {
+    // 강화된 권한 검증 및 디버깅
+    const userLevel = user?.permission_level;
+    const hasValidLevel = userLevel !== undefined && userLevel !== null && userLevel >= 3;
+
+    console.log('🔍 [ORGANIZATION] 권한 검증 상세:', {
+      authorized,
+      user: user ? {
+        id: user.id,
+        name: user.name,
+        permission_level: user.permission_level,
+        permission_level_type: typeof user.permission_level
+      } : null,
+      hasValidLevel,
+      comparison: userLevel !== undefined ? `${userLevel} >= 3 = ${userLevel >= 3}` : 'userLevel is undefined'
+    });
+
+    if (!authorized || !user || !hasValidLevel) {
+      console.error('❌ [ORGANIZATION] 조직 관리 권한 거부:', {
+        reason: !authorized ? 'not_authorized' : !user ? 'no_user' : 'insufficient_level',
         authorized,
         userId: user?.id,
         userName: user?.name,
         userLevel: user?.permission_level,
+        userLevelType: typeof user?.permission_level,
         requiredLevel: 3
       });
+
       return NextResponse.json({
         error: '권한이 없습니다. 조직 관리는 레벨 3 이상의 권한이 필요합니다.',
-        userLevel: user?.permission_level,
-        requiredLevel: 3
+        debug: {
+          userLevel: user?.permission_level,
+          userLevelType: typeof user?.permission_level,
+          requiredLevel: 3,
+          authorized,
+          hasUser: !!user
+        }
       }, { status: 403 });
     }
 
@@ -194,18 +218,42 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { authorized, user } = await checkUserPermission(request);
-    if (!authorized || !user || user.permission_level < 3) {
-      console.error('조직 관리 권한 부족:', {
+    // 강화된 권한 검증 및 디버깅
+    const userLevel = user?.permission_level;
+    const hasValidLevel = userLevel !== undefined && userLevel !== null && userLevel >= 3;
+
+    console.log('🔍 [ORGANIZATION] 권한 검증 상세:', {
+      authorized,
+      user: user ? {
+        id: user.id,
+        name: user.name,
+        permission_level: user.permission_level,
+        permission_level_type: typeof user.permission_level
+      } : null,
+      hasValidLevel,
+      comparison: userLevel !== undefined ? `${userLevel} >= 3 = ${userLevel >= 3}` : 'userLevel is undefined'
+    });
+
+    if (!authorized || !user || !hasValidLevel) {
+      console.error('❌ [ORGANIZATION] 조직 관리 권한 거부:', {
+        reason: !authorized ? 'not_authorized' : !user ? 'no_user' : 'insufficient_level',
         authorized,
         userId: user?.id,
         userName: user?.name,
         userLevel: user?.permission_level,
+        userLevelType: typeof user?.permission_level,
         requiredLevel: 3
       });
+
       return NextResponse.json({
         error: '권한이 없습니다. 조직 관리는 레벨 3 이상의 권한이 필요합니다.',
-        userLevel: user?.permission_level,
-        requiredLevel: 3
+        debug: {
+          userLevel: user?.permission_level,
+          userLevelType: typeof user?.permission_level,
+          requiredLevel: 3,
+          authorized,
+          hasUser: !!user
+        }
       }, { status: 403 });
     }
 
@@ -354,18 +402,42 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { authorized, user } = await checkUserPermission(request);
-    if (!authorized || !user || user.permission_level < 3) {
-      console.error('조직 관리 권한 부족:', {
+    // 강화된 권한 검증 및 디버깅
+    const userLevel = user?.permission_level;
+    const hasValidLevel = userLevel !== undefined && userLevel !== null && userLevel >= 3;
+
+    console.log('🔍 [ORGANIZATION] 권한 검증 상세:', {
+      authorized,
+      user: user ? {
+        id: user.id,
+        name: user.name,
+        permission_level: user.permission_level,
+        permission_level_type: typeof user.permission_level
+      } : null,
+      hasValidLevel,
+      comparison: userLevel !== undefined ? `${userLevel} >= 3 = ${userLevel >= 3}` : 'userLevel is undefined'
+    });
+
+    if (!authorized || !user || !hasValidLevel) {
+      console.error('❌ [ORGANIZATION] 조직 관리 권한 거부:', {
+        reason: !authorized ? 'not_authorized' : !user ? 'no_user' : 'insufficient_level',
         authorized,
         userId: user?.id,
         userName: user?.name,
         userLevel: user?.permission_level,
+        userLevelType: typeof user?.permission_level,
         requiredLevel: 3
       });
+
       return NextResponse.json({
         error: '권한이 없습니다. 조직 관리는 레벨 3 이상의 권한이 필요합니다.',
-        userLevel: user?.permission_level,
-        requiredLevel: 3
+        debug: {
+          userLevel: user?.permission_level,
+          userLevelType: typeof user?.permission_level,
+          requiredLevel: 3,
+          authorized,
+          hasUser: !!user
+        }
       }, { status: 403 });
     }
 
