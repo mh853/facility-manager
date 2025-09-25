@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     const { authorized, user } = await checkUserPermission(request);
     // 강화된 권한 검증 및 디버깅
     const userLevel = user?.permission_level;
-    const hasValidLevel = userLevel !== undefined && userLevel !== null && userLevel >= 1; // 임시로 레벨 1로 낮춤
+    const hasValidLevel = userLevel !== undefined && userLevel !== null && userLevel >= 3;
 
     console.log('🔍 [ORGANIZATION] 권한 검증 상세:', {
       authorized,
@@ -240,7 +240,7 @@ export async function PUT(request: NextRequest) {
     const { authorized, user } = await checkUserPermission(request);
     // 강화된 권한 검증 및 디버깅
     const userLevel = user?.permission_level;
-    const hasValidLevel = userLevel !== undefined && userLevel !== null && userLevel >= 1; // 임시로 레벨 1로 낮춤
+    const hasValidLevel = userLevel !== undefined && userLevel !== null && userLevel >= 3;
 
     console.log('🔍 [ORGANIZATION] 권한 검증 상세:', {
       authorized,
@@ -423,7 +423,7 @@ export async function DELETE(request: NextRequest) {
     const { authorized, user } = await checkUserPermission(request);
     // 강화된 권한 검증 및 디버깅
     const userLevel = user?.permission_level;
-    const hasValidLevel = userLevel !== undefined && userLevel !== null && userLevel >= 1; // 임시로 레벨 1로 낮춤
+    const hasValidLevel = userLevel !== undefined && userLevel !== null && userLevel >= 3;
 
     console.log('🔍 [ORGANIZATION] 권한 검증 상세:', {
       authorized,
