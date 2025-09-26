@@ -47,6 +47,9 @@ type TaskStatus =
   | 'application_submit' | 'document_supplement' | 'pre_construction_inspection'
   | 'pre_construction_supplement' | 'completion_inspection' | 'completion_supplement'
   | 'final_document_submit' | 'subsidy_payment'
+  // AS 전용 단계
+  | 'as_customer_contact' | 'as_site_inspection' | 'as_quotation' | 'as_contract'
+  | 'as_part_order' | 'as_completed'
   // 기타 단계
   | 'etc_status'
 
@@ -74,6 +77,7 @@ interface Task {
   createdAt: string
   description?: string
   notes?: string
+  _stepInfo?: {status: TaskStatus, label: string, color: string} // 전체 보기에서 올바른 단계 정보
 }
 
 interface CreateTaskForm {
@@ -137,12 +141,12 @@ const etcSteps: Array<{status: TaskStatus, label: string, color: string}> = [
 
 // 상태별 단계 정의 (AS)
 const asSteps: Array<{status: TaskStatus, label: string, color: string}> = [
-  { status: 'customer_contact', label: '고객 상담', color: 'blue' },
-  { status: 'site_inspection', label: '현장 확인', color: 'yellow' },
-  { status: 'quotation', label: 'AS 견적', color: 'orange' },
-  { status: 'contract', label: 'AS 계약', color: 'purple' },
-  { status: 'product_order', label: '부품 발주', color: 'cyan' },
-  { status: 'installation', label: 'AS 완료', color: 'green' }
+  { status: 'as_customer_contact', label: 'AS 고객 상담', color: 'blue' },
+  { status: 'as_site_inspection', label: 'AS 현장 확인', color: 'yellow' },
+  { status: 'as_quotation', label: 'AS 견적 작성', color: 'orange' },
+  { status: 'as_contract', label: 'AS 계약 체결', color: 'purple' },
+  { status: 'as_part_order', label: 'AS 부품 발주', color: 'cyan' },
+  { status: 'as_completed', label: 'AS 완료', color: 'green' }
 ]
 
 function TaskManagementPage() {
@@ -156,7 +160,7 @@ function TaskManagementPage() {
   const [assigneeFilterInitialized, setAssigneeFilterInitialized] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
-  const [isCompactMode, setIsCompactMode] = useState(true)
+  const [isCompactMode, setIsCompactMode] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
@@ -537,12 +541,64 @@ function TaskManagementPage() {
                   selectedType === 'subsidy' ? subsidySteps :
                   selectedType === 'etc' ? etcSteps : asSteps
 
-    const grouped = {} as Record<TaskStatus, Task[]>
-    steps.forEach(step => {
-      grouped[step.status] = filteredTasks.filter(task => task.status === step.status)
-    })
+    // 전체 보기일 때 중복 단계 제거
+    const uniqueSteps = selectedType === 'all' ? (() => {
+      const stepMap = new Map<string, typeof steps[0]>()
+      steps.forEach(step => {
+        if (!stepMap.has(step.label)) {
+          stepMap.set(step.label, step)
+        }
+      })
+      return Array.from(stepMap.values())
+    })() : steps
 
-    return { grouped, steps }
+    const grouped = {} as Record<TaskStatus, Task[]>
+
+    if (selectedType === 'all') {
+      // 전체 보기일 때: type+status를 모두 고려하여 올바른 단계에 배치
+      uniqueSteps.forEach(uniqueStep => {
+        const tasksForThisStep: Task[] = []
+
+        filteredTasks.forEach(task => {
+          // 업무의 실제 타입에 맞는 단계 정보를 찾기
+          const correctSteps = task.type === 'self' ? selfSteps :
+                             task.type === 'subsidy' ? subsidySteps :
+                             task.type === 'etc' ? etcSteps : asSteps
+
+          // 해당 타입의 단계 중에서 현재 상태와 일치하는 단계 찾기
+          const correctStep = correctSteps.find(s => s.status === task.status)
+
+          // 올바른 단계가 있고, 그 단계의 label이 현재 처리 중인 uniqueStep의 label과 같다면 포함
+          if (correctStep && correctStep.label === uniqueStep.label) {
+            // 업무에 올바른 단계 정보 첨부
+            const taskWithCorrectStep = {
+              ...task,
+              _stepInfo: correctStep
+            }
+            tasksForThisStep.push(taskWithCorrectStep)
+          }
+        })
+
+        // 업무 ID 기준 중복 제거 및 등록 순서로 정렬
+        const uniqueTasksMap = new Map<string, Task>()
+        tasksForThisStep.forEach(task => {
+          if (!uniqueTasksMap.has(task.id)) {
+            uniqueTasksMap.set(task.id, task)
+          }
+        })
+
+        const uniqueTasksArray = Array.from(uniqueTasksMap.values())
+        uniqueTasksArray.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        grouped[uniqueStep.status] = uniqueTasksArray
+      })
+    } else {
+      // 개별 카테고리 보기일 때: 기존 로직 유지
+      uniqueSteps.forEach(step => {
+        grouped[step.status] = filteredTasks.filter(task => task.status === step.status)
+      })
+    }
+
+    return { grouped, steps: uniqueSteps }
   }, [filteredTasks, selectedType])
 
   // 동적 통계 계산
@@ -1357,7 +1413,13 @@ function TaskManagementPage() {
                     return (
                       <tr key={task.id} className={`border-b border-gray-100 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
                         <td className="py-3 px-4 text-sm">
-                          <div className="font-medium text-gray-900">{task.businessName}</div>
+                          <button
+                            onClick={() => handleOpenEditModal(task)}
+                            className="font-medium text-gray-900 hover:text-blue-600 transition-colors cursor-pointer text-left"
+                            title="클릭하여 수정"
+                          >
+                            {task.businessName}
+                          </button>
                         </td>
                         <td className="py-3 px-4 text-sm">
                           <div className="flex flex-col gap-1">
@@ -1428,13 +1490,6 @@ function TaskManagementPage() {
                         </td>
                         <td className="py-3 px-4 text-sm">
                           <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleOpenEditModal(task)}
-                              className="p-1 text-gray-400 hover:text-green-600 rounded"
-                              title="수정"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()

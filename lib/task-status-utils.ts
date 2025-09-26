@@ -25,7 +25,15 @@ export const TASK_STATUS_KR: { [key: string]: string } = {
   'completion_inspection': '완공 검사',
   'completion_supplement': '완공 보완',
   'final_document_submit': '최종 서류 제출',
-  'subsidy_payment': '보조금 지급'
+  'subsidy_payment': '보조금 지급',
+
+  // AS 전용 단계
+  'as_customer_contact': 'AS 고객 상담',
+  'as_site_inspection': 'AS 현장 확인',
+  'as_quotation': 'AS 견적 작성',
+  'as_contract': 'AS 계약 체결',
+  'as_part_order': 'AS 부품 발주',
+  'as_completed': 'AS 완료'
 };
 
 // 업무 타입 한글 매핑
@@ -107,6 +115,7 @@ export function getStatusProgress(status: string): number {
  */
 export function getStatusColor(status: string): string {
   const colorMap: { [key: string]: string } = {
+    // 자가 시설 설치 단계
     'customer_contact': 'bg-gray-100 text-gray-800',
     'site_inspection': 'bg-blue-100 text-blue-800',
     'quotation': 'bg-yellow-100 text-yellow-800',
@@ -117,7 +126,15 @@ export function getStatusColor(status: string): string {
     'installation_schedule': 'bg-teal-100 text-teal-800',
     'installation': 'bg-green-100 text-green-800',
     'balance_payment': 'bg-emerald-100 text-emerald-800',
-    'document_complete': 'bg-green-200 text-green-900'
+    'document_complete': 'bg-green-200 text-green-900',
+
+    // AS 전용 단계
+    'as_customer_contact': 'bg-blue-100 text-blue-800',
+    'as_site_inspection': 'bg-yellow-100 text-yellow-800',
+    'as_quotation': 'bg-orange-100 text-orange-800',
+    'as_contract': 'bg-purple-100 text-purple-800',
+    'as_part_order': 'bg-cyan-100 text-cyan-800',
+    'as_completed': 'bg-green-100 text-green-800'
   };
 
   return colorMap[status] || 'bg-gray-100 text-gray-800';
