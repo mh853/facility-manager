@@ -21,10 +21,22 @@ export async function POST(request: NextRequest) {
       'http://localhost:3001',
       'http://localhost:3002',
       'http://localhost:3003',
+      'http://localhost:3004',
+      'http://localhost:3005',
+      'http://localhost:3006',
+      'http://localhost:3007',
+      'http://localhost:3008',
+      'http://localhost:3009',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:3001',
       'http://127.0.0.1:3002',
-      'http://127.0.0.1:3003'
+      'http://127.0.0.1:3003',
+      'http://127.0.0.1:3004',
+      'http://127.0.0.1:3005',
+      'http://127.0.0.1:3006',
+      'http://127.0.0.1:3007',
+      'http://127.0.0.1:3008',
+      'http://127.0.0.1:3009'
     ];
 
     // Vercel 자동 배포 도메인 동적 허용 (프로덕션 환경에서)
