@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { BusinessInfo } from '@/lib/database-service'
 import type { BusinessMemo, CreateBusinessMemoInput, UpdateBusinessMemoInput } from '@/types/database'
-import { getBusinessTaskStatus, getTaskSummary } from '@/lib/business-task-utils'
+import { getBusinessTaskStatus, getBatchBusinessTaskStatuses, getTaskSummary } from '@/lib/business-task-utils'
 
 interface Contact {
   name: string;
@@ -445,6 +445,9 @@ function BusinessManagementPage() {
   }>({})
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
 
+  // 🔄 검색 로딩 상태 (검색시 현재 단계 로딩용)
+  const [isSearchLoading, setIsSearchLoading] = useState(false)
+
   // 업무 상태 매핑 유틸리티 함수들
   const getStatusDisplayName = (status: string): string => {
     const statusMap: { [key: string]: string } = {
@@ -598,7 +601,19 @@ function BusinessManagementPage() {
   const loadBusinessTasks = async (businessName: string) => {
     setIsLoadingTasks(true)
     try {
-      const response = await fetch(`/api/facility-tasks?businessName=${encodeURIComponent(businessName)}`)
+      // 토큰을 포함한 인증 헤더 추가
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`/api/facility-tasks?businessName=${encodeURIComponent(businessName)}`, {
+        headers
+      });
       const result = await response.json()
 
       if (result.success) {
@@ -906,6 +921,81 @@ function BusinessManagementPage() {
     }
   }, [])
 
+  // 🔍 검색 시 동적 상태 조회 (새로 추가된 기능)
+  useEffect(() => {
+    const handleSearchResults = async () => {
+      if (searchQuery.trim() && filteredBusinesses.length > 0) {
+        console.log('🔍 [SEARCH-STATUS] 검색 결과에 대한 상태 조회 시작:', filteredBusinesses.length, '개 사업장')
+
+        // 현재 상태가 없는 사업장들만 필터링
+        const businessesNeedingStatus = filteredBusinesses.filter(business => {
+          const businessName = business.사업장명 || business.business_name || ''
+          return businessName && !businessTaskStatuses[businessName]
+        }).slice(0, 30) // 최대 30개까지만 조회
+
+        if (businessesNeedingStatus.length > 0) {
+          console.log('⚡ [SEARCH-STATUS] 상태 조회가 필요한 사업장:', businessesNeedingStatus.length, '개')
+
+          setIsSearchLoading(true) // 검색 로딩 시작
+
+          try {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+            const businessNames = businessesNeedingStatus
+              .map(business => business.사업장명 || business.business_name || '')
+              .filter(name => name)
+
+            // 개별 조회로 안전하게 처리 (배치 API 문제를 피하기 위해)
+            for (const businessName of businessNames.slice(0, 10)) { // 처음 10개만
+              try {
+                console.log('📋 [SEARCH-STATUS] 개별 조회:', businessName)
+                const status = await getBusinessTaskStatus(businessName, token)
+
+                // 즉시 업데이트하여 사용자가 바로 볼 수 있도록
+                setBusinessTaskStatuses(prev => ({
+                  ...prev,
+                  [businessName]: status
+                }))
+
+                // 100ms 딜레이로 서버 부하 방지
+                await new Promise(resolve => setTimeout(resolve, 100))
+              } catch (error) {
+                console.warn(`검색 상태 조회 실패 (${businessName}):`, error)
+                setBusinessTaskStatuses(prev => ({
+                  ...prev,
+                  [businessName]: {
+                    statusText: '조회 실패',
+                    colorClass: 'bg-gray-100 text-gray-600',
+                    lastUpdated: '',
+                    taskCount: 0,
+                    hasActiveTasks: false
+                  }
+                }))
+              }
+            }
+
+            console.log('✅ [SEARCH-STATUS] 검색 상태 조회 완료')
+
+          } catch (error) {
+            console.error('검색 상태 조회 오류:', error)
+          } finally {
+            setIsSearchLoading(false) // 검색 로딩 완료
+          }
+        } else {
+          console.log('ℹ️ [SEARCH-STATUS] 모든 검색 결과의 상태가 이미 로드됨')
+        }
+      }
+    }
+
+    // 검색어가 있을 때만 실행하고, 300ms 디바운스 적용
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim()) {
+        handleSearchResults()
+      }
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery]) // 검색어 변경 시에만 실행
+
   // 콤마 기반 다중 검색 키워드 파싱
   const searchTerms = useMemo(() => {
     if (!searchQuery.trim()) return []
@@ -1061,24 +1151,79 @@ function BusinessManagementPage() {
     }
   }, [airPermitData])
 
-  // 사업장별 업무 상태 로딩 함수
-  const loadBusinessTaskStatuses = useCallback(async (businesses: UnifiedBusinessInfo[]) => {
-    if (businesses.length === 0) return
+  // 🚀 페이지별 지연 로딩: 현재 페이지 사업장들의 현재 단계만 로딩
+  const loadCurrentPageTaskStatuses = useCallback(async (pageBusinesses: UnifiedBusinessInfo[]) => {
+    if (pageBusinesses.length === 0) return
 
-    setIsLoadingTasks(true)
-    const statusMap: typeof businessTaskStatuses = {}
+    console.log(`🎯 [PAGE-LOADING] 페이지별 현재 단계 로딩: ${pageBusinesses.length}개 사업장`)
 
     try {
-      // 각 사업장의 업무 상태를 병렬로 조회
-      const statusPromises = businesses.map(async (business) => {
-        try {
-          const status = await getBusinessTaskStatus(business.사업장명 || business.business_name || '')
-          return { businessName: business.사업장명 || business.business_name || '', status }
-        } catch (error) {
-          console.error(`업무 상태 조회 실패 (${business.사업장명}):`, error)
-          return {
-            businessName: business.사업장명 || business.business_name || '',
-            status: {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+
+      const businessNames = pageBusinesses
+        .map(business => business.사업장명 || business.business_name || '')
+        .filter(name => name)
+
+      // 이미 캐시된 사업장들 제외
+      const uncachedBusinesses = businessNames.filter(name =>
+        !businessTaskStatuses[name] || businessTaskStatuses[name].statusText === '로딩 중...'
+      )
+
+      if (uncachedBusinesses.length === 0) {
+        console.log('✅ [PAGE-LOADING] 모든 사업장이 이미 캐시됨')
+        return
+      }
+
+      console.log(`📊 [PAGE-LOADING] 캐시되지 않은 ${uncachedBusinesses.length}개 사업장 로딩`)
+
+      // 로딩 상태 표시
+      setBusinessTaskStatuses(prev => {
+        const newState = { ...prev }
+        uncachedBusinesses.forEach(businessName => {
+          newState[businessName] = {
+            statusText: '로딩 중...',
+            colorClass: 'bg-gray-100 text-gray-500 animate-pulse',
+            lastUpdated: '',
+            taskCount: 0,
+            hasActiveTasks: false
+          }
+        })
+        return newState
+      })
+
+      const batchResults = await getBatchBusinessTaskStatuses(uncachedBusinesses, token)
+
+      // 결과 업데이트 (기존 캐시 유지)
+      setBusinessTaskStatuses(prev => {
+        const newState = { ...prev }
+        uncachedBusinesses.forEach(businessName => {
+          if (batchResults[businessName]) {
+            newState[businessName] = batchResults[businessName]
+          } else {
+            newState[businessName] = {
+              statusText: '업무 미등록',
+              colorClass: 'bg-gray-100 text-gray-600',
+              lastUpdated: '',
+              taskCount: 0,
+              hasActiveTasks: false
+            }
+          }
+        })
+        return newState
+      })
+
+      console.log(`✅ [PAGE-LOADING] 완료: ${uncachedBusinesses.length}개 사업장`)
+
+    } catch (error) {
+      console.error('❌ [PAGE-LOADING] 페이지별 업무 상태 로딩 오류:', error)
+
+      // 오류 발생시 오류 상태로 설정
+      setBusinessTaskStatuses(prev => {
+        const newState = { ...prev }
+        pageBusinesses.forEach(business => {
+          const businessName = business.사업장명 || business.business_name || ''
+          if (businessName) {
+            newState[businessName] = {
               statusText: '조회 실패',
               colorClass: 'bg-gray-100 text-gray-600',
               lastUpdated: '',
@@ -1086,38 +1231,50 @@ function BusinessManagementPage() {
               hasActiveTasks: false
             }
           }
-        }
+        })
+        return newState
       })
-
-      const results = await Promise.all(statusPromises)
-
-      results.forEach(({ businessName, status }) => {
-        if (businessName) {
-          statusMap[businessName] = status
-        }
-      })
-
-      setBusinessTaskStatuses(statusMap)
-      console.log('✅ 업무 상태 로딩 완료:', Object.keys(statusMap).length, '개 사업장')
-
-    } catch (error) {
-      console.error('업무 상태 로딩 전체 오류:', error)
-    } finally {
-      setIsLoadingTasks(false)
     }
-  }, [])
+  }, [businessTaskStatuses])
 
   // 초기 데이터 로딩 - 의존성 제거하여 무한루프 방지
   useEffect(() => {
     loadAllBusinesses()
   }, [])
 
-  // 사업장 데이터 로드 후 업무 상태 조회
+  // 🎯 초기 로딩: 첫 페이지(12개)만 현재 단계 로딩
   useEffect(() => {
     if (allBusinesses.length > 0) {
-      loadBusinessTaskStatuses(allBusinesses)
+      console.log(`🚀 [INITIAL-LOAD] 첫 페이지 로딩 시작: 총 ${allBusinesses.length}개 중 12개`)
+      const firstPage = allBusinesses.slice(0, 12)
+      loadCurrentPageTaskStatuses(firstPage)
     }
-  }, [allBusinesses.length, loadBusinessTaskStatuses])
+  }, [allBusinesses.length, loadCurrentPageTaskStatuses])
+
+  // 🎯 페이지 변경 핸들러: 새 페이지 사업장들의 현재 단계 로딩
+  const handlePageChange = useCallback((page: number, pageData: UnifiedBusinessInfo[]) => {
+    console.log(`📄 [PAGE-CHANGE] ${page}페이지로 이동, ${pageData.length}개 사업장`)
+    loadCurrentPageTaskStatuses(pageData)
+  }, [loadCurrentPageTaskStatuses])
+
+  // 🔍 검색시 핸들러: 검색 결과의 현재 단계 로딩
+  const handleSearchChange = useCallback((searchResults: UnifiedBusinessInfo[]) => {
+    if (searchResults.length > 0) {
+      console.log(`🔍 [SEARCH] 검색 결과 ${searchResults.length}개 사업장의 현재 단계 로딩`)
+      loadCurrentPageTaskStatuses(searchResults.slice(0, 12)) // 첫 페이지만 로딩
+    }
+  }, [loadCurrentPageTaskStatuses])
+
+  // 🔍 검색 쿼리 변경 감지: 검색 결과의 첫 페이지 현재 단계 로딩
+  useEffect(() => {
+    if (searchQuery && filteredBusinesses.length > 0) {
+      console.log(`🔍 [SEARCH-TRIGGER] 검색어 변경: "${searchQuery}", 결과 ${filteredBusinesses.length}개`)
+      const firstPageOfResults = filteredBusinesses.slice(0, 12)
+      loadCurrentPageTaskStatuses(firstPageOfResults)
+    }
+  }, [searchQuery, filteredBusinesses.length, loadCurrentPageTaskStatuses])
+
+  // ✅ 페이지별 지연 로딩 구현 완료 - 백그라운드 로딩 제거됨
 
   // selectedBusiness 동기화를 위한 별도 useEffect (완전 최적화)
   useEffect(() => {
@@ -2010,13 +2167,25 @@ function BusinessManagementPage() {
                 <Building2 className="w-5 h-5 text-blue-600" />
                 사업장 목록
               </h2>
-              <span className="text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                {searchQuery ? (
-                  `검색결과 ${filteredBusinesses.length}개 (전체 ${allBusinesses.length}개 중)`
-                ) : (
-                  `전체 ${allBusinesses.length}개 사업장`
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                  {searchQuery ? (
+                    `검색결과 ${filteredBusinesses.length}개 (전체 ${allBusinesses.length}개 중)`
+                  ) : (
+                    `전체 ${allBusinesses.length}개 사업장`
+                  )}
+                </span>
+
+                {/* 검색 로딩 상태 표시 */}
+                {isSearchLoading && (
+                  <div className="flex items-center gap-1 text-sm text-blue-600">
+                    <div className="animate-spin rounded-full h-3 w-3 border border-blue-600 border-t-transparent"></div>
+                    <span>검색 상태 조회 중...</span>
+                  </div>
                 )}
-              </span>
+
+                {/* 페이지별 지연 로딩으로 백그라운드 로딩 UI 제거됨 */}
+              </div>
             </div>
             
             {/* 실시간 검색창 */}
@@ -2083,6 +2252,7 @@ function BusinessManagementPage() {
                 emptyMessage="등록된 사업장이 없습니다."
                 searchable={false}
                 pageSize={12}
+                onPageChange={handlePageChange}
               />
             </div>
           </div>

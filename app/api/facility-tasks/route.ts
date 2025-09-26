@@ -138,6 +138,8 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         manager_contact,
         local_government
       `)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false });
 
     // 임시로 권한 필터링 제거 - 모든 업무 조회 가능하도록 설정

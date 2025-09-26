@@ -1,5 +1,7 @@
 // lib/business-task-utils.ts - 사업장 업무 상태 관련 유틸리티 함수들
 
+import { TokenManager } from '@/lib/api-client';
+
 // 업무 타입 및 상태 타입 정의
 export type TaskType = 'self' | 'subsidy' | 'etc' | 'as'
 export type TaskStatus =
@@ -92,13 +94,26 @@ export async function getBusinessTaskStatus(businessName: string, token?: string
   hasActiveTasks: boolean
 }> {
   try {
+    // 토큰이 없으면 TokenManager에서 자동으로 가져오기
+    const authToken = token || TokenManager.getToken()
+    console.log('🔐 [BUSINESS-TASK-UTILS] 토큰 상태:', {
+      providedToken: !!token,
+      managerToken: !!TokenManager.getToken(),
+      finalToken: !!authToken,
+      tokenLength: authToken ? authToken.length : 0,
+      businessName
+    })
+
     // facility-tasks API 호출
     const headers: HeadersInit = {
       'Content-Type': 'application/json'
     }
 
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`
+      console.log('✅ [BUSINESS-TASK-UTILS] Authorization 헤더 설정됨')
+    } else {
+      console.warn('⚠️ [BUSINESS-TASK-UTILS] 토큰이 없어 Authorization 헤더 누락')
     }
 
     const response = await fetch(
@@ -118,7 +133,20 @@ export async function getBusinessTaskStatus(businessName: string, token?: string
     }
 
     const data = await response.json()
-    const tasks: FacilityTask[] = data.success && data.data ? data.data : []
+
+    let tasks: FacilityTask[] = []
+    if (data.success && data.data) {
+      // data.data가 배열인지 확인
+      if (Array.isArray(data.data)) {
+        tasks = data.data
+      } else if (data.data.tasks && Array.isArray(data.data.tasks)) {
+        // data.data.tasks가 배열인 경우
+        tasks = data.data.tasks
+      } else {
+        console.warn(`⚠️ 업무 데이터 형식 오류 (${businessName}):`, typeof data.data)
+        tasks = []
+      }
+    }
 
     // 진행 중인 업무만 필터링 (완료되지 않은 업무)
     const activeTasks = tasks.filter(task => !task.completed_at)
@@ -190,6 +218,102 @@ export async function getBusinessTaskStatus(businessName: string, token?: string
       hasActiveTasks: false
     }
   }
+}
+
+/**
+ * 다수 사업장의 업무 상태를 배치로 조회합니다 (성능 최적화)
+ * @param businessNames 사업장명 배열
+ * @param token 인증 토큰
+ * @returns 사업장별 업무 상태 매핑
+ */
+export async function getBatchBusinessTaskStatuses(
+  businessNames: string[],
+  token?: string
+): Promise<Record<string, {
+  statusText: string
+  colorClass: string
+  lastUpdated: string
+  taskCount: number
+  hasActiveTasks: boolean
+}>> {
+  console.log(`🚀 [BATCH-API] 배치 조회 시작: ${businessNames.length}개 사업장`)
+
+  try {
+    // 토큰 준비
+    const authToken = token || TokenManager.getToken()
+    if (!authToken) {
+      console.warn('⚠️ [BATCH-API] 토큰이 없어 개별 조회로 폴백')
+      return await fallbackToIndividualCalls(businessNames.slice(0, 20))
+    }
+
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`
+    }
+
+    // 배치 API 호출
+    const response = await fetch('/api/facility-tasks/batch', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ businessNames })
+    })
+
+    if (!response.ok) {
+      console.warn(`⚠️ [BATCH-API] 응답 오류 (${response.status}), 개별 조회로 폴백`)
+      return await fallbackToIndividualCalls(businessNames.slice(0, 50)) // 배치 실패시 50개까지 시도
+    }
+
+    const data = await response.json()
+    if (data.success && data.data?.businessStatuses) {
+      console.log(`✅ [BATCH-API] 성공: ${Object.keys(data.data.businessStatuses).length}개 사업장`)
+      return data.data.businessStatuses
+    }
+
+    console.warn('⚠️ [BATCH-API] 응답 형식 오류, 개별 조회로 폴백')
+    return await fallbackToIndividualCalls(businessNames.slice(0, 50))
+
+  } catch (error) {
+    console.error('❌ [BATCH-API] 오류:', error)
+    console.log('🔄 [BATCH-API] 개별 조회로 폴백')
+    return await fallbackToIndividualCalls(businessNames.slice(0, 50))
+  }
+}
+
+/**
+ * 배치 API 실패시 개별 조회로 폴백
+ */
+async function fallbackToIndividualCalls(
+  businessNames: string[],
+  token?: string
+): Promise<Record<string, {
+  statusText: string
+  colorClass: string
+  lastUpdated: string
+  taskCount: number
+  hasActiveTasks: boolean
+}>> {
+  console.log(`🔄 [FALLBACK] 개별 조회 시작: ${businessNames.length}개 사업장`)
+
+  const fallbackResults: Record<string, any> = {}
+
+  for (const businessName of businessNames) {
+    try {
+      const status = await getBusinessTaskStatus(businessName, token)
+      fallbackResults[businessName] = status
+    } catch (error) {
+      console.warn(`개별 조회 실패 (${businessName}):`, error)
+      fallbackResults[businessName] = {
+        statusText: '조회 실패',
+        colorClass: 'bg-gray-100 text-gray-600',
+        lastUpdated: '',
+        taskCount: 0,
+        hasActiveTasks: false
+      }
+    }
+  }
+
+  console.log(`✅ [FALLBACK] 완료: ${Object.keys(fallbackResults).length}개 사업장`)
+  return fallbackResults
 }
 
 /**

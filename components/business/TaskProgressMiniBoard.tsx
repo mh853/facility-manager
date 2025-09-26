@@ -169,14 +169,28 @@ export default function TaskProgressMiniBoard({
         user: user ? user.name : 'NO_USER'
       });
 
+      // 토큰이 없으면 에러 처리
+      if (!token) {
+        console.error('❌ [MINI-KANBAN] 인증 토큰이 없습니다');
+        setError('로그인이 필요합니다');
+        return;
+      }
+
       const response = await fetch(`/api/facility-tasks?businessName=${encodeURIComponent(businessName)}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
-        throw new Error(`API 응답 오류: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ [MINI-KANBAN] API 응답 오류:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
+        throw new Error(errorData.message || `API 응답 오류: ${response.status}`);
       }
 
       const data = await response.json();
