@@ -145,12 +145,12 @@ export default function DataTable<T extends { id: string }>({
           action.onClick(item)
         }}
         className={`
-          inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors
+          inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium border transition-colors
           ${variants[action.variant || 'secondary']}
         `}
         title={action.label}
       >
-        {Icon && <Icon className="w-4 h-4" />}
+        {Icon && <Icon className="w-3 h-3 sm:w-4 sm:h-4" />}
         <span className="hidden sm:inline">{action.label}</span>
       </button>
     )
@@ -232,7 +232,7 @@ export default function DataTable<T extends { id: string }>({
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               {selectable && (
-                <th className="px-2 py-2 text-left">
+                <th className="px-1 sm:px-2 py-1 sm:py-2 text-left">
                   <input
                     type="checkbox"
                     checked={selectedIds.length === paginatedData.length && paginatedData.length > 0}
@@ -245,7 +245,7 @@ export default function DataTable<T extends { id: string }>({
               {columns.map((column) => (
                 <th
                   key={column.key.toString()}
-                  className={`px-2 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider
+                  className={`px-1 sm:px-2 py-1 sm:py-2 text-[10px] sm:text-xs font-semibold text-gray-600 uppercase tracking-wider
                     ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}
                     ${column.sortable !== false ? 'cursor-pointer hover:bg-gray-100' : ''}
                   `}
@@ -264,7 +264,7 @@ export default function DataTable<T extends { id: string }>({
               ))}
               
               {actions.length > 0 && (
-                <th className="px-2 py-2 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-1 sm:px-2 py-1 sm:py-2 text-center text-[10px] sm:text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   작업
                 </th>
               )}
@@ -292,7 +292,7 @@ export default function DataTable<T extends { id: string }>({
                   onClick={() => onRowClick?.(item)}
                 >
                   {selectable && (
-                    <td className="px-2 py-1.5">
+                    <td className="px-1 sm:px-2 py-1 sm:py-1.5">
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(item.id)}
@@ -304,9 +304,9 @@ export default function DataTable<T extends { id: string }>({
                   )}
                   
                   {columns.map((column) => (
-                    <td 
+                    <td
                       key={column.key.toString()}
-                      className={`px-2 py-1.5 text-xs text-gray-900 max-w-0 truncate overflow-hidden
+                      className={`px-1 sm:px-2 py-1 sm:py-1.5 text-[10px] sm:text-xs text-gray-900 max-w-0 truncate overflow-hidden
                         ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}
                       `}
                       style={column.width ? { width: column.width } : undefined}
@@ -317,7 +317,7 @@ export default function DataTable<T extends { id: string }>({
                   ))}
                   
                   {actions.length > 0 && (
-                    <td className="px-2 py-1.5 text-center">
+                    <td className="px-1 sm:px-2 py-1 sm:py-1.5 text-center">
                       <div className="flex justify-center gap-1">
                         {actions
                           .filter(action => action.show ? action.show(item) : true)
@@ -336,7 +336,7 @@ export default function DataTable<T extends { id: string }>({
       {/* Results Info & Pagination */}
       {pagination && (
         <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="text-sm text-gray-500">
+          <div className="text-[10px] sm:text-sm text-gray-500">
             {searchTerm ? (
               <>
                 검색결과: {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, sortedData.length)} / {sortedData.length}개
@@ -354,7 +354,7 @@ export default function DataTable<T extends { id: string }>({
               <button
                 onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 text-sm border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-sm border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 이전
               </button>
@@ -367,9 +367,9 @@ export default function DataTable<T extends { id: string }>({
                 <button
                   key={page}
                   onClick={() => handlePageChange(page)}
-                  className={`px-3 py-1 text-sm rounded-md transition-colors
-                    ${isCurrentPage 
-                      ? 'bg-blue-600 text-white' 
+                  className={`px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-sm rounded-md transition-colors
+                    ${isCurrentPage
+                      ? 'bg-blue-600 text-white'
                       : 'border border-gray-200 hover:bg-gray-50'
                     }
                   `}
@@ -382,7 +382,7 @@ export default function DataTable<T extends { id: string }>({
               <button
                 onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 text-sm border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-sm border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 다음
               </button>

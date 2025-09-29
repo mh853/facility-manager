@@ -18,11 +18,11 @@ interface ModalProps {
 }
 
 const sizeClasses = {
-  sm: 'max-w-md',
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
-  xl: 'max-w-4xl',
-  full: 'max-w-full mx-4'
+  sm: 'max-w-xs sm:max-w-md',
+  md: 'max-w-sm sm:max-w-lg',
+  lg: 'max-w-md sm:max-w-xl md:max-w-2xl',
+  xl: 'max-w-lg sm:max-w-2xl md:max-w-4xl lg:max-w-5xl',
+  full: 'max-w-full mx-2 sm:mx-4'
 }
 
 export default function Modal({
@@ -71,7 +71,7 @@ export default function Modal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black bg-opacity-50 transition-opacity"
@@ -80,42 +80,42 @@ export default function Modal({
       
       {/* Modal */}
       <div className={`
-        relative w-full ${sizeClasses[size]} max-h-[90vh] bg-white rounded-xl shadow-2xl 
+        relative w-full ${sizeClasses[size]} max-h-[90vh] sm:max-h-[85vh] bg-white rounded-lg sm:rounded-xl shadow-2xl
         transform transition-all duration-200 scale-100 opacity-100
         flex flex-col ${className}
       `}>
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-gray-200">
             <div className="flex-1">
               {title && (
-                <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+                <h2 className="text-sm sm:text-lg md:text-xl font-semibold text-gray-900">{title}</h2>
               )}
               {description && (
-                <p className="mt-1 text-sm text-gray-500">{description}</p>
+                <p className="mt-1 text-xs sm:text-sm md:text-base text-gray-500">{description}</p>
               )}
             </div>
             
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="ml-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="ml-2 sm:ml-4 p-1 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             )}
           </div>
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
           {children}
         </div>
 
         {/* Actions */}
         {actions && (
-          <div className="border-t border-gray-200 p-6">
-            <div className="flex justify-end gap-3">
+          <div className="border-t border-gray-200 p-3 sm:p-4 md:p-6">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
               {actions}
             </div>
           </div>
@@ -131,7 +131,7 @@ export const ModalActions = {
     <button
       type="button"
       onClick={onClick}
-      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+      className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm md:text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors w-full sm:w-auto"
     >
       {children}
     </button>
@@ -162,8 +162,8 @@ export const ModalActions = {
         onClick={onClick}
         disabled={disabled || loading}
         className={`
-          px-4 py-2 text-sm font-medium text-white rounded-lg 
-          focus:ring-2 focus:ring-offset-2 transition-colors
+          px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm md:text-base font-medium text-white rounded-lg
+          focus:ring-2 focus:ring-offset-2 transition-colors w-full sm:w-auto
           disabled:opacity-50 disabled:cursor-not-allowed
           ${variants[variant]}
           ${loading ? 'cursor-wait' : ''}

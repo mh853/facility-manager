@@ -233,8 +233,8 @@ export default function AdminDashboard() {
       description="시설 관리 시스템 종합 현황"
     >
       <div className="space-y-8">
-        {/* 핵심 KPI 카드들 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* 핵심 KPI 카드들 - 2열 레이아웃 */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
           <StatsCard
             title="전체 사업장"
             value={stats.totalBusinesses}
@@ -286,38 +286,38 @@ export default function AdminDashboard() {
         {/* 조직 현황 섹션 */}
         <OrganizationChart />
 
-        {/* 빠른 액션 섹션 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Settings className="w-6 h-6 text-blue-600" />
+        {/* 빠른 액션 섹션 - 업무 관리 */}
+        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6">
+          <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-3 sm:mb-4 md:mb-6 flex items-center gap-2 sm:gap-3">
+            <div className="p-1 sm:p-1.5 md:p-2 bg-blue-100 rounded-lg">
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
             </div>
-            업무 관리
+            <span className="text-sm sm:text-base md:text-xl">업무 관리</span>
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {quickActions.map((action, index) => (
               <div
                 key={index}
                 onClick={() => !action.disabled && router.push(action.href)}
                 className={`
-                  relative p-6 rounded-xl border-2 transition-all duration-200 text-left cursor-pointer
+                  relative p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border-2 transition-all duration-200 text-left cursor-pointer
                   ${action.disabled
                     ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
                     : 'border-gray-200 hover:border-blue-300 hover:shadow-lg bg-white'
                   }
                 `}
               >
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start justify-between mb-2 sm:mb-3 md:mb-4">
                   <div className={`
-                    p-3 rounded-lg
+                    p-2 sm:p-2.5 md:p-3 rounded-lg
                     ${action.color === 'blue' ? 'bg-blue-100' : ''}
                     ${action.color === 'green' ? 'bg-green-100' : ''}
                     ${action.color === 'orange' ? 'bg-orange-100' : ''}
                     ${action.color === 'purple' ? 'bg-purple-100' : ''}
                   `}>
                     <action.icon className={`
-                      w-6 h-6
+                      w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6
                       ${action.color === 'blue' ? 'text-blue-600' : ''}
                       ${action.color === 'green' ? 'text-green-600' : ''}
                       ${action.color === 'orange' ? 'text-orange-600' : ''}
@@ -325,19 +325,19 @@ export default function AdminDashboard() {
                     `} />
                   </div>
                   {!action.disabled && (
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-400" />
                   )}
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">
                     {action.title}
                   </h3>
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-xs sm:text-sm md:text-base text-gray-600 mb-2 sm:mb-3 line-clamp-2">
                     {action.description}
                   </p>
                   <div className={`
-                    text-sm font-medium
+                    text-xs sm:text-sm md:text-base font-medium
                     ${action.color === 'blue' ? 'text-blue-600' : ''}
                     ${action.color === 'green' ? 'text-green-600' : ''}
                     ${action.color === 'orange' ? 'text-orange-600' : ''}
@@ -353,24 +353,24 @@ export default function AdminDashboard() {
         </div>
 
         {/* 최근 활동 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-600" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6">
+            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4 flex items-center gap-1 sm:gap-2">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               최근 활동
             </h3>
 
-            <div className="space-y-4">
+            <div className="space-y-2 sm:space-y-3 md:space-y-4">
               {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                  <div className="mt-1">
+                <div key={activity.id} className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <div className="mt-0.5 sm:mt-1">
                     {getActivityIcon(activity.type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 font-medium">
+                    <p className="text-xs sm:text-sm md:text-base text-gray-900 font-medium line-clamp-2">
                       {activity.message}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-[10px] sm:text-xs md:text-sm text-gray-500 mt-0.5 sm:mt-1">
                       {formatRelativeTime(activity.timestamp)}
                     </p>
                   </div>
@@ -388,72 +388,72 @@ export default function AdminDashboard() {
           </div>
 
           {/* 시스템 상태 */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-green-600" />
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6">
+            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4 flex items-center gap-1 sm:gap-2">
+              <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
               시스템 상태
             </h3>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-green-50">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-green-900">Supabase 연결</span>
+            <div className="space-y-2 sm:space-y-3 md:space-y-4">
+              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-green-50">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-xs sm:text-sm md:text-base font-medium text-green-900">Supabase 연결</span>
                 </div>
-                <span className="text-xs text-green-600">정상</span>
+                <span className="text-[10px] sm:text-xs md:text-sm text-green-600">정상</span>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-lg bg-green-50">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-green-900">파일 업로드</span>
+              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-green-50">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-xs sm:text-sm md:text-base font-medium text-green-900">파일 업로드</span>
                 </div>
-                <span className="text-xs text-green-600">정상</span>
+                <span className="text-[10px] sm:text-xs md:text-sm text-green-600">정상</span>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-50">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-yellow-900">매출 시스템</span>
+              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-yellow-50">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-yellow-500 rounded-full"></div>
+                  <span className="text-xs sm:text-sm md:text-base font-medium text-yellow-900">매출 시스템</span>
                 </div>
-                <span className="text-xs text-yellow-600">준비중</span>
+                <span className="text-[10px] sm:text-xs md:text-sm text-yellow-600">준비중</span>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-50">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-yellow-900">설치 관리</span>
+              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-yellow-50">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-yellow-500 rounded-full"></div>
+                  <span className="text-xs sm:text-sm md:text-base font-medium text-yellow-900">설치 관리</span>
                 </div>
-                <span className="text-xs text-yellow-600">준비중</span>
+                <span className="text-[10px] sm:text-xs md:text-sm text-yellow-600">준비중</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* 미래 기능 프리뷰 */}
-        <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-xl border border-blue-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-blue-600" />
+        <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-lg sm:rounded-xl border border-blue-200 p-3 sm:p-4 md:p-6">
+          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4 flex items-center gap-1 sm:gap-2">
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             개발 예정 기능
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white bg-opacity-70 rounded-lg p-4 border border-blue-100">
-              <CreditCard className="w-8 h-8 text-blue-600 mb-3" />
-              <h4 className="font-semibold text-gray-900 mb-2">매출 관리</h4>
-              <p className="text-sm text-gray-600">월별/연도별 매출 분석, 청구서 관리, 수익성 분석</p>
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+            <div className="bg-white bg-opacity-70 rounded-lg p-3 sm:p-4 border border-blue-100">
+              <CreditCard className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-blue-600 mb-2 sm:mb-3" />
+              <h4 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">매출 관리</h4>
+              <p className="text-xs sm:text-sm md:text-base text-gray-600 line-clamp-3">월별/연도별 매출 분석, 청구서 관리, 수익성 분석</p>
             </div>
 
-            <div className="bg-white bg-opacity-70 rounded-lg p-4 border border-blue-100">
-              <Wrench className="w-8 h-8 text-orange-600 mb-3" />
-              <h4 className="font-semibold text-gray-900 mb-2">설치 관리</h4>
-              <p className="text-sm text-gray-600">설치 일정 관리, 진행 상황 추적, 기술자 배정</p>
+            <div className="bg-white bg-opacity-70 rounded-lg p-3 sm:p-4 border border-blue-100">
+              <Wrench className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-orange-600 mb-2 sm:mb-3" />
+              <h4 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">설치 관리</h4>
+              <p className="text-xs sm:text-sm md:text-base text-gray-600 line-clamp-3">설치 일정 관리, 진행 상황 추적, 기술자 배정</p>
             </div>
 
-            <div className="bg-white bg-opacity-70 rounded-lg p-4 border border-blue-100">
-              <BarChart3 className="w-8 h-8 text-purple-600 mb-3" />
-              <h4 className="font-semibold text-gray-900 mb-2">통계 리포트</h4>
-              <p className="text-sm text-gray-600">업무 성과 분석, 트렌드 분석, 자동 리포트 생성</p>
+            <div className="bg-white bg-opacity-70 rounded-lg p-3 sm:p-4 border border-blue-100">
+              <BarChart3 className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-purple-600 mb-2 sm:mb-3" />
+              <h4 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">통계 리포트</h4>
+              <p className="text-xs sm:text-sm md:text-base text-gray-600 line-clamp-3">업무 성과 분석, 트렌드 분석, 자동 리포트 생성</p>
             </div>
           </div>
         </div>

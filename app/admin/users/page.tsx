@@ -849,120 +849,123 @@ function UsersManagementPage() {
       <div className="space-y-8">
 
         {/* 헤더 통계 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="w-6 h-6 text-blue-600" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-6">
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+              <div className="p-1 sm:p-1.5 md:p-2 bg-blue-100 rounded-md sm:rounded-lg">
+                <Users className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-600" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600">전체 사용자</p>
-                <p className="text-2xl font-bold text-gray-900">{employees.length}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600 truncate">전체 사용자</p>
+                <p className="text-xs sm:text-sm md:text-lg lg:text-2xl font-bold text-gray-900">{employees.length}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <UserCheck className="w-6 h-6 text-green-600" />
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-6">
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+              <div className="p-1 sm:p-1.5 md:p-2 bg-green-100 rounded-md sm:rounded-lg">
+                <UserCheck className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-600" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600">활성 사용자</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="min-w-0 flex-1">
+                <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600 truncate">활성 사용자</p>
+                <p className="text-xs sm:text-sm md:text-lg lg:text-2xl font-bold text-gray-900">
                   {employees.filter(emp => emp.is_active && !emp.is_deleted).length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <Shield className="w-6 h-6 text-red-600" />
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-6">
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+              <div className="p-1 sm:p-1.5 md:p-2 bg-red-100 rounded-md sm:rounded-lg">
+                <Shield className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-red-600" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600">관리자</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="min-w-0 flex-1">
+                <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600 truncate">관리자</p>
+                <p className="text-xs sm:text-sm md:text-lg lg:text-2xl font-bold text-gray-900">
                   {employees.filter(emp => emp.permission_level === 3).length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <AlertTriangle className="w-6 h-6 text-orange-600" />
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-6">
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+              <div className="p-1 sm:p-1.5 md:p-2 bg-orange-100 rounded-md sm:rounded-lg">
+                <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-600" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600">승인 대기</p>
-                <p className="text-2xl font-bold text-gray-900">{socialApprovals.length}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600 truncate">승인 대기</p>
+                <p className="text-xs sm:text-sm md:text-lg lg:text-2xl font-bold text-gray-900">{socialApprovals.length}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* 탭 메뉴 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200">
           <div className="border-b border-gray-200">
-            <nav className="flex">
+            <nav className="flex overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setActiveTab('users')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 ${
+                className={`px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'users'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                등록된 사용자 ({employees.length})
+                <span className="hidden sm:inline">등록된 사용자 ({employees.length})</span>
+                <span className="sm:hidden">사용자 ({employees.length})</span>
               </button>
               <button
                 onClick={() => setActiveTab('approvals')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 ${
+                className={`px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'approvals'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                승인 요청 ({socialApprovals.length})
+                <span className="hidden sm:inline">승인 요청 ({socialApprovals.length})</span>
+                <span className="sm:hidden">승인 ({socialApprovals.length})</span>
               </button>
               <button
                 onClick={() => setActiveTab('settings')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 ${
+                className={`px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'settings'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                승인 설정
+                <span className="hidden sm:inline">승인 설정</span>
+                <span className="sm:hidden">설정</span>
               </button>
             </nav>
           </div>
 
           {/* 사용자 목록 탭 */}
           {activeTab === 'users' && (
-            <div className="p-6">
+            <div className="p-2 sm:p-3 md:p-4 lg:p-6">
               {/* 검색 및 필터 */}
-              <div className="mb-6 flex flex-col sm:flex-row gap-4">
+              <div className="mb-3 sm:mb-4 md:mb-6 flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4">
                 <div className="flex-1">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="이름, 이메일, 직원번호로 검색..."
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="검색..."
+                      className="w-full pl-8 sm:pl-10 pr-2 sm:pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-md sm:rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-[10px] sm:text-xs md:text-sm"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-1 sm:gap-2 md:gap-3">
                   <select
                     value={permissionFilter}
                     onChange={(e) => setPermissionFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    className="border border-gray-300 rounded-md sm:rounded-lg px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                   >
                     <option value="all">모든 권한</option>
                     <option value={3}>관리자</option>
@@ -973,7 +976,7 @@ function UsersManagementPage() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    className="border border-gray-300 rounded-md sm:rounded-lg px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                   >
                     <option value="all">모든 상태</option>
                     <option value="active">활성</option>
@@ -987,44 +990,45 @@ function UsersManagementPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사용자</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">부서/직급</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">권한</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">최근 로그인</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">관리</th>
+                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">사용자</th>
+                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">부서/직급</th>
+                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">권한</th>
+                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">최근 로그인</th>
+                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">관리</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredEmployees.map((employee) => (
                       <tr key={employee.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-bold text-white">
+                            <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold text-white">
                                 {employee.name.charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">{employee.name}</div>
-                              <div className="text-sm text-gray-500">{employee.email}</div>
+                            <div className="ml-1 sm:ml-2 md:ml-3 lg:ml-4 min-w-0 flex-1">
+                              <div className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-medium text-gray-900 truncate">{employee.name}</div>
+                              <div className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-500 truncate">{employee.email}</div>
                               {employee.employee_id && (
-                                <div className="text-xs text-gray-400">ID: {employee.employee_id}</div>
+                                <div className="text-[7px] sm:text-[8px] md:text-[9px] lg:text-xs text-gray-400 truncate hidden sm:block">ID: {employee.employee_id}</div>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{employee.department || '-'}</div>
-                          <div className="text-sm text-gray-500">{employee.position || '-'}</div>
+                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap hidden sm:table-cell">
+                          <div className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-900">{employee.department || '-'}</div>
+                          <div className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-500">{employee.position || '-'}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPermissionLabel(employee.permission_level).color}`}>
-                            {getPermissionLabel(employee.permission_level).text}
+                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-1 sm:px-1.5 md:px-2.5 py-0.5 rounded-full text-[7px] sm:text-[8px] md:text-[9px] lg:text-xs font-medium border ${getPermissionLabel(employee.permission_level).color}`}>
+                            <span className="hidden sm:inline">{getPermissionLabel(employee.permission_level).text}</span>
+                            <span className="sm:hidden">{getPermissionLabel(employee.permission_level).text.slice(0, 2)}</span>
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-1 sm:px-1.5 md:px-2.5 py-0.5 rounded-full text-[7px] sm:text-[8px] md:text-[9px] lg:text-xs font-medium ${
                             employee.is_active && !employee.is_deleted
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
@@ -1032,47 +1036,47 @@ function UsersManagementPage() {
                             {employee.is_active && !employee.is_deleted ? '활성' : '비활성'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-500 hidden md:table-cell">
                           {employee.last_login_at
                             ? new Date(employee.last_login_at).toLocaleDateString('ko-KR')
                             : '없음'
                           }
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center gap-2">
+                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm font-medium">
+                          <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2">
                             <button
                               onClick={() => loadUserDetails(employee)}
-                              className="text-blue-600 hover:text-blue-900"
+                              className="text-blue-600 hover:text-blue-900 p-0.5 sm:p-1"
                               title="상세 정보"
                             >
-                              <Eye className="w-4 h-4" />
+                              <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                             <button
                               onClick={() => {
                                 setEditingUser(employee);
                                 setShowEditModal(true);
                               }}
-                              className="text-indigo-600 hover:text-indigo-900"
+                              className="text-indigo-600 hover:text-indigo-900 p-0.5 sm:p-1"
                               title="정보 수정"
                             >
-                              <Edit className="w-4 h-4" />
+                              <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                             <button
                               onClick={() => {
                                 setResetPasswordUser(employee);
                                 setShowPasswordModal(true);
                               }}
-                              className="text-orange-600 hover:text-orange-900"
+                              className="text-orange-600 hover:text-orange-900 p-0.5 sm:p-1 hidden sm:block"
                               title="비밀번호 재설정"
                             >
-                              <Shield className="w-4 h-4" />
+                              <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                             <button
                               onClick={() => handleUserToggle(employee.id, !employee.is_active)}
-                              className={employee.is_active ? "text-red-600 hover:text-red-900" : "text-green-600 hover:text-green-900"}
+                              className={`${employee.is_active ? "text-red-600 hover:text-red-900" : "text-green-600 hover:text-green-900"} p-0.5 sm:p-1`}
                               title={employee.is_active ? "비활성화" : "활성화"}
                             >
-                              {employee.is_active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                              {employee.is_active ? <UserX className="w-3 h-3 sm:w-4 sm:h-4" /> : <UserCheck className="w-3 h-3 sm:w-4 sm:h-4" />}
                             </button>
                           </div>
                         </td>
@@ -1082,10 +1086,10 @@ function UsersManagementPage() {
                 </table>
 
                 {filteredEmployees.length === 0 && (
-                  <div className="text-center py-12">
-                    <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-sm font-medium text-gray-900 mb-1">사용자가 없습니다</h3>
-                    <p className="text-sm text-gray-500">조건에 맞는 사용자가 없습니다.</p>
+                  <div className="text-center py-6 sm:py-8 md:py-12">
+                    <Users className="w-6 h-6 sm:w-8 sm:h-8 md:w-12 md:h-12 text-gray-400 mx-auto mb-2 sm:mb-3 md:mb-4" />
+                    <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-900 mb-1">사용자가 없습니다</h3>
+                    <p className="text-[9px] sm:text-[10px] md:text-sm text-gray-500">조건에 맞는 사용자가 없습니다.</p>
                   </div>
                 )}
               </div>
@@ -1094,14 +1098,14 @@ function UsersManagementPage() {
 
           {/* 승인 요청 탭 */}
           {activeTab === 'approvals' && (
-            <div className="p-6">
+            <div className="p-2 sm:p-3 md:p-4 lg:p-6">
               {socialApprovals.length === 0 ? (
-                <div className="text-center py-12">
-                  <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
-                  <h3 className="text-sm font-medium text-gray-900 mb-1">자동 승인 시스템 운영 중</h3>
-                  <p className="text-sm text-gray-500">현재 시설관리 시스템은 자동 승인으로 운영됩니다. 회원가입 시 즉시 계정이 생성되며, 별도 승인 과정이 없습니다.</p>
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-blue-700">
+                <div className="text-center py-6 sm:py-8 md:py-12">
+                  <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 md:w-12 md:h-12 text-green-400 mx-auto mb-2 sm:mb-3 md:mb-4" />
+                  <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-900 mb-1">자동 승인 시스템 운영 중</h3>
+                  <p className="text-[9px] sm:text-[10px] md:text-sm text-gray-500 px-2 sm:px-4">현재 시설관리 시스템은 자동 승인으로 운영됩니다. 회원가입 시 즉시 계정이 생성되며, 별도 승인 과정이 없습니다.</p>
+                  <div className="mt-2 sm:mt-3 md:mt-4 p-2 sm:p-3 md:p-4 bg-blue-50 rounded-md sm:rounded-lg mx-2 sm:mx-4">
+                    <p className="text-[8px] sm:text-[9px] md:text-xs text-blue-700">
                       💡 <strong>참고:</strong> 승인 설정 탭에서 자동 승인 규칙을 설정할 수 있습니다.
                     </p>
                   </div>
@@ -1111,11 +1115,11 @@ function UsersManagementPage() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">요청자</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">소셜 로그인</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">요청 권한</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">요청일</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">액션</th>
+                        <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">요청자</th>
+                        <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">소셜 로그인</th>
+                        <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">요청 권한</th>
+                        <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">요청일</th>
+                        <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">액션</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -1176,11 +1180,11 @@ function UsersManagementPage() {
 
           {/* 승인 설정 탭 */}
           {activeTab === 'settings' && (
-            <div className="p-6">
+            <div className="p-2 sm:p-3 md:p-4 lg:p-6">
               {loadingSettings ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-3 text-gray-600">설정을 불러오는 중...</span>
+                <div className="flex items-center justify-center py-6 sm:py-8 md:py-12">
+                  <div className="animate-spin rounded-full h-4 w-4 sm:h-6 sm:w-6 md:h-8 md:w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 sm:ml-3 text-[10px] sm:text-xs md:text-sm text-gray-600">설정을 불러오는 중...</span>
                 </div>
               ) : approvalSettings ? (
                 <ApprovalSettingsForm
@@ -1190,13 +1194,13 @@ function UsersManagementPage() {
                   isSaving={savingSettings}
                 />
               ) : (
-                <div className="text-center py-12">
-                  <AlertTriangle className="w-12 h-12 text-orange-400 mx-auto mb-4" />
-                  <h3 className="text-sm font-medium text-gray-900 mb-1">설정을 불러올 수 없습니다</h3>
-                  <p className="text-sm text-gray-500">승인 설정 로드 중 오류가 발생했습니다.</p>
+                <div className="text-center py-6 sm:py-8 md:py-12">
+                  <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 md:w-12 md:h-12 text-orange-400 mx-auto mb-2 sm:mb-3 md:mb-4" />
+                  <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-900 mb-1">설정을 불러올 수 없습니다</h3>
+                  <p className="text-[9px] sm:text-[10px] md:text-sm text-gray-500">승인 설정 로드 중 오류가 발생했습니다.</p>
                   <button
                     onClick={loadApprovalSettings}
-                    className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                    className="mt-2 sm:mt-3 md:mt-4 bg-blue-600 text-white px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-md hover:bg-blue-700 text-[9px] sm:text-[10px] md:text-sm"
                   >
                     다시 시도
                   </button>
@@ -1209,10 +1213,10 @@ function UsersManagementPage() {
 
       {/* 사용자 편집 모달 */}
       {showEditModal && editingUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">사용자 정보 수정</h3>
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 p-2 sm:p-4">
+          <div className="relative top-4 sm:top-8 md:top-20 mx-auto p-3 sm:p-4 md:p-5 border w-full sm:w-80 md:w-96 max-w-md shadow-lg rounded-lg bg-white">
+            <div className="mt-1 sm:mt-2 md:mt-3">
+              <h3 className="text-sm sm:text-base md:text-lg font-medium text-gray-900 mb-2 sm:mb-3 md:mb-4">사용자 정보 수정</h3>
 
               <form onSubmit={(e) => {
                 e.preventDefault();
@@ -1225,55 +1229,55 @@ function UsersManagementPage() {
                   permission_level: parseInt(formData.get('permission_level') as string)
                 });
               }}>
-                <div className="space-y-4">
+                <div className="space-y-2 sm:space-y-3 md:space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+                    <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1">이름</label>
                     <input
                       type="text"
                       name="name"
                       defaultValue={editingUser.name}
                       required
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+                    <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1">이메일</label>
                     <input
                       type="email"
                       name="email"
                       defaultValue={editingUser.email}
                       required
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
+                    <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1">부서</label>
                     <input
                       type="text"
                       name="department"
                       defaultValue={editingUser.department || ''}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">직급</label>
+                    <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1">직급</label>
                     <input
                       type="text"
                       name="position"
                       defaultValue={editingUser.position || ''}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">권한 레벨</label>
+                    <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1">권한 레벨</label>
                     <select
                       name="permission_level"
                       defaultValue={editingUser.permission_level}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                     >
                       <option value={1}>일반사용자</option>
                       <option value={2}>매니저</option>
@@ -1282,20 +1286,20 @@ function UsersManagementPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end space-x-3 mt-6">
+                <div className="flex justify-end space-x-2 sm:space-x-3 mt-3 sm:mt-4 md:mt-6">
                   <button
                     type="button"
                     onClick={() => {
                       setShowEditModal(false);
                       setEditingUser(null);
                     }}
-                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200"
+                    className="bg-gray-100 text-gray-700 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-md hover:bg-gray-200 text-[10px] sm:text-xs md:text-sm"
                   >
                     취소
                   </button>
                   <button
                     type="submit"
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                    className="bg-blue-600 text-white px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-md hover:bg-blue-700 text-[10px] sm:text-xs md:text-sm"
                   >
                     저장
                   </button>
@@ -1308,40 +1312,40 @@ function UsersManagementPage() {
 
       {/* 비밀번호 재설정 모달 */}
       {showPasswordModal && resetPasswordUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">비밀번호 재설정</h3>
-              <p className="text-sm text-gray-600 mb-4">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 p-2 sm:p-4">
+          <div className="relative top-4 sm:top-8 md:top-20 mx-auto p-3 sm:p-4 md:p-5 border w-full sm:w-80 md:w-96 max-w-md shadow-lg rounded-lg bg-white">
+            <div className="mt-1 sm:mt-2 md:mt-3">
+              <h3 className="text-sm sm:text-base md:text-lg font-medium text-gray-900 mb-2 sm:mb-3 md:mb-4">비밀번호 재설정</h3>
+              <p className="text-[10px] sm:text-xs md:text-sm text-gray-600 mb-2 sm:mb-3 md:mb-4">
                 {resetPasswordUser.name}님의 비밀번호를 재설정합니다.
               </p>
 
-              <div className="space-y-4">
+              <div className="space-y-2 sm:space-y-3 md:space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">새 비밀번호</label>
+                  <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1">새 비밀번호</label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="새 비밀번호를 입력하세요"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 pr-10 text-sm"
+                      className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 pr-8 sm:pr-10 text-[10px] sm:text-xs md:text-sm"
                       minLength={8}
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? <EyeOff className="w-3 h-3 sm:w-4 sm:h-4" /> : <Eye className="w-3 h-3 sm:w-4 sm:h-4" />}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">최소 8자 이상의 비밀번호를 입력하세요.</p>
+                  <p className="text-[8px] sm:text-[9px] md:text-xs text-gray-500 mt-1">최소 8자 이상의 비밀번호를 입력하세요.</p>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 mt-6">
+              <div className="flex justify-end space-x-2 sm:space-x-3 mt-3 sm:mt-4 md:mt-6">
                 <button
                   onClick={() => {
                     setShowPasswordModal(false);
@@ -1349,16 +1353,17 @@ function UsersManagementPage() {
                     setNewPassword('');
                     setShowPassword(false);
                   }}
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200"
+                  className="bg-gray-100 text-gray-700 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-md hover:bg-gray-200 text-[10px] sm:text-xs md:text-sm"
                 >
                   취소
                 </button>
                 <button
                   onClick={handlePasswordReset}
                   disabled={newPassword.length < 8}
-                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-red-600 text-white px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] sm:text-xs md:text-sm"
                 >
-                  비밀번호 재설정
+                  <span className="hidden sm:inline">비밀번호 재설정</span>
+                  <span className="sm:hidden">재설정</span>
                 </button>
               </div>
             </div>
@@ -1368,10 +1373,10 @@ function UsersManagementPage() {
 
       {/* 사용자 상세 정보 모달 */}
       {selectedUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-4 mx-auto p-5 border w-full max-w-6xl shadow-lg rounded-md bg-white">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 p-2 sm:p-4">
+          <div className="relative top-2 sm:top-4 mx-auto p-3 sm:p-4 md:p-5 border w-full max-w-sm sm:max-w-2xl md:max-w-4xl lg:max-w-6xl shadow-lg rounded-lg bg-white">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 md:mb-6 gap-3 sm:gap-0">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <button
                   onClick={() => {
                     setSelectedUser(null);
@@ -1380,23 +1385,24 @@ function UsersManagementPage() {
                   }}
                   className="text-gray-500 hover:text-gray-700"
                 >
-                  <ArrowLeft className="w-5 h-5" />
+                  <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                  <span className="text-lg font-bold text-white">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                  <span className="text-xs sm:text-sm md:text-lg font-bold text-white">
                     {selectedUser.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <div>
-                  <h3 className="text-xl font-medium text-gray-900">{selectedUser.name}</h3>
-                  <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm sm:text-base md:text-xl font-medium text-gray-900 truncate">{selectedUser.name}</h3>
+                  <p className="text-[10px] sm:text-xs md:text-sm text-gray-500 truncate">{selectedUser.email}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getPermissionLabel(selectedUser.permission_level).color}`}>
-                  {getPermissionLabel(selectedUser.permission_level).text}
+              <div className="flex items-center gap-1 sm:gap-2 self-start sm:self-center">
+                <span className={`inline-flex items-center px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[10px] md:text-sm font-medium border ${getPermissionLabel(selectedUser.permission_level).color}`}>
+                  <span className="hidden sm:inline">{getPermissionLabel(selectedUser.permission_level).text}</span>
+                  <span className="sm:hidden">{getPermissionLabel(selectedUser.permission_level).text.slice(0, 2)}</span>
                 </span>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                <span className={`inline-flex items-center px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[10px] md:text-sm font-medium ${
                   selectedUser.is_active && !selectedUser.is_deleted
                     ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
@@ -1407,94 +1413,98 @@ function UsersManagementPage() {
             </div>
 
             {/* 상세 정보 탭 */}
-            <div className="border-b border-gray-200 mb-6">
-              <nav className="flex">
+            <div className="border-b border-gray-200 mb-3 sm:mb-4 md:mb-6">
+              <nav className="flex overflow-x-auto scrollbar-hide">
                 <button
                   onClick={() => setUserDetailTab('info')}
-                  className={`px-6 py-3 text-sm font-medium border-b-2 ${
+                  className={`px-2 sm:px-3 md:px-6 py-2 sm:py-2.5 md:py-3 text-[9px] sm:text-[10px] md:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                     userDetailTab === 'info'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  기본 정보
+                  <span className="hidden sm:inline">기본 정보</span>
+                  <span className="sm:hidden">기본</span>
                 </button>
                 <button
                   onClick={() => setUserDetailTab('social')}
-                  className={`px-6 py-3 text-sm font-medium border-b-2 ${
+                  className={`px-2 sm:px-3 md:px-6 py-2 sm:py-2.5 md:py-3 text-[9px] sm:text-[10px] md:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                     userDetailTab === 'social'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  소셜 계정 ({userSocialAccounts.length})
+                  <span className="hidden sm:inline">소셜 계정 ({userSocialAccounts.length})</span>
+                  <span className="sm:hidden">소셜({userSocialAccounts.length})</span>
                 </button>
                 <button
                   onClick={() => setUserDetailTab('history')}
-                  className={`px-6 py-3 text-sm font-medium border-b-2 ${
+                  className={`px-2 sm:px-3 md:px-6 py-2 sm:py-2.5 md:py-3 text-[9px] sm:text-[10px] md:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                     userDetailTab === 'history'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  로그인 이력 ({userLoginHistory.length})
+                  <span className="hidden sm:inline">로그인 이력 ({userLoginHistory.length})</span>
+                  <span className="sm:hidden">이력({userLoginHistory.length})</span>
                 </button>
               </nav>
             </div>
 
             {loadingUserDetails ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-3 text-gray-600">데이터를 불러오는 중...</span>
+              <div className="flex items-center justify-center py-6 sm:py-8 md:py-12">
+                <div className="animate-spin rounded-full h-4 w-4 sm:h-6 sm:w-6 md:h-8 md:w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2 sm:ml-3 text-[10px] sm:text-xs md:text-sm text-gray-600">데이터를 불러오는 중...</span>
               </div>
             ) : (
-              <div className="min-h-96">
+              <div className="min-h-48 sm:min-h-64 md:min-h-96">
                 {/* 기본 정보 탭 */}
                 {userDetailTab === 'info' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-gray-900 mb-3">개인 정보</h4>
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">이름:</span>
-                            <span className="text-sm font-medium text-gray-900">{selectedUser.name}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
+                    <div className="space-y-2 sm:space-y-3 md:space-y-4">
+                      <div className="bg-gray-50 rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4">
+                        <h4 className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-900 mb-2 sm:mb-3">개인 정보</h4>
+                        <div className="space-y-1.5 sm:space-y-2">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[9px] sm:text-[10px] md:text-sm text-gray-600 flex-shrink-0">이름:</span>
+                            <span className="text-[9px] sm:text-[10px] md:text-sm font-medium text-gray-900 text-right">{selectedUser.name}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">이메일:</span>
-                            <span className="text-sm font-medium text-gray-900">{selectedUser.email}</span>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[9px] sm:text-[10px] md:text-sm text-gray-600 flex-shrink-0">이메일:</span>
+                            <span className="text-[9px] sm:text-[10px] md:text-sm font-medium text-gray-900 text-right break-all">{selectedUser.email}</span>
                           </div>
                           {selectedUser.employee_id && (
-                            <div className="flex justify-between">
-                              <span className="text-sm text-gray-600">직원번호:</span>
-                              <span className="text-sm font-medium text-gray-900">{selectedUser.employee_id}</span>
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-[9px] sm:text-[10px] md:text-sm text-gray-600 flex-shrink-0">직원번호:</span>
+                              <span className="text-[9px] sm:text-[10px] md:text-sm font-medium text-gray-900 text-right">{selectedUser.employee_id}</span>
                             </div>
                           )}
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">부서:</span>
-                            <span className="text-sm font-medium text-gray-900">{selectedUser.department || '-'}</span>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[9px] sm:text-[10px] md:text-sm text-gray-600 flex-shrink-0">부서:</span>
+                            <span className="text-[9px] sm:text-[10px] md:text-sm font-medium text-gray-900 text-right">{selectedUser.department || '-'}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">직급:</span>
-                            <span className="text-sm font-medium text-gray-900">{selectedUser.position || '-'}</span>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[9px] sm:text-[10px] md:text-sm text-gray-600 flex-shrink-0">직급:</span>
+                            <span className="text-[9px] sm:text-[10px] md:text-sm font-medium text-gray-900 text-right">{selectedUser.position || '-'}</span>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-gray-900 mb-3">계정 정보</h4>
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">권한 레벨:</span>
-                            <span className={`text-sm font-medium px-2 py-1 rounded ${getPermissionLabel(selectedUser.permission_level).color}`}>
-                              {getPermissionLabel(selectedUser.permission_level).text}
+                    <div className="space-y-2 sm:space-y-3 md:space-y-4">
+                      <div className="bg-gray-50 rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4">
+                        <h4 className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-900 mb-2 sm:mb-3">계정 정보</h4>
+                        <div className="space-y-1.5 sm:space-y-2">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[9px] sm:text-[10px] md:text-sm text-gray-600 flex-shrink-0">권한 레벨:</span>
+                            <span className={`text-[8px] sm:text-[9px] md:text-sm font-medium px-1 sm:px-1.5 md:px-2 py-0.5 sm:py-1 rounded ${getPermissionLabel(selectedUser.permission_level).color}`}>
+                              <span className="hidden sm:inline">{getPermissionLabel(selectedUser.permission_level).text}</span>
+                              <span className="sm:hidden">{getPermissionLabel(selectedUser.permission_level).text.slice(0, 2)}</span>
                             </span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">계정 상태:</span>
-                            <span className={`text-sm font-medium px-2 py-1 rounded ${
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[9px] sm:text-[10px] md:text-sm text-gray-600 flex-shrink-0">계정 상태:</span>
+                            <span className={`text-[8px] sm:text-[9px] md:text-sm font-medium px-1 sm:px-1.5 md:px-2 py-0.5 sm:py-1 rounded ${
                               selectedUser.is_active && !selectedUser.is_deleted
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
@@ -1502,15 +1512,15 @@ function UsersManagementPage() {
                               {selectedUser.is_active && !selectedUser.is_deleted ? '활성' : '비활성'}
                             </span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">가입일:</span>
-                            <span className="text-sm font-medium text-gray-900">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[9px] sm:text-[10px] md:text-sm text-gray-600 flex-shrink-0">가입일:</span>
+                            <span className="text-[9px] sm:text-[10px] md:text-sm font-medium text-gray-900 text-right">
                               {new Date(selectedUser.created_at).toLocaleDateString('ko-KR')}
                             </span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">최근 로그인:</span>
-                            <span className="text-sm font-medium text-gray-900">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[9px] sm:text-[10px] md:text-sm text-gray-600 flex-shrink-0">최근 로그인:</span>
+                            <span className="text-[9px] sm:text-[10px] md:text-sm font-medium text-gray-900 text-right">
                               {selectedUser.last_login_at
                                 ? new Date(selectedUser.last_login_at).toLocaleDateString('ko-KR')
                                 : '없음'
@@ -1527,9 +1537,9 @@ function UsersManagementPage() {
                 {userDetailTab === 'social' && (
                   <div>
                     {userSocialAccounts.length === 0 ? (
-                      <div className="text-center py-12">
-                        <Link className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-sm font-medium text-gray-900 mb-1">연결된 소셜 계정이 없습니다</h3>
+                      <div className="text-center py-6 sm:py-8 md:py-12">
+                        <Link className="w-6 h-6 sm:w-8 sm:h-8 md:w-12 md:h-12 text-gray-400 mx-auto mb-2 sm:mb-3 md:mb-4" />
+                        <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-900 mb-1">연결된 소셜 계정이 없습니다</h3>
                         <p className="text-sm text-gray-500">사용자가 소셜 계정으로 로그인하지 않았습니다.</p>
                       </div>
                     ) : (

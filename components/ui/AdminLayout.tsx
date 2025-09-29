@@ -284,8 +284,8 @@ export default function AdminLayout({ children, title, description, actions }: A
         {/* Main content - Improved layout */}
         <div className="flex-1 lg:flex lg:flex-col lg:min-h-0 lg:min-w-0">
           <div className="lg:bg-white lg:shadow-lg lg:border lg:border-gray-200 lg:rounded-xl lg:flex lg:flex-col lg:h-full lg:overflow-hidden">
-            {/* Top bar - Mobile optimized */}
-            <header className="bg-white lg:bg-transparent border-b border-gray-200 lg:border-gray-300 shadow-sm lg:shadow-none">
+            {/* Top bar - Mobile optimized with fixed positioning */}
+            <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md lg:bg-transparent border-b border-gray-200 lg:border-gray-300 shadow-sm lg:shadow-none">
               <div className="px-4 py-3 lg:px-8 lg:py-6">
                 {/* Mobile Layout (< 640px) - Minimal */}
                 <div className="flex items-center justify-between sm:hidden">
@@ -388,7 +388,7 @@ export default function AdminLayout({ children, title, description, actions }: A
             </header>
 
             {/* Page content */}
-            <main className="p-6 lg:p-8 lg:flex-1 lg:overflow-y-auto bg-gray-50 lg:bg-transparent">
+            <main className="p-1 sm:p-2 md:p-4 lg:p-6 lg:flex-1 lg:overflow-y-auto bg-gray-50 lg:bg-transparent">
               <div className="lg:h-full">
                 {children}
               </div>

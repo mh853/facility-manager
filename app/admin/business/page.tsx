@@ -1981,10 +1981,10 @@ function BusinessManagementPage() {
 
   // Table configuration - 시설관리 시스템에 맞게 수정
   const columns = [
-    { 
-      key: '사업장명' as string, 
+    {
+      key: '사업장명' as string,
       title: '사업장명',
-      width: '180px',
+      width: '140px',
       render: (item: any) => (
         <button
           onClick={() => openDetailModal(item)}
@@ -1994,26 +1994,26 @@ function BusinessManagementPage() {
         </button>
       )
     },
-    { 
-      key: '담당자명' as string, 
+    {
+      key: '담당자명' as string,
       title: '담당자',
-      width: '100px',
+      width: '80px',
       render: (item: any) => (
         searchQuery ? highlightSearchTerm(item.담당자명 || '-', searchQuery) : (item.담당자명 || '-')
       )
     },
-    { 
-      key: '담당자연락처' as string, 
+    {
+      key: '담당자연락처' as string,
       title: '연락처',
-      width: '120px',
+      width: '100px',
       render: (item: any) => (
         searchQuery ? highlightSearchTerm(item.담당자연락처 || '-', searchQuery) : (item.담당자연락처 || '-')
       )
     },
-    { 
-      key: '주소' as string, 
+    {
+      key: '주소' as string,
       title: '주소',
-      width: '200px',
+      width: '160px',
       render: (item: any) => (
         <div className="truncate" title={item.주소 || item.local_government || '-'}>
           {searchQuery ? highlightSearchTerm(item.주소 || item.local_government || '-', searchQuery) : (item.주소 || item.local_government || '-')}
@@ -2023,7 +2023,7 @@ function BusinessManagementPage() {
     {
       key: '현재단계',
       title: '현재 단계',
-      width: '140px',
+      width: '120px',
       render: (item: any) => {
         const businessName = item.사업장명 || item.business_name || ''
         const taskStatus = businessTaskStatuses[businessName]
@@ -2100,18 +2100,18 @@ function BusinessManagementPage() {
           {/* 데스크탑에서는 모든 버튼 표시 */}
           <button
             onClick={() => setIsUploadModalOpen(true)}
-            className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="hidden md:flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 md:px-4 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-[10px] sm:text-xs md:text-sm lg:text-base"
           >
-            <Upload className="w-4 h-4" />
+            <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
             엑셀 업로드
           </button>
 
           {/* 모바일과 데스크탑 모두에서 표시 - 핵심 액션 */}
           <button
             onClick={openAddModal}
-            className="flex items-center gap-2 px-3 py-2 md:px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm md:text-base"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 md:px-4 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-[10px] sm:text-xs md:text-sm lg:text-base"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="sm:hidden">추가</span>
             <span className="hidden sm:inline">새 사업장 추가</span>
           </button>
@@ -2120,7 +2120,7 @@ function BusinessManagementPage() {
     >
       <div className="space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-1 sm:gap-2 md:gap-3 lg:gap-4">
           <StatsCard
             title="전체 사업장"
             value={stats.total.toString()}
@@ -2161,14 +2161,14 @@ function BusinessManagementPage() {
 
         {/* Business List Panel - Single Column Layout */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 max-w-full overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-3 sm:p-6 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-blue-600" />
+              <h2 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 사업장 목록
               </h2>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                <span className="text-[10px] sm:text-xs md:text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                   {searchQuery ? (
                     `검색결과 ${filteredBusinesses.length}개 (전체 ${allBusinesses.length}개 중)`
                   ) : (
@@ -2192,14 +2192,14 @@ function BusinessManagementPage() {
             <div className="space-y-3">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
+                  <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                 </div>
                 <input
                   type="text"
                   placeholder="콤마로 구분하여 다중 검색: 청주, 보조금, 에코센스 (사업장명, 주소, 담당자, 제조사, 진행상태 등)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="block w-full pl-8 sm:pl-10 pr-3 py-1.5 sm:py-2 text-[10px] sm:text-sm border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {searchQuery && (
                   <button
@@ -2214,11 +2214,11 @@ function BusinessManagementPage() {
               {/* 검색 태그 표시 */}
               {searchTerms.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="text-sm text-gray-600 font-medium">활성 필터:</span>
+                  <span className="text-[10px] sm:text-xs md:text-sm text-gray-600 font-medium">활성 필터:</span>
                   {searchTerms.map((term, index) => (
                     <span
                       key={index}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-blue-700 bg-blue-100 border border-blue-200"
+                      className="inline-flex items-center px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs md:text-sm font-medium text-blue-700 bg-blue-100 border border-blue-200"
                     >
                       {term}
                       <button
@@ -2232,7 +2232,7 @@ function BusinessManagementPage() {
                       </button>
                     </span>
                   ))}
-                  <span className="text-sm text-gray-500">
+                  <span className="text-[10px] sm:text-xs md:text-sm text-gray-500">
                     총 {filteredBusinesses.length}개 사업장
                   </span>
                 </div>
@@ -2242,7 +2242,7 @@ function BusinessManagementPage() {
           </div>
 
           {/* Data Table */}
-          <div className="p-6 overflow-x-auto">
+          <div className="p-2 sm:p-6 overflow-x-auto">
             <div className="min-w-full max-w-7xl">
               <DataTable
                 data={businessesWithId}
@@ -2261,63 +2261,115 @@ function BusinessManagementPage() {
 
       {/* Business Detail Modal - Enhanced Design */}
       {isDetailModalOpen && selectedBusiness && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+        <div
+          className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsDetailModalOpen(false)
             }
           }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
+          <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl max-w-sm sm:max-w-2xl md:max-w-4xl lg:max-w-7xl w-full max-h-[95vh] overflow-hidden">
             {/* Header with gradient background */}
-            <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-8 py-6 text-white relative overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 text-white relative overflow-hidden">
               <div className="absolute inset-0 bg-white bg-opacity-10 backdrop-blur-sm"></div>
-              <div className="relative flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-white bg-opacity-20 rounded-lg backdrop-blur-sm">
-                    <Building2 className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold">{selectedBusiness?.사업장명 || selectedBusiness?.business_name || '사업장명 없음'}</h2>
-                    <p className="text-blue-100 flex items-center mt-1">
-                      <MapPin className="w-4 h-4 mr-1" />
-                      {selectedBusiness?.주소 || selectedBusiness?.local_government || '주소 미등록'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      selectedBusiness?.is_active || selectedBusiness?.상태 === '활성'
-                        ? 'bg-green-500 bg-opacity-20 text-green-100 border border-green-300 border-opacity-30' 
-                        : 'bg-gray-500 bg-opacity-20 text-gray-200 border border-gray-300 border-opacity-30'
-                    }`}>
-                      <div className={`w-2 h-2 rounded-full mr-2 ${
-                        selectedBusiness?.is_active || selectedBusiness?.상태 === '활성' ? 'bg-green-300' : 'bg-gray-300'
-                      }`}></div>
-                      {selectedBusiness?.is_active || selectedBusiness?.상태 === '활성' ? '활성' : '비활성'}
+              <div className="relative">
+                {/* Mobile Layout */}
+                <div className="flex flex-col sm:hidden gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-2 bg-white bg-opacity-20 rounded-lg backdrop-blur-sm">
+                        <Building2 className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h2 className="text-sm font-bold truncate">{selectedBusiness?.사업장명 || selectedBusiness?.business_name || '사업장명 없음'}</h2>
+                      </div>
                     </div>
-                  </div>
-                  {/* Action Buttons */}
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => {
-                        setIsDetailModalOpen(false)
-                        openEditModal(selectedBusiness)
-                      }}
-                      className="flex items-center px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
-                    >
-                      <Edit className="w-4 h-4 mr-1.5" />
-                      정보수정
-                    </button>
                     <button
                       onClick={() => setIsDetailModalOpen(false)}
-                      className="flex items-center px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                      className="flex items-center p-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200"
                     >
-                      <X className="w-4 h-4 mr-1.5" />
-                      닫기
+                      <X className="w-4 h-4" />
                     </button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-blue-100 flex items-center text-xs truncate flex-1 mr-2">
+                      <MapPin className="w-3 h-3 mr-1 flex-shrink-0" />
+                      {selectedBusiness?.주소 || selectedBusiness?.local_government || '주소 미등록'}
+                    </p>
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                      <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        selectedBusiness?.is_active || selectedBusiness?.상태 === '활성'
+                          ? 'bg-green-500 bg-opacity-20 text-green-100 border border-green-300 border-opacity-30'
+                          : 'bg-gray-500 bg-opacity-20 text-gray-200 border border-gray-300 border-opacity-30'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full mr-1 ${
+                          selectedBusiness?.is_active || selectedBusiness?.상태 === '활성' ? 'bg-green-300' : 'bg-gray-300'
+                        }`}></div>
+                        {selectedBusiness?.is_active || selectedBusiness?.상태 === '활성' ? '활성' : '비활성'}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsDetailModalOpen(false)
+                          openEditModal(selectedBusiness)
+                        }}
+                        className="flex items-center px-2 py-1 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-xs font-medium border border-white border-opacity-30"
+                      >
+                        <Edit className="w-3 h-3 mr-1" />
+                        수정
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop Layout */}
+                <div className="hidden sm:flex items-center justify-between">
+                  <div className="flex items-center space-x-3 md:space-x-4 min-w-0 flex-1 mr-4">
+                    <div className="p-2 md:p-3 bg-white bg-opacity-20 rounded-lg backdrop-blur-sm flex-shrink-0">
+                      <Building2 className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-lg md:text-xl lg:text-2xl font-bold truncate">{selectedBusiness?.사업장명 || selectedBusiness?.business_name || '사업장명 없음'}</h2>
+                      <p className="text-blue-100 flex items-center mt-1 text-sm md:text-base truncate">
+                        <MapPin className="w-3 h-3 md:w-4 md:h-4 mr-1 flex-shrink-0" />
+                        {selectedBusiness?.주소 || selectedBusiness?.local_government || '주소 미등록'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2 md:space-x-3 flex-shrink-0">
+                    <div className="text-right">
+                      <div className={`inline-flex items-center px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium ${
+                        selectedBusiness?.is_active || selectedBusiness?.상태 === '활성'
+                          ? 'bg-green-500 bg-opacity-20 text-green-100 border border-green-300 border-opacity-30'
+                          : 'bg-gray-500 bg-opacity-20 text-gray-200 border border-gray-300 border-opacity-30'
+                      }`}>
+                        <div className={`w-2 h-2 rounded-full mr-2 ${
+                          selectedBusiness?.is_active || selectedBusiness?.상태 === '활성' ? 'bg-green-300' : 'bg-gray-300'
+                        }`}></div>
+                        {selectedBusiness?.is_active || selectedBusiness?.상태 === '활성' ? '활성' : '비활성'}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-1 md:space-x-2">
+                      <button
+                        onClick={() => {
+                          setIsDetailModalOpen(false)
+                          openEditModal(selectedBusiness)
+                        }}
+                        className="flex items-center px-2 md:px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-xs md:text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                      >
+                        <Edit className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-1.5" />
+                        <span className="hidden md:inline">정보수정</span>
+                        <span className="md:hidden">수정</span>
+                      </button>
+                      <button
+                        onClick={() => setIsDetailModalOpen(false)}
+                        className="flex items-center px-2 md:px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-xs md:text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                      >
+                        <X className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-1.5" />
+                        <span className="hidden md:inline">닫기</span>
+                        <span className="md:hidden">닫기</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2325,154 +2377,157 @@ function BusinessManagementPage() {
             
             {/* Content area with balanced layout */}
             <div className="overflow-y-auto max-h-[calc(95vh-120px)]">
-              <div className="p-6">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="p-3 sm:p-4 md:p-6">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
                   {/* Left Column - Basic Info */}
-                  <div className="space-y-6">
+                  <div className="space-y-3 sm:space-y-4 md:space-y-6">
                     {/* Basic Information Card */}
-                    <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-6 border border-slate-200">
-                      <div className="flex items-center mb-4">
-                        <div className="p-2 bg-blue-600 rounded-lg mr-3">
-                          <Building className="w-5 h-5 text-white" />
+                    <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-slate-200">
+                      <div className="flex items-center mb-2 sm:mb-3 md:mb-4">
+                        <div className="p-1.5 sm:p-2 bg-blue-600 rounded-lg mr-2 sm:mr-3">
+                          <Building className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800">기본 정보</h3>
+                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">기본 정보</h3>
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <Factory className="w-4 h-4 mr-2 text-blue-500" />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <Factory className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-blue-500 flex-shrink-0" />
                             사업장명
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.사업장명}</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.사업장명}</div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <MapPin className="w-4 h-4 mr-2 text-green-500" />
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-500 flex-shrink-0" />
                             지자체
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.지자체 || '-'}</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.지자체 || '-'}</div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm md:col-span-2">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <MapPin className="w-4 h-4 mr-2 text-red-500" />
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm md:col-span-2">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-red-500 flex-shrink-0" />
                             주소
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.주소 || '-'}</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.주소 || '-'}</div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <User className="w-4 h-4 mr-2 text-purple-500" />
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-purple-500 flex-shrink-0" />
                             대표자명
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.대표자 || '-'}</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.대표자 || '-'}</div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <Hash className="w-4 h-4 mr-2 text-orange-500" />
-                            사업자등록번호
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <Hash className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-orange-500 flex-shrink-0" />
+                            <span className="hidden sm:inline">사업자등록번호</span>
+                            <span className="sm:hidden">사업자번호</span>
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.사업자등록번호 || '-'}</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.사업자등록번호 || '-'}</div>
                         </div>
                       </div>
                     </div>
 
                     {/* Contact Information Card */}
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-                      <div className="flex items-center mb-4">
-                        <div className="p-2 bg-green-600 rounded-lg mr-3">
-                          <Contact className="w-5 h-5 text-white" />
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-green-200">
+                      <div className="flex items-center mb-2 sm:mb-3 md:mb-4">
+                        <div className="p-1.5 sm:p-2 bg-green-600 rounded-lg mr-2 sm:mr-3">
+                          <Contact className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800">담당자 정보</h3>
+                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">담당자 정보</h3>
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <User className="w-4 h-4 mr-2 text-green-500" />
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-500 flex-shrink-0" />
                             담당자명
                           </div>
-                          <div className="text-base font-medium text-gray-900">
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">
                             {selectedBusiness.담당자명 || '-'}
                           </div>
                         </div>
 
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <Briefcase className="w-4 h-4 mr-2 text-blue-500" />
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <Briefcase className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-blue-500 flex-shrink-0" />
                             직급
                           </div>
-                          <div className="text-base font-medium text-gray-900">
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">
                             {selectedBusiness.담당자직급 || '-'}
                           </div>
                         </div>
 
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <Phone className="w-4 h-4 mr-2 text-green-500" />
-                            담당자 연락처
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <Phone className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-500 flex-shrink-0" />
+                            <span className="hidden sm:inline">담당자 연락처</span>
+                            <span className="sm:hidden">담당자전화</span>
                           </div>
-                          <div className="text-base font-medium text-gray-900">
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">
                             {selectedBusiness.담당자연락처 || '-'}
                           </div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <Phone className="w-4 h-4 mr-2 text-blue-500" />
-                            사업장 연락처
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <Phone className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-blue-500 flex-shrink-0" />
+                            <span className="hidden sm:inline">사업장 연락처</span>
+                            <span className="sm:hidden">사업장전화</span>
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.사업장연락처 || '-'}</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.사업장연락처 || '-'}</div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <FileText className="w-4 h-4 mr-2 text-gray-500" />
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-gray-500 flex-shrink-0" />
                             팩스번호
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.fax_number || '-'}</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.fax_number || '-'}</div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <Mail className="w-4 h-4 mr-2 text-red-500" />
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                            <Mail className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-red-500 flex-shrink-0" />
                             이메일
                           </div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.email || '-'}</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-all">{selectedBusiness.email || '-'}</div>
                         </div>
-                        
-                        
+
                         {selectedBusiness.representative_birth_date && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="flex items-center text-sm text-gray-600 mb-1">
-                              <Calendar className="w-4 h-4 mr-2 text-purple-500" />
-                              대표자생년월일
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-purple-500 flex-shrink-0" />
+                              <span className="hidden sm:inline">대표자생년월일</span>
+                              <span className="sm:hidden">대표자생일</span>
                             </div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.representative_birth_date}</div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.representative_birth_date}</div>
                           </div>
                         )}
                       </div>
                     </div>
 
                     {/* Work Progress & Communication Area */}
-                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-6 border border-orange-200">
-                      <div className="flex items-center justify-between mb-4">
+                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-orange-200">
+                      <div className="flex items-center justify-between mb-3 sm:mb-4">
                         <div className="flex items-center">
-                          <div className="p-2 bg-orange-600 rounded-lg mr-3">
-                            <ClipboardList className="w-5 h-5 text-white" />
+                          <div className="p-1.5 sm:p-2 bg-orange-600 rounded-lg mr-2 sm:mr-3">
+                            <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                           </div>
-                          <h3 className="text-lg font-semibold text-slate-800">업무 진행 현황</h3>
+                          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">업무 진행 현황</h3>
                         </div>
                         <button
                           onClick={() => setIsAddingMemo(true)}
-                          className="flex items-center px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 rounded-lg transition-colors"
+                          className="flex items-center px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] md:text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 rounded-lg transition-colors"
                         >
-                          <MessageSquarePlus className="w-3 h-3 mr-1" />
-                          메모 추가
+                          <MessageSquarePlus className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
+                          <span className="hidden sm:inline">메모 추가</span><span className="sm:hidden">메모</span>
                         </button>
                       </div>
                       
@@ -2486,20 +2541,20 @@ function BusinessManagementPage() {
                         />
 
                         {/* Team Communication */}
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-2">
-                            <Users className="w-4 h-4 mr-2 text-blue-500" />
+                        <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm">
+                          <div className="flex items-center text-xs sm:text-sm md:text-base text-gray-600 mb-2">
+                            <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-blue-500" />
                             팀 공유 사항
                           </div>
-                          <div className="space-y-2">
-                            <div className="text-sm text-gray-700 p-3 bg-gray-50 rounded-lg">
+                          <div className="space-y-1.5 sm:space-y-2">
+                            <div className="text-xs sm:text-sm text-gray-700 p-2 sm:p-3 bg-gray-50 rounded-lg">
                               • 설치 담당자: {selectedBusiness.installation_team || '미배정'}
                             </div>
-                            <div className="text-sm text-gray-700 p-3 bg-blue-50 rounded-lg">
+                            <div className="text-xs sm:text-sm text-gray-700 p-2 sm:p-3 bg-blue-50 rounded-lg">
                               • 주문 담당자: {selectedBusiness.order_manager || '미배정'}
                             </div>
                             {selectedBusiness.installation_date && (
-                              <div className="text-sm text-gray-700 p-3 bg-green-50 rounded-lg">
+                              <div className="text-xs sm:text-sm text-gray-700 p-2 sm:p-3 bg-green-50 rounded-lg">
                                 • 설치 예정일: {selectedBusiness.installation_date}
                               </div>
                             )}
@@ -2507,27 +2562,27 @@ function BusinessManagementPage() {
                         </div>
 
                         {/* Important Notes */}
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-2">
-                            <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
+                        <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm">
+                          <div className="flex items-center text-xs sm:text-sm md:text-base text-gray-600 mb-2">
+                            <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-amber-500" />
                             확인 필요 사항
                           </div>
-                          <div className="space-y-2">
+                          <div className="space-y-1.5 sm:space-y-2">
                             {!selectedBusiness.manager_contact && (
-                              <div className="text-sm text-red-600 p-2 bg-red-50 rounded-lg flex items-center">
-                                <AlertTriangle className="w-4 h-4 mr-2" />
+                              <div className="text-xs sm:text-sm text-red-600 p-2 bg-red-50 rounded-lg flex items-center">
+                                <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                                 담당자 연락처 확인 필요
                               </div>
                             )}
                             {!selectedBusiness.installation_support && (
-                              <div className="text-sm text-yellow-600 p-2 bg-yellow-50 rounded-lg flex items-center">
-                                <Clock className="w-4 h-4 mr-2" />
+                              <div className="text-xs sm:text-sm text-yellow-600 p-2 bg-yellow-50 rounded-lg flex items-center">
+                                <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                                 설치 지원 여부 확인 필요
                               </div>
                             )}
                             {selectedBusiness.additional_cost && selectedBusiness.additional_cost > 0 && (
-                              <div className="text-sm text-blue-600 p-2 bg-blue-50 rounded-lg flex items-center">
-                                <FileText className="w-4 h-4 mr-2" />
+                              <div className="text-xs sm:text-sm text-blue-600 p-2 bg-blue-50 rounded-lg flex items-center">
+                                <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                                 추가 비용 협의: {selectedBusiness.additional_cost?.toLocaleString()}원
                               </div>
                             )}
@@ -2536,50 +2591,50 @@ function BusinessManagementPage() {
 
                         {/* 메모 및 업무 통합 섹션 (최신순 정렬) */}
                         {(businessMemos.length > 0 || businessTasks.length > 0) && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="flex items-center text-sm text-gray-600 mb-3">
-                              <MessageSquare className="w-4 h-4 mr-2 text-indigo-500" />
+                          <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm">
+                            <div className="flex items-center text-xs sm:text-sm md:text-base text-gray-600 mb-2 sm:mb-3">
+                              <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-indigo-500" />
                               메모 및 업무 ({businessMemos.length + businessTasks.length}개)
                             </div>
                             {/* 스크롤 가능한 컨테이너 추가 - 최대 높이 제한으로 내용이 많아져도 스크롤 가능 */}
-                            <div className="space-y-3 max-h-96 overflow-y-auto pr-2" style={{scrollbarWidth: 'thin'}}>
+                            <div className="space-y-2 sm:space-y-3 max-h-80 sm:max-h-96 overflow-y-auto pr-1 sm:pr-2" style={{scrollbarWidth: 'thin'}}>
                               {getIntegratedItems().map((item, index) => {
                                 if (item.type === 'memo') {
                                   const memo = item.data
                                   const isAutoMemo = item.title?.startsWith('[자동]')
                                   return (
-                                    <div key={`memo-${item.id}-${index}`} className={`${isAutoMemo ? 'bg-gray-50 border-gray-300' : 'bg-gray-50 border-indigo-400'} rounded-lg p-3 border-l-4`}>
-                                  <div className="flex items-start justify-between mb-2">
+                                    <div key={`memo-${item.id}-${index}`} className={`${isAutoMemo ? 'bg-gray-50 border-gray-300' : 'bg-gray-50 border-indigo-400'} rounded-lg p-2 sm:p-3 border-l-4`}>
+                                  <div className="flex items-start justify-between mb-1 sm:mb-2">
                                     <div className="flex-1">
-                                      <div className="flex items-center space-x-2 mb-1">
-                                        <MessageSquare className={`w-4 h-4 ${isAutoMemo ? 'text-gray-400' : 'text-indigo-500'}`} />
-                                        <h4 className={`${isAutoMemo ? 'font-normal text-gray-600 text-sm' : 'font-medium text-gray-900'}`}>{item.title}</h4>
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${isAutoMemo ? 'bg-gray-100 text-gray-600' : 'bg-indigo-100 text-indigo-700'}`}>
+                                      <div className="flex items-center space-x-1 sm:space-x-2 mb-1">
+                                        <MessageSquare className={`w-3 h-3 sm:w-4 sm:h-4 ${isAutoMemo ? 'text-gray-400' : 'text-indigo-500'}`} />
+                                        <h4 className={`${isAutoMemo ? 'font-normal text-gray-600 text-xs sm:text-sm' : 'font-medium text-gray-900 text-xs sm:text-sm md:text-base'}`}>{item.title}</h4>
+                                        <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[10px] md:text-xs font-medium rounded-full ${isAutoMemo ? 'bg-gray-100 text-gray-600' : 'bg-indigo-100 text-indigo-700'}`}>
                                           {isAutoMemo ? '자동' : '메모'}
                                         </span>
                                       </div>
-                                      <p className={`text-sm ${isAutoMemo ? 'text-gray-500' : 'text-gray-700'}`}>{item.content}</p>
+                                      <p className={`text-xs sm:text-sm ${isAutoMemo ? 'text-gray-500' : 'text-gray-700'} leading-relaxed break-words`}>{item.content}</p>
                                     </div>
                                     {(!isAutoMemo || (isAutoMemo && canDeleteAutoMemos)) && (
-                                      <div className="flex items-center space-x-1 ml-2">
+                                      <div className="flex items-center space-x-0.5 sm:space-x-1 ml-1 sm:ml-2">
                                         {!isAutoMemo && (
                                           <button
                                             onClick={() => startEditMemo(memo)}
                                             disabled={!memo.id}
-                                            className={`p-1.5 rounded transition-colors ${
+                                            className={`p-1 sm:p-1.5 rounded transition-colors ${
                                               memo.id
                                                 ? 'text-gray-400 hover:text-indigo-600'
                                                 : 'text-gray-300 cursor-not-allowed'
                                             }`}
                                             title={memo.id ? "메모 수정" : "메모 ID가 없어 수정할 수 없습니다"}
                                           >
-                                            <Edit3 className="w-3.5 h-3.5" />
+                                            <Edit3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                           </button>
                                         )}
                                         <button
                                           onClick={() => handleDeleteMemo(memo)}
                                           disabled={!memo.id}
-                                          className={`p-1.5 rounded transition-colors ${
+                                          className={`p-1 sm:p-1.5 rounded transition-colors ${
                                             memo.id
                                               ? 'text-gray-400 hover:text-red-600'
                                               : 'text-gray-300 cursor-not-allowed'
@@ -2589,12 +2644,12 @@ function BusinessManagementPage() {
                                             "메모 ID가 없어 삭제할 수 없습니다"
                                           }
                                         >
-                                          <Trash2 className="w-3.5 h-3.5" />
+                                          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                         </button>
                                       </div>
                                     )}
                                   </div>
-                                  <div className="flex items-center justify-between text-xs text-gray-500">
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[10px] sm:text-xs text-gray-500 gap-1 sm:gap-0">
                                     <span>작성: {new Date(memo.created_at).toLocaleDateString('ko-KR', {
                                       year: 'numeric', month: 'short', day: 'numeric'
                                     })} ({memo.created_by})</span>
@@ -2612,30 +2667,30 @@ function BusinessManagementPage() {
                                   const statusColors = getStatusColor(item.status || '')
 
                                   return (
-                                    <div key={`task-${item.id}-${index}`} className={`${statusColors.bg} rounded-lg p-4 border-l-4 ${statusColors.border} hover:shadow-md transition-shadow`}>
-                                      <div className="flex items-start justify-between mb-3">
+                                    <div key={`task-${item.id}-${index}`} className={`${statusColors.bg} rounded-lg p-2 sm:p-3 md:p-4 border-l-4 ${statusColors.border} hover:shadow-md transition-shadow`}>
+                                      <div className="flex items-start justify-between mb-2 sm:mb-3">
                                         <div className="flex-1">
-                                          <div className="flex items-center space-x-2 mb-2">
-                                            <ClipboardList className="w-4 h-4 text-blue-500" />
-                                            <h4 className="font-semibold text-gray-900">{item.title}</h4>
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.badge} ${statusColors.text}`}>
+                                          <div className="flex items-center space-x-1 sm:space-x-2 mb-1 sm:mb-2">
+                                            <ClipboardList className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />
+                                            <h4 className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base">{item.title}</h4>
+                                            <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[10px] md:text-xs font-medium rounded-full ${statusColors.badge} ${statusColors.text}`}>
                                               {getStatusDisplayName(item.status || '')}
                                             </span>
                                           </div>
-                                          <p className="text-sm text-gray-700 mb-3 leading-relaxed">{item.description}</p>
-                                          <div className="flex items-center space-x-4 text-xs">
+                                          <p className="text-xs sm:text-sm text-gray-700 mb-2 sm:mb-3 leading-relaxed break-words">{item.description}</p>
+                                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs">
                                             <span className="flex items-center space-x-1">
-                                              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full"></span>
                                               <span className="text-gray-600">
                                                 {item.task_type === 'subsidy' ? '지원사업' : '자체사업'}
                                               </span>
                                             </span>
                                             <span className="flex items-center space-x-1">
-                                              <User className="w-3 h-3 text-gray-500" />
+                                              <User className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500" />
                                               <span className="text-gray-600">{item.assignee}</span>
                                             </span>
                                             <span className="flex items-center space-x-1">
-                                              <Calendar className="w-3 h-3 text-gray-500" />
+                                              <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500" />
                                               <span className="text-gray-600">
                                                 {task.deadline ? new Date(task.deadline).toLocaleDateString('ko-KR', {
                                                   month: 'short', day: 'numeric'
@@ -2645,16 +2700,16 @@ function BusinessManagementPage() {
                                           </div>
                                         </div>
                                       </div>
-                                      <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-200">
+                                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[10px] sm:text-xs text-gray-500 pt-2 border-t border-gray-200 gap-1 sm:gap-0">
                                         <span className="flex items-center space-x-1">
-                                          <Calendar className="w-3 h-3" />
+                                          <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                           <span>생성: {new Date(item.created_at).toLocaleDateString('ko-KR', {
                                             year: 'numeric', month: 'short', day: 'numeric'
                                           })}</span>
                                         </span>
                                         {task.updated_at !== task.created_at && (
                                           <span className="flex items-center space-x-1">
-                                            <Clock className="w-3 h-3" />
+                                            <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                             <span>수정: {new Date(task.updated_at).toLocaleDateString('ko-KR', {
                                               year: 'numeric', month: 'short', day: 'numeric'
                                             })}</span>
@@ -2671,47 +2726,47 @@ function BusinessManagementPage() {
 
                         {/* 메모 추가/편집 폼 */}
                         {(isAddingMemo || editingMemo) && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm border border-indigo-200">
-                            <div className="flex items-center text-sm text-indigo-600 mb-3">
-                              <MessageSquarePlus className="w-4 h-4 mr-2" />
+                          <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-indigo-200">
+                            <div className="flex items-center text-xs sm:text-sm text-indigo-600 mb-2 sm:mb-3">
+                              <MessageSquarePlus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                               {editingMemo ? '메모 수정' : '새 메모 추가'}
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-2 sm:space-y-3">
                               <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">제목</label>
+                                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">제목</label>
                                 <input
                                   type="text"
                                   value={memoForm.title}
                                   onChange={(e) => setMemoForm(prev => ({ ...prev, title: e.target.value }))}
                                   placeholder="메모 제목을 입력하세요"
-                                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                  className="w-full p-1.5 sm:p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-xs sm:text-sm"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">내용</label>
+                                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">내용</label>
                                 <textarea
                                   value={memoForm.content}
                                   onChange={(e) => setMemoForm(prev => ({ ...prev, content: e.target.value }))}
                                   placeholder="메모 내용을 입력하세요"
                                   rows={3}
-                                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"
+                                  className="w-full p-1.5 sm:p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-xs sm:text-sm resize-none"
                                 />
                               </div>
-                              <div className="flex justify-end space-x-2">
+                              <div className="flex justify-end space-x-1.5 sm:space-x-2">
                                 <button
                                   onClick={() => {
                                     setIsAddingMemo(false)
                                     setEditingMemo(null)
                                     setMemoForm({ title: '', content: '' })
                                   }}
-                                  className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                                 >
                                   취소
                                 </button>
                                 <button
                                   onClick={editingMemo ? handleEditMemo : handleAddMemo}
                                   disabled={!memoForm.title?.trim() || !memoForm.content?.trim()}
-                                  className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg transition-colors"
                                 >
                                   {editingMemo ? '수정' : '추가'}
                                 </button>
@@ -2724,20 +2779,20 @@ function BusinessManagementPage() {
                   </div>
 
                   {/* Right Column - System Info & Status */}
-                  <div className="space-y-6">
+                  <div className="space-y-3 sm:space-y-4 md:space-y-6">
                     {/* System Information Card */}
-                    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200">
-                      <div className="flex items-center mb-4">
-                        <div className="p-2 bg-purple-600 rounded-lg mr-3">
-                          <Database className="w-5 h-5 text-white" />
+                    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-purple-200">
+                      <div className="flex items-center mb-3 sm:mb-4">
+                        <div className="p-1.5 sm:p-2 bg-purple-600 rounded-lg mr-2 sm:mr-3">
+                          <Database className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800">시스템 정보</h3>
+                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">시스템 정보</h3>
                       </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="text-sm text-gray-600 mb-1">제조사</div>
-                          <div className="text-base font-medium text-gray-900">
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="text-xs sm:text-sm text-gray-600 mb-1">제조사</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
                             {selectedBusiness.manufacturer === 'ecosense' ? '🏭 에코센스' :
                              selectedBusiness.manufacturer === 'cleanearth' ? '🌍 크린어스' :
                              selectedBusiness.manufacturer === 'gaia_cns' ? '🌿 가이아씨앤에스' :
@@ -2745,58 +2800,58 @@ function BusinessManagementPage() {
                              selectedBusiness.manufacturer || '-'}
                           </div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="text-sm text-gray-600 mb-1">VPN 연결</div>
-                          <div className="text-base font-medium text-gray-900">
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="text-xs sm:text-sm text-gray-600 mb-1">VPN 연결</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
                             {selectedBusiness.vpn === 'wired' ? '🔗 유선' :
                              selectedBusiness.vpn === 'wireless' ? '📶 무선' :
                              selectedBusiness.vpn || '-'}
                           </div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="text-sm text-gray-600 mb-1">그린링크 ID</div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.greenlink_id || '-'}</div>
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="text-xs sm:text-sm text-gray-600 mb-1">그린링크 ID</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.greenlink_id || '-'}</div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="text-sm text-gray-600 mb-1">그린링크 PW</div>
-                          <div className="text-base font-medium text-gray-900 flex items-center">
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="text-xs sm:text-sm text-gray-600 mb-1">그린링크 PW</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 flex items-center">
                             {selectedBusiness.greenlink_pw ? (
                               <>
-                                <Shield className="w-4 h-4 mr-2 text-green-500" />
+                                <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-500" />
                                 설정됨
                               </>
                             ) : '-'}
                           </div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="text-sm text-gray-600 mb-1">사업장관리코드</div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.business_management_code || '-'}</div>
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="text-xs sm:text-sm text-gray-600 mb-1">사업장관리코드</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.business_management_code || '-'}</div>
                         </div>
-                        
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="text-sm text-gray-600 mb-1">영업점</div>
-                          <div className="text-base font-medium text-gray-900">{selectedBusiness.sales_office || '-'}</div>
+
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="text-xs sm:text-sm text-gray-600 mb-1">영업점</div>
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.sales_office || '-'}</div>
                         </div>
                       </div>
                     </div>
 
                     {/* Equipment and Network Card */}
-                    <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl p-6 border border-teal-200">
-                      <div className="flex items-center mb-4">
-                        <div className="p-2 bg-teal-600 rounded-lg mr-3">
-                          <Settings className="w-5 h-5 text-white" />
+                    <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-teal-200">
+                      <div className="flex items-center mb-3 sm:mb-4">
+                        <div className="p-1.5 sm:p-2 bg-teal-600 rounded-lg mr-2 sm:mr-3">
+                          <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800">측정기기 및 네트워크</h3>
+                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">측정기기 및 네트워크</h3>
                       </div>
                       
                       {/* Equipment Quantities with Facility Management Comparison */}
-                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 border border-purple-200 mb-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="text-sm font-semibold text-purple-700">측정기기 수량</div>
+                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-3 sm:p-4 border border-purple-200 mb-3 sm:mb-4">
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
+                          <div className="text-xs sm:text-sm md:text-base font-semibold text-purple-700">측정기기 수량</div>
                           <button
                             onClick={() => {
                               // 시설관리 시스템의 해당 사업장 페이지로 연결
@@ -2807,12 +2862,12 @@ function BusinessManagementPage() {
                                 alert('사업장명 정보가 없어 시설관리 시스템으로 연결할 수 없습니다.');
                               }
                             }}
-                            className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                            className="text-[9px] sm:text-[10px] md:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                           >
-                            시설관리 연동
+                            <span className="hidden sm:inline">시설관리 연동</span><span className="sm:hidden">연동</span>
                           </button>
                         </div>
-                        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                        <div className="grid gap-2 sm:gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
                           {(() => {
                             const devices = [
                               { key: 'PH센서', value: selectedBusiness.PH센서, facilityKey: 'ph' },
@@ -2836,14 +2891,14 @@ function BusinessManagementPage() {
                             return devices
                               .filter(device => device.value && device.value > 0)
                               .map((device, index) => (
-                                <div key={`${device.facilityKey}-${device.key}-${index}`} className="bg-white rounded-lg p-3 shadow-sm">
-                                  <div className="text-xs text-gray-600 mb-1">{device.key}</div>
+                                <div key={`${device.facilityKey}-${device.key}-${index}`} className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 shadow-sm">
+                                  <div className="text-[10px] sm:text-xs text-gray-600 mb-1 break-words">{device.key}</div>
                                   <div className="flex items-center justify-between">
-                                    <div className="text-lg font-bold text-gray-900">{device.value}</div>
+                                    <div className="text-sm sm:text-base md:text-lg font-bold text-gray-900">{device.value}</div>
                                     {facilityDeviceCounts?.[device.facilityKey as keyof typeof facilityDeviceCounts] !== undefined && (
-                                      <div className={`text-sm ${
-                                        facilityDeviceCounts[device.facilityKey as keyof typeof facilityDeviceCounts] === device.value 
-                                          ? 'text-green-600' 
+                                      <div className={`text-[10px] sm:text-xs ${
+                                        facilityDeviceCounts[device.facilityKey as keyof typeof facilityDeviceCounts] === device.value
+                                          ? 'text-green-600'
                                           : 'text-orange-600'
                                       }`}>
                                         시설관리: {facilityDeviceCounts[device.facilityKey as keyof typeof facilityDeviceCounts] || 0}
@@ -2858,27 +2913,27 @@ function BusinessManagementPage() {
 
                       {/* Facility Information based on Air Permits */}
                       {facilityLoading ? (
-                        <div className="bg-white rounded-lg p-6 text-center text-gray-500">
-                          <Settings className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                          <div className="text-sm">시설 정보를 불러오는 중...</div>
+                        <div className="bg-white rounded-lg p-4 sm:p-5 md:p-6 text-center text-gray-500">
+                          <Settings className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-gray-300 mx-auto mb-2" />
+                          <div className="text-xs sm:text-sm">시설 정보를 불러오는 중...</div>
                         </div>
                       ) : facilityData ? (
                         <>
                           {/* Facility Summary Card */}
-                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200 mb-4">
-                            <div className="text-sm font-semibold text-blue-700 mb-3">시설 정보 (대기필증 기준)</div>
-                            <div className="grid grid-cols-3 gap-4 text-center">
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 sm:p-4 border border-blue-200 mb-3 sm:mb-4">
+                            <div className="text-xs sm:text-sm md:text-base font-semibold text-blue-700 mb-2 sm:mb-3">시설 정보 (대기필증 기준)</div>
+                            <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 text-center">
                               <div>
-                                <div className="text-sm text-blue-600 mb-1">배출시설</div>
-                                <div className="text-xl font-bold text-blue-800">{facilityData.summary.discharge_count}</div>
+                                <div className="text-[10px] sm:text-xs md:text-sm text-blue-600 mb-1">배출시설</div>
+                                <div className="text-sm sm:text-lg md:text-xl font-bold text-blue-800">{facilityData.summary.discharge_count}</div>
                               </div>
                               <div>
-                                <div className="text-sm text-blue-600 mb-1">방지시설</div>
-                                <div className="text-xl font-bold text-blue-800">{facilityData.summary.prevention_count}</div>
+                                <div className="text-[10px] sm:text-xs md:text-sm text-blue-600 mb-1">방지시설</div>
+                                <div className="text-sm sm:text-lg md:text-xl font-bold text-blue-800">{facilityData.summary.prevention_count}</div>
                               </div>
                               <div>
-                                <div className="text-sm text-blue-600 mb-1">배출구</div>
-                                <div className="text-xl font-bold text-blue-900">
+                                <div className="text-[10px] sm:text-xs md:text-sm text-blue-600 mb-1">배출구</div>
+                                <div className="text-sm sm:text-lg md:text-xl font-bold text-blue-900">
                                   {facilityData.discharge_facilities.concat(facilityData.prevention_facilities)
                                     .reduce((outlets, facility) => {
                                       const outletKey = facility.outlet_number;
@@ -2890,55 +2945,55 @@ function BusinessManagementPage() {
                           </div>
                         </>
                       ) : (
-                        <div className="bg-white rounded-lg p-6 text-center text-gray-500">
-                          <Settings className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                          <div className="text-sm">등록된 대기필증 정보가 없습니다</div>
-                          <div className="text-xs text-gray-400 mt-1">시설 정보를 확인하려면 먼저 대기필증을 등록하세요</div>
+                        <div className="bg-white rounded-lg p-4 sm:p-5 md:p-6 text-center text-gray-500">
+                          <Settings className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-gray-300 mx-auto mb-2" />
+                          <div className="text-xs sm:text-sm">등록된 대기필증 정보가 없습니다</div>
+                          <div className="text-[10px] sm:text-xs text-gray-400 mt-1">시설 정보를 확인하려면 먼저 대기필증을 등록하세요</div>
                         </div>
                       )}
                     </div>
 
                     {/* Project Information Card */}
-                    <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
-                      <div className="flex items-center mb-4">
-                        <div className="p-2 bg-orange-600 rounded-lg mr-3">
-                          <Briefcase className="w-5 h-5 text-white" />
+                    <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-orange-200">
+                      <div className="flex items-center mb-3 sm:mb-4">
+                        <div className="p-1.5 sm:p-2 bg-orange-600 rounded-lg mr-2 sm:mr-3">
+                          <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800">프로젝트 정보</h3>
+                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">프로젝트 정보</h3>
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                         {selectedBusiness.department && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">담당부서</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.department}</div>
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1">담당부서</div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.department}</div>
                           </div>
                         )}
                         
                         {selectedBusiness.progress_status && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">진행구분</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.progress_status}</div>
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1">진행구분</div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.progress_status}</div>
                           </div>
                         )}
                         
                         {/* 업종 - 대기필증 데이터 우선 표시 */}
                         {(airPermitData?.business_type || selectedBusiness.업종) && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1 flex items-center gap-2">
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1 flex items-center gap-1 sm:gap-2">
                               업종
                               {airPermitData?.business_type && (
-                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[9px] sm:text-[10px] md:text-xs rounded-full">
                                   대기필증 연동
                                 </span>
                               )}
                             </div>
-                            <div className="text-base font-medium text-gray-900">
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">
                               {airPermitData?.business_type || selectedBusiness.업종}
                             </div>
-                            {airPermitData?.business_type && selectedBusiness.업종 && 
+                            {airPermitData?.business_type && selectedBusiness.업종 &&
                              airPermitData.business_type !== selectedBusiness.업종 && (
-                              <div className="text-xs text-amber-600 mt-1">
+                              <div className="text-[10px] sm:text-xs text-amber-600 mt-1">
                                 사업장 정보와 다름: {selectedBusiness.업종}
                               </div>
                             )}
@@ -3000,40 +3055,40 @@ function BusinessManagementPage() {
                     </div>
 
                     {/* Schedule Information Card */}
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-                      <div className="flex items-center mb-4">
-                        <div className="p-2 bg-blue-600 rounded-lg mr-3">
-                          <Calendar className="w-5 h-5 text-white" />
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-blue-200">
+                      <div className="flex items-center mb-3 sm:mb-4">
+                        <div className="p-1.5 sm:p-2 bg-blue-600 rounded-lg mr-2 sm:mr-3">
+                          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800">일정 정보</h3>
+                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">일정 정보</h3>
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                         {selectedBusiness.order_request_date && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">발주요청일</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.order_request_date}</div>
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1">발주요청일</div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.order_request_date}</div>
                           </div>
                         )}
                         
                         {selectedBusiness.order_date && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">발주일</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.order_date}</div>
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1">발주일</div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.order_date}</div>
                           </div>
                         )}
                         
                         {selectedBusiness.shipment_date && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">출고일</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.shipment_date}</div>
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1">출고일</div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.shipment_date}</div>
                           </div>
                         )}
                         
                         {selectedBusiness.installation_date && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">설치일</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.installation_date}</div>
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1">설치일</div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.installation_date}</div>
                           </div>
                         )}
                         
@@ -3048,26 +3103,26 @@ function BusinessManagementPage() {
                     </div>
 
                     {/* Environmental Information Card */}
-                    <div className="bg-gradient-to-br from-green-50 to-lime-50 rounded-xl p-6 border border-green-200">
-                      <div className="flex items-center mb-4">
-                        <div className="p-2 bg-green-600 rounded-lg mr-3">
-                          <Factory className="w-5 h-5 text-white" />
+                    <div className="bg-gradient-to-br from-green-50 to-lime-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-green-200">
+                      <div className="flex items-center mb-3 sm:mb-4">
+                        <div className="p-1.5 sm:p-2 bg-green-600 rounded-lg mr-2 sm:mr-3">
+                          <Factory className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800">환경 정보</h3>
+                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">환경 정보</h3>
                       </div>
-                      
-                      <div className="space-y-4">
+
+                      <div className="space-y-2 sm:space-y-3 md:space-y-4">
                         {selectedBusiness.pollutants && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">오염물질</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.pollutants}</div>
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1">오염물질</div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.pollutants}</div>
                           </div>
                         )}
                         
                         {selectedBusiness.annual_emission_amount && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">발생량(톤/년)</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.annual_emission_amount}</div>
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1">발생량(톤/년)</div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.annual_emission_amount}</div>
                           </div>
                         )}
                       </div>
@@ -3075,33 +3130,33 @@ function BusinessManagementPage() {
 
                     {/* Financial Information Card */}
                     {(selectedBusiness.additional_cost || selectedBusiness.negotiation || selectedBusiness.multiple_stack_cost) && (
-                      <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-6 border border-yellow-200">
-                        <div className="flex items-center mb-4">
-                          <div className="p-2 bg-yellow-600 rounded-lg mr-3">
-                            <Database className="w-5 h-5 text-white" />
+                      <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-yellow-200">
+                        <div className="flex items-center mb-3 sm:mb-4">
+                          <div className="p-1.5 sm:p-2 bg-yellow-600 rounded-lg mr-2 sm:mr-3">
+                            <Database className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                           </div>
-                          <h3 className="text-lg font-semibold text-slate-800">비용 정보</h3>
+                          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">비용 정보</h3>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                           {selectedBusiness.additional_cost && (
-                            <div className="bg-white rounded-lg p-4 shadow-sm">
-                              <div className="text-sm text-gray-600 mb-1">추가공사비</div>
-                              <div className="text-base font-medium text-gray-900">{selectedBusiness.additional_cost?.toLocaleString()}원</div>
+                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                              <div className="text-xs sm:text-sm text-gray-600 mb-1">추가공사비</div>
+                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.additional_cost?.toLocaleString()}원</div>
                             </div>
                           )}
                           
                           {selectedBusiness.multiple_stack_cost && (
-                            <div className="bg-white rounded-lg p-4 shadow-sm">
-                              <div className="text-sm text-gray-600 mb-1">복수굴뚝(설치비)</div>
-                              <div className="text-base font-medium text-gray-900">{selectedBusiness.multiple_stack_cost?.toLocaleString()}원</div>
+                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                              <div className="text-xs sm:text-sm text-gray-600 mb-1">복수굴뚝(설치비)</div>
+                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.multiple_stack_cost?.toLocaleString()}원</div>
                             </div>
                           )}
                           
                           {selectedBusiness.negotiation && (
-                            <div className="bg-white rounded-lg p-4 shadow-sm">
-                              <div className="text-sm text-gray-600 mb-1">네고</div>
-                              <div className="text-base font-medium text-gray-900">{selectedBusiness.negotiation}</div>
+                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                              <div className="text-xs sm:text-sm text-gray-600 mb-1">네고</div>
+                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.negotiation}</div>
                             </div>
                           )}
                         </div>
@@ -3110,33 +3165,33 @@ function BusinessManagementPage() {
 
                     {/* Document Information Card */}
                     {(selectedBusiness.contract_document || selectedBusiness.wireless_document || selectedBusiness.installation_support || selectedBusiness.other_equipment || selectedBusiness.inventory_check) && (
-                      <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-6 border border-gray-200">
-                        <div className="flex items-center mb-4">
-                          <div className="p-2 bg-gray-600 rounded-lg mr-3">
-                            <FileText className="w-5 h-5 text-white" />
+                      <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-gray-200">
+                        <div className="flex items-center mb-3 sm:mb-4">
+                          <div className="p-1.5 sm:p-2 bg-gray-600 rounded-lg mr-2 sm:mr-3">
+                            <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                           </div>
-                          <h3 className="text-lg font-semibold text-slate-800">문서 및 기타 정보</h3>
+                          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">문서 및 기타 정보</h3>
                         </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                           {selectedBusiness.contract_document && (
-                            <div className="bg-white rounded-lg p-4 shadow-sm">
-                              <div className="text-sm text-gray-600 mb-1">계약서</div>
-                              <div className="text-base font-medium text-gray-900">{selectedBusiness.contract_document}</div>
+                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                              <div className="text-xs sm:text-sm text-gray-600 mb-1">계약서</div>
+                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.contract_document}</div>
                             </div>
                           )}
                           
                           {selectedBusiness.wireless_document && (
-                            <div className="bg-white rounded-lg p-4 shadow-sm">
-                              <div className="text-sm text-gray-600 mb-1">무선서류</div>
-                              <div className="text-base font-medium text-gray-900">{selectedBusiness.wireless_document}</div>
+                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                              <div className="text-xs sm:text-sm text-gray-600 mb-1">무선서류</div>
+                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.wireless_document}</div>
                             </div>
                           )}
                           
                           {selectedBusiness.installation_support && (
-                            <div className="bg-white rounded-lg p-4 shadow-sm">
-                              <div className="text-sm text-gray-600 mb-1">설치업무지원</div>
-                              <div className="text-base font-medium text-gray-900">{selectedBusiness.installation_support}</div>
+                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                              <div className="text-xs sm:text-sm text-gray-600 mb-1">설치업무지원</div>
+                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.installation_support}</div>
                             </div>
                           )}
                           
@@ -3148,9 +3203,9 @@ function BusinessManagementPage() {
                           )}
                           
                           {selectedBusiness.other_equipment && (
-                            <div className="bg-white rounded-lg p-4 shadow-sm">
-                              <div className="text-sm text-gray-600 mb-1">기타</div>
-                              <div className="text-base font-medium text-gray-900">{selectedBusiness.other_equipment}</div>
+                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                              <div className="text-xs sm:text-sm text-gray-600 mb-1">기타</div>
+                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.other_equipment}</div>
                             </div>
                           )}
                         </div>
@@ -3158,37 +3213,37 @@ function BusinessManagementPage() {
                     )}
 
                     {/* Status Information Card */}
-                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-200">
-                      <div className="flex items-center mb-4">
-                        <div className="p-2 bg-amber-600 rounded-lg mr-3">
-                          <Clock className="w-5 h-5 text-white" />
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-amber-200">
+                      <div className="flex items-center mb-3 sm:mb-4">
+                        <div className="p-1.5 sm:p-2 bg-amber-600 rounded-lg mr-2 sm:mr-3">
+                          <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-800">상태 정보</h3>
+                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">상태 정보</h3>
                       </div>
-                      
-                      <div className="space-y-4">
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="text-sm text-gray-600 mb-2">활성 상태</div>
-                          <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${
-                            selectedBusiness.is_active 
-                              ? 'bg-green-100 text-green-800 border-2 border-green-200' 
+
+                      <div className="space-y-2 sm:space-y-3 md:space-y-4">
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">활성 상태</div>
+                          <div className={`inline-flex items-center px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-full text-xs sm:text-sm font-semibold ${
+                            selectedBusiness.is_active
+                              ? 'bg-green-100 text-green-800 border-2 border-green-200'
                               : 'bg-gray-100 text-gray-800 border-2 border-gray-200'
                           }`}>
-                            <div className={`w-3 h-3 rounded-full mr-2 ${
+                            <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 rounded-full mr-1 sm:mr-2 ${
                               selectedBusiness.is_active ? 'bg-green-500' : 'bg-gray-400'
                             }`}></div>
                             {selectedBusiness.is_active ? '활성' : '비활성'}
                           </div>
                         </div>
                         
-                        <div className="bg-white rounded-lg p-4 shadow-sm">
-                          <div className="flex items-center text-sm text-gray-600 mb-1">
-                            <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                          <div className="flex items-center text-xs sm:text-sm text-gray-600 mb-1">
+                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-blue-500" />
                             등록일
                           </div>
-                          <div className="text-base font-medium text-gray-900">
-                            {selectedBusiness.등록일 ? 
-                              selectedBusiness.등록일 : (selectedBusiness.created_at ? 
+                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
+                            {selectedBusiness.등록일 ?
+                              selectedBusiness.등록일 : (selectedBusiness.created_at ?
                               new Date(selectedBusiness.created_at).toLocaleDateString('ko-KR', {
                                 year: 'numeric',
                                 month: 'long',
@@ -3198,12 +3253,12 @@ function BusinessManagementPage() {
                         </div>
                         
                         {selectedBusiness.수정일 && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="flex items-center text-sm text-gray-600 mb-1">
-                              <Calendar className="w-4 h-4 mr-2 text-green-500" />
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="flex items-center text-xs sm:text-sm text-gray-600 mb-1">
+                              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-500" />
                               수정일
                             </div>
-                            <div className="text-base font-medium text-gray-900">
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
                               {selectedBusiness.수정일}
                             </div>
                           </div>
@@ -3221,8 +3276,8 @@ function BusinessManagementPage() {
 
       {/* Add/Edit Business Modal */}
       {isModalOpen && (
-        <div 
-          className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50"
+        <div
+          className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsModalOpen(false)
@@ -3230,26 +3285,27 @@ function BusinessManagementPage() {
             }
           }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
-            <div className="px-8 py-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+          <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-7xl w-full max-h-[90vh] sm:max-h-[90vh] overflow-hidden">
+            <div className="px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mr-4">
-                    <Edit className="w-5 h-5 text-white" />
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-white bg-opacity-20 rounded-lg sm:rounded-xl flex items-center justify-center mr-2 sm:mr-3 md:mr-4">
+                    <Edit className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white" />
                   </div>
-                  <h2 className="text-2xl font-bold">
+                  <h2 className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-bold">
                     {editingBusiness ? '사업장 정보 수정' : '새 사업장 추가'}
                   </h2>
                 </div>
                 {/* Action Buttons */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 sm:space-x-2">
                   <button
                     type="submit"
                     form="business-form"
-                    className="flex items-center px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                    className="flex items-center px-2 sm:px-3 py-1 sm:py-2 bg-white bg-opacity-20 text-white rounded-md sm:rounded-lg hover:bg-opacity-30 transition-all duration-200 text-[10px] sm:text-xs md:text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
                   >
-                    <Save className="w-4 h-4 mr-1.5" />
-                    {editingBusiness ? '수정완료' : '추가완료'}
+                    <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                    <span className="hidden sm:inline">{editingBusiness ? '수정완료' : '추가완료'}</span>
+                    <span className="sm:hidden">{editingBusiness ? '수정' : '추가'}</span>
                   </button>
                   <button
                     type="button"
@@ -3257,41 +3313,42 @@ function BusinessManagementPage() {
                       setIsModalOpen(false)
                       setShowLocalGovSuggestions(false)
                     }}
-                    className="flex items-center px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                    className="flex items-center px-2 sm:px-3 py-1 sm:py-2 bg-white bg-opacity-20 text-white rounded-md sm:rounded-lg hover:bg-opacity-30 transition-all duration-200 text-[10px] sm:text-xs md:text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
                   >
-                    <X className="w-4 h-4 mr-1.5" />
-                    취소
+                    <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                    <span className="hidden sm:inline">취소</span>
+                    <span className="sm:hidden">✕</span>
                   </button>
                 </div>
               </div>
             </div>
             
-            <form id="business-form" onSubmit={handleSubmit} className="p-8 max-h-[80vh] overflow-y-auto">
-              <div className="space-y-8">
+            <form id="business-form" onSubmit={handleSubmit} className="p-3 sm:p-4 md:p-6 lg:p-8 max-h-[70vh] sm:max-h-[75vh] md:max-h-[80vh] overflow-y-auto">
+              <div className="space-y-4 sm:space-y-6 md:space-y-8">
                 {/* 기본 정보 */}
                 <div>
-                  <div className="flex items-center mb-6">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mr-3">
-                      <Building2 className="w-4 h-4 text-white" />
+                  <div className="flex items-center mb-3 sm:mb-4 md:mb-6">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
+                      <Building2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-800">기본 정보</h3>
+                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">기본 정보</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">사업장명 *</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업장명 *</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.business_name || ''}
                         onChange={(e) => setFormData({...formData, business_name: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">지자체</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">지자체</label>
                       <div className="relative">
                         <input
                           type="text"
@@ -3312,7 +3369,7 @@ function BusinessManagementPage() {
                               setShowLocalGovSuggestions(false)
                             }
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                           placeholder="예: 서울특별시, 부산광역시..."
                         />
                         
@@ -3337,31 +3394,31 @@ function BusinessManagementPage() {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">주소</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">주소</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.address || ''}
                         onChange={(e) => setFormData({...formData, address: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">대표자명</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">대표자명</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.representative_name || ''}
                         onChange={(e) => setFormData({...formData, representative_name: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">사업자등록번호</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업자등록번호</label>
                       <input
                         type="text"
                         value={formData.business_registration_number || ''}
@@ -3375,7 +3432,7 @@ function BusinessManagementPage() {
                           }
                           setFormData({...formData, business_registration_number: formatted})
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="000-00-00000"
                         maxLength={12}
                       />
@@ -3385,90 +3442,90 @@ function BusinessManagementPage() {
 
                 {/* 담당자 정보 */}
                 <div>
-                  <div className="flex items-center mb-6">
-                    <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3">
-                      <User className="w-4 h-4 text-white" />
+                  <div className="flex items-center mb-3 sm:mb-4 md:mb-6">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
+                      <User className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-800">담당자 정보</h3>
+                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">담당자 정보</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">담당자명</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">담당자명</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.manager_name || ''}
                         onChange={(e) => setFormData({...formData, manager_name: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="김태훈"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">직급</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">직급</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.manager_position || ''}
                         onChange={(e) => setFormData({...formData, manager_position: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="팀장"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">담당자 연락처</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">담당자 연락처</label>
                       <input
                         type="tel"
                         value={formData.manager_contact || ''}
                         onChange={(e) => setFormData({...formData, manager_contact: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="010-1234-5678"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">사업장 연락처</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업장 연락처</label>
                       <input
                         type="tel"
                         value={formData.business_contact || ''}
                         onChange={(e) => setFormData({...formData, business_contact: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="02-0000-0000"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">팩스번호</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">팩스번호</label>
                       <input
                         type="tel"
                         value={formData.fax_number || ''}
                         onChange={(e) => setFormData({...formData, fax_number: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="02-0000-0000"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">이메일</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">이메일</label>
                       <input
                         type="email"
                         value={formData.email || ''}
                         onChange={(e) => setFormData({...formData, email: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="example@company.com"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">대표자생년월일</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">대표자생년월일</label>
                       <input
                         type="date"
                         value={formData.representative_birth_date || ''}
                         onChange={(e) => setFormData({...formData, representative_birth_date: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
                   </div>
@@ -3476,11 +3533,11 @@ function BusinessManagementPage() {
 
                 {/* 사업장 정보 */}
                 <div>
-                  <div className="flex items-center mb-6">
-                    <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mr-3">
-                      <Briefcase className="w-4 h-4 text-white" />
+                  <div className="flex items-center mb-3 sm:mb-4 md:mb-6">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
+                      <Briefcase className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-800">사업장 정보</h3>
+                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">사업장 정보</h3>
                   </div>
                   
                   {/* 대기필증 연동 정보 안내 */}
@@ -3507,7 +3564,7 @@ function BusinessManagementPage() {
                     </div>
                   )}
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                         업종
@@ -3523,7 +3580,7 @@ function BusinessManagementPage() {
                         inputMode="text"
                         value={formData.business_type || airPermitData?.business_type || ''}
                         onChange={(e) => setFormData({...formData, business_type: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="예: 제조업, 서비스업..."
                       />
                       {airPermitData?.business_type && airPermitData.business_type !== (formData.business_type || '') && (
@@ -3548,7 +3605,7 @@ function BusinessManagementPage() {
                         inputMode="text"
                         value={formData.business_category || airPermitData?.category || ''}
                         onChange={(e) => setFormData({...formData, business_category: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="사업 종별"
                       />
                       {airPermitData?.category && airPermitData.category !== (formData.business_category || '') && (
@@ -3559,14 +3616,14 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">담당부서</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">담당부서</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.department || ''}
                         onChange={(e) => setFormData({...formData, department: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="담당부서명"
                       />
                     </div>
@@ -3576,48 +3633,48 @@ function BusinessManagementPage() {
 
                 {/* 프로젝트 관리 */}
                 <div>
-                  <div className="flex items-center mb-6">
-                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3">
-                      <ClipboardList className="w-4 h-4 text-white" />
+                  <div className="flex items-center mb-3 sm:mb-4 md:mb-6">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
+                      <ClipboardList className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-800">프로젝트 관리</h3>
+                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">프로젝트 관리</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">진행구분</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">진행구분</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.progress_status || ''}
                         onChange={(e) => setFormData({...formData, progress_status: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="예: 설치 대기, 진행중, 완료"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">설치팀</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">설치팀</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.installation_team || ''}
                         onChange={(e) => setFormData({...formData, installation_team: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="설치 담당팀"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">발주담당</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">발주담당</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.order_manager || ''}
                         onChange={(e) => setFormData({...formData, order_manager: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="발주 담당자명"
                       />
                     </div>
@@ -3626,50 +3683,50 @@ function BusinessManagementPage() {
 
                 {/* 일정 관리 */}
                 <div>
-                  <div className="flex items-center mb-6">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center mr-3">
-                      <Calendar className="w-4 h-4 text-white" />
+                  <div className="flex items-center mb-3 sm:mb-4 md:mb-6">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
+                      <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-800">일정 관리</h3>
+                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">일정 관리</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">발주요청일</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">발주요청일</label>
                       <input
                         type="date"
                         value={formData.order_request_date || ''}
                         onChange={(e) => setFormData({...formData, order_request_date: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">발주일</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">발주일</label>
                       <input
                         type="date"
                         value={formData.order_date || ''}
                         onChange={(e) => setFormData({...formData, order_date: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">출고일</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">출고일</label>
                       <input
                         type="date"
                         value={formData.shipment_date || ''}
                         onChange={(e) => setFormData({...formData, shipment_date: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">설치일</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">설치일</label>
                       <input
                         type="date"
                         value={formData.installation_date || ''}
                         onChange={(e) => setFormData({...formData, installation_date: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
 
@@ -3678,19 +3735,19 @@ function BusinessManagementPage() {
 
                 {/* 시스템 정보 */}
                 <div>
-                  <div className="flex items-center mb-6">
-                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3">
-                      <Settings className="w-4 h-4 text-white" />
+                  <div className="flex items-center mb-3 sm:mb-4 md:mb-6">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
+                      <Settings className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-800">시스템 정보</h3>
+                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">시스템 정보</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">제조사</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">제조사</label>
                       <select
                         value={formData.manufacturer || ''}
                         onChange={(e) => setFormData({...formData, manufacturer: (e.target.value || null) as 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       >
                         <option value="">선택하세요</option>
                         <option value="ecosense">에코센스</option>
@@ -3701,11 +3758,11 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">VPN</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">VPN</label>
                       <select
                         value={formData.vpn || ''}
                         onChange={(e) => setFormData({...formData, vpn: (e.target.value || null) as 'wired' | 'wireless' | null})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       >
                         <option value="">선택하세요</option>
                         <option value="wired">유선</option>
@@ -3714,48 +3771,48 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">그린링크 ID</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">그린링크 ID</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.greenlink_id || ''}
                         onChange={(e) => setFormData({...formData, greenlink_id: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">그린링크 PW</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">그린링크 PW</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.greenlink_pw || ''}
                         onChange={(e) => setFormData({...formData, greenlink_pw: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">사업장관리코드</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업장관리코드</label>
                       <input
                         type="number"
                         value={formData.business_management_code || ''}
                         onChange={(e) => setFormData({...formData, business_management_code: parseInt(e.target.value) || 0})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">영업점</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">영업점</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.sales_office || ''}
                         onChange={(e) => setFormData({...formData, sales_office: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
                   </div>
@@ -3763,165 +3820,170 @@ function BusinessManagementPage() {
 
                 {/* 장비 수량 */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">측정기기</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="flex items-center mb-3 sm:mb-4">
+                    <div className="p-1.5 sm:p-2 bg-purple-600 rounded-lg mr-2 sm:mr-3">
+                      <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    </div>
+                    <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800">측정기기</h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">PH센서</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">PH센서</label>
                       <input
                         type="number"
                         value={formData.ph_meter || ''}
                         onChange={(e) => setFormData({...formData, ph_meter: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">차압계</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">차압계</label>
                       <input
                         type="number"
                         value={formData.differential_pressure_meter || ''}
                         onChange={(e) => setFormData({...formData, differential_pressure_meter: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">온도계</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">온도계</label>
                       <input
                         type="number"
                         value={formData.temperature_meter || ''}
                         onChange={(e) => setFormData({...formData, temperature_meter: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">배출전류계</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">배출전류계</label>
                       <input
                         type="number"
                         value={formData.discharge_current_meter || ''}
                         onChange={(e) => setFormData({...formData, discharge_current_meter: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">송풍전류계</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">송풍전류계</label>
                       <input
                         type="number"
                         value={formData.fan_current_meter || ''}
                         onChange={(e) => setFormData({...formData, fan_current_meter: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">펌프전류계</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">펌프전류계</label>
                       <input
                         type="number"
                         value={formData.pump_current_meter || ''}
                         onChange={(e) => setFormData({...formData, pump_current_meter: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">게이트웨이</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">게이트웨이</label>
                       <input
                         type="number"
                         value={formData.gateway || ''}
                         onChange={(e) => setFormData({...formData, gateway: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">VPN(유선)</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">VPN(유선)</label>
                       <input
                         type="number"
                         value={formData.vpn_wired || ''}
                         onChange={(e) => setFormData({...formData, vpn_wired: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">VPN(무선)</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">VPN(무선)</label>
                       <input
                         type="number"
                         value={formData.vpn_wireless || ''}
                         onChange={(e) => setFormData({...formData, vpn_wireless: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">방폭차압계(국산)</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">방폭차압계(국산)</label>
                       <input
                         type="number"
                         value={formData.explosion_proof_differential_pressure_meter_domestic || ''}
                         onChange={(e) => setFormData({...formData, explosion_proof_differential_pressure_meter_domestic: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">방폭온도계(국산)</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">방폭온도계(국산)</label>
                       <input
                         type="number"
                         value={formData.explosion_proof_temperature_meter_domestic || ''}
                         onChange={(e) => setFormData({...formData, explosion_proof_temperature_meter_domestic: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">확장디바이스</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">확장디바이스</label>
                       <input
                         type="number"
                         value={formData.expansion_device || ''}
                         onChange={(e) => setFormData({...formData, expansion_device: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">중계기(8채널)</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">중계기(8채널)</label>
                       <input
                         type="number"
                         value={formData.relay_8ch || ''}
                         onChange={(e) => setFormData({...formData, relay_8ch: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">중계기(16채널)</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">중계기(16채널)</label>
                       <input
                         type="number"
                         value={formData.relay_16ch || ''}
                         onChange={(e) => setFormData({...formData, relay_16ch: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">메인보드교체</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">메인보드교체</label>
                       <input
                         type="number"
                         value={formData.main_board_replacement || ''}
                         onChange={(e) => setFormData({...formData, main_board_replacement: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">복수굴뚝</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">복수굴뚝</label>
                       <input
                         type="number"
                         value={formData.multiple_stack || ''}
                         onChange={(e) => setFormData({...formData, multiple_stack: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
@@ -3930,14 +3992,19 @@ function BusinessManagementPage() {
 
                 {/* 상태 설정 */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">상태 설정</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center mb-3 sm:mb-4">
+                    <div className="p-1.5 sm:p-2 bg-green-600 rounded-lg mr-2 sm:mr-3">
+                      <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    </div>
+                    <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800">상태 설정</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">활성 상태</label>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">활성 상태</label>
                       <select
                         value={formData.is_active ? 'true' : 'false'}
                         onChange={(e) => setFormData({...formData, is_active: e.target.value === 'true'})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       >
                         <option value="true">활성</option>
                         <option value="false">비활성</option>
@@ -4079,22 +4146,22 @@ function BusinessManagementPage() {
                 <div className="space-y-4">
                   <div className="text-center">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">업로드 완료</h3>
-                    <div className="grid grid-cols-4 gap-3 mb-6">
-                      <div className="bg-blue-50 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-blue-600">{uploadResults.total}</div>
-                        <div className="text-sm text-blue-700">총 처리</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
+                      <div className="bg-blue-50 rounded-lg p-2 sm:p-3 md:p-4">
+                        <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-blue-600">{uploadResults.total}</div>
+                        <div className="text-[10px] sm:text-xs md:text-sm text-blue-700">총 처리</div>
                       </div>
-                      <div className="bg-green-50 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-green-600">{uploadResults.created || 0}</div>
-                        <div className="text-sm text-green-700">신규 생성</div>
+                      <div className="bg-green-50 rounded-lg p-2 sm:p-3 md:p-4">
+                        <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-green-600">{uploadResults.created || 0}</div>
+                        <div className="text-[10px] sm:text-xs md:text-sm text-green-700">신규 생성</div>
                       </div>
-                      <div className="bg-cyan-50 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-cyan-600">{uploadResults.updated || 0}</div>
-                        <div className="text-sm text-cyan-700">업데이트</div>
+                      <div className="bg-cyan-50 rounded-lg p-2 sm:p-3 md:p-4">
+                        <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-cyan-600">{uploadResults.updated || 0}</div>
+                        <div className="text-[10px] sm:text-xs md:text-sm text-cyan-700">업데이트</div>
                       </div>
-                      <div className="bg-red-50 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-red-600">{uploadResults.failed}</div>
-                        <div className="text-sm text-red-700">실패</div>
+                      <div className="bg-red-50 rounded-lg p-2 sm:p-3 md:p-4">
+                        <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-red-600">{uploadResults.failed}</div>
+                        <div className="text-[10px] sm:text-xs md:text-sm text-red-700">실패</div>
                       </div>
                     </div>
                   </div>

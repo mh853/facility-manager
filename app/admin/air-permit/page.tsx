@@ -90,7 +90,7 @@ const DateInput = ({ value, onChange, placeholder = "YYYY-MM-DD" }: {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1 sm:gap-2">
       <input
         ref={yearRef}
         type="text"
@@ -98,9 +98,9 @@ const DateInput = ({ value, onChange, placeholder = "YYYY-MM-DD" }: {
         onChange={handleYearChange}
         onKeyDown={(e) => handleKeyDown(e, 'year')}
         placeholder="YYYY"
-        className="w-16 px-2 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-center"
+        className="w-12 sm:w-14 md:w-16 px-1 sm:px-2 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-center text-[10px] sm:text-xs md:text-sm"
       />
-      <span>-</span>
+      <span className="text-[10px] sm:text-xs md:text-sm text-gray-400">-</span>
       <input
         ref={monthRef}
         type="text"
@@ -108,9 +108,9 @@ const DateInput = ({ value, onChange, placeholder = "YYYY-MM-DD" }: {
         onChange={handleMonthChange}
         onKeyDown={(e) => handleKeyDown(e, 'month')}
         placeholder="MM"
-        className="w-12 px-2 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-center"
+        className="w-8 sm:w-10 md:w-12 px-1 sm:px-2 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-center text-[10px] sm:text-xs md:text-sm"
       />
-      <span>-</span>
+      <span className="text-[10px] sm:text-xs md:text-sm text-gray-400">-</span>
       <input
         ref={dayRef}
         type="text"
@@ -118,7 +118,7 @@ const DateInput = ({ value, onChange, placeholder = "YYYY-MM-DD" }: {
         onChange={handleDayChange}
         onKeyDown={(e) => handleKeyDown(e, 'day')}
         placeholder="DD"
-        className="w-12 px-2 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-center"
+        className="w-8 sm:w-10 md:w-12 px-1 sm:px-2 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-center text-[10px] sm:text-xs md:text-sm"
       />
     </div>
   )
@@ -803,25 +803,25 @@ function AirPermitManagementPage() {
       actions={
         <button
           onClick={openAddModal}
-          className="flex items-center gap-2 px-3 py-2 md:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm md:text-base"
+          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 md:px-4 md:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-[10px] sm:text-xs md:text-sm lg:text-base"
           title="새 대기필증 추가"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
           <span className="sm:hidden">추가</span>
           <span className="hidden sm:inline">대기필증 추가</span>
         </button>
       }
     >
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
         {/* Business Selection Panel */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-6">
+            <h2 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-blue-600" />
+                <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 대기필증 보유 사업장
               </div>
-              <span className="text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+              <span className="text-[10px] sm:text-xs md:text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                 {searchTerm ? (
                   `${Math.min(filteredBusinessesWithPermits.length, 8)}개 표시 (검색결과 ${filteredBusinessesWithPermits.length}개 중)`
                 ) : (
@@ -840,7 +840,7 @@ function AirPermitManagementPage() {
                 placeholder="사업장명, 지역, 담당자명으로 검색..."
                 value={businessListSearchTerm}
                 onChange={(e) => setBusinessListSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-[10px] sm:text-xs md:text-sm"
               />
               {businessListSearchTerm && (
                 <button
@@ -854,19 +854,19 @@ function AirPermitManagementPage() {
             
             <div className="space-y-4">
               {filteredBusinessesWithPermits.slice(0, 8).map((business) => (
-                <div 
+                <div
                   key={business.id}
                   className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                    selectedBusiness?.id === business.id 
-                      ? 'border-blue-500 bg-blue-50' 
+                    selectedBusiness?.id === business.id
+                      ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                   onClick={() => handleBusinessSelect(business)}
                 >
-                  <h3 className="font-medium text-gray-900">
+                  <h3 className="font-medium text-gray-900 text-[10px] sm:text-xs md:text-sm">
                     {businessListSearchTerm ? highlightBusinessSearchTerm(business.business_name, businessListSearchTerm) : business.business_name}
                   </h3>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 mt-1">
                     {business.business_registration_number || '등록번호 미등록'}
                   </p>
                 </div>
@@ -907,7 +907,7 @@ function AirPermitManagementPage() {
                   placeholder="대기필증 번호, 업종, 시설명, 설치장소, 오염물질로 검색..."
                   value={permitSearchQuery}
                   onChange={(e) => setPermitSearchQuery(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-[10px] sm:text-xs md:text-sm"
                 />
                 {permitSearchQuery && (
                   <button
@@ -930,7 +930,7 @@ function AirPermitManagementPage() {
                         className="flex-1 cursor-pointer"
                         onClick={() => setSelectedPermit(permit)}
                       >
-                        <h3 className="font-medium text-gray-900">
+                        <h3 className="font-medium text-gray-900 text-[10px] sm:text-xs md:text-sm">
                           {permitSearchQuery ? (
                             <>
                               대기필증 #{highlightPermitSearchTerm(permit.id || '', permitSearchQuery)}
@@ -939,7 +939,7 @@ function AirPermitManagementPage() {
                             `대기필증 #${permit.id}`
                           )}
                         </h3>
-                        <div className="text-sm text-gray-600 mt-1 space-y-1">
+                        <div className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 mt-1 space-y-1">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <span className="font-medium">업종: </span>
@@ -964,21 +964,21 @@ function AirPermitManagementPage() {
                             
                             return (
                               <div className="mt-2 p-2 bg-gray-50 rounded border">
-                                <div className="text-xs font-medium text-gray-600 mb-1">시설 번호 현황</div>
+                                <div className="text-[9px] sm:text-[10px] md:text-xs font-medium text-gray-600 mb-1">시설 번호 현황</div>
                                 <div className="space-y-1">
                                   {facilityNumbering.outlets.map(outlet => {
                                     const summary = generateOutletFacilitySummary(outlet)
                                     if (!summary) return null
                                     
                                     return (
-                                      <div key={outlet.outletId} className="text-xs text-gray-700">
+                                      <div key={outlet.outletId} className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-700">
                                         <span className="font-medium">배출구 {outlet.outletNumber}:</span> {summary}
                                       </div>
                                     )
                                   })}
                                 </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  배출시설 {facilityNumbering.totalDischargeFacilities}개, 
+                                <div className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 mt-1">
+                                  배출시설 {facilityNumbering.totalDischargeFacilities}개,
                                   방지시설 {facilityNumbering.totalPreventionFacilities}개
                                 </div>
                               </div>
@@ -986,36 +986,36 @@ function AirPermitManagementPage() {
                           })()}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 sm:gap-2">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             setSelectedPermit(permit)
                           }}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1 sm:p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="상세보기"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             window.location.href = `/admin/air-permit-detail?permitId=${permit.id}`
                           }}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          className="p-1 sm:p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           title="편집"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             confirmDelete(permit)
                           }}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1 sm:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="삭제"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                         </button>
                       </div>
                     </div>
@@ -1026,68 +1026,68 @@ function AirPermitManagementPage() {
           ) : (
             /* Permit Detail View */
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <FileText className="w-6 h-6 text-blue-600" />
+                  <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+                    <div className="p-1 sm:p-1.5 md:p-2 bg-blue-100 rounded-lg">
+                      <FileText className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900">
+                      <h2 className="text-xs sm:text-sm md:text-base lg:text-xl font-bold text-gray-900">
                         대기필증 상세정보
                       </h2>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600">
                         {selectedBusiness.business_name}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <button
                       onClick={() => window.location.href = `/admin/air-permit-detail?permitId=${selectedPermit.id}`}
-                      className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                      className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
                       상세관리
                     </button>
                     <button
                       onClick={() => setSelectedPermit(null)}
-                      className="p-2 hover:bg-white rounded-lg transition-colors"
+                      className="p-1 sm:p-2 hover:bg-white rounded-lg transition-colors"
                     >
-                      <X className="w-5 h-5 text-gray-400" />
+                      <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
                 {/* Basic Information */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Factory className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+                    <Factory className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
                     기본 정보
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4 bg-gray-50 rounded-lg p-2 sm:p-3 md:p-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">업종</label>
-                      <p className="mt-1 text-sm text-gray-900">
+                      <label className="block text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm font-medium text-gray-700">업종</label>
+                      <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-900">
                         {selectedPermit.business_type || '미지정'}
                       </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">종별</label>
-                      <p className="mt-1 text-sm text-gray-900">
+                      <label className="block text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm font-medium text-gray-700">종별</label>
+                      <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-900">
                         {selectedPermit.additional_info?.category || '미지정'}
                       </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">최초신고일</label>
-                      <p className="mt-1 text-sm text-gray-900">
+                      <label className="block text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm font-medium text-gray-700">최초신고일</label>
+                      <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-900">
                         {(selectedPermit as any).first_report_date || '미지정'}
                       </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">가동개시일</label>
-                      <p className="mt-1 text-sm text-gray-900">
+                      <label className="block text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm font-medium text-gray-700">가동개시일</label>
+                      <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-900">
                         {(selectedPermit as any).operation_start_date || '미지정'}
                       </p>
                     </div>
@@ -1096,8 +1096,8 @@ function AirPermitManagementPage() {
 
                 {/* Outlets and Facilities Information */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Factory className="w-5 h-5 text-green-600" />
+                  <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4 flex items-center gap-1 sm:gap-2">
+                    <Factory className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-green-600" />
                     배출구별 시설 현황
                   </h3>
                   
@@ -1106,7 +1106,7 @@ function AirPermitManagementPage() {
                     console.log('🔍 selectedPermit.outlets:', selectedPermit.outlets)
                     return selectedPermit.outlets && selectedPermit.outlets.length > 0
                   })() ? (
-                    <div className="space-y-4">
+                    <div className="space-y-2 sm:space-y-3 md:space-y-4">
                       {selectedPermit.outlets?.map((outlet: any, index: number) => {
                         // 게이트웨이 색상 결정
                         const gateway = outlet.additional_info?.gateway || ''
@@ -1122,18 +1122,18 @@ function AirPermitManagementPage() {
                         const colorClass = gatewayColors[gateway as keyof typeof gatewayColors] || gatewayColors['']
                         
                         return (
-                          <div key={index} className={`border-2 rounded-lg p-4 ${colorClass}`}>
+                          <div key={index} className={`border-2 rounded-lg p-2 sm:p-3 md:p-4 ${colorClass}`}>
                             {/* 배출구 헤더 */}
-                            <div className="flex justify-between items-center mb-4">
-                              <div className="flex items-center gap-3">
-                                <h4 className="text-lg font-semibold">
+                            <div className="flex justify-between items-center mb-2 sm:mb-3 md:mb-4">
+                              <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+                                <h4 className="text-[9px] sm:text-[10px] md:text-xs lg:text-lg font-semibold">
                                   배출구 #{outlet.outlet_number || index + 1}
                                 </h4>
                                 {outlet.outlet_name && (
-                                  <span className="text-sm text-gray-600">({outlet.outlet_name})</span>
+                                  <span className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600">({outlet.outlet_name})</span>
                                 )}
                                 {gateway && (
-                                  <span className="text-xs px-2 py-1 rounded-full bg-white bg-opacity-70">
+                                  <span className="text-[7px] sm:text-[8px] md:text-[9px] lg:text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded-full bg-white bg-opacity-70">
                                     Gateway {gateway.replace('gateway', '')}
                                   </span>
                                 )}
@@ -1142,18 +1142,18 @@ function AirPermitManagementPage() {
 
                             {/* 시설 정보 테이블 */}
                             <div className="bg-white rounded-lg overflow-hidden shadow-sm">
-                              <table className="w-full text-sm">
+                              <table className="w-full text-[9px] sm:text-[10px] md:text-xs lg:text-sm">
                                 <thead className="bg-gray-50">
                                   <tr>
-                                    <th className="px-3 py-2 text-left font-medium text-gray-700 border-r">구분</th>
-                                    <th className="px-3 py-2 text-left font-medium text-red-700 border-r">배출시설</th>
-                                    <th className="px-3 py-2 text-center font-medium text-red-700 border-r">용량</th>
-                                    <th className="px-3 py-2 text-center font-medium text-red-700 border-r">수량</th>
-                                    <th className="px-3 py-2 text-center font-medium text-red-700 border-r">시설번호</th>
-                                    <th className="px-3 py-2 text-left font-medium text-blue-700 border-r">방지시설</th>
-                                    <th className="px-3 py-2 text-center font-medium text-blue-700 border-r">용량</th>
-                                    <th className="px-3 py-2 text-center font-medium text-blue-700 border-r">수량</th>
-                                    <th className="px-3 py-2 text-center font-medium text-blue-700">시설번호</th>
+                                    <th className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-left font-medium text-gray-700 border-r text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">구분</th>
+                                    <th className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-left font-medium text-red-700 border-r text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">배출시설</th>
+                                    <th className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center font-medium text-red-700 border-r text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">용량</th>
+                                    <th className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center font-medium text-red-700 border-r text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">수량</th>
+                                    <th className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center font-medium text-red-700 border-r text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">시설번호</th>
+                                    <th className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-left font-medium text-blue-700 border-r text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">방지시설</th>
+                                    <th className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center font-medium text-blue-700 border-r text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">용량</th>
+                                    <th className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center font-medium text-blue-700 border-r text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">수량</th>
+                                    <th className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center font-medium text-blue-700 text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">시설번호</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1197,52 +1197,52 @@ function AirPermitManagementPage() {
                                       
                                       return (
                                         <tr key={rowIndex} className="border-t hover:bg-gray-50">
-                                          <td className="px-3 py-2 text-center text-gray-500 border-r font-medium">
+                                          <td className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center text-gray-500 border-r font-medium text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">
                                             {rowIndex + 1}
                                           </td>
                                           
                                           {/* 배출시설 정보 */}
-                                          <td className="px-3 py-2 border-r">
-                                            <div className="font-medium text-gray-900">
+                                          <td className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border-r">
+                                            <div className="font-medium text-gray-900 text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">
                                               {dischargeFacility?.facility_name || '-'}
                                             </div>
                                             {dischargeFacility?.additional_info?.facility_number && (
-                                              <div className="text-xs text-gray-500 mt-1">
+                                              <div className="text-[7px] sm:text-[8px] md:text-[9px] lg:text-[10px] text-gray-500 mt-1">
                                                 #{dischargeFacility.additional_info.facility_number}
                                               </div>
                                             )}
                                           </td>
-                                          <td className="px-3 py-2 text-center border-r text-gray-700">
+                                          <td className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center border-r text-gray-700 text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">
                                             {dischargeFacility?.capacity || '-'}
                                           </td>
-                                          <td className="px-3 py-2 text-center border-r font-medium">
+                                          <td className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center border-r font-medium text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">
                                             {dischargeFacility?.quantity || '-'}
                                           </td>
-                                          <td className="px-3 py-2 text-center border-r">
-                                            <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded">
+                                          <td className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center border-r">
+                                            <span className="inline-block px-1 sm:px-2 py-0.5 sm:py-1 bg-red-100 text-red-800 text-[7px] sm:text-[8px] md:text-[9px] lg:text-[10px] font-medium rounded">
                                               {getDischargeFacilityNumbers()}
                                             </span>
                                           </td>
                                           
                                           {/* 방지시설 정보 */}
-                                          <td className="px-3 py-2 border-r">
-                                            <div className="font-medium text-gray-900">
+                                          <td className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 border-r">
+                                            <div className="font-medium text-gray-900 text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">
                                               {preventionFacility?.facility_name || '-'}
                                             </div>
                                             {preventionFacility?.additional_info?.facility_number && (
-                                              <div className="text-xs text-gray-500 mt-1">
+                                              <div className="text-[7px] sm:text-[8px] md:text-[9px] lg:text-[10px] text-gray-500 mt-1">
                                                 #{preventionFacility.additional_info.facility_number}
                                               </div>
                                             )}
                                           </td>
-                                          <td className="px-3 py-2 text-center border-r text-gray-700">
+                                          <td className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center border-r text-gray-700 text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">
                                             {preventionFacility?.capacity || '-'}
                                           </td>
-                                          <td className="px-3 py-2 text-center border-r font-medium">
+                                          <td className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center border-r font-medium text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">
                                             {preventionFacility?.quantity || '-'}
                                           </td>
-                                          <td className="px-3 py-2 text-center">
-                                            <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                                          <td className="px-1 sm:px-2 md:px-3 py-1 sm:py-2 text-center">
+                                            <span className="inline-block px-1 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[7px] sm:text-[8px] md:text-[9px] lg:text-[10px] font-medium rounded">
                                               {getPreventionFacilityNumbers()}
                                             </span>
                                           </td>
@@ -1257,14 +1257,14 @@ function AirPermitManagementPage() {
                             {/* 추가 정보 (시설코드가 있는 경우) */}
                             {(outlet.discharge_facilities?.some((f: any) => f.additional_info?.green_link_code) ||
                               outlet.prevention_facilities?.some((f: any) => f.additional_info?.green_link_code)) && (
-                              <div className="mt-3 p-3 bg-white bg-opacity-70 rounded-lg">
-                                <h5 className="text-sm font-medium text-gray-700 mb-2">시설코드 정보</h5>
-                                <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-white bg-opacity-70 rounded-lg">
+                                <h5 className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-medium text-gray-700 mb-1 sm:mb-2">시설코드 정보</h5>
+                                <div className="grid grid-cols-2 gap-2 sm:gap-4 text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs">
                                   <div>
                                     <span className="font-medium text-red-700">배출시설:</span>
                                     {outlet.discharge_facilities?.map((facility: any, fIndex: number) => (
                                       facility.additional_info?.green_link_code && (
-                                        <div key={fIndex} className="ml-2">
+                                        <div key={fIndex} className="ml-1 sm:ml-2">
                                           {facility.facility_name}: {facility.additional_info.green_link_code}
                                         </div>
                                       )
@@ -1274,7 +1274,7 @@ function AirPermitManagementPage() {
                                     <span className="font-medium text-blue-700">방지시설:</span>
                                     {outlet.prevention_facilities?.map((facility: any, fIndex: number) => (
                                       facility.additional_info?.green_link_code && (
-                                        <div key={fIndex} className="ml-2">
+                                        <div key={fIndex} className="ml-1 sm:ml-2">
                                           {facility.facility_name}: {facility.additional_info.green_link_code}
                                         </div>
                                       )
@@ -1288,10 +1288,10 @@ function AirPermitManagementPage() {
                       })}
                     </div>
                   ) : (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg">
-                      <Factory className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                      <p className="text-gray-500">등록된 배출구 정보가 없습니다</p>
-                      <p className="text-sm text-gray-400 mt-1">상세관리 버튼을 클릭하여 배출구 정보를 추가해보세요</p>
+                    <div className="text-center py-6 sm:py-8 bg-gray-50 rounded-lg">
+                      <Factory className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mx-auto mb-2 sm:mb-3 text-gray-300" />
+                      <p className="text-gray-500 text-[10px] sm:text-xs md:text-sm">등록된 배출구 정보가 없습니다</p>
+                      <p className="text-gray-400 mt-1 text-[9px] sm:text-[10px] md:text-xs">상세관리 버튼을 클릭하여 배출구 정보를 추가해보세요</p>
                     </div>
                   )}
                 </div>
@@ -1304,31 +1304,31 @@ function AirPermitManagementPage() {
 
       {/* 대기필증 추가 모달 */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-7xl w-full mx-4 max-h-[95vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl p-2 sm:p-4 md:p-6 lg:p-8 max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-7xl w-full max-h-[95vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6 lg:mb-8 pb-2 sm:pb-3 md:pb-4 lg:pb-6 border-b border-gray-200">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">새 대기필증 추가</h2>
-                <p className="text-gray-600">새로운 대기필증 정보를 입력하고 등록하세요.</p>
+                <h2 className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">새 대기필증 추가</h2>
+                <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-600">새로운 대기필증 정보를 입력하고 등록하세요.</p>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-1.5 sm:p-2 md:p-2.5 lg:p-3 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <X className="w-6 h-6 text-gray-500" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-gray-500" />
               </button>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); handleCreatePermit(); }} className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <form onSubmit={(e) => { e.preventDefault(); handleCreatePermit(); }} className="space-y-3 sm:space-y-4 md:space-y-6 lg:space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
               {/* 사업장 선택 */}
               <div className="relative business-dropdown-container">
-                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                <label className="block text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3">
                   사업장 선택 <span className="text-red-500">*</span>
                 </label>
                 {isLoadingBusinesses ? (
-                  <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center">
-                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                  <div className="w-full px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center text-[10px] sm:text-xs md:text-sm">
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-1 sm:mr-2"></div>
                     사업장 목록을 불러오는 중...
                   </div>
                 ) : (
@@ -1340,12 +1340,12 @@ function AirPermitManagementPage() {
                         const value = e.target.value
                         setSearchTerm(value)
                         setShowBusinessDropdown(true)
-                        
+
                         // 사업장이 선택된 상태에서 수정하는 경우 선택 해제
                         if (newPermitData.business_id) {
                           setSelectedBusinessName('')
                           setNewPermitData(prev => ({
-                            ...prev, 
+                            ...prev,
                             business_id: '',
                             business_type: ''
                           }))
@@ -1358,22 +1358,22 @@ function AirPermitManagementPage() {
                           setSearchTerm('')
                         }
                       }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                      className="w-full px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8 sm:pr-10 text-[10px] sm:text-xs md:text-sm"
                       placeholder="사업장명 또는 지자체명으로 검색..."
                       required={!newPermitData.business_id}
                     />
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                      <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="absolute inset-y-0 right-0 pr-2 sm:pr-3 flex items-center">
+                      <svg className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </div>
                     
                     {showBusinessDropdown && (!newPermitData.business_id || searchTerm) && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 sm:max-h-60 overflow-y-auto">
                         {filteredBusinesses.length > 0 ? (
                           <>
-                            <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-200 bg-gray-50">
-                              {searchTerm ? 
+                            <div className="px-2 sm:px-3 py-1 sm:py-2 text-[9px] sm:text-[10px] md:text-xs text-gray-500 border-b border-gray-200 bg-gray-50">
+                              {searchTerm ?
                                 `검색 결과: ${filteredBusinesses.length}개 사업장 ${filteredBusinesses.length === 50 ? '(최대 50개 표시)' : ''}` :
                                 `전체: ${filteredBusinesses.length}개 사업장 ${filteredBusinesses.length === 100 ? '(처음 100개 표시)' : ''}`
                               }
@@ -1386,23 +1386,23 @@ function AirPermitManagementPage() {
                                   setSearchTerm('')
                                   setShowBusinessDropdown(false)
                                   setNewPermitData(prev => ({
-                                    ...prev, 
+                                    ...prev,
                                     business_id: business.id,
                                     business_type: business.business_type || ''
                                   }))
                                 }}
-                                className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                className="px-2 sm:px-3 py-1.5 sm:py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                               >
-                                <div className="font-medium text-gray-900">{business.business_name}</div>
-                                <div className="text-sm text-gray-500">{business.local_government}</div>
+                                <div className="font-medium text-gray-900 text-[10px] sm:text-xs md:text-sm">{business.business_name}</div>
+                                <div className="text-[9px] sm:text-[10px] md:text-xs text-gray-500">{business.local_government}</div>
                               </div>
                             ))}
                           </>
                         ) : (
-                          <div className="px-3 py-4 text-gray-500 text-center">
+                          <div className="px-2 sm:px-3 py-2 sm:py-4 text-gray-500 text-center text-[10px] sm:text-xs md:text-sm">
                             {isLoadingBusinesses ? (
                               <div className="flex items-center justify-center">
-                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-1 sm:mr-2"></div>
                                 사업장 목록을 불러오는 중...
                               </div>
                             ) : (
@@ -1414,13 +1414,13 @@ function AirPermitManagementPage() {
                     )}
                   </div>
                 )}
-                
+
                 {/* 선택된 사업장 표시 */}
                 {newPermitData.business_id && !showBusinessDropdown && (
-                  <div className="mt-2 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                  <div className="mt-1 sm:mt-2 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2">
                     <div>
-                      <div className="font-medium text-blue-900">{selectedBusinessName.split(' - ')[0]}</div>
-                      <div className="text-sm text-blue-700">{selectedBusinessName.split(' - ')[1]}</div>
+                      <div className="font-medium text-blue-900 text-[10px] sm:text-xs md:text-sm">{selectedBusinessName.split(' - ')[0]}</div>
+                      <div className="text-[9px] sm:text-[10px] md:text-xs text-blue-700">{selectedBusinessName.split(' - ')[1]}</div>
                     </div>
                     <button
                       type="button"
@@ -1428,14 +1428,14 @@ function AirPermitManagementPage() {
                         setSelectedBusinessName('')
                         setSearchTerm('')
                         setNewPermitData(prev => ({
-                          ...prev, 
+                          ...prev,
                           business_id: '',
                           business_type: ''
                         }))
                       }}
-                      className="text-blue-600 hover:text-blue-800 ml-2"
+                      className="text-blue-600 hover:text-blue-800 ml-1 sm:ml-2"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
@@ -1445,35 +1445,35 @@ function AirPermitManagementPage() {
 
               {/* 업종 */}
               <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                <label className="block text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3">
                   업종
                 </label>
                 <input
                   type="text"
                   value={newPermitData.business_type}
                   onChange={(e) => setNewPermitData(prev => ({...prev, business_type: e.target.value}))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-[10px] sm:text-xs md:text-sm"
                   placeholder="업종을 입력하세요"
                 />
               </div>
 
               {/* 종별 */}
               <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                <label className="block text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3">
                   종별
                 </label>
                 <input
                   type="text"
                   value={newPermitData.category}
                   onChange={(e) => setNewPermitData(prev => ({...prev, category: e.target.value}))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-[10px] sm:text-xs md:text-sm"
                   placeholder="종별을 입력하세요"
                 />
               </div>
 
               {/* 최초 신고일 */}
               <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                <label className="block text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3">
                   최초 신고일
                 </label>
                 <DateInput
@@ -1485,7 +1485,7 @@ function AirPermitManagementPage() {
 
               {/* 가동 개시일 */}
               <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                <label className="block text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3">
                   가동 개시일
                 </label>
                 <DateInput
@@ -1498,42 +1498,43 @@ function AirPermitManagementPage() {
 
 
               {/* 배출구 및 시설 정보 섹션 */}
-              <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">
+              <div className="bg-blue-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-blue-200">
+                <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
+                  <h3 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-gray-900 flex items-center gap-1 sm:gap-2">
+                    <Factory className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
                     배출구 및 시설 정보
                   </h3>
                   <button
                     type="button"
                     onClick={addOutlet}
-                    className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-1 px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] md:text-xs lg:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                     배출구 추가
                   </button>
                 </div>
-                
-                <div className="space-y-4 max-h-60 overflow-y-auto">
+
+                <div className="space-y-2 sm:space-y-3 md:space-y-4 max-h-40 sm:max-h-60 overflow-y-auto">
                   {newPermitData.outlets.map((outlet, outletIndex) => (
-                    <div key={outletIndex} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium text-gray-900">
+                    <div key={outletIndex} className="border border-gray-200 rounded-lg p-2 sm:p-3 md:p-4">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <h4 className="font-medium text-gray-900 text-[10px] sm:text-xs md:text-sm">
                           배출구 {outlet.outlet_number}
                         </h4>
                         {newPermitData.outlets.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeOutlet(outletIndex)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                            className="p-0.5 sm:p-1 text-red-600 hover:bg-red-50 rounded"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-3 h-3 sm:w-4 sm:h-4" />
                           </button>
                         )}
                       </div>
 
                       {/* 배출구명 */}
-                      <div className="mb-3">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                      <div className="mb-2 sm:mb-3">
+                        <label className="block text-[9px] sm:text-[10px] md:text-xs font-medium text-gray-600 mb-1">
                           배출구명
                         </label>
                         <input
@@ -1541,44 +1542,44 @@ function AirPermitManagementPage() {
                           value={outlet.outlet_name}
                           onChange={(e) => setNewPermitData(prev => ({
                             ...prev,
-                            outlets: prev.outlets.map((o, i) => 
+                            outlets: prev.outlets.map((o, i) =>
                               i === outletIndex ? {...o, outlet_name: e.target.value} : o
                             )
                           }))}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-1.5 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
 
                       {/* 배출시설 */}
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="block text-xs font-medium text-gray-600">
+                      <div className="mb-2 sm:mb-3">
+                        <div className="flex items-center justify-between mb-1 sm:mb-2">
+                          <label className="block text-[9px] sm:text-[10px] md:text-xs font-medium text-gray-600">
                             배출시설
                           </label>
                           <button
                             type="button"
                             onClick={() => addDischargeFacility(outletIndex)}
-                            className="text-xs text-blue-600 hover:text-blue-700"
+                            className="text-[9px] sm:text-[10px] md:text-xs text-blue-600 hover:text-blue-700"
                           >
                             + 추가
                           </button>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1 sm:space-y-2">
                           {outlet.discharge_facilities.map((facility, facilityIndex) => (
-                            <div key={facilityIndex} className="flex gap-2 items-start">
+                            <div key={facilityIndex} className="flex gap-1 sm:gap-2 items-start">
                               <input
                                 type="text"
                                 value={facility.name}
                                 onChange={(e) => updateFacility(outletIndex, 'discharge', facilityIndex, 'name', e.target.value)}
                                 placeholder="시설명"
-                                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                className="flex-1 px-1.5 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                               />
                               <input
                                 type="text"
                                 value={facility.capacity}
                                 onChange={(e) => updateFacility(outletIndex, 'discharge', facilityIndex, 'capacity', e.target.value)}
                                 placeholder="용량"
-                                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                className="w-12 sm:w-16 md:w-20 px-1 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                               />
                               <input
                                 type="number"
@@ -1586,15 +1587,15 @@ function AirPermitManagementPage() {
                                 onChange={(e) => updateFacility(outletIndex, 'discharge', facilityIndex, 'quantity', parseInt(e.target.value) || 1)}
                                 placeholder="수량"
                                 min="1"
-                                className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                className="w-10 sm:w-12 md:w-16 px-1 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                               />
                               {outlet.discharge_facilities.length > 1 && (
                                 <button
                                   type="button"
                                   onClick={() => removeDischargeFacility(outletIndex, facilityIndex)}
-                                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                  className="p-0.5 sm:p-1 text-red-600 hover:bg-red-50 rounded"
                                 >
-                                  <X className="w-3 h-3" />
+                                  <X className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                 </button>
                               )}
                             </div>
@@ -1604,34 +1605,34 @@ function AirPermitManagementPage() {
 
                       {/* 방지시설 */}
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="block text-xs font-medium text-gray-600">
+                        <div className="flex items-center justify-between mb-1 sm:mb-2">
+                          <label className="block text-[9px] sm:text-[10px] md:text-xs font-medium text-gray-600">
                             방지시설
                           </label>
                           <button
                             type="button"
                             onClick={() => addPreventionFacility(outletIndex)}
-                            className="text-xs text-blue-600 hover:text-blue-700"
+                            className="text-[9px] sm:text-[10px] md:text-xs text-blue-600 hover:text-blue-700"
                           >
                             + 추가
                           </button>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1 sm:space-y-2">
                           {outlet.prevention_facilities.map((facility, facilityIndex) => (
-                            <div key={facilityIndex} className="flex gap-2 items-start">
+                            <div key={facilityIndex} className="flex gap-1 sm:gap-2 items-start">
                               <input
                                 type="text"
                                 value={facility.name}
                                 onChange={(e) => updateFacility(outletIndex, 'prevention', facilityIndex, 'name', e.target.value)}
                                 placeholder="시설명"
-                                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                className="flex-1 px-1.5 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                               />
                               <input
                                 type="text"
                                 value={facility.capacity}
                                 onChange={(e) => updateFacility(outletIndex, 'prevention', facilityIndex, 'capacity', e.target.value)}
                                 placeholder="용량"
-                                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                className="w-12 sm:w-16 md:w-20 px-1 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                               />
                               <input
                                 type="number"
@@ -1639,15 +1640,15 @@ function AirPermitManagementPage() {
                                 onChange={(e) => updateFacility(outletIndex, 'prevention', facilityIndex, 'quantity', parseInt(e.target.value) || 1)}
                                 placeholder="수량"
                                 min="1"
-                                className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                className="w-10 sm:w-12 md:w-16 px-1 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                               />
                               {outlet.prevention_facilities.length > 1 && (
                                 <button
                                   type="button"
                                   onClick={() => removePreventionFacility(outletIndex, facilityIndex)}
-                                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                  className="p-0.5 sm:p-1 text-red-600 hover:bg-red-50 rounded"
                                 >
-                                  <X className="w-3 h-3" />
+                                  <X className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                 </button>
                               )}
                             </div>
@@ -1660,21 +1661,22 @@ function AirPermitManagementPage() {
               </div>
 
               {/* 버튼들 */}
-              <div className="flex justify-end gap-4 pt-8 mt-8 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 md:gap-4 pt-3 sm:pt-4 md:pt-6 lg:pt-8 mt-3 sm:mt-4 md:mt-6 lg:mt-8 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+                  className="px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 border-2 border-gray-300 text-gray-700 font-medium rounded-lg sm:rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-[10px] sm:text-xs md:text-sm lg:text-base"
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+                  className="px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg sm:rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 text-[10px] sm:text-xs md:text-sm lg:text-base"
                 >
-                  <span className="flex items-center gap-2">
-                    대기필증 생성
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="flex items-center justify-center gap-1 sm:gap-2">
+                    <span className="sm:hidden">생성</span>
+                    <span className="hidden sm:inline">대기필증 생성</span>
+                    <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                   </span>

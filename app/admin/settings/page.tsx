@@ -192,21 +192,21 @@ export default function AdminSettingsPage() {
           <button
             type="button"
             onClick={handleResetCriteria}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
           >
-            <RotateCcw className="w-4 h-4" />
-            기본값 리셋
+            <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">기본값 리셋</span><span className="sm:hidden">리셋</span>
           </button>
           <button
             type="button"
             onClick={handleSaveCriteria}
             disabled={isSavingCriteria}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 md:px-4 md:py-2 text-[10px] sm:text-xs md:text-sm lg:text-base font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isSavingCriteria ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
             ) : (
-              <Save className="w-4 h-4" />
+              <Save className="w-3 h-3 sm:w-4 sm:h-4" />
             )}
             {isSavingCriteria ? '저장 중...' : '설정 저장'}
           </button>
@@ -222,11 +222,11 @@ export default function AdminSettingsPage() {
       description="시설 관리 시스템의 주요 설정을 관리합니다"
       actions={renderTabActions()}
     >
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-full sm:max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto px-1 sm:px-4">
 
         {/* 알림 메시지 */}
         {message.type && (
-          <div className={`mb-6 p-4 rounded-lg border ${
+          <div className={`mb-3 sm:mb-6 p-2 sm:p-4 rounded-lg border ${
             message.type === 'success'
               ? 'bg-green-50 border-green-200 text-green-800'
               : 'bg-red-50 border-red-200 text-red-800'
@@ -243,24 +243,25 @@ export default function AdminSettingsPage() {
         )}
 
         {/* 탭 네비게이션 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-2 sm:mb-4 md:mb-6">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
+            <nav className="flex space-x-1 sm:space-x-4 md:space-x-8 px-1 sm:px-4 md:px-6 overflow-x-auto scrollbar-hide">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    className={`py-1.5 sm:py-3 md:py-4 px-0.5 sm:px-1 border-b-2 font-medium text-[10px] sm:text-sm md:text-base transition-colors whitespace-nowrap ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-5 h-5" />
-                      <span>{tab.name}</span>
+                    <div className="flex items-center gap-0.5 sm:gap-2">
+                      <Icon className="w-3 h-3 sm:w-5 sm:h-5" />
+                      <span className="hidden sm:inline">{tab.name}</span>
+                      <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
                     </div>
                   </button>
                 );
@@ -269,8 +270,8 @@ export default function AdminSettingsPage() {
           </div>
 
           {/* 현재 탭 설명 */}
-          <div className="px-6 py-3 bg-gray-50">
-            <p className="text-sm text-gray-600">
+          <div className="px-1 sm:px-4 md:px-6 py-1.5 sm:py-3 bg-gray-50">
+            <p className="text-[10px] sm:text-sm md:text-base text-gray-600">
               {tabs.find(tab => tab.id === activeTab)?.description}
             </p>
           </div>
@@ -281,7 +282,7 @@ export default function AdminSettingsPage() {
 
           {/* 지연/위험 기준 설정 탭 */}
           {activeTab === 'delay-criteria' && (
-            <div className="p-6">
+            <div className="p-2 sm:p-6">
               {isLoadingCriteria ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">
@@ -291,11 +292,11 @@ export default function AdminSettingsPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-6">
                     {Object.entries(taskTypeLabels).map(([taskType, label]) => (
-                      <div key={taskType} className="border border-gray-200 rounded-lg p-4">
-                        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${
+                      <div key={taskType} className="border border-gray-200 rounded-lg p-2 sm:p-4">
+                        <h3 className="text-sm sm:text-lg font-medium text-gray-900 mb-2 sm:mb-4 flex items-center gap-1 sm:gap-2">
+                          <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${
                             taskType === 'self' ? 'bg-blue-500' :
                             taskType === 'subsidy' ? 'bg-green-500' :
                             taskType === 'as' ? 'bg-orange-500' :
@@ -304,7 +305,7 @@ export default function AdminSettingsPage() {
                           {label}
                         </h3>
 
-                        <div className="space-y-4">
+                        <div className="space-y-2 sm:space-y-4">
                           {/* 지연 기준 */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -377,9 +378,9 @@ export default function AdminSettingsPage() {
 
           {/* 알림 관리 탭 */}
           {activeTab === 'notifications' && (
-            <div className="p-6">
+            <div className="p-2 sm:p-6">
               {/* 3-tier 알림 시스템 현황 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-6 mb-3 sm:mb-6">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -481,7 +482,7 @@ export default function AdminSettingsPage() {
 
           {/* 조직 관리 탭 */}
           {activeTab === 'organization' && (
-            <div className="p-6">
+            <div className="p-2 sm:p-6">
               <OrganizationManagement />
             </div>
           )}

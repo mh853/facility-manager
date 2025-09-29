@@ -155,30 +155,30 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center p-2 sm:p-4">
+      <div className="w-full max-w-xs sm:max-w-md">
         {/* 로고 및 헤더 */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <Building2 className="w-8 h-8 text-blue-600" />
+        <div className="text-center mb-4 sm:mb-6 md:mb-8">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 md:mb-4 shadow-lg">
+            <Building2 className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">시설관리 시스템</h1>
-          <p className="text-sm text-gray-600 mt-2">주식회사 블루온</p>
-          <p className="text-xs text-gray-500 mt-1">관리자 인증이 필요합니다</p>
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">시설관리 시스템</h1>
+          <p className="text-xs sm:text-sm md:text-base text-gray-600 mt-1 sm:mt-2">주식회사 블루온</p>
+          <p className="text-[10px] sm:text-xs md:text-sm text-gray-500 mt-1">관리자 인증이 필요합니다</p>
         </div>
 
         {/* 로그인 폼 */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">로그인</h2>
-            <p className="text-sm text-gray-600">
+        <div className="bg-white rounded-lg sm:rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6 md:p-8">
+          <div className="mb-3 sm:mb-4 md:mb-6">
+            <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">로그인</h2>
+            <p className="text-xs sm:text-sm md:text-base text-gray-600">
               {showEmailLogin ? '안정적인 이메일 로그인을 권장합니다' : '소셜 로그인은 불안정할 수 있습니다'}
             </p>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="mb-2 sm:mb-3 md:mb-4 p-2 sm:p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-xs sm:text-sm md:text-base text-red-600">{error}</p>
             </div>
           )}
 

@@ -101,14 +101,14 @@ export default function StatsCard({
   
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-4 lg:p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-6">
         <div className="animate-pulse">
-          <div className="flex items-center justify-between mb-2 md:mb-3 lg:mb-4">
-            <div className="h-3 md:h-4 bg-gray-200 rounded w-20 md:w-24"></div>
-            <div className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 bg-gray-200 rounded-lg"></div>
+          <div className="flex items-center justify-between mb-1 sm:mb-2 md:mb-3 lg:mb-4">
+            <div className="h-2 sm:h-3 md:h-4 bg-gray-200 rounded w-16 sm:w-20 md:w-24"></div>
+            <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 bg-gray-200 rounded-lg"></div>
           </div>
-          <div className="h-6 md:h-7 lg:h-8 bg-gray-200 rounded w-12 md:w-14 lg:w-16 mb-1 md:mb-2"></div>
-          <div className="h-2 md:h-3 bg-gray-200 rounded w-16 md:w-20"></div>
+          <div className="h-4 sm:h-6 md:h-7 lg:h-8 bg-gray-200 rounded w-10 sm:w-12 md:w-14 lg:w-16 mb-1"></div>
+          <div className="h-1.5 sm:h-2 md:h-3 bg-gray-200 rounded w-12 sm:w-16 md:w-20"></div>
         </div>
       </div>
     )
@@ -138,44 +138,44 @@ export default function StatsCard({
   return (
     <div
       className={`
-        bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-4 lg:p-6 transition-all duration-200
+        bg-white rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-6 transition-all duration-200
         ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-1' : ''}
       `}
       onClick={onClick}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 md:mb-3 lg:mb-4">
-        <h3 className="text-xs md:text-sm font-medium text-gray-600">{title}</h3>
-        <div className={`w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center ${colorScheme.icon}`}>
-          <Icon className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6" />
+      <div className="flex items-center justify-between mb-1 sm:mb-2 md:mb-3 lg:mb-4">
+        <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">{title}</h3>
+        <div className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center ${colorScheme.icon}`}>
+          <Icon className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6" />
         </div>
       </div>
 
       {/* Value */}
-      <div className="mb-1 md:mb-2">
-        <div className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900">
+      <div className="mb-1 sm:mb-1 md:mb-2">
+        <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900">
           {formatValue(value)}
         </div>
         {description && (
-          <p className="text-xs md:text-sm text-gray-500 mt-0.5 md:mt-1">{description}</p>
+          <p className="text-[9px] sm:text-xs md:text-sm text-gray-500 mt-0.5">{description}</p>
         )}
       </div>
 
       {/* Trend */}
       {trend && (
         <div className={`
-          inline-flex items-center gap-1 px-1.5 py-0.5 md:px-2 md:py-1 rounded-full text-xs font-medium
+          inline-flex items-center gap-1 px-1 py-0.5 sm:px-1.5 sm:py-0.5 md:px-2 md:py-1 rounded-full text-[9px] sm:text-xs font-medium
           ${colorScheme.trend[trend.direction]}
         `}>
           {getTrendIcon()}
           <span>{trend.value > 0 ? '+' : ''}{trend.value}%</span>
-          {trend.label && <span className="ml-1 hidden md:inline">{trend.label}</span>}
+          {trend.label && <span className="ml-1 hidden sm:inline">{trend.label}</span>}
         </div>
       )}
 
       {/* Additional Content */}
       {children && (
-        <div className="mt-2 pt-2 md:mt-3 md:pt-3 lg:mt-4 lg:pt-4 border-t border-gray-100">
+        <div className="mt-1 pt-1 sm:mt-2 sm:pt-2 md:mt-3 md:pt-3 lg:mt-4 lg:pt-4 border-t border-gray-100">
           {children}
         </div>
       )}
