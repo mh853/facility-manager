@@ -39,7 +39,9 @@
       "Bash(npm run lint)",
       "WebFetch(domain:vercel.com)",
       "WebFetch(domain:facility.blueon-iot.com)",
-      "Bash(start http://localhost:3000)"
+      "Bash(start http://localhost:3000)",
+      "Bash(awk:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": [],

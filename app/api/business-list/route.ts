@@ -10,9 +10,9 @@ export const runtime = 'nodejs';
 
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
-    console.log('🏢 [BUSINESS-LIST] business_info에서 대기필증 보유 사업장 목록 조회');
-    
-    // business_info 테이블에서 대기필증 정보가 있는 사업장만 조회
+    console.log('🏢 [BUSINESS-LIST] business_info에서 전체 사업장 목록 조회 (대기필증 여부 무관)');
+
+    // business_info 테이블에서 모든 사업장 조회 (측정기기 정보 포함, 대기필증 여부 무관)
     const { data: businessWithPermits, error: businessError } = await supabaseAdmin
       .from('business_info')
       .select(`
@@ -21,6 +21,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         address,
         manager_name,
         manager_contact,
+        sales_office,
         ph_meter,
         differential_pressure_meter,
         temperature_meter,
@@ -28,14 +29,18 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         fan_current_meter,
         pump_current_meter,
         gateway,
-        air_permit_info!inner(
-          id,
-          is_active
-        )
+        vpn_wired,
+        vpn_wireless,
+        explosion_proof_differential_pressure_meter_domestic,
+        explosion_proof_temperature_meter_domestic,
+        expansion_device,
+        relay_8ch,
+        relay_16ch,
+        main_board_replacement,
+        multiple_stack
       `)
       .eq('is_active', true)
       .eq('is_deleted', false)
-      .eq('air_permit_info.is_active', true)
       .not('business_name', 'is', null)
       .order('business_name');
     

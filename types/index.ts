@@ -212,3 +212,82 @@ export interface Department {
   description?: string;
   is_active: boolean;
 }
+
+// 매출 관리 시스템 타입 정의
+export interface BusinessRevenueSummary {
+  business_id: string;
+  business_name: string;
+  sales_office: string;
+  address: string;
+  manager_name: string;
+  manager_contact: string;
+
+  // 업무 카테고리별 분류
+  task_categories: {
+    self_tasks: number;      // 자비 업무 수
+    subsidy_tasks: number;   // 보조금 업무 수
+    total_tasks: number;     // 전체 업무 수
+  };
+
+  // 측정기기 정보
+  equipment_summary: {
+    total_equipment_count: number;
+    equipment_breakdown: {
+      ph_meter: number;
+      differential_pressure_meter: number;
+      temperature_meter: number;
+      discharge_current_meter: number;
+      fan_current_meter: number;
+      pump_current_meter: number;
+      gateway: number;
+      vpn_wired: number;
+      vpn_wireless: number;
+      explosion_proof_differential_pressure_meter_domestic: number;
+      explosion_proof_temperature_meter_domestic: number;
+      expansion_device: number;
+      relay_8ch: number;
+      relay_16ch: number;
+      main_board_replacement: number;
+      multiple_stack: number;
+    };
+  };
+
+  // 매출 계산 결과 (캐시됨)
+  revenue_calculation?: {
+    calculation_date: string;
+    total_revenue: number;
+    total_cost: number;
+    gross_profit: number;
+    sales_commission: number;
+    survey_costs: number;
+    installation_costs: number;
+    net_profit: number;
+    profit_margin_percentage: number;
+    calculation_status: 'success' | 'error' | 'pending';
+    last_calculated: string;
+  };
+
+  // 계산 오류 정보
+  calculation_error?: string;
+}
+
+export interface BusinessSummaryResponse {
+  success: boolean;
+  data: {
+    businesses: BusinessRevenueSummary[];
+    summary_stats: {
+      total_businesses: number;
+      businesses_with_revenue_data: number;
+      total_tasks: number;
+      total_equipment: number;
+      aggregate_revenue: number;
+      aggregate_profit: number;
+    };
+    calculation_status: {
+      successful_calculations: number;
+      failed_calculations: number;
+      pending_calculations: number;
+    };
+  };
+  message: string;
+}
