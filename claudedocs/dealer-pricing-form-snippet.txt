@@ -1,0 +1,112 @@
+==============================================
+대리점 가격 폼 필드 스니펫
+==============================================
+아래 코드를 EditForm 컴포넌트에 추가하세요.
+(line 650 근처, {type === 'survey' && ( ... )} 다음)
+
+      {type === 'dealer' && (
+        <>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              기기 종류 (코드) {item?.id && <span className="text-xs text-gray-500">(수정 불가)</span>}
+            </label>
+            <input
+              type="text"
+              value={formData.equipment_type || ''}
+              onChange={(e) => setFormData({...formData, equipment_type: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              placeholder="예: sensor"
+              disabled={!!item?.id}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">기기명</label>
+            <input
+              type="text"
+              value={formData.equipment_name || ''}
+              onChange={(e) => setFormData({...formData, equipment_name: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="예: PH센서"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">공급가 (원가) (₩)</label>
+            <input
+              type="number"
+              value={formData.dealer_cost_price ?? ''}
+              onChange={(e) => setFormData({...formData, dealer_cost_price: Number(e.target.value)})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">판매가 (₩)</label>
+            <input
+              type="number"
+              value={formData.dealer_selling_price ?? ''}
+              onChange={(e) => setFormData({...formData, dealer_selling_price: Number(e.target.value)})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">제조사 (선택)</label>
+            <select
+              value={formData.manufacturer || ''}
+              onChange={(e) => setFormData({...formData, manufacturer: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">선택 안함</option>
+              <option value="에코센스">에코센스</option>
+              <option value="크린어스">크린어스</option>
+              <option value="가이아씨앤에스">가이아씨앤에스</option>
+              <option value="이브이에스">이브이에스</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">시행일</label>
+            <input
+              type="date"
+              value={formData.effective_from || ''}
+              onChange={(e) => setFormData({...formData, effective_from: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">종료일 (선택)</label>
+            <input
+              type="date"
+              value={formData.effective_to || ''}
+              onChange={(e) => setFormData({...formData, effective_to: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">비고</label>
+            <textarea
+              value={formData.notes || ''}
+              onChange={(e) => setFormData({...formData, notes: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              rows={2}
+              placeholder="대리점 가격 변경 사유 등"
+            />
+          </div>
+        </>
+      )}
+
+그리고 EditForm 컴포넌트의 type prop도 수정해야 합니다:
+
+  type: 'government' | 'sales' | 'survey' | 'manufacturer' | 'installation' | 'dealer';
+
+모달 제목도 수정:
+
+  title={`${editingItem ? '수정' : '추가'} - ${
+    editType === 'government' ? '환경부 고시가' :
+    editType === 'manufacturer' ? '제조사별 원가' :
+    editType === 'installation' ? '기본 설치비' :
+    editType === 'dealer' ? '대리점 가격' :
+    editType === 'sales' ? '영업점 설정' : '실사비용'
+  }`}

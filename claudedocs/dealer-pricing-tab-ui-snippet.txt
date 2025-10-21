@@ -1,0 +1,91 @@
+==============================================
+대리점 가격 탭 UI 스니펫
+==============================================
+아래 코드를 pricing/page.tsx의 실사비용 탭 다음에 추가하세요.
+(line 550 근처, {activeTab === 'survey' && ( ... )} 다음)
+
+                {/* 대리점 가격 탭 */}
+                {activeTab === 'dealer' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-semibold">대리점 가격 관리</h3>
+                      <button
+                        onClick={() => handleEdit(null, 'dealer')}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        새 대리점 가격 추가
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-300">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="border border-gray-300 px-4 py-2 text-left">기기명</th>
+                            <th className="border border-gray-300 px-4 py-2 text-left">제조사</th>
+                            <th className="border border-gray-300 px-4 py-2 text-right">공급가</th>
+                            <th className="border border-gray-300 px-4 py-2 text-right">판매가</th>
+                            <th className="border border-gray-300 px-4 py-2 text-center">마진율</th>
+                            <th className="border border-gray-300 px-4 py-2 text-center">시행일</th>
+                            <th className="border border-gray-300 px-4 py-2 text-center">종료일</th>
+                            <th className="border border-gray-300 px-4 py-2 text-center">상태</th>
+                            <th className="border border-gray-300 px-4 py-2 text-center">작업</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dealerPricing.map(pricing => (
+                            <tr key={pricing.id} className="hover:bg-gray-50">
+                              <td className="border border-gray-300 px-4 py-2 font-medium">{pricing.equipment_name}</td>
+                              <td className="border border-gray-300 px-4 py-2">
+                                {pricing.manufacturer ? (
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    pricing.manufacturer === '에코센스' ? 'bg-blue-100 text-blue-800' :
+                                    pricing.manufacturer === '크린어스' ? 'bg-green-100 text-green-800' :
+                                    pricing.manufacturer === '가이아씨앤에스' ? 'bg-purple-100 text-purple-800' :
+                                    pricing.manufacturer === '이브이에스' ? 'bg-orange-100 text-orange-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {pricing.manufacturer}
+                                  </span>
+                                ) : '-'}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-right font-mono">
+                                {formatCurrency(pricing.dealer_cost_price)}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-right font-mono">
+                                {formatCurrency(pricing.dealer_selling_price)}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  {pricing.margin_rate.toFixed(2)}%
+                                </span>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center">
+                                {pricing.effective_from}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center">
+                                {pricing.effective_to || '-'}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  pricing.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {pricing.is_active ? '활성' : '비활성'}
+                                </span>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center">
+                                <button
+                                  onClick={() => handleEdit(pricing, 'dealer')}
+                                  className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
