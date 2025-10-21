@@ -20,7 +20,8 @@ import {
   Activity,
   ClipboardList,
   TrendingUp,
-  Sliders
+  Sliders,
+  DollarSign
 } from 'lucide-react'
 
 interface AdminLayoutProps {
@@ -73,6 +74,13 @@ const navigationItems: NavigationItem[] = [
     icon: ClipboardList,
     description: '업무 흐름 및 진행 상황 관리',
     requiredLevel: 1
+  },
+  {
+    name: '매출 관리',
+    href: '/admin/revenue',
+    icon: DollarSign,
+    description: '환경부 고시가 기준 매출 현황 및 분석',
+    requiredLevel: 2
   },
   {
     name: '사용자 관리',

@@ -97,9 +97,19 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/work-tasks',  // 업무 API (JWT 인증 사용)
     '/api/facility-tasks',  // 시설 업무 관리 API (JWT 인증 사용)
     '/api/business-progress',  // 사업장 진행 현황 API (withApiHandler 보안 사용)
-    '/api/business-memos'  // 사업장 메모 관리 API (withApiHandler 보안 사용)
+    '/api/business-memos',  // 사업장 메모 관리 API (withApiHandler 보안 사용)
+    '/api/business-list',  // 사업장 목록 API (JWT 인증 사용)
+    '/api/business-info',  // 사업장 정보 API (JWT 인증 사용)
+    '/api/business-info-direct',  // 사업장 정보 직접 API (JWT 인증 사용)
+    '/api/business-management'  // 사업장 관리 API (JWT 인증 사용)
   ];
-  const excludePatterns = ['/api/auth/social/', '/api/auth/social/*/callback', '/api/tasks/*', '/api/work-tasks/*'];
+  const excludePatterns = [
+    '/api/auth/social/',
+    '/api/auth/social/*/callback',
+    '/api/tasks/*',
+    '/api/work-tasks/*',
+    '/api/revenue/*'  // 매출 관리 API 전체 제외 (JWT 인증 사용)
+  ];
 
   if (excludePaths.includes(request.nextUrl.pathname)) {
     return { valid: true };

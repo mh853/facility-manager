@@ -12,21 +12,36 @@ export const runtime = 'nodejs';
 
 // 새로운 보안 JWT 시스템 사용 (verifyTokenHybrid는 secure-jwt.ts에서 import됨)
 
-// 사용자 권한 확인 헬퍼 함수
+// 사용자 권한 확인 헬퍼 함수 (Authorization 헤더 + httpOnly 쿠키 지원)
 async function checkUserPermission(request: NextRequest) {
   console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] 권한 확인 시작');
 
+  // 1. Authorization 헤더에서 토큰 확인
   const authHeader = request.headers.get('authorization');
   console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] Authorization 헤더:', authHeader ? `Bearer ${authHeader.slice(7, 20)}...` : 'null');
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('❌ [FACILITY-TASKS-JWT-DEBUG] Authorization 헤더 없음 또는 형식 오류');
+  let token: string | null = null;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.replace('Bearer ', '');
+    console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] Authorization 헤더에서 토큰 추출 성공, 길이:', token.length);
+  } else {
+    // 2. httpOnly 쿠키에서 토큰 확인
+    const cookieToken = request.cookies.get('auth_token')?.value;
+    console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] httpOnly 쿠키 토큰:', cookieToken ? `${cookieToken.slice(0, 20)}...` : 'null');
+
+    if (cookieToken) {
+      token = cookieToken;
+      console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] 쿠키에서 토큰 추출 성공, 길이:', token.length);
+    }
+  }
+
+  if (!token) {
+    console.log('❌ [FACILITY-TASKS-JWT-DEBUG] Authorization 헤더와 쿠키 모두에서 토큰 없음');
     return { authorized: false, user: null };
   }
 
   try {
-    const token = authHeader.replace('Bearer ', '');
-    console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] 토큰 추출 성공, 길이:', token.length);
 
     const result = await verifyTokenHybrid(token);
     console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] verifyTokenHybrid 결과:', {

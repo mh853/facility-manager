@@ -129,11 +129,100 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // 가격 정보를 맵으로 변환
-    const priceMap = pricingData?.reduce((acc, item) => {
+    // 환경부 고시가를 맵으로 변환
+    const officialPriceMap = pricingData?.reduce((acc, item) => {
       acc[item.equipment_type] = item;
       return acc;
     }, {} as Record<string, any>) || {};
+
+    // 2-1. 제조사별 원가 정보 조회
+    let manufacturer = businessInfo.manufacturer;
+
+    // 제조사 정보가 없으면 기본값으로 '에코센스' 사용 및 업데이트
+    if (!manufacturer || manufacturer.trim() === '') {
+      manufacturer = '에코센스';
+      console.log(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name}: 제조사 정보 없음, 기본값 '에코센스' 사용`);
+
+      // business_info 테이블 업데이트 (다음번 계산을 위해)
+      const { error: updateError } = await supabaseAdmin
+        .from('business_info')
+        .update({ manufacturer: '에코센스' })
+        .eq('id', business_id);
+
+      if (updateError) {
+        console.error('❌ [REVENUE-CALCULATE] 제조사 업데이트 오류:', updateError);
+      } else {
+        console.log(`✅ [REVENUE-CALCULATE] ${businessInfo.business_name}: 제조사를 '에코센스'로 업데이트 완료`);
+      }
+    }
+
+    const { data: manufacturerPricing, error: mfgPricingError } = await supabaseAdmin
+      .from('manufacturer_pricing')
+      .select('*')
+      .eq('manufacturer', manufacturer)
+      .eq('is_active', true)
+      .lte('effective_from', calcDate)
+      .or(`effective_to.is.null,effective_to.gte.${calcDate}`);
+
+    if (mfgPricingError) {
+      console.error('❌ [REVENUE-CALCULATE] 제조사별 원가 조회 오류:', mfgPricingError);
+      return NextResponse.json({
+        success: false,
+        message: '제조사별 원가 조회에 실패했습니다.'
+      }, { status: 500 });
+    }
+
+    // 제조사별 원가를 맵으로 변환
+    const manufacturerCostMap = manufacturerPricing?.reduce((acc, item) => {
+      acc[item.equipment_type] = item;
+      return acc;
+    }, {} as Record<string, any>) || {};
+
+    // 2-2. 기기별 기본 설치비 조회
+    const { data: installationCosts, error: installError } = await supabaseAdmin
+      .from('equipment_installation_cost')
+      .select('*')
+      .eq('is_active', true)
+      .lte('effective_from', calcDate)
+      .or(`effective_to.is.null,effective_to.gte.${calcDate}`);
+
+    if (installError) {
+      console.error('❌ [REVENUE-CALCULATE] 설치비 조회 오류:', installError);
+    }
+
+    const installationCostMap = installationCosts?.reduce((acc, item) => {
+      acc[item.equipment_type] = item.base_installation_cost;
+      return acc;
+    }, {} as Record<string, number>) || {};
+
+    // 2-3. 사업장별 추가 설치비 조회
+    const { data: additionalCosts, error: additionalError } = await supabaseAdmin
+      .from('business_additional_installation_cost')
+      .select('*')
+      .eq('business_id', business_id)
+      .eq('is_active', true)
+      .lte('applied_date', calcDate);
+
+    if (additionalError) {
+      console.error('❌ [REVENUE-CALCULATE] 추가 설치비 조회 오류:', additionalError);
+    }
+
+    // 사업장 추가 설치비를 맵으로 변환 (equipment_type별로 그룹화)
+    const additionalCostMap = additionalCosts?.reduce((acc, item) => {
+      const key = item.equipment_type || 'all'; // NULL이면 'all' 키로 저장
+      if (!acc[key]) {
+        acc[key] = 0;
+      }
+      acc[key] += item.additional_cost;
+      return acc;
+    }, {} as Record<string, number>) || {};
+
+    console.log(`🔧 [REVENUE-CALCULATE] 제조사: ${manufacturer}, 기기수: ${Object.keys(manufacturerCostMap).length}`);
+
+    // 원가 데이터가 없는 경우 경고
+    if (Object.keys(manufacturerCostMap).length === 0) {
+      console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name}: 제조사 '${manufacturer}'의 원가 데이터가 없습니다. 매출 계산이 0이 될 수 있습니다.`);
+    }
 
     // 3. 영업점 비용 설정 조회
     const salesOffice = businessInfo.sales_office || '기본';
@@ -199,12 +288,31 @@ export async function POST(request: NextRequest) {
 
     for (const field of equipmentFields) {
       const quantity = businessInfo[field] || 0;
-      const priceInfo = priceMap[field];
 
-      if (quantity > 0 && priceInfo) {
-        const unitRevenue = priceInfo.official_price;
-        const unitCost = priceInfo.manufacturer_price;
-        const unitInstallation = priceInfo.installation_cost;
+      if (quantity > 0) {
+        // 환경부 고시가 (매출)
+        const officialPrice = officialPriceMap[field];
+        if (!officialPrice) {
+          console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name} - ${field}: 환경부 고시가 없음 (수량: ${quantity})`);
+          continue;
+        }
+
+        const unitRevenue = officialPrice.official_price;
+
+        // 제조사별 원가 (매입)
+        const manufacturerCost = manufacturerCostMap[field];
+        if (!manufacturerCost) {
+          console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name} - ${field}: ${manufacturer} 제조사 원가 없음 (수량: ${quantity})`);
+          continue;
+        }
+
+        const unitCost = manufacturerCost.cost_price;
+
+        // 설치비 = 기본 설치비 + 사업장 추가비(공통) + 사업장 추가비(기기별)
+        const baseInstallCost = installationCostMap[field] || 0;
+        const commonAdditionalCost = additionalCostMap['all'] || 0;
+        const equipmentAdditionalCost = additionalCostMap[field] || 0;
+        const unitInstallation = baseInstallCost + commonAdditionalCost + equipmentAdditionalCost;
 
         const itemRevenue = unitRevenue * quantity;
         const itemCost = unitCost * quantity;
@@ -217,7 +325,7 @@ export async function POST(request: NextRequest) {
 
         equipmentBreakdown.push({
           equipment_type: field,
-          equipment_name: priceInfo.equipment_name,
+          equipment_name: officialPrice.equipment_name,
           quantity,
           unit_official_price: unitRevenue,
           unit_manufacturer_price: unitCost,
@@ -225,7 +333,7 @@ export async function POST(request: NextRequest) {
           total_revenue: itemRevenue,
           total_cost: itemCost,
           total_installation: itemInstallation,
-          profit: itemRevenue - itemCost
+          profit: itemRevenue - itemCost - itemInstallation
         });
       }
     }
@@ -242,8 +350,17 @@ export async function POST(request: NextRequest) {
     const baseSurveyCosts = surveyCostMap.estimate + surveyCostMap.pre_construction + surveyCostMap.completion;
     const totalSurveyCosts = baseSurveyCosts + totalAdjustments;
 
-    // 9. 최종 계산
-    const grossProfit = totalRevenue - totalCost;
+    // 9. 추가공사비 및 협의사항 반영
+    const additionalCost = businessInfo.additional_cost || 0; // 추가공사비 (매출에 더하기)
+    const negotiationDiscount = businessInfo.negotiation ? parseFloat(businessInfo.negotiation) || 0 : 0; // 협의사항 (매출에서 빼기)
+
+    // 최종 매출 = 기본 매출 + 추가공사비 - 협의사항
+    const adjustedRevenue = totalRevenue + additionalCost - negotiationDiscount;
+
+    console.log(`💰 [REVENUE-CALCULATE] 매출 조정: 기본 ${totalRevenue} + 추가공사비 ${additionalCost} - 협의사항 ${negotiationDiscount} = ${adjustedRevenue}`);
+
+    // 10. 최종 계산 (조정된 매출 기준)
+    const grossProfit = adjustedRevenue - totalCost;
     const netProfit = grossProfit - salesCommission - totalSurveyCosts - totalInstallationCosts;
 
     const result: RevenueCalculationResult = {
@@ -251,7 +368,7 @@ export async function POST(request: NextRequest) {
       business_name: businessInfo.business_name,
       sales_office: salesOffice,
       calculation_date: calcDate,
-      total_revenue: totalRevenue,
+      total_revenue: adjustedRevenue, // 조정된 최종 매출
       total_cost: totalCost,
       gross_profit: grossProfit,
       sales_commission: salesCommission,
@@ -279,13 +396,23 @@ export async function POST(request: NextRequest) {
     // 10. 결과 저장 (옵션)
     let savedCalculation = null;
     if (save_result && permissionLevel >= 3) {
+      // 가격 정보 스냅샷 생성 (계산 시점의 가격 정보 보존)
+      const pricingSnapshot = {
+        manufacturer,
+        official_prices: officialPriceMap,
+        manufacturer_costs: manufacturerCostMap,
+        installation_costs: installationCostMap,
+        additional_costs: additionalCostMap,
+        calculation_date: calcDate
+      };
+
       const { data: saved, error: saveError } = await supabaseAdmin
         .from('revenue_calculations')
         .insert({
           business_id,
           business_name: businessInfo.business_name,
           calculation_date: calcDate,
-          total_revenue: totalRevenue,
+          total_revenue: adjustedRevenue, // 조정된 최종 매출
           total_cost: totalCost,
           gross_profit: grossProfit,
           sales_commission: salesCommission,
@@ -294,8 +421,9 @@ export async function POST(request: NextRequest) {
           net_profit: netProfit,
           equipment_breakdown: equipmentBreakdown,
           cost_breakdown: result.cost_breakdown,
-          pricing_version_snapshot: priceMap,
+          pricing_version_snapshot: pricingSnapshot,
           sales_office: salesOffice,
+          business_category: businessInfo.category || null,
           calculated_by: userId
         })
         .select()

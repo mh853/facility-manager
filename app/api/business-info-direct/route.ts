@@ -139,61 +139,61 @@ export async function PUT(request: Request) {
       updateObject.email = normalizeUTF8(updateData.email || '');
     }
 
-    // Measurement device fields - all as integers
+    // Measurement device fields - all as integers, null-safe
     if (updateData.ph_meter !== undefined) {
-      updateObject.ph_meter = parseInt(updateData.ph_meter) || 0;
+      updateObject.ph_meter = updateData.ph_meter === null ? null : parseInt(updateData.ph_meter) || 0;
     }
     if (updateData.differential_pressure_meter !== undefined) {
-      updateObject.differential_pressure_meter = parseInt(updateData.differential_pressure_meter) || 0;
+      updateObject.differential_pressure_meter = updateData.differential_pressure_meter === null ? null : parseInt(updateData.differential_pressure_meter) || 0;
     }
     if (updateData.temperature_meter !== undefined) {
-      updateObject.temperature_meter = parseInt(updateData.temperature_meter) || 0;
+      updateObject.temperature_meter = updateData.temperature_meter === null ? null : parseInt(updateData.temperature_meter) || 0;
     }
     if (updateData.discharge_current_meter !== undefined) {
-      updateObject.discharge_current_meter = parseInt(updateData.discharge_current_meter) || 0;
+      updateObject.discharge_current_meter = updateData.discharge_current_meter === null ? null : parseInt(updateData.discharge_current_meter) || 0;
     }
     if (updateData.fan_current_meter !== undefined) {
-      updateObject.fan_current_meter = parseInt(updateData.fan_current_meter) || 0;
+      updateObject.fan_current_meter = updateData.fan_current_meter === null ? null : parseInt(updateData.fan_current_meter) || 0;
     }
     if (updateData.pump_current_meter !== undefined) {
-      updateObject.pump_current_meter = parseInt(updateData.pump_current_meter) || 0;
+      updateObject.pump_current_meter = updateData.pump_current_meter === null ? null : parseInt(updateData.pump_current_meter) || 0;
     }
     if (updateData.gateway !== undefined) {
-      updateObject.gateway = updateData.gateway;
+      updateObject.gateway = updateData.gateway === null ? null : parseInt(updateData.gateway) || 0;
     }
 
-    // VPN fields - POST MIGRATION: Direct integer handling (no boolean conversion)
+    // VPN fields - POST MIGRATION: Direct integer handling (no boolean conversion), null-safe
     if (updateData.vpn_wired !== undefined) {
-      updateObject.vpn_wired = parseInt(updateData.vpn_wired) || 0;
+      updateObject.vpn_wired = updateData.vpn_wired === null ? null : parseInt(updateData.vpn_wired) || 0;
     }
     if (updateData.vpn_wireless !== undefined) {
-      updateObject.vpn_wireless = parseInt(updateData.vpn_wireless) || 0;
+      updateObject.vpn_wireless = updateData.vpn_wireless === null ? null : parseInt(updateData.vpn_wireless) || 0;
     }
     if (updateData.multiple_stack !== undefined) {
-      updateObject.multiple_stack = parseInt(updateData.multiple_stack) || 0;
+      updateObject.multiple_stack = updateData.multiple_stack === null ? null : parseInt(updateData.multiple_stack) || 0;
     }
 
-    // Additional measurement device fields
+    // Additional measurement device fields - null-safe
     if (updateData.explosion_proof_differential_pressure_meter_domestic !== undefined) {
-      updateObject.explosion_proof_differential_pressure_meter_domestic = parseInt(updateData.explosion_proof_differential_pressure_meter_domestic) || 0;
+      updateObject.explosion_proof_differential_pressure_meter_domestic = updateData.explosion_proof_differential_pressure_meter_domestic === null ? null : parseInt(updateData.explosion_proof_differential_pressure_meter_domestic) || 0;
     }
     if (updateData.explosion_proof_temperature_meter_domestic !== undefined) {
-      updateObject.explosion_proof_temperature_meter_domestic = parseInt(updateData.explosion_proof_temperature_meter_domestic) || 0;
+      updateObject.explosion_proof_temperature_meter_domestic = updateData.explosion_proof_temperature_meter_domestic === null ? null : parseInt(updateData.explosion_proof_temperature_meter_domestic) || 0;
     }
     if (updateData.expansion_device !== undefined) {
-      updateObject.expansion_device = parseInt(updateData.expansion_device) || 0;
+      updateObject.expansion_device = updateData.expansion_device === null ? null : parseInt(updateData.expansion_device) || 0;
     }
     if (updateData.relay_8ch !== undefined) {
-      updateObject.relay_8ch = parseInt(updateData.relay_8ch) || 0;
+      updateObject.relay_8ch = updateData.relay_8ch === null ? null : parseInt(updateData.relay_8ch) || 0;
     }
     if (updateData.relay_16ch !== undefined) {
-      updateObject.relay_16ch = parseInt(updateData.relay_16ch) || 0;
+      updateObject.relay_16ch = updateData.relay_16ch === null ? null : parseInt(updateData.relay_16ch) || 0;
     }
     if (updateData.main_board_replacement !== undefined) {
-      updateObject.main_board_replacement = parseInt(updateData.main_board_replacement) || 0;
+      updateObject.main_board_replacement = updateData.main_board_replacement === null ? null : parseInt(updateData.main_board_replacement) || 0;
     }
     if (updateData.business_management_code !== undefined) {
-      updateObject.business_management_code = parseInt(updateData.business_management_code) || 0;
+      updateObject.business_management_code = updateData.business_management_code === null ? null : parseInt(updateData.business_management_code) || 0;
     }
 
     // Project management fields
@@ -205,6 +205,9 @@ export async function PUT(request: Request) {
     }
     if (updateData.progress_status !== undefined) {
       updateObject.progress_status = normalizeUTF8(updateData.progress_status || '');
+    }
+    if (updateData.project_year !== undefined) {
+      updateObject.project_year = parseInt(updateData.project_year) || null;
     }
     if (updateData.contract_document !== undefined) {
       updateObject.contract_document = normalizeUTF8(updateData.contract_document || '');
@@ -334,7 +337,150 @@ export async function PUT(request: Request) {
 export async function POST(request: Request) {
   try {
     const businessData = await request.json();
-    
+
+    // 배치 업로드 모드 확인
+    if (businessData.isBatchUpload && Array.isArray(businessData.businesses)) {
+      console.log('📦 [BUSINESS-INFO-DIRECT] 배치 업로드 시작 - 총', businessData.businesses.length, '개');
+
+      let created = 0;
+      let updated = 0;
+      let errors = 0;
+      const errorDetails: Array<{ business_name: string; error: string }> = [];
+
+      for (const business of businessData.businesses) {
+        try {
+          const normalizedName = normalizeUTF8(business.business_name || '');
+
+          if (!normalizedName) {
+            errors++;
+            errorDetails.push({ business_name: '(이름 없음)', error: '사업장명이 비어있습니다' });
+            continue;
+          }
+
+          // 기존 사업장 검색 (사업장명으로)
+          const { data: existing, error: searchError } = await supabaseAdmin
+            .from('business_info')
+            .select('id')
+            .eq('business_name', normalizedName)
+            .eq('is_deleted', false)
+            .maybeSingle();
+
+          if (searchError && searchError.code !== 'PGRST116') {
+            console.error('❌ [BATCH] 검색 오류:', normalizedName, searchError);
+            errors++;
+            errorDetails.push({ business_name: normalizedName, error: searchError.message });
+            continue;
+          }
+
+          // 데이터 정규화
+          const normalizedData = {
+            business_name: normalizedName,
+            local_government: normalizeUTF8(business.local_government || ''),
+            address: normalizeUTF8(business.address || ''),
+            representative_name: normalizeUTF8(business.representative_name || ''),
+            business_registration_number: normalizeUTF8(business.business_registration_number || ''),
+            business_type: normalizeUTF8(business.business_type || ''),
+            business_contact: normalizeUTF8(business.business_contact || ''),
+            manager_name: normalizeUTF8(business.manager_name || ''),
+            manager_contact: normalizeUTF8(business.manager_contact || ''),
+            manager_position: normalizeUTF8(business.manager_position || ''),
+            fax_number: normalizeUTF8(business.fax_number || ''),
+            email: normalizeUTF8(business.email || ''),
+            ph_meter: parseInt(business.ph_meter || '0') || 0,
+            differential_pressure_meter: parseInt(business.differential_pressure_meter || '0') || 0,
+            temperature_meter: parseInt(business.temperature_meter || '0') || 0,
+            discharge_current_meter: parseInt(business.discharge_current_meter || '0') || 0,
+            fan_current_meter: parseInt(business.fan_current_meter || '0') || 0,
+            pump_current_meter: parseInt(business.pump_current_meter || '0') || 0,
+            gateway: parseInt(business.gateway || '0') || 0,
+            vpn_wired: parseInt(business.vpn_wired || '0') || 0,
+            vpn_wireless: parseInt(business.vpn_wireless || '0') || 0,
+            multiple_stack: parseInt(business.multiple_stack || '0') || 0,
+            explosion_proof_differential_pressure_meter_domestic: parseInt(business.explosion_proof_differential_pressure_meter_domestic || '0') || 0,
+            explosion_proof_temperature_meter_domestic: parseInt(business.explosion_proof_temperature_meter_domestic || '0') || 0,
+            expansion_device: parseInt(business.expansion_device || '0') || 0,
+            relay_8ch: parseInt(business.relay_8ch || '0') || 0,
+            relay_16ch: parseInt(business.relay_16ch || '0') || 0,
+            main_board_replacement: parseInt(business.main_board_replacement || '0') || 0,
+            business_management_code: parseInt(business.business_management_code || '0') || 0,
+            department: normalizeUTF8(business.department || ''),
+            progress_status: normalizeUTF8(business.progress_status || ''),
+            project_year: business.project_year ? parseInt(business.project_year) : null,
+            installation_team: normalizeUTF8(business.installation_team || ''),
+            business_category: normalizeUTF8(business.business_category || ''),
+            manufacturer: business.manufacturer || null,
+            sales_office: normalizeUTF8(business.sales_office || ''),
+            greenlink_id: normalizeUTF8(business.greenlink_id || ''),
+            greenlink_pw: normalizeUTF8(business.greenlink_pw || ''),
+            additional_cost: business.additional_cost ? parseInt(business.additional_cost) : null,
+            negotiation: normalizeUTF8(business.negotiation || ''),
+            updated_at: new Date().toISOString()
+          };
+
+          if (existing) {
+            // UPDATE: 기존 사업장 업데이트
+            const { error: updateError } = await supabaseAdmin
+              .from('business_info')
+              .update(normalizedData)
+              .eq('id', existing.id);
+
+            if (updateError) {
+              console.error('❌ [BATCH] 업데이트 실패:', normalizedName, updateError);
+              errors++;
+              errorDetails.push({ business_name: normalizedName, error: updateError.message });
+            } else {
+              updated++;
+              console.log('✅ [BATCH] 업데이트:', normalizedName);
+            }
+          } else {
+            // INSERT: 새 사업장 추가
+            const insertData = {
+              ...normalizedData,
+              created_at: new Date().toISOString(),
+              is_active: true,
+              is_deleted: false
+            };
+
+            const { error: insertError } = await supabaseAdmin
+              .from('business_info')
+              .insert([insertData]);
+
+            if (insertError) {
+              console.error('❌ [BATCH] 삽입 실패:', normalizedName, insertError);
+              errors++;
+              errorDetails.push({ business_name: normalizedName, error: insertError.message });
+            } else {
+              created++;
+              console.log('✅ [BATCH] 생성:', normalizedName);
+            }
+          }
+        } catch (itemError: any) {
+          errors++;
+          errorDetails.push({
+            business_name: business.business_name || '(이름 없음)',
+            error: itemError.message
+          });
+        }
+      }
+
+      console.log('📦 [BATCH] 완료 - 생성:', created, '/ 업데이트:', updated, '/ 오류:', errors);
+
+      return NextResponse.json({
+        success: true,
+        message: '배치 업로드가 완료되었습니다.',
+        data: {
+          results: {
+            total: businessData.businesses.length,
+            created,
+            updated,
+            errors,
+            errorDetails: errorDetails.slice(0, 10) // 최대 10개만 반환
+          }
+        }
+      });
+    }
+
+    // 단일 사업장 생성
     console.log('📝 [BUSINESS-INFO-DIRECT] POST 시작 - 새 사업장 생성');
 
     // Normalize and structure all fields properly
@@ -380,6 +526,7 @@ export async function POST(request: Request) {
       row_number: businessData.row_number ? parseInt(businessData.row_number) : null,
       department: normalizeUTF8(businessData.department || ''),
       progress_status: normalizeUTF8(businessData.progress_status || ''),
+      project_year: businessData.project_year ? parseInt(businessData.project_year) : null,
       contract_document: normalizeUTF8(businessData.contract_document || ''),
       order_request_date: businessData.order_request_date || null,
       wireless_document: normalizeUTF8(businessData.wireless_document || ''),

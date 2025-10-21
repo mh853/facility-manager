@@ -181,12 +181,12 @@ export default function AdminDashboard() {
     },
     {
       title: '매출 관리',
-      description: '매출 현황 및 분석 (준비중)',
+      description: '매출 현황 및 분석',
       icon: CreditCard,
       color: 'green',
-      href: '#',
-      stats: '준비중',
-      disabled: true
+      href: '/admin/revenue',
+      stats: `${(stats.monthlyRevenue / 10000).toFixed(0)}만원`,
+      disabled: false
     },
     {
       title: '설치 현황',
@@ -411,12 +411,12 @@ export default function AdminDashboard() {
                 <span className="text-[10px] sm:text-xs md:text-sm text-green-600">정상</span>
               </div>
 
-              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-yellow-50">
+              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-green-50">
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-yellow-500 rounded-full"></div>
-                  <span className="text-xs sm:text-sm md:text-base font-medium text-yellow-900">매출 시스템</span>
+                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-xs sm:text-sm md:text-base font-medium text-green-900">매출 시스템</span>
                 </div>
-                <span className="text-[10px] sm:text-xs md:text-sm text-yellow-600">준비중</span>
+                <span className="text-[10px] sm:text-xs md:text-sm text-green-600">정상</span>
               </div>
 
               <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-yellow-50">

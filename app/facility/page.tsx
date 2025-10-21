@@ -62,7 +62,11 @@ export default memo(function FacilityPage() {
         const businesses = data.data.businesses;
 
         if (businesses.length > 0) {
-          setBusinessList(businesses);
+          // 객체 배열에서 사업장명만 추출 (문자열 배열로 변환)
+          const businessNames = businesses.map((b: any) =>
+            typeof b === 'string' ? b : b.business_name || b.사업장명 || '알 수 없음'
+          );
+          setBusinessList(businessNames);
         } else {
           throw new Error('유효한 사업장 데이터가 없습니다');
         }

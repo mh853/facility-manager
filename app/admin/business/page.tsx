@@ -69,6 +69,7 @@ interface UnifiedBusinessInfo {
   row_number?: number | null;
   department?: string | null;
   progress_status?: string | null;
+  project_year?: number | null;
   contract_document?: string | null;
   order_request_date?: string | null;
   wireless_document?: string | null;
@@ -601,14 +602,28 @@ function BusinessManagementPage() {
   const loadBusinessTasks = async (businessName: string) => {
     setIsLoadingTasks(true)
     try {
-      // 토큰을 포함한 인증 헤더 추가
-      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      // 토큰을 포함한 인증 헤더 추가 - TokenManager 사용
+      const { TokenManager } = await import('@/lib/api-client');
+      const token = TokenManager.getToken();
+
+      // 디버깅 로그 추가
+      console.log('🔍 [FACILITY-TASKS-CLIENT] 토큰 상태:', {
+        hasWindow: typeof window !== 'undefined',
+        tokenExists: !!token,
+        tokenLength: token?.length || 0,
+        tokenPreview: token ? `${token.substring(0, 20)}...` : 'null',
+        businessName
+      });
+
       const headers: HeadersInit = {
         'Content-Type': 'application/json'
       };
 
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+        console.log('✅ [FACILITY-TASKS-CLIENT] Authorization 헤더 추가됨');
+      } else {
+        console.warn('⚠️ [FACILITY-TASKS-CLIENT] 토큰이 없어서 Authorization 헤더 없이 요청');
       }
 
       const response = await fetch(`/api/facility-tasks?businessName=${encodeURIComponent(businessName)}`, {
@@ -869,6 +884,14 @@ function BusinessManagementPage() {
           그린링크ID: business.greenlink_id || '',
           그린링크PW: business.greenlink_pw || '',
           영업점: business.sales_office || '',
+          // 프로젝트 관리 필드
+          progress_status: business.progress_status || null,
+          진행상태: business.progress_status || null,
+          project_year: business.project_year || null,
+          사업진행연도: business.project_year || null,
+          installation_team: business.installation_team || null,
+          설치팀: business.installation_team || null,
+          order_manager: business.order_manager || null,
           // 현재 단계 필드
           현재단계: '준비 중',
           // 호환성을 위한 영어 필드명
@@ -1010,8 +1033,13 @@ function BusinessManagementPage() {
     console.log('🔍 useMemo 필터링 실행:', searchTerms, 'allBusinesses 수:', allBusinesses.length)
 
     if (searchTerms.length === 0) {
-      console.log('📋 검색어 없음 - 전체 목록 표시:', allBusinesses.length)
-      return allBusinesses
+      console.log('📋 검색어 없음 - 전체 목록 표시 (최근 수정순):', allBusinesses.length)
+      // 필터 없을 때: 최근 수정한 사업장이 위로 오도록 정렬
+      return [...allBusinesses].sort((a, b) => {
+        const dateA = new Date(a.수정일 || a.updated_at || a.생성일 || a.created_at || 0)
+        const dateB = new Date(b.수정일 || b.updated_at || b.생성일 || b.created_at || 0)
+        return dateB.getTime() - dateA.getTime() // 내림차순 (최신이 위로)
+      })
     }
 
     const filtered = allBusinesses.filter(business => {
@@ -1396,6 +1424,7 @@ function BusinessManagementPage() {
           row_number: business.row_number,
           department: business.department,
           progress_status: business.progress_status,
+          project_year: business.project_year,
           contract_document: business.contract_document,
           order_request_date: business.order_request_date,
           wireless_document: business.wireless_document,
@@ -1477,6 +1506,10 @@ function BusinessManagementPage() {
           그린링크ID: business.greenlink_id || '',
           그린링크PW: business.greenlink_pw || '',
           영업점: business.sales_office || '',
+          // 프로젝트 관리 한국어 필드
+          진행상태: business.progress_status || null,
+          사업진행연도: business.project_year || null,
+          설치팀: business.installation_team || null,
           // 현재 단계 필드
           현재단계: '준비 중',
           // 한국어 센서/장비 필드명 매핑
@@ -1605,6 +1638,11 @@ function BusinessManagementPage() {
       relay_16ch: null,
       main_board_replacement: null,
       multiple_stack: null,
+      additional_cost: null,
+      multiple_stack_cost: null,
+      expansion_pack: null,
+      other_equipment: '',
+      negotiation: '',
       is_active: true
     })
     setIsModalOpen(true)
@@ -1652,10 +1690,20 @@ function BusinessManagementPage() {
       relay_8ch: business.중계기8채널,
       relay_16ch: business.중계기16채널,
       main_board_replacement: business.메인보드교체,
-      
+
+      // 비용 정보 필드들
+      additional_cost: business.additional_cost,
+      multiple_stack_cost: business.multiple_stack_cost,
+      expansion_pack: business.expansion_pack,
+      other_equipment: business.other_equipment,
+      negotiation: business.negotiation,
+
       contacts: business.contacts || [],
       manufacturer: business.manufacturer,
-      is_active: business.상태 === '활성'
+      is_active: business.상태 === '활성',
+      progress_status: business.progress_status || (business as any).진행상태 || null,
+      project_year: business.project_year || (business as any).사업진행연도 || null,
+      installation_team: business.installation_team || (business as any).설치팀 || null
     })
     setIsModalOpen(true)
   }
@@ -1723,6 +1771,9 @@ function BusinessManagementPage() {
         business_registration_number: row['사업자등록번호'] || '',
         business_type: row['업종'] || '',
         business_contact: row['사업장연락처'] || '',
+        fax_number: row['팩스번호'] || '',
+        email: row['이메일'] || '',
+        local_government: row['지자체'] || '',
         ph_meter: parseInt(row['PH센서'] || '0') || 0,
         differential_pressure_meter: parseInt(row['차압계'] || '0') || 0,
         temperature_meter: parseInt(row['온도계'] || '0') || 0,
@@ -1733,7 +1784,22 @@ function BusinessManagementPage() {
         vpn_wired: parseInt(row['VPN(유선)'] || '0') || 0,
         vpn_wireless: parseInt(row['VPN(무선)'] || '0') || 0,
         multiple_stack: parseInt(row['복수굴뚝(설치비)'] || '0') || 0,
-        negotiation: row['네고'] || ''
+        manufacturer: row['제조사'] || '',
+        sales_office: row['영업점'] || '',
+        department: row['담당부서'] || '',
+        progress_status: row['진행구분'] || '',
+        project_year: row['사업 진행연도'] ? parseInt(row['사업 진행연도']) : null,
+        installation_team: row['설치팀'] || '',
+        order_manager: row['발주담당'] || '',
+        order_date: row['발주일'] || null,
+        shipment_date: row['출고일'] || null,
+        installation_date: row['설치일'] || null,
+        greenlink_id: row['그린링크ID'] || '',
+        greenlink_pw: row['그린링크PW'] || '',
+        business_management_code: row['사업장관리코드'] ? parseInt(row['사업장관리코드']) : null,
+        additional_cost: row['추가공사비'] ? parseInt(row['추가공사비']) : null,
+        negotiation: row['네고'] || '',
+        other_equipment: row['기타'] || ''
       }));
       
       console.log('🔄 헤더 기반 매핑 완료:', mappedBusinesses.slice(0, 2));
@@ -1890,7 +1956,40 @@ function BusinessManagementPage() {
       if (response.ok) {
         // 성공 메시지 표시
         alert(editingBusiness ? '사업장 정보가 수정되었습니다.' : '새 사업장이 추가되었습니다.')
-        
+
+        // 2-1. 사업장 수정 시 자동으로 매출 재계산 (비동기 실행)
+        if (editingBusiness && result.success && result.data) {
+          const businessId = result.data.id;
+          console.log('🔄 [AUTO-RECALCULATE] 사업장 수정됨, 매출 자동 재계산 시작:', businessId);
+
+          // 백그라운드에서 재계산 실행 (사용자 대기 없음)
+          const { TokenManager } = await import('@/lib/api-client');
+          const token = TokenManager.getToken();
+
+          fetch('/api/revenue/calculate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              business_id: businessId,
+              calculation_date: new Date().toISOString().split('T')[0],
+              save_result: true
+            })
+          }).then(calcResponse => calcResponse.json())
+            .then(calcData => {
+              if (calcData.success) {
+                console.log('✅ [AUTO-RECALCULATE] 매출 재계산 완료:', calcData.data.calculation.total_revenue);
+              } else {
+                console.warn('⚠️ [AUTO-RECALCULATE] 매출 재계산 실패:', calcData.message);
+              }
+            })
+            .catch(err => {
+              console.error('❌ [AUTO-RECALCULATE] 매출 재계산 오류:', err);
+            });
+        }
+
         // 3. API 응답으로 정확한 데이터 동기화
         if (result.success && result.data) {
           console.log('✅ API 응답에서 받은 업데이트된 데이터:', result.data)
@@ -1914,6 +2013,14 @@ function BusinessManagementPage() {
               이메일: serverData.email || '',
               생성일: serverData.created_at,
               수정일: serverData.updated_at,
+              // 프로젝트 관리 필드
+              progress_status: serverData.progress_status || null,
+              진행상태: serverData.progress_status || null,
+              project_year: serverData.project_year || null,
+              사업진행연도: serverData.project_year || null,
+              installation_team: serverData.installation_team || null,
+              설치팀: serverData.installation_team || null,
+              order_manager: serverData.order_manager || null,
               // 기존 통계 데이터 유지
               fileStats: (editingBusiness as any).fileStats
             }
@@ -1961,15 +2068,20 @@ function BusinessManagementPage() {
           console.log('❌ API 오류로 인한 상태 롤백')
           await loadAllBusinesses()
         }
-        alert(result.error || '저장에 실패했습니다.')
+        const errorMessage = typeof result.error === 'string'
+          ? result.error
+          : result.message || JSON.stringify(result.error) || '저장에 실패했습니다.';
+        console.error('❌ [FRONTEND] API 에러 응답:', result);
+        alert(errorMessage);
       }
     } catch (error) {
-      console.error('저장 오류:', error)
+      console.error('❌ [FRONTEND] 저장 오류:', error)
       // 에러 발생 시 상태 롤백
       if (editingBusiness) {
         await loadAllBusinesses()
       }
-      alert('사업장 저장에 실패했습니다.')
+      const errorMessage = error instanceof Error ? error.message : '사업장 저장에 실패했습니다.';
+      alert(errorMessage);
     } finally {
       // 제출 버튼 상태 복원
       if (submitButton) {
@@ -2019,6 +2131,58 @@ function BusinessManagementPage() {
           {searchQuery ? highlightSearchTerm(item.주소 || item.local_government || '-', searchQuery) : (item.주소 || item.local_government || '-')}
         </div>
       )
+    },
+    {
+      key: 'project_year' as string,
+      title: '사업 진행연도',
+      width: '90px',
+      render: (item: any) => {
+        const projectYear = item.project_year || (item as any).사업진행연도
+
+        return projectYear ? (
+          <div className="text-center">
+            <span className="px-2 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+              {projectYear}년
+            </span>
+          </div>
+        ) : (
+          <div className="text-center text-gray-400 text-xs">-</div>
+        )
+      }
+    },
+    {
+      key: 'progress_status' as string,
+      title: '진행구분',
+      width: '100px',
+      render: (item: any) => {
+        const progressStatus = item.progress_status || (item as any).진행상태 || '-'
+
+        // 진행구분별 스타일 정의
+        const getProgressStatusStyle = (status: string) => {
+          switch(status) {
+            case '자비':
+              return 'bg-blue-100 text-blue-800 border-blue-200'
+            case '보조금':
+              return 'bg-green-100 text-green-800 border-green-200'
+            case '보조금 동시진행':
+              return 'bg-purple-100 text-purple-800 border-purple-200'
+            case '대리점':
+              return 'bg-cyan-100 text-cyan-800 border-cyan-200'
+            case 'AS':
+              return 'bg-orange-100 text-orange-800 border-orange-200'
+            default:
+              return 'bg-gray-100 text-gray-600 border-gray-200'
+          }
+        }
+
+        return (
+          <div className="text-center">
+            <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getProgressStatusStyle(progressStatus)}`}>
+              {progressStatus}
+            </span>
+          </div>
+        )
+      }
     },
     {
       key: '현재단계',
@@ -2263,11 +2427,6 @@ function BusinessManagementPage() {
       {isDetailModalOpen && selectedBusiness && (
         <div
           className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsDetailModalOpen(false)
-            }
-          }}
         >
           <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl max-w-sm sm:max-w-2xl md:max-w-4xl lg:max-w-7xl w-full max-h-[95vh] overflow-hidden">
             {/* Header with gradient background */}
@@ -2431,6 +2590,20 @@ function BusinessManagementPage() {
                           </div>
                           <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.사업자등록번호 || '-'}</div>
                         </div>
+
+                        {selectedBusiness.project_year && (
+                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                            <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
+                              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-indigo-500 flex-shrink-0" />
+                              사업 진행연도
+                            </div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
+                              <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
+                                {selectedBusiness.project_year}년
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -3044,7 +3217,41 @@ function BusinessManagementPage() {
                             <div className="text-base font-medium text-gray-900">{selectedBusiness.order_manager}</div>
                           </div>
                         )}
-                        
+
+                        {selectedBusiness.progress_status && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">진행구분</div>
+                            <div className="text-base font-medium">
+                              <span className={`px-3 py-1.5 rounded-md text-sm font-medium border ${
+                                selectedBusiness.progress_status === '자비'
+                                  ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                  : selectedBusiness.progress_status === '보조금'
+                                  ? 'bg-green-100 text-green-800 border-green-200'
+                                  : selectedBusiness.progress_status === '보조금 동시진행'
+                                  ? 'bg-purple-100 text-purple-800 border-purple-200'
+                                  : selectedBusiness.progress_status === '대리점'
+                                  ? 'bg-cyan-100 text-cyan-800 border-cyan-200'
+                                  : selectedBusiness.progress_status === 'AS'
+                                  ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                  : 'bg-gray-100 text-gray-600 border-gray-200'
+                              }`}>
+                                {selectedBusiness.progress_status}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedBusiness.project_year && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">사업 진행연도</div>
+                            <div className="text-base font-medium text-gray-900">
+                              <span className="px-3 py-1.5 rounded-md text-sm font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                                {selectedBusiness.project_year}년
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
                         {selectedBusiness.installation_team && (
                           <div className="bg-white rounded-lg p-4 shadow-sm">
                             <div className="text-sm text-gray-600 mb-1">설치팀</div>
@@ -3156,7 +3363,15 @@ function BusinessManagementPage() {
                           {selectedBusiness.negotiation && (
                             <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                               <div className="text-xs sm:text-sm text-gray-600 mb-1">네고</div>
-                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.negotiation}</div>
+                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">
+                                {typeof selectedBusiness.negotiation === 'number'
+                                  ? selectedBusiness.negotiation.toLocaleString() + '원'
+                                  : (typeof selectedBusiness.negotiation === 'string' && !isNaN(parseInt(selectedBusiness.negotiation.replace(/,/g, '')))
+                                      ? parseInt(selectedBusiness.negotiation.replace(/,/g, '')).toLocaleString() + '원'
+                                      : selectedBusiness.negotiation
+                                    )
+                                }
+                              </div>
                             </div>
                           )}
                         </div>
@@ -3278,12 +3493,6 @@ function BusinessManagementPage() {
       {isModalOpen && (
         <div
           className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsModalOpen(false)
-              setShowLocalGovSuggestions(false)
-            }
-          }}
         >
           <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-7xl w-full max-h-[90vh] sm:max-h-[90vh] overflow-hidden">
             <div className="px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
@@ -3642,14 +3851,30 @@ function BusinessManagementPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">진행구분</label>
-                      <input
-                        type="text"
-                        lang="ko"
-                        inputMode="text"
+                      <select
                         value={formData.progress_status || ''}
                         onChange={(e) => setFormData({...formData, progress_status: e.target.value})}
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
-                        placeholder="예: 설치 대기, 진행중, 완료"
+                      >
+                        <option value="">선택하세요</option>
+                        <option value="자비">자비</option>
+                        <option value="보조금">보조금</option>
+                        <option value="보조금 동시진행">보조금 동시진행</option>
+                        <option value="대리점">대리점</option>
+                        <option value="AS">AS</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업 진행연도</label>
+                      <input
+                        type="number"
+                        min="2020"
+                        max="2050"
+                        value={formData.project_year || ''}
+                        onChange={(e) => setFormData({...formData, project_year: e.target.value ? parseInt(e.target.value) : null})}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
+                        placeholder="예: 2024"
                       />
                     </div>
 
@@ -3746,14 +3971,14 @@ function BusinessManagementPage() {
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">제조사</label>
                       <select
                         value={formData.manufacturer || ''}
-                        onChange={(e) => setFormData({...formData, manufacturer: (e.target.value || null) as 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null})}
+                        onChange={(e) => setFormData({...formData, manufacturer: (e.target.value || null) as '에코센스' | '크린어스' | '가이아씨앤에스' | '이브이에스' | null})}
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       >
                         <option value="">선택하세요</option>
-                        <option value="ecosense">에코센스</option>
-                        <option value="cleanearth">크린어스</option>
-                        <option value="gaia_cns">가이아씨앤에스</option>
-                        <option value="evs">이브이에스</option>
+                        <option value="에코센스">에코센스</option>
+                        <option value="크린어스">크린어스</option>
+                        <option value="가이아씨앤에스">가이아씨앤에스</option>
+                        <option value="이브이에스">이브이에스</option>
                       </select>
                     </div>
 
@@ -3831,160 +4056,214 @@ function BusinessManagementPage() {
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">PH센서</label>
                       <input
                         type="number"
-                        value={formData.ph_meter || ''}
-                        onChange={(e) => setFormData({...formData, ph_meter: parseInt(e.target.value) || 0})}
+                        value={formData.ph_meter ?? ''}
+                        onChange={(e) => setFormData({...formData, ph_meter: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">차압계</label>
                       <input
                         type="number"
-                        value={formData.differential_pressure_meter || ''}
-                        onChange={(e) => setFormData({...formData, differential_pressure_meter: parseInt(e.target.value) || 0})}
+                        value={formData.differential_pressure_meter ?? ''}
+                        onChange={(e) => setFormData({...formData, differential_pressure_meter: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">온도계</label>
                       <input
                         type="number"
-                        value={formData.temperature_meter || ''}
-                        onChange={(e) => setFormData({...formData, temperature_meter: parseInt(e.target.value) || 0})}
+                        value={formData.temperature_meter ?? ''}
+                        onChange={(e) => setFormData({...formData, temperature_meter: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">배출전류계</label>
                       <input
                         type="number"
-                        value={formData.discharge_current_meter || ''}
-                        onChange={(e) => setFormData({...formData, discharge_current_meter: parseInt(e.target.value) || 0})}
+                        value={formData.discharge_current_meter ?? ''}
+                        onChange={(e) => setFormData({...formData, discharge_current_meter: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">송풍전류계</label>
                       <input
                         type="number"
-                        value={formData.fan_current_meter || ''}
-                        onChange={(e) => setFormData({...formData, fan_current_meter: parseInt(e.target.value) || 0})}
+                        value={formData.fan_current_meter ?? ''}
+                        onChange={(e) => setFormData({...formData, fan_current_meter: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">펌프전류계</label>
                       <input
                         type="number"
-                        value={formData.pump_current_meter || ''}
-                        onChange={(e) => setFormData({...formData, pump_current_meter: parseInt(e.target.value) || 0})}
+                        value={formData.pump_current_meter ?? ''}
+                        onChange={(e) => setFormData({...formData, pump_current_meter: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">게이트웨이</label>
                       <input
                         type="number"
-                        value={formData.gateway || ''}
-                        onChange={(e) => setFormData({...formData, gateway: parseInt(e.target.value) || 0})}
+                        value={formData.gateway ?? ''}
+                        onChange={(e) => setFormData({...formData, gateway: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">VPN(유선)</label>
                       <input
                         type="number"
-                        value={formData.vpn_wired || ''}
-                        onChange={(e) => setFormData({...formData, vpn_wired: parseInt(e.target.value) || 0})}
+                        value={formData.vpn_wired ?? ''}
+                        onChange={(e) => setFormData({...formData, vpn_wired: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">VPN(무선)</label>
                       <input
                         type="number"
-                        value={formData.vpn_wireless || ''}
-                        onChange={(e) => setFormData({...formData, vpn_wireless: parseInt(e.target.value) || 0})}
+                        value={formData.vpn_wireless ?? ''}
+                        onChange={(e) => setFormData({...formData, vpn_wireless: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">방폭차압계(국산)</label>
                       <input
                         type="number"
-                        value={formData.explosion_proof_differential_pressure_meter_domestic || ''}
-                        onChange={(e) => setFormData({...formData, explosion_proof_differential_pressure_meter_domestic: parseInt(e.target.value) || 0})}
+                        value={formData.explosion_proof_differential_pressure_meter_domestic ?? ''}
+                        onChange={(e) => setFormData({...formData, explosion_proof_differential_pressure_meter_domestic: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">방폭온도계(국산)</label>
                       <input
                         type="number"
-                        value={formData.explosion_proof_temperature_meter_domestic || ''}
-                        onChange={(e) => setFormData({...formData, explosion_proof_temperature_meter_domestic: parseInt(e.target.value) || 0})}
+                        value={formData.explosion_proof_temperature_meter_domestic ?? ''}
+                        onChange={(e) => setFormData({...formData, explosion_proof_temperature_meter_domestic: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">확장디바이스</label>
                       <input
                         type="number"
-                        value={formData.expansion_device || ''}
-                        onChange={(e) => setFormData({...formData, expansion_device: parseInt(e.target.value) || 0})}
+                        value={formData.expansion_device ?? ''}
+                        onChange={(e) => setFormData({...formData, expansion_device: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">중계기(8채널)</label>
                       <input
                         type="number"
-                        value={formData.relay_8ch || ''}
-                        onChange={(e) => setFormData({...formData, relay_8ch: parseInt(e.target.value) || 0})}
+                        value={formData.relay_8ch ?? ''}
+                        onChange={(e) => setFormData({...formData, relay_8ch: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">중계기(16채널)</label>
                       <input
                         type="number"
-                        value={formData.relay_16ch || ''}
-                        onChange={(e) => setFormData({...formData, relay_16ch: parseInt(e.target.value) || 0})}
+                        value={formData.relay_16ch ?? ''}
+                        onChange={(e) => setFormData({...formData, relay_16ch: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">메인보드교체</label>
                       <input
                         type="number"
-                        value={formData.main_board_replacement || ''}
-                        onChange={(e) => setFormData({...formData, main_board_replacement: parseInt(e.target.value) || 0})}
+                        value={formData.main_board_replacement ?? ''}
+                        onChange={(e) => setFormData({...formData, main_board_replacement: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">복수굴뚝</label>
                       <input
                         type="number"
-                        value={formData.multiple_stack || ''}
-                        onChange={(e) => setFormData({...formData, multiple_stack: parseInt(e.target.value) || 0})}
+                        value={formData.multiple_stack ?? ''}
+                        onChange={(e) => setFormData({...formData, multiple_stack: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 비용 정보 */}
+                <div>
+                  <div className="flex items-center mb-3 sm:mb-4">
+                    <div className="p-1.5 sm:p-2 bg-yellow-600 rounded-lg mr-2 sm:mr-3">
+                      <Database className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    </div>
+                    <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800">비용 정보</h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">추가공사비 (원)</label>
+                      <input
+                        type="text"
+                        value={formData.additional_cost ? formData.additional_cost.toLocaleString() : ''}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/,/g, '');
+                          setFormData({...formData, additional_cost: value ? parseInt(value) : null});
+                        }}
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
+                        placeholder="매출에 추가될 금액 (예: 500,000)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">협의사항 (할인 금액, 원)</label>
+                      <input
+                        type="text"
+                        value={formData.negotiation ? parseInt(formData.negotiation).toLocaleString() : ''}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/,/g, '');
+                          setFormData({...formData, negotiation: value});
+                        }}
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
+                        placeholder="매출에서 차감될 금액 (예: 100,000)"
                       />
                     </div>
                   </div>

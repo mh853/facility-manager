@@ -15,9 +15,19 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // JWT 토큰 검증
+    // JWT 토큰 검증 - Authorization 헤더 또는 httpOnly 쿠키에서 토큰 확인
     const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    let token: string | null = null;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.replace('Bearer ', '');
+    } else {
+      // httpOnly 쿠키에서 토큰 확인
+      const cookieToken = request.cookies.get('auth_token')?.value;
+      if (cookieToken) {
+        token = cookieToken;
+      }
+    }
 
     if (!token) {
       return NextResponse.json(
@@ -105,9 +115,19 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    // JWT 토큰 검증
+    // JWT 토큰 검증 - Authorization 헤더 또는 httpOnly 쿠키에서 토큰 확인
     const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    let token: string | null = null;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.replace('Bearer ', '');
+    } else {
+      // httpOnly 쿠키에서 토큰 확인
+      const cookieToken = request.cookies.get('auth_token')?.value;
+      if (cookieToken) {
+        token = cookieToken;
+      }
+    }
 
     if (!token) {
       return NextResponse.json(

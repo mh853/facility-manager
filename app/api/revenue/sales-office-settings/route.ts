@@ -37,9 +37,33 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // 토큰에서 사용자 정보 추출
+    // 토큰에서 사용자 ID 추출
     const userId = decoded.userId || decoded.id;
-    const permissionLevel = decoded.permissionLevel || decoded.permission_level;
+
+    if (!userId) {
+      return NextResponse.json({
+        success: false,
+        message: '토큰에 사용자 정보가 없습니다.'
+      }, { status: 401 });
+    }
+
+    // DB에서 사용자 정보 조회하여 최신 권한 확인
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('employees')
+      .select('id, permission_level')
+      .eq('id', userId)
+      .eq('is_active', true)
+      .single();
+
+    if (userError || !user) {
+      console.log('❌ [SALES-OFFICE-SETTINGS] 사용자 조회 실패:', userError);
+      return NextResponse.json({
+        success: false,
+        message: '사용자를 찾을 수 없습니다.'
+      }, { status: 401 });
+    }
+
+    const permissionLevel = user.permission_level;
 
     console.log('🔍 [SALES-OFFICE-SETTINGS] 토큰 검증:', { userId, permissionLevel });
 
@@ -265,6 +289,147 @@ export async function POST(request: NextRequest) {
         is_update: !!existingData
       },
       message: `영업점 비용 설정이 성공적으로 ${existingData ? '수정' : '생성'}되었습니다.`
+    });
+
+  } catch (error) {
+    console.error('❌ [SALES-OFFICE-SETTINGS] API 오류:', error);
+    return NextResponse.json({
+      success: false,
+      message: '서버 오류가 발생했습니다.'
+    }, { status: 500 });
+  }
+}
+
+// 영업점별 비용 설정 수정 (기존 레코드 업데이트)
+export async function PATCH(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({
+        success: false,
+        message: '인증이 필요합니다.'
+      }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = verifyTokenString(token);
+
+    if (!decoded) {
+      return NextResponse.json({
+        success: false,
+        message: '유효하지 않은 토큰입니다.'
+      }, { status: 401 });
+    }
+
+    const userId = decoded.userId || decoded.id;
+    const permissionLevel = decoded.permissionLevel || decoded.permission_level;
+
+    // 권한 3 이상 확인 (원가 관리)
+    if (!permissionLevel || permissionLevel < 3) {
+      return NextResponse.json({
+        success: false,
+        message: '원가 관리 권한이 필요합니다.'
+      }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const {
+      id,
+      commission_type,
+      commission_percentage,
+      commission_per_unit,
+      effective_from,
+      effective_to
+    } = body;
+
+    if (!id) {
+      return NextResponse.json({
+        success: false,
+        message: 'ID가 필요합니다.'
+      }, { status: 400 });
+    }
+
+    // 기존 데이터 조회
+    const { data: existingData, error: fetchError } = await supabaseAdmin
+      .from('sales_office_cost_settings')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingData) {
+      return NextResponse.json({
+        success: false,
+        message: '해당 데이터를 찾을 수 없습니다.'
+      }, { status: 404 });
+    }
+
+    // 업데이트할 데이터 준비 (sales_office는 수정 불가)
+    const updateData: any = {};
+
+    if (commission_type !== undefined) {
+      updateData.commission_type = commission_type;
+      // 방식 변경 시 해당 값만 업데이트
+      if (commission_type === 'percentage') {
+        updateData.commission_percentage = commission_percentage;
+        updateData.commission_per_unit = null;
+      } else {
+        updateData.commission_per_unit = commission_per_unit;
+        updateData.commission_percentage = null;
+      }
+    } else {
+      // 방식 변경 없이 값만 변경하는 경우
+      if (commission_percentage !== undefined) updateData.commission_percentage = commission_percentage;
+      if (commission_per_unit !== undefined) updateData.commission_per_unit = commission_per_unit;
+    }
+
+    if (effective_from !== undefined) updateData.effective_from = effective_from;
+    if (effective_to !== undefined) updateData.effective_to = effective_to;
+
+    // 수정할 내용이 없으면 에러
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: '수정할 내용이 없습니다.'
+      }, { status: 400 });
+    }
+
+    // 레코드 업데이트
+    const { data: updatedData, error: updateError } = await supabaseAdmin
+      .from('sales_office_cost_settings')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('❌ [SALES-OFFICE-SETTINGS] 수정 오류:', updateError);
+      return NextResponse.json({
+        success: false,
+        message: '영업점 비용 설정 수정에 실패했습니다.'
+      }, { status: 500 });
+    }
+
+    // 변경 이력 기록
+    await supabaseAdmin
+      .from('pricing_change_history')
+      .insert({
+        table_name: 'sales_office_cost_settings',
+        record_id: id,
+        change_type: 'commission_update',
+        old_values: existingData,
+        new_values: updatedData,
+        changed_fields: Object.keys(updateData),
+        change_reason: '영업점 수수료 설정 수정',
+        user_id: userId,
+        user_name: decoded.name || decoded.username || '알 수 없음'
+      });
+
+    console.log(`✏️ [SALES-OFFICE-SETTINGS] 수정 완료:`, existingData.sales_office);
+
+    return NextResponse.json({
+      success: true,
+      data: updatedData,
+      message: '영업점 비용 설정이 성공적으로 수정되었습니다.'
     });
 
   } catch (error) {

@@ -63,12 +63,21 @@ export async function POST(request: NextRequest) {
     }
 
     // 사용자 존재 여부 재확인 (토큰은 유효하지만 사용자가 비활성화된 경우)
+    const userId = decoded.id || decoded.userId;
+    console.log('🔍 [AUTH] Supabase에서 사용자 조회:', { userId });
+
     const { data: employee, error: fetchError } = await supabaseAdmin
       .from('employees')
       .select('*')
-      .eq('id', decoded.id || decoded.userId)
+      .eq('id', userId)
       .eq('is_active', true)
       .single();
+
+    console.log('📊 [AUTH] Supabase 조회 결과:', {
+      found: !!employee,
+      permission_level: employee?.permission_level,
+      error: fetchError?.message
+    });
 
     if (fetchError || !employee) {
       console.log('❌ [AUTH] 사용자 재조회 실패:', fetchError?.message);
@@ -89,6 +98,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ [AUTH] 토큰 검증 성공:', {
       email: employee.email,
       name: employee.name,
+      permission_level: employee.permission_level, // 🔍 권한 레벨 로깅 추가
       socialAccounts: socialAccounts?.length || 0
     });
 

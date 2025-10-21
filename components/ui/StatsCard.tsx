@@ -13,7 +13,7 @@ interface StatsCardProps {
     label?: string
     direction: 'up' | 'down' | 'neutral'
   }
-  color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'indigo' | 'orange'
+  color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'indigo' | 'orange' | 'gray'
   description?: string
   onClick?: () => void
   loading?: boolean
@@ -78,6 +78,15 @@ const colorVariants = {
   orange: {
     bg: 'from-orange-500 to-orange-600',
     icon: 'bg-orange-100 text-orange-600',
+    trend: {
+      up: 'text-green-600 bg-green-50',
+      down: 'text-red-600 bg-red-50',
+      neutral: 'text-gray-600 bg-gray-50'
+    }
+  },
+  gray: {
+    bg: 'from-gray-500 to-gray-600',
+    icon: 'bg-gray-100 text-gray-600',
     trend: {
       up: 'text-green-600 bg-green-50',
       down: 'text-red-600 bg-red-50',

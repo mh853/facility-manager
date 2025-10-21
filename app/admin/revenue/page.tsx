@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { withAuth, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { TokenManager } from '@/lib/api-client';
 import AdminLayout from '@/components/ui/AdminLayout';
+import { ProtectedPage } from '@/components/auth/ProtectedPage';
+import { AuthLevel } from '@/lib/auth/AuthLevels';
 import StatsCard from '@/components/ui/StatsCard';
 import Modal, { ModalActions } from '@/components/ui/Modal';
 import {
@@ -25,6 +27,9 @@ interface BusinessInfo {
   id: string;
   business_name: string;
   sales_office: string;
+  address?: string;
+  manager_name?: string;
+  manager_contact?: string;
   [key: string]: any;
 }
 
@@ -33,6 +38,7 @@ interface RevenueCalculation {
   business_id: string;
   business_name: string;
   sales_office: string;
+  business_category?: string;
   calculation_date: string;
   total_revenue: number;
   total_cost: number;
@@ -71,14 +77,30 @@ function RevenueDashboard() {
     max: ''
   });
   const [selectedRegion, setSelectedRegion] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(''); // 카테고리(진행구분) 필터
   const [sortField, setSortField] = useState<string>('business_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+  const [showEquipmentModal, setShowEquipmentModal] = useState(false);
+  const [selectedEquipmentBusiness, setSelectedEquipmentBusiness] = useState<any>(null);
 
-  // AuthContext에서 권한 정보 가져오기
-  const { user, permissions } = useAuth();
+  const { user } = useAuth();
   const userPermission = user?.permission_level || 0;
+
+  // 🔍 권한 디버깅 - 상세한 권한 정보 로깅
+  useEffect(() => {
+    console.log('🔍 [REVENUE-PAGE] 사용자 권한 디버깅:', {
+      user: user,
+      userPermission: userPermission,
+      permission_level: user?.permission_level,
+      hasLevel3Access: userPermission >= 3,
+      hasLevel4Access: userPermission >= 4,
+      buttonShouldBeEnabled: userPermission >= 3,
+      buttonDisabledCheck: userPermission < 3,
+      rawUser: JSON.stringify(user, null, 2)
+    });
+  }, [user, userPermission]);
 
   useEffect(() => {
     // 데이터 로드
@@ -94,6 +116,149 @@ function RevenueDashboard() {
     };
   };
 
+  // 환경부 고시가 (매출 단가)
+  const OFFICIAL_PRICES: Record<string, number> = {
+    'ph_meter': 1000000,
+    'differential_pressure_meter': 400000,
+    'temperature_meter': 500000,
+    'discharge_current_meter': 300000,
+    'fan_current_meter': 300000,
+    'pump_current_meter': 300000,
+    'gateway': 1600000,
+    'vpn_wired': 400000,
+    'vpn_wireless': 400000,
+    'explosion_proof_differential_pressure_meter_domestic': 800000,
+    'explosion_proof_temperature_meter_domestic': 1500000,
+    'expansion_device': 800000,
+    'relay_8ch': 300000,
+    'relay_16ch': 1600000,
+    'main_board_replacement': 350000,
+    'multiple_stack': 480000
+  };
+
+  // 제조사별 원가 (매입 단가) - 에코센스 기준
+  const MANUFACTURER_COSTS: Record<string, number> = {
+    'ph_meter': 250000,
+    'differential_pressure_meter': 100000,
+    'temperature_meter': 125000,
+    'discharge_current_meter': 80000,
+    'fan_current_meter': 80000,
+    'pump_current_meter': 80000,
+    'gateway': 200000,
+    'vpn_wired': 100000,
+    'vpn_wireless': 120000,
+    'explosion_proof_differential_pressure_meter_domestic': 150000,
+    'explosion_proof_temperature_meter_domestic': 180000,
+    'expansion_device': 120000,
+    'relay_8ch': 80000,
+    'relay_16ch': 150000,
+    'main_board_replacement': 100000,
+    'multiple_stack': 120000
+  };
+
+  // 기기별 기본 설치비
+  const INSTALLATION_COSTS: Record<string, number> = {
+    'ph_meter': 0,
+    'differential_pressure_meter': 0,
+    'temperature_meter': 0,
+    'discharge_current_meter': 0,
+    'fan_current_meter': 0,
+    'pump_current_meter': 0,
+    'gateway': 0,
+    'vpn_wired': 0,
+    'vpn_wireless': 0,
+    'explosion_proof_differential_pressure_meter_domestic': 0,
+    'explosion_proof_temperature_meter_domestic': 0,
+    'expansion_device': 0,
+    'relay_8ch': 0,
+    'relay_16ch': 0,
+    'main_board_replacement': 0,
+    'multiple_stack': 0
+  };
+
+  const EQUIPMENT_FIELDS = [
+    'ph_meter', 'differential_pressure_meter', 'temperature_meter',
+    'discharge_current_meter', 'fan_current_meter', 'pump_current_meter',
+    'gateway', 'vpn_wired', 'vpn_wireless',
+    'explosion_proof_differential_pressure_meter_domestic',
+    'explosion_proof_temperature_meter_domestic', 'expansion_device',
+    'relay_8ch', 'relay_16ch', 'main_board_replacement', 'multiple_stack'
+  ];
+
+  // 사업장별 매출/매입/이익 자동 계산 함수
+  const calculateBusinessRevenue = (business: any) => {
+    let totalRevenue = 0;
+    let totalCost = 0;
+    let totalInstallation = 0;
+
+    // 각 기기별 매출/매입 계산
+    EQUIPMENT_FIELDS.forEach(field => {
+      const quantity = business[field] || 0;
+      if (quantity > 0) {
+        const unitRevenue = OFFICIAL_PRICES[field] || 0;
+        const unitCost = MANUFACTURER_COSTS[field] || 0;
+        const unitInstallation = INSTALLATION_COSTS[field] || 0;
+
+        totalRevenue += unitRevenue * quantity;
+        totalCost += unitCost * quantity;
+        totalInstallation += unitInstallation * quantity;
+      }
+    });
+
+    // 추가공사비 및 협의사항 반영 (문자열을 숫자로 변환)
+    const additionalCost = business.additional_cost
+      ? (typeof business.additional_cost === 'string'
+          ? parseInt(business.additional_cost.replace(/,/g, '')) || 0
+          : business.additional_cost || 0)
+      : 0;
+    const negotiation = business.negotiation
+      ? (typeof business.negotiation === 'string'
+          ? parseFloat(business.negotiation.replace(/,/g, '')) || 0
+          : business.negotiation || 0)
+      : 0;
+
+    // 최종 매출 = 기본 매출 + 추가공사비 - 협의사항
+    const adjustedRevenue = totalRevenue + additionalCost - negotiation;
+
+    // 영업비용 (매출의 3%)
+    const salesCommission = adjustedRevenue * 0.03;
+
+    // 실사비용 (기본값)
+    const surveyCosts = 450000; // 견적 100,000 + 착공 150,000 + 준공 200,000
+
+    // 총 이익 = 매출 - 매입 - 설치비 - 영업비용 - 실사비용
+    const grossProfit = adjustedRevenue - totalCost;
+    const netProfit = grossProfit - salesCommission - surveyCosts - totalInstallation;
+
+    // 디버깅 로그 (송원이엔지 사업장 확인용)
+    if (business.business_name && business.business_name.includes('송원')) {
+      console.log('🔍 [송원이엔지] 계산 상세:', {
+        사업장명: business.business_name,
+        기본매출: totalRevenue,
+        추가공사비: additionalCost,
+        협의사항: negotiation,
+        최종매출: adjustedRevenue,
+        매입: totalCost,
+        순이익: netProfit,
+        원본데이터: {
+          additional_cost: business.additional_cost,
+          negotiation: business.negotiation
+        }
+      });
+    }
+
+    return {
+      total_revenue: adjustedRevenue,
+      total_cost: totalCost,
+      gross_profit: grossProfit,
+      net_profit: netProfit,
+      installation_costs: totalInstallation,
+      sales_commission: salesCommission,
+      survey_costs: surveyCosts,
+      has_calculation: true // 자동 계산되었음을 표시
+    };
+  };
+
   const loadBusinesses = async () => {
     try {
       const response = await fetch('/api/business-list', {
@@ -102,10 +267,26 @@ function RevenueDashboard() {
       const data = await response.json();
 
       if (data.success) {
-        setBusinesses(data.data.businesses || []);
+        // business-list API는 data.data.businesses로 응답 (createSuccessResponse가 data로 감쌈)
+        const businessData = data.data?.businesses || data.businesses || [];
+        console.log('🏢 [REVENUE] 사업장 데이터 로드:', businessData.length, '개');
+
+        // 각 사업장에 대해 자동 매출 계산 적용
+        const businessesWithCalculation = businessData.map((business: any) => {
+          const calculatedData = calculateBusinessRevenue(business);
+          return {
+            ...business,
+            ...calculatedData
+          };
+        });
+
+        console.log('💰 [REVENUE] 자동 계산 완료:', businessesWithCalculation.length, '개');
+        setBusinesses(businessesWithCalculation);
+      } else {
+        console.error('🔴 [REVENUE] 사업장 로드 실패:', data.message);
       }
     } catch (error) {
-      console.error('사업장 목록 로드 오류:', error);
+      console.error('🔴 [REVENUE] 사업장 목록 로드 오류:', error);
     }
   };
 
@@ -186,14 +367,114 @@ function RevenueDashboard() {
       const data = await response.json();
 
       if (data.success) {
+        const newCalculation = data.data.calculation;
+
+        // 기존 calculations 배열에서 동일한 business_id가 있으면 업데이트, 없으면 추가
+        setCalculations(prevCalcs => {
+          const existingIndex = prevCalcs.findIndex(c => c.business_id === businessId);
+
+          if (existingIndex >= 0) {
+            // 기존 계산 결과 업데이트
+            const updated = [...prevCalcs];
+            updated[existingIndex] = {
+              ...newCalculation,
+              id: prevCalcs[existingIndex].id // 기존 ID 유지
+            };
+            return updated;
+          } else {
+            // 새로운 계산 결과 추가
+            return [...prevCalcs, newCalculation];
+          }
+        });
+
+        // 통계도 즉시 업데이트
+        setCalculations(prevCalcs => {
+          calculateStats(prevCalcs);
+          return prevCalcs;
+        });
+
         alert('매출 계산이 완료되었습니다.');
-        loadCalculations();
+
+        // 사업장 목록만 새로고침 (계산 결과는 이미 위에서 업데이트됨)
+        await loadBusinesses();
       } else {
         alert('계산 실패: ' + data.message);
       }
     } catch (error) {
       console.error('매출 계산 오류:', error);
       alert('매출 계산 중 오류가 발생했습니다.');
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
+  const calculateAllBusinesses = async () => {
+    if (!businesses.length || userPermission < 3) return;
+
+    setIsCalculating(true);
+    let successCount = 0;
+    let errorCount = 0;
+    let skippedCount = 0;
+
+    try {
+      // 계산이 필요한 사업장만 필터링
+      const businessesToCalculate = businesses.filter(b => {
+        const hasCalculation = calculations.some(c => c.business_id === b.id);
+        if (hasCalculation) {
+          skippedCount++;
+          console.log(`⏭️ [BULK-CALCULATE] ${b.business_name} - 이미 계산됨, 건너뜀`);
+        }
+        return !hasCalculation;
+      });
+
+      if (businessesToCalculate.length === 0) {
+        alert('모든 사업장이 이미 계산되어 있습니다.');
+        setIsCalculating(false);
+        return;
+      }
+
+      console.log(`🚀 [BULK-CALCULATE] 시작: ${businessesToCalculate.length}개 사업장 계산 (${skippedCount}개 건너뜀)`);
+
+      for (const business of businessesToCalculate) {
+        try {
+          const response = await fetch('/api/revenue/calculate', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              business_id: business.id,
+              calculation_date: new Date().toISOString().split('T')[0],
+              save_result: true
+            })
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            successCount++;
+            console.log(`✅ [BULK-CALCULATE] ${business.business_name} 계산 완료`);
+          } else {
+            errorCount++;
+            console.error(`❌ [BULK-CALCULATE] ${business.business_name} 계산 실패:`, data.message);
+          }
+        } catch (error) {
+          errorCount++;
+          console.error(`❌ [BULK-CALCULATE] ${business.business_name} 오류:`, error);
+        }
+
+        // 서버 부하 방지를 위한 짧은 지연
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      const message = `일괄 계산 완료\n\n✅ 성공: ${successCount}건\n❌ 실패: ${errorCount}건\n⏭️ 건너뜀: ${skippedCount}건`;
+      alert(message);
+
+      // 계산 완료 후 데이터 새로고침 (계산 결과 + 사업장 목록)
+      await Promise.all([
+        loadCalculations(),
+        loadBusinesses()
+      ]);
+    } catch (error) {
+      console.error('일괄 계산 오류:', error);
+      alert('일괄 계산 중 오류가 발생했습니다.');
     } finally {
       setIsCalculating(false);
     }
@@ -249,13 +530,14 @@ function RevenueDashboard() {
     (!searchTerm ||
     business.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (business.sales_office && business.sales_office.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (business.contact_person && business.contact_person.toLowerCase().includes(searchTerm.toLowerCase()))) &&
+    (business.manager_name && business.manager_name.toLowerCase().includes(searchTerm.toLowerCase()))) &&
     (!selectedOffice || business.sales_office === selectedOffice) &&
-    (!selectedRegion || (business.address && business.address.toLowerCase().includes(selectedRegion.toLowerCase())))
+    (!selectedRegion || (business.address && business.address.toLowerCase().includes(selectedRegion.toLowerCase()))) &&
+    (!selectedCategory || business.progress_status === selectedCategory)
   ).map(business => {
     // 해당 사업장의 매출 계산 결과 찾기 (가장 최신)
     const revenueCalc = calculations
-      .filter(calc => calc.business_name === business.business_name)
+      .filter(calc => calc.business_id === business.id)
       .sort((a, b) => new Date(b.calculation_date).getTime() - new Date(a.calculation_date).getTime())[0];
 
     // 기기 수 계산
@@ -274,16 +556,23 @@ function RevenueDashboard() {
 
     return {
       ...business,
-      total_revenue: revenueCalc?.total_revenue || 0,
-      total_cost: revenueCalc?.total_cost || 0,
-      net_profit: revenueCalc?.net_profit || 0,
-      gross_profit: revenueCalc?.gross_profit || 0,
+      // 서버 계산 결과가 있으면 우선 사용, 없으면 클라이언트 자동 계산 값 사용
+      total_revenue: revenueCalc?.total_revenue || business.total_revenue || 0,
+      total_cost: revenueCalc?.total_cost || business.total_cost || 0,
+      net_profit: revenueCalc?.net_profit || business.net_profit || 0,
+      gross_profit: revenueCalc?.gross_profit || business.gross_profit || 0,
       equipment_count: totalEquipment,
       calculation_date: revenueCalc?.calculation_date || null,
-      category: 'N/A' // TODO: 업무 관리에서 카테고리 정보 가져오기
+      category: business.progress_status || 'N/A', // progress_status 사용 (진행구분)
+      has_calculation: !!revenueCalc || business.has_calculation || false, // 서버 계산 또는 클라이언트 자동 계산
+      additional_cost: business.additional_cost || 0, // 추가공사비
+      negotiation: business.negotiation ? parseFloat(business.negotiation.toString()) : 0 // 협의사항/네고
     };
   }).filter(business => {
-    // 매출 금액 필터 적용
+    // 매출 금액 필터 적용 - 매출 계산이 없는 경우 필터에서 제외하지 않음
+    if (!business.has_calculation && !revenueFilter.min && !revenueFilter.max) {
+      return true; // 매출 필터가 없고 계산이 없는 경우 표시
+    }
     const minRevenue = revenueFilter.min ? parseFloat(revenueFilter.min) : 0;
     const maxRevenue = revenueFilter.max ? parseFloat(revenueFilter.max) : Number.MAX_SAFE_INTEGER;
     return business.total_revenue >= minRevenue && business.total_revenue <= maxRevenue;
@@ -325,8 +614,12 @@ function RevenueDashboard() {
   const paginatedBusinesses = sortedBusinesses.slice(startIndex, startIndex + itemsPerPage);
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <ProtectedPage
+      requiredLevel={AuthLevel.ADMIN}
+      fallbackMessage="매출 관리 시스템은 관리자 권한이 필요합니다."
+    >
+      <AdminLayout>
+        <div className="space-y-6">
         {/* 헤더 */}
         <div className="flex justify-between items-center">
           <div>
@@ -335,12 +628,29 @@ function RevenueDashboard() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => window.location.href = '/admin/revenue/pricing'}
+              onClick={() => {
+                console.log('🔍 [REVENUE-PAGE] 원가관리 버튼 클릭:', {
+                  userPermission,
+                  user_permission_level: user?.permission_level,
+                  hasAccess: userPermission >= 3,
+                  willRedirect: userPermission >= 3
+                });
+                if (userPermission >= 3) {
+                  window.location.href = '/admin/revenue/pricing';
+                } else {
+                  alert(`원가 관리는 권한 레벨 3 이상이 필요합니다. 현재 권한: ${userPermission}`);
+                }
+              }}
               disabled={userPermission < 3}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+              className={`px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors ${
+                userPermission >= 3
+                  ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer'
+                  : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-50'
+              }`}
+              title={userPermission < 3 ? `권한 부족: 레벨 ${userPermission} (필요: 레벨 3+)` : '원가 관리 페이지로 이동'}
             >
               <DollarSign className="w-4 h-4" />
-              원가 관리
+              원가 관리 {userPermission < 3 && `(권한${userPermission}/3 필요)`}
             </button>
             <button
               onClick={exportData}
@@ -353,38 +663,51 @@ function RevenueDashboard() {
         </div>
 
         {/* 통계 카드 */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatsCard
-              title="총 사업장 수"
-              value={`${stats.total_businesses}개`}
-              icon={Building2}
-              color="blue"
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatsCard
+            title="총 사업장 수"
+            value={`${businesses.length}개`}
+            icon={Building2}
+            color="blue"
+            description={`필터 적용: ${filteredBusinesses.length}개`}
+          />
 
-            <StatsCard
-              title="총 매출"
-              value={formatCurrency(stats.total_revenue)}
-              icon={BarChart3}
-              color="green"
-            />
+          <StatsCard
+            title="총 매출"
+            value={formatCurrency(businesses.reduce((sum, b) => sum + (b.total_revenue || 0), 0))}
+            icon={BarChart3}
+            color="green"
+            description="전체 사업장 매출 합계"
+          />
 
-            <StatsCard
-              title="총 순이익"
-              value={formatCurrency(stats.total_profit)}
-              icon={TrendingUp}
-              color="purple"
-              description={`평균 이익률: ${stats.average_margin}`}
-            />
+          <StatsCard
+            title="총 순이익"
+            value={formatCurrency(businesses.reduce((sum, b) => sum + (b.net_profit || 0), 0))}
+            icon={TrendingUp}
+            color="purple"
+            description={`평균 이익률: ${
+              businesses.reduce((sum, b) => sum + (b.total_revenue || 0), 0) > 0
+                ? ((businesses.reduce((sum, b) => sum + (b.net_profit || 0), 0) / businesses.reduce((sum, b) => sum + (b.total_revenue || 0), 0)) * 100).toFixed(1) + '%'
+                : '0%'
+            }`}
+          />
 
-            <StatsCard
-              title="최고 수익 영업점"
-              value={stats.top_performing_office}
-              icon={DollarSign}
-              color="indigo"
-            />
-          </div>
-        )}
+          <StatsCard
+            title="최고 수익 영업점"
+            value={(() => {
+              const officeStats = businesses.reduce((acc: Record<string, number>, b) => {
+                const office = b.sales_office || '미배정';
+                acc[office] = (acc[office] || 0) + (b.net_profit || 0);
+                return acc;
+              }, {});
+              const topOffice = Object.entries(officeStats).sort(([,a], [,b]) => b - a)[0];
+              return topOffice ? topOffice[0] : '데이터 없음';
+            })()}
+            icon={DollarSign}
+            color="indigo"
+            description="순이익 기준 최고 영업점"
+          />
+        </div>
 
         {/* 필터 및 검색 */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -438,6 +761,22 @@ function RevenueDashboard() {
                     {region}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">진행구분</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">전체</option>
+                <option value="자비">자비</option>
+                <option value="보조금">보조금</option>
+                <option value="보조금 동시진행">보조금 동시진행</option>
+                <option value="대리점">대리점</option>
+                <option value="AS">AS</option>
               </select>
             </div>
 
@@ -530,10 +869,10 @@ function RevenueDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-50 rounded-lg">
+              <div className="p-2 bg-blue-50 rounded-lg flex-shrink-0">
                 <Building2 className="w-5 h-5 text-blue-600" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-600">총 사업장</p>
                 <p className="text-2xl font-bold text-gray-900">{sortedBusinesses.length}</p>
               </div>
@@ -542,12 +881,12 @@ function RevenueDashboard() {
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-50 rounded-lg">
+              <div className="p-2 bg-green-50 rounded-lg flex-shrink-0">
                 <TrendingUp className="w-5 h-5 text-green-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">총 매출금액</p>
-                <p className="text-2xl font-bold text-green-600">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-600 mb-1">총 매출금액</p>
+                <p className="text-lg font-bold text-green-600 break-words">
                   {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.total_revenue, 0))}
                 </p>
               </div>
@@ -556,27 +895,13 @@ function RevenueDashboard() {
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-50 rounded-lg">
+              <div className="p-2 bg-purple-50 rounded-lg flex-shrink-0">
                 <DollarSign className="w-5 h-5 text-purple-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">총 이익금액</p>
-                <p className="text-2xl font-bold text-purple-600">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-600 mb-1">총 이익금액</p>
+                <p className="text-lg font-bold text-purple-600 break-words">
                   {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.net_profit, 0))}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 rounded-lg">
-                <Settings className="w-5 h-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">총 설치기기</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {sortedBusinesses.reduce((sum, b) => sum + b.equipment_count, 0)}대
                 </p>
               </div>
             </div>
@@ -604,9 +929,83 @@ function RevenueDashboard() {
                 <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                 <div className="text-gray-500">사업장 매출 데이터를 불러오는 중...</div>
               </div>
-            ) : sortedBusinesses.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-gray-500">조회된 사업장이 없습니다.</div>
+            ) : sortedBusinesses.length === 0 && calculations.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="mb-6">
+                  <Calculator className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">매출 계산 결과가 없습니다</h3>
+                  <div className="text-gray-500 space-y-1">
+                    <p>• 총 {businesses.length}개의 사업장이 등록되어 있습니다</p>
+                    <p>• 아직 매출 계산이 수행되지 않았습니다</p>
+                    <p>• 사업장을 선택하여 매출을 계산해보세요</p>
+                  </div>
+                </div>
+
+                {businesses.length > 0 && userPermission >= 3 && (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
+                      <h4 className="text-sm font-medium text-blue-900 mb-2">매출 계산 시작하기</h4>
+                      <div className="space-y-2">
+                        <select
+                          value={selectedBusiness}
+                          onChange={(e) => setSelectedBusiness(e.target.value)}
+                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm"
+                        >
+                          <option value="">사업장을 선택하세요</option>
+                          {businesses.map((business) => (
+                            <option key={business.id} value={business.id}>
+                              {business.business_name} ({business.sales_office})
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => calculateRevenue(selectedBusiness)}
+                          disabled={!selectedBusiness || isCalculating}
+                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                        >
+                          {isCalculating ? '계산 중...' : '매출 계산 실행'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-gray-400">
+                      💡 팁: 사업장별 매출 계산 후 결과가 이 화면에 표시됩니다
+                    </div>
+
+                  </div>
+                )}
+
+                {userPermission < 3 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
+                    <p className="text-sm text-yellow-800">
+                      ⚠️ 매출 계산은 권한 레벨 3 이상이 필요합니다 (현재: 레벨 {userPermission})
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : sortedBusinesses.length === 0 && calculations.length > 0 ? (
+              <div className="text-center py-12">
+                <div className="mb-6">
+                  <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">필터 조건에 맞는 사업장이 없습니다</h3>
+                  <div className="text-gray-500 space-y-1">
+                    <p>• 총 {businesses.length}개의 사업장 중 {calculations.length}개 사업장에 매출 계산 완료</p>
+                    <p>• 검색어나 필터 조건을 확인해보세요</p>
+                    <p>• 모든 사업장을 보려면 필터를 초기화하세요</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedBusiness('');
+                    setSelectedOffice('');
+                    setSelectedRegion('');
+                    setRevenueFilter({ min: '', max: '' });
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  필터 초기화
+                </button>
               </div>
             ) : (
               <>
@@ -648,12 +1047,6 @@ function RevenueDashboard() {
                           이익금액 {sortField === 'net_profit' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th className="border border-gray-300 px-4 py-2 text-right">이익률</th>
-                        <th
-                          className="border border-gray-300 px-4 py-2 text-center cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('equipment_count')}
-                        >
-                          기기수 {sortField === 'equipment_count' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -664,18 +1057,41 @@ function RevenueDashboard() {
 
                         return (
                           <tr key={business.id} className="hover:bg-gray-50">
-                            <td className="border border-gray-300 px-4 py-2 font-medium">
-                              {business.business_name}
+                            <td className="border border-gray-300 px-4 py-2">
+                              <button
+                                onClick={() => {
+                                  console.log('🔍 [MODAL-DEBUG] 선택된 사업장 데이터:', {
+                                    name: business.business_name,
+                                    additional_cost: business.additional_cost,
+                                    negotiation: business.negotiation,
+                                    total_revenue: business.total_revenue,
+                                    multiple_stack: business.multiple_stack,
+                                    vpn_wireless: business.vpn_wireless,
+                                    gateway: business.gateway
+                                  });
+                                  setSelectedEquipmentBusiness(business);
+                                  setShowEquipmentModal(true);
+                                }}
+                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
+                              >
+                                {business.business_name}
+                              </button>
                             </td>
                             <td className="border border-gray-300 px-4 py-2">
                               {business.address ? business.address.split(' ').slice(0, 2).join(' ') : '미등록'}
                             </td>
                             <td className="border border-gray-300 px-4 py-2">
-                              {business.contact_person || '미등록'}
+                              {business.manager_name || '미등록'}
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-center">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                {business.category}
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                business.category === '보조금' || business.category === '보조금 동시진행'
+                                  ? 'bg-purple-100 text-purple-800' :
+                                business.category === '자비' ? 'bg-green-100 text-green-800' :
+                                business.category === 'AS' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {business.category || 'N/A'}
                               </span>
                             </td>
                             <td className="border border-gray-300 px-4 py-2">
@@ -700,11 +1116,6 @@ function RevenueDashboard() {
                                 parseFloat(profitMargin) >= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                               }`}>
                                 {profitMargin}%
-                              </span>
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                {business.equipment_count}대
                               </span>
                             </td>
                           </tr>
@@ -761,10 +1172,333 @@ function RevenueDashboard() {
             )}
           </div>
         </div>
-      </div>
-    </AdminLayout>
+        </div>
+
+        {/* 기기 상세 정보 모달 */}
+        {showEquipmentModal && selectedEquipmentBusiness && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {selectedEquipmentBusiness.business_name} - 기기 상세 정보
+                </h3>
+                <button
+                  onClick={async () => {
+                    setShowEquipmentModal(false);
+                    // 모달 닫을 때 매출 데이터 자동 새로고침
+                    console.log('🔄 [MODAL-CLOSE] 모달 닫힘, 매출 데이터 새로고침 시작');
+                    await loadCalculations();
+                    console.log('✅ [MODAL-CLOSE] 매출 데이터 새로고침 완료');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* 사업장 기본 정보 */}
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">영업점:</span>
+                      <span className="ml-2 text-sm text-gray-900">{selectedEquipmentBusiness.sales_office || '미배정'}</span>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">진행 구분:</span>
+                      <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        selectedEquipmentBusiness.category === '보조금' || selectedEquipmentBusiness.category === '보조금 동시진행'
+                          ? 'bg-purple-100 text-purple-800' :
+                        selectedEquipmentBusiness.category === '자비' ? 'bg-green-100 text-green-800' :
+                        selectedEquipmentBusiness.category === 'AS' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedEquipmentBusiness.category || 'N/A'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">제조사:</span>
+                      <span className="ml-2 text-sm text-gray-900">{selectedEquipmentBusiness.manufacturer || '미지정'}</span>
+                    </div>
+                  </div>
+                  {selectedEquipmentBusiness.address && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">주소:</span>
+                      <span className="ml-2 text-sm text-gray-900">{selectedEquipmentBusiness.address}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 매출/매입/이익 정보 */}
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-green-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-green-600 mb-1">매출금액</p>
+                        <p className="text-lg font-bold text-green-700">
+                          {formatCurrency(selectedEquipmentBusiness.total_revenue)}
+                        </p>
+                      </div>
+                      <div className="bg-red-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-red-600 mb-1">매입금액</p>
+                        <p className="text-lg font-bold text-red-700">
+                          {formatCurrency(selectedEquipmentBusiness.total_cost)}
+                        </p>
+                      </div>
+                      <div className={`rounded-lg p-4 ${selectedEquipmentBusiness.net_profit >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
+                        <p className={`text-xs font-medium mb-1 ${selectedEquipmentBusiness.net_profit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>이익금액</p>
+                        <p className={`text-lg font-bold ${selectedEquipmentBusiness.net_profit >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+                          {formatCurrency(selectedEquipmentBusiness.net_profit)}
+                        </p>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-purple-600 mb-1">이익률</p>
+                        <p className="text-lg font-bold text-purple-700">
+                          {selectedEquipmentBusiness.total_revenue > 0
+                            ? ((selectedEquipmentBusiness.net_profit / selectedEquipmentBusiness.total_revenue) * 100).toFixed(1)
+                            : '0'}%
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 추가공사비 및 협의사항 */}
+                    {(selectedEquipmentBusiness.additional_cost || selectedEquipmentBusiness.negotiation) && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <h5 className="text-sm font-semibold text-gray-800 mb-3">매출 조정 내역</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {selectedEquipmentBusiness.additional_cost > 0 && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">추가공사비 (+):</span>
+                              <span className="text-sm font-semibold text-green-700">
+                                +{formatCurrency(selectedEquipmentBusiness.additional_cost)}
+                              </span>
+                            </div>
+                          )}
+                          {selectedEquipmentBusiness.negotiation > 0 && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">협의사항/네고 (-):</span>
+                              <span className="text-sm font-semibold text-red-700">
+                                -{formatCurrency(selectedEquipmentBusiness.negotiation)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 매출 계산식 */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h5 className="text-sm font-semibold text-gray-800 mb-3">💰 최종 매출금액 계산식</h5>
+                      <div className="text-sm text-gray-700 space-y-1">
+                        <div className="flex items-center justify-between border-b border-blue-200 pb-2">
+                          <span>기본 매출 (기기 합계)</span>
+                          <span className="font-mono">{formatCurrency(
+                            selectedEquipmentBusiness.total_revenue -
+                            (selectedEquipmentBusiness.additional_cost || 0) +
+                            (selectedEquipmentBusiness.negotiation || 0)
+                          )}</span>
+                        </div>
+                        {selectedEquipmentBusiness.additional_cost > 0 && (
+                          <div className="flex items-center justify-between text-green-700">
+                            <span>+ 추가공사비</span>
+                            <span className="font-mono">+{formatCurrency(selectedEquipmentBusiness.additional_cost)}</span>
+                          </div>
+                        )}
+                        {selectedEquipmentBusiness.negotiation > 0 && (
+                          <div className="flex items-center justify-between text-red-700">
+                            <span>- 협의사항/네고</span>
+                            <span className="font-mono">-{formatCurrency(selectedEquipmentBusiness.negotiation)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between border-t-2 border-blue-300 pt-2 font-bold text-blue-900">
+                          <span>= 최종 매출금액</span>
+                          <span className="font-mono text-lg">{formatCurrency(selectedEquipmentBusiness.total_revenue)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+
+                {/* 설치 기기 목록 */}
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">설치 기기 목록</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse border border-gray-300">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="border border-gray-300 px-4 py-2 text-left">기기명</th>
+                          <th className="border border-gray-300 px-4 py-2 text-center">수량</th>
+                          <th className="border border-gray-300 px-4 py-2 text-right">단가 (원)</th>
+                          <th className="border border-gray-300 px-4 py-2 text-right">합계 (원)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const equipmentFields = [
+                            { key: 'ph_meter', name: 'PH센서' },
+                            { key: 'differential_pressure_meter', name: '차압계' },
+                            { key: 'temperature_meter', name: '온도계' },
+                            { key: 'discharge_current_meter', name: '배출전류계' },
+                            { key: 'fan_current_meter', name: '송풍전류계' },
+                            { key: 'pump_current_meter', name: '펌프전류계' },
+                            { key: 'gateway', name: '게이트웨이' },
+                            { key: 'vpn_wired', name: 'VPN(유선)' },
+                            { key: 'vpn_wireless', name: 'VPN(무선)' },
+                            { key: 'explosion_proof_differential_pressure_meter_domestic', name: '방폭차압계(국산)' },
+                            { key: 'explosion_proof_temperature_meter_domestic', name: '방폭온도계(국산)' },
+                            { key: 'expansion_device', name: '확장디바이스' },
+                            { key: 'relay_8ch', name: '중계기(8채널)' },
+                            { key: 'relay_16ch', name: '중계기(16채널)' },
+                            { key: 'main_board_replacement', name: '메인보드교체' },
+                            { key: 'multiple_stack', name: '복수굴뚝' }
+                          ];
+
+                          const equipmentList = equipmentFields
+                            .filter(field => {
+                              const quantity = selectedEquipmentBusiness[field.key];
+                              return quantity && quantity > 0;
+                            })
+                            .map(field => {
+                              const quantity = selectedEquipmentBusiness[field.key];
+                              // 실제 환경부 고시가는 API로 가져와야 하지만, 임시로 예상 가격 표시
+                              const estimatedPrices: Record<string, number> = {
+                                'ph_meter': 1000000,
+                                'differential_pressure_meter': 400000,
+                                'temperature_meter': 500000,
+                                'discharge_current_meter': 300000,
+                                'fan_current_meter': 300000,
+                                'pump_current_meter': 300000,
+                                'gateway': 1600000,
+                                'vpn_wired': 400000,
+                                'vpn_wireless': 400000,
+                                'explosion_proof_differential_pressure_meter_domestic': 800000,
+                                'explosion_proof_temperature_meter_domestic': 1500000,
+                                'expansion_device': 800000,
+                                'relay_8ch': 300000,
+                                'relay_16ch': 1600000,
+                                'main_board_replacement': 350000,
+                                'multiple_stack': 480000
+                              };
+                              const unitPrice = estimatedPrices[field.key] || 0;
+                              const total = unitPrice * quantity;
+
+                              return (
+                                <tr key={field.key} className="hover:bg-gray-50">
+                                  <td className="border border-gray-300 px-4 py-2">{field.name}</td>
+                                  <td className="border border-gray-300 px-4 py-2 text-center font-medium">{quantity}대</td>
+                                  <td className="border border-gray-300 px-4 py-2 text-right font-mono">
+                                    {unitPrice.toLocaleString()}
+                                  </td>
+                                  <td className="border border-gray-300 px-4 py-2 text-right font-mono font-medium">
+                                    {total.toLocaleString()}
+                                  </td>
+                                </tr>
+                              );
+                            });
+
+                          if (equipmentList.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={4} className="border border-gray-300 px-4 py-6 text-center text-gray-500">
+                                  등록된 기기 정보가 없습니다.
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          const totalEquipment = equipmentFields.reduce((sum, field) => {
+                            return sum + (selectedEquipmentBusiness[field.key] || 0);
+                          }, 0);
+
+                          const totalAmount = equipmentFields.reduce((sum, field) => {
+                            const quantity = selectedEquipmentBusiness[field.key] || 0;
+                            const estimatedPrices: Record<string, number> = {
+                              'ph_meter': 1000000,
+                              'differential_pressure_meter': 400000,
+                              'temperature_meter': 500000,
+                              'discharge_current_meter': 300000,
+                              'fan_current_meter': 300000,
+                              'pump_current_meter': 300000,
+                              'gateway': 1600000,
+                              'vpn_wired': 400000,
+                              'vpn_wireless': 400000,
+                              'explosion_proof_differential_pressure_meter_domestic': 800000,
+                              'explosion_proof_temperature_meter_domestic': 1500000,
+                              'expansion_device': 800000,
+                              'relay_8ch': 300000,
+                              'relay_16ch': 1600000,
+                              'main_board_replacement': 350000,
+                              'multiple_stack': 480000
+                            };
+                            const unitPrice = estimatedPrices[field.key] || 0;
+                            return sum + (unitPrice * quantity);
+                          }, 0);
+
+                          return (
+                            <>
+                              {equipmentList}
+                              <tr className="bg-blue-50 font-bold">
+                                <td className="border border-gray-300 px-4 py-2" colSpan={3}>합계</td>
+                                <td className="border border-gray-300 px-4 py-2 text-right font-mono text-blue-600">
+                                  {totalAmount.toLocaleString()}원
+                                </td>
+                              </tr>
+                            </>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    * 단가는 환경부 고시가 기준 추정 금액이며, 실제 매출 계산 시 최신 고시가가 적용됩니다.
+                  </p>
+                </div>
+
+                {/* 추가 비용 정보 */}
+                <div className="mt-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">추가 비용 정보</h4>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between py-2 border-b border-gray-200">
+                      <span className="text-sm font-medium text-gray-700">추가공사비</span>
+                      <span className="text-base font-semibold text-green-700">
+                        {selectedEquipmentBusiness.additional_cost
+                          ? `+${formatCurrency(selectedEquipmentBusiness.additional_cost)}`
+                          : '₩0'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-sm font-medium text-gray-700">협의사항 (할인 금액)</span>
+                      <span className="text-base font-semibold text-red-700">
+                        {selectedEquipmentBusiness.negotiation
+                          ? `-${formatCurrency(selectedEquipmentBusiness.negotiation)}`
+                          : '₩0'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200">
+                <button
+                  onClick={async () => {
+                    setShowEquipmentModal(false);
+                    // 모달 닫을 때 매출 데이터 자동 새로고침
+                    console.log('🔄 [MODAL-CLOSE] 모달 닫힘, 매출 데이터 새로고침 시작');
+                    await loadCalculations();
+                    console.log('✅ [MODAL-CLOSE] 매출 데이터 새로고침 완료');
+                  }}
+                  className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </AdminLayout>
+    </ProtectedPage>
   );
 }
 
-// withAuth HOC로 권한 체크 (권한 2 이상 필요)
-export default withAuth(RevenueDashboard, undefined, 2);
+// 새로운 AuthGuard 시스템 적용 완료
+export default RevenueDashboard;

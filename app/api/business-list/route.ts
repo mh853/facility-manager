@@ -22,6 +22,9 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         manager_name,
         manager_contact,
         sales_office,
+        manufacturer,
+        business_category,
+        progress_status,
         ph_meter,
         differential_pressure_meter,
         temperature_meter,
@@ -37,7 +40,9 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         relay_8ch,
         relay_16ch,
         main_board_replacement,
-        multiple_stack
+        multiple_stack,
+        additional_cost,
+        negotiation
       `)
       .eq('is_active', true)
       .eq('is_deleted', false)
@@ -98,25 +103,24 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       });
     }
     
-    // 사업장명만 추출하여 반환
-    const businessNames = businessWithPermits
-      .map((business: any) => business.business_name)
-      .filter(Boolean);
-    
+    // 전체 BusinessInfo 객체 반환 (문자열 배열이 아닌 객체 배열)
+    console.log(`📋 [BUSINESS-LIST] 사업장 객체 반환: ${businessWithPermits.length}개`);
+
     return createSuccessResponse({
-      businesses: businessNames,
-      count: businessNames.length,
+      businesses: businessWithPermits, // 전체 객체 반환으로 변경
+      count: businessWithPermits.length,
       metadata: {
-        source: 'business_info_with_air_permits',
-        totalCount: businessNames.length,
+        source: 'business_info_full_objects',
+        totalCount: businessWithPermits.length,
         hasPhotoData: true,
-        criteriaUsed: 'air_permit_required',
+        includesFullData: true,
+        dataType: 'BusinessInfo[]', // 반환 타입 명시
         additionalInfo: {
-          avgDevicesPerBusiness: businessWithPermits.reduce((sum: number, b: any) => 
-            sum + (b.ph_meter || 0) + (b.differential_pressure_meter || 0) + 
-            (b.temperature_meter || 0) + (b.discharge_current_meter || 0) + 
-            (b.fan_current_meter || 0) + (b.pump_current_meter || 0) + 
-            (b.gateway || 0), 0) / businessNames.length
+          avgDevicesPerBusiness: businessWithPermits.reduce((sum: number, b: any) =>
+            sum + (b.ph_meter || 0) + (b.differential_pressure_meter || 0) +
+            (b.temperature_meter || 0) + (b.discharge_current_meter || 0) +
+            (b.fan_current_meter || 0) + (b.pump_current_meter || 0) +
+            (b.gateway || 0), 0) / businessWithPermits.length
         }
       }
     });

@@ -151,6 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkAuth = async () => {
     try {
       setLoading(true);
+
       const token = TokenManager.getToken();
 
       if (!token) {
@@ -179,6 +180,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('❌ [AUTH-CONTEXT] 인증 확인 오류:', error);
+
+      // 인증 실패 시 토큰 제거 및 로그아웃 상태로 설정
       TokenManager.removeToken();
       setUser(null);
       setPermissions(null);
