@@ -136,33 +136,11 @@ export default function TaskProgressMiniBoard({
   const [error, setError] = useState<string | null>(null);
   const [expandedStatus, setExpandedStatus] = useState<string | null>(null);
 
-  // API에서 해당 사업장의 업무들 불러오기
-  useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);  // loadTasks는 useCallback으로 메모이제이션됨
-
-  // 실시간 알림 연동 - 업무 상태 변경 시 자동 새로고침 (debounce 적용)
+  // 실시간 알림 훅
   const { lastEventTime } = useNotification();
   const lastProcessedEventTime = React.useRef<number | null>(null);
 
-  useEffect(() => {
-    // lastEventTime이 변경되지 않았거나 이미 처리한 이벤트면 스킵
-    if (!lastEventTime || !businessName || lastProcessedEventTime.current === lastEventTime) {
-      return;
-    }
-
-    // 이미 처리한 이벤트로 마킹
-    lastProcessedEventTime.current = lastEventTime;
-
-    // 1초 후 데이터 새로고침 (실시간 반영, debounced)
-    const timer = setTimeout(() => {
-      console.log('🔄 [MINI-KANBAN] 실시간 알림으로 인한 업무 새로고침:', businessName);
-      loadTasks();
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [lastEventTime, businessName]);
-
+  // loadTasks 함수를 먼저 정의 (useEffect에서 참조하기 전에)
   const loadTasks = useCallback(async () => {
     if (!businessName || !user) return;
 
@@ -244,6 +222,30 @@ export default function TaskProgressMiniBoard({
       setLoading(false);
     }
   }, [businessName, user]);
+
+  // API에서 해당 사업장의 업무들 불러오기
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
+
+  // 실시간 알림 연동 - 업무 상태 변경 시 자동 새로고침 (debounce 적용)
+  useEffect(() => {
+    // lastEventTime이 변경되지 않았거나 이미 처리한 이벤트면 스킵
+    if (!lastEventTime || !businessName || lastProcessedEventTime.current === lastEventTime) {
+      return;
+    }
+
+    // 이미 처리한 이벤트로 마킹
+    lastProcessedEventTime.current = lastEventTime;
+
+    // 1초 후 데이터 새로고침 (실시간 반영, debounced)
+    const timer = setTimeout(() => {
+      console.log('🔄 [MINI-KANBAN] 실시간 알림으로 인한 업무 새로고침:', businessName);
+      loadTasks();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [lastEventTime, businessName, loadTasks]);
 
   // 업무 타입별로 그룹화된 단계별 업무 개수 계산
   const getTasksByTypeAndStatus = () => {
