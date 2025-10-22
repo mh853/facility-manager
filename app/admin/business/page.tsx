@@ -1091,11 +1091,14 @@ function BusinessManagementPage() {
   // 검색어 하이라이팅 함수
   const highlightSearchTerm = useCallback((text: string, searchTerm: string) => {
     if (!searchTerm || !text) return text
-    
-    const regex = new RegExp(`(${searchTerm})`, 'gi')
+
+    // 정규표현식 특수 문자 escape 처리
+    const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+    const regex = new RegExp(`(${escapedSearchTerm})`, 'gi')
     const parts = text.split(regex)
-    
-    return parts.map((part, index) => 
+
+    return parts.map((part, index) =>
       regex.test(part) ? (
         <mark key={index} className="bg-yellow-200 text-yellow-900 px-0.5 rounded">
           {part}

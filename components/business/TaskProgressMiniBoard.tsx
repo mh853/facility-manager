@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotification } from '@/contexts/NotificationContext';
 import { TokenManager } from '@/lib/api-client';
@@ -139,22 +139,31 @@ export default function TaskProgressMiniBoard({
   // API에서 해당 사업장의 업무들 불러오기
   useEffect(() => {
     loadTasks();
-  }, [businessName, user]);
+  }, [loadTasks]);  // loadTasks는 useCallback으로 메모이제이션됨
 
-  // 실시간 알림 연동 - 업무 상태 변경 시 자동 새로고침
+  // 실시간 알림 연동 - 업무 상태 변경 시 자동 새로고침 (debounce 적용)
   const { lastEventTime } = useNotification();
-  useEffect(() => {
-    if (lastEventTime && businessName) {
-      // 1초 후 데이터 새로고침 (실시간 반영)
-      const timer = setTimeout(() => {
-        loadTasks();
-      }, 1000);
+  const lastProcessedEventTime = React.useRef<number | null>(null);
 
-      return () => clearTimeout(timer);
+  useEffect(() => {
+    // lastEventTime이 변경되지 않았거나 이미 처리한 이벤트면 스킵
+    if (!lastEventTime || !businessName || lastProcessedEventTime.current === lastEventTime) {
+      return;
     }
+
+    // 이미 처리한 이벤트로 마킹
+    lastProcessedEventTime.current = lastEventTime;
+
+    // 1초 후 데이터 새로고침 (실시간 반영, debounced)
+    const timer = setTimeout(() => {
+      console.log('🔄 [MINI-KANBAN] 실시간 알림으로 인한 업무 새로고침:', businessName);
+      loadTasks();
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, [lastEventTime, businessName]);
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     if (!businessName || !user) return;
 
     try {
@@ -234,7 +243,7 @@ export default function TaskProgressMiniBoard({
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessName, user]);
 
   // 업무 타입별로 그룹화된 단계별 업무 개수 계산
   const getTasksByTypeAndStatus = () => {
