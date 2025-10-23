@@ -228,9 +228,9 @@ import {
   FileText,
   Database,
   History,
-  RefreshCw, 
-  Download, 
-  Upload, 
+  RefreshCw,
+  Download,
+  Upload,
   X,
   Plus,
   Building2,
@@ -259,7 +259,10 @@ import {
   Edit3,
   MessageSquare,
   Save,
-  Calculator
+  Calculator,
+  FileCheck,
+  DollarSign,
+  Wallet
 } from 'lucide-react'
 
 // 대한민국 지자체 목록
@@ -1246,18 +1249,19 @@ function BusinessManagementPage() {
   
   // Stats calculation
   const stats = useMemo(() => {
-    const total = allBusinesses.length
-    const active = allBusinesses.filter(b => b.is_active).length
-    const inactive = total - active
-    const withManager = allBusinesses.filter(b => b.manager_name).length
-    
+    const currentYear = new Date().getFullYear()
+    const thisYearBusinesses = allBusinesses.filter(b => b.project_year === currentYear).length
+    const subsidyBusinesses = allBusinesses.filter(b => b.progress_status === '보조금').length
+    const selfFundedBusinesses = allBusinesses.filter(b => b.progress_status === '자비').length
+    const businessesWithTasks = Object.keys(businessTaskStatuses).length
+
     return {
-      total,
-      active,
-      inactive,
-      withManager
+      thisYear: thisYearBusinesses,
+      subsidy: subsidyBusinesses,
+      selfFunded: selfFundedBusinesses,
+      withTasks: businessesWithTasks
     }
-  }, [allBusinesses])
+  }, [allBusinesses, businessTaskStatuses])
 
 
   // 기본 데이터 로딩 - Supabase에서 직접 조회로 최적화
@@ -2104,7 +2108,14 @@ function BusinessManagementPage() {
       expansion_pack: null,
       other_equipment: '',
       negotiation: '',
-      is_active: true
+      is_active: true,
+      // 실사 관리
+      estimate_survey_manager: '',
+      estimate_survey_date: '',
+      pre_construction_survey_manager: '',
+      pre_construction_survey_date: '',
+      completion_survey_manager: '',
+      completion_survey_date: ''
     })
     setIsModalOpen(true)
   }
@@ -2161,10 +2172,18 @@ function BusinessManagementPage() {
 
       contacts: business.contacts || [],
       manufacturer: business.manufacturer,
+      vpn: business.vpn,
       is_active: business.상태 === '활성',
       progress_status: business.progress_status || (business as any).진행상태 || null,
       project_year: business.project_year || (business as any).사업진행연도 || null,
-      installation_team: business.installation_team || (business as any).설치팀 || null
+      installation_team: business.installation_team || (business as any).설치팀 || null,
+      // 실사 관리
+      estimate_survey_manager: business.estimate_survey_manager || '',
+      estimate_survey_date: business.estimate_survey_date || '',
+      pre_construction_survey_manager: business.pre_construction_survey_manager || '',
+      pre_construction_survey_date: business.pre_construction_survey_date || '',
+      completion_survey_manager: business.completion_survey_manager || '',
+      completion_survey_date: business.completion_survey_date || ''
     })
     setIsModalOpen(true)
   }
@@ -2747,40 +2766,32 @@ function BusinessManagementPage() {
         {/* Stats Cards */}
         <div className="grid grid-cols-4 gap-1 sm:gap-2 md:gap-3 lg:gap-4">
           <StatsCard
-            title="전체 사업장"
-            value={stats.total.toString()}
-            icon={Building2}
+            title="올해 진행 사업장"
+            value={stats.thisYear.toString()}
+            icon={Calendar}
             color="blue"
-            description="등록된 사업장 수"
+            description={`${new Date().getFullYear()}년 진행 사업장`}
           />
           <StatsCard
-            title="활성 사업장"
-            value={stats.active.toString()}
-            icon={UserCheck}
+            title="보조금 진행 사업장"
+            value={stats.subsidy.toString()}
+            icon={DollarSign}
             color="green"
-            trend={{
-              value: stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0,
-              direction: 'up',
-              label: '활성 비율'
-            }}
+            description="보조금 사업 진행 중"
           />
           <StatsCard
-            title="비활성 사업장"
-            value={stats.inactive.toString()}
-            icon={Clock}
+            title="자비 진행 사업장"
+            value={stats.selfFunded.toString()}
+            icon={Wallet}
             color="orange"
-            trend={{
-              value: stats.total > 0 ? Math.round((stats.inactive / stats.total) * 100) : 0,
-              direction: 'neutral',
-              label: '비활성 비율'
-            }}
+            description="자비 사업 진행 중"
           />
           <StatsCard
-            title="담당자 등록"
-            value={stats.withManager.toString()}
-            icon={Users}
+            title="업무 진행 사업장"
+            value={stats.withTasks.toString()}
+            icon={ClipboardList}
             color="purple"
-            description="담당자 정보가 등록된 사업장"
+            description="업무 단계가 등록된 사업장"
           />
         </div>
 
@@ -3929,7 +3940,8 @@ function BusinessManagementPage() {
                     </div>
                     <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">기본 정보</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업장명 *</label>
                       <input
@@ -4033,6 +4045,7 @@ function BusinessManagementPage() {
                         maxLength={12}
                       />
                     </div>
+                    </div>
                   </div>
                 </div>
 
@@ -4044,7 +4057,8 @@ function BusinessManagementPage() {
                     </div>
                     <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">담당자 정보</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">담당자명</label>
                       <input
@@ -4124,6 +4138,7 @@ function BusinessManagementPage() {
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
+                    </div>
                   </div>
                 </div>
 
@@ -4135,9 +4150,9 @@ function BusinessManagementPage() {
                     </div>
                     <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">사업장 정보</h3>
                   </div>
-                  
-                  {/* 대기필증 연동 정보 안내 */}
-                  {airPermitLoading ? (
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
+                    {/* 대기필증 연동 정보 안내 */}
+                    {airPermitLoading ? (
                     <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="flex items-center">
                         <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
@@ -4224,6 +4239,7 @@ function BusinessManagementPage() {
                       />
                     </div>
 
+                    </div>
                   </div>
                 </div>
 
@@ -4235,7 +4251,8 @@ function BusinessManagementPage() {
                     </div>
                     <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">프로젝트 관리</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">진행구분</label>
                       <select
@@ -4290,6 +4307,7 @@ function BusinessManagementPage() {
                         placeholder="발주 담당자명"
                       />
                     </div>
+                    </div>
                   </div>
                 </div>
 
@@ -4301,7 +4319,8 @@ function BusinessManagementPage() {
                     </div>
                     <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">일정 관리</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">발주요청일</label>
                       <input
@@ -4342,6 +4361,96 @@ function BusinessManagementPage() {
                       />
                     </div>
 
+                    </div>
+                  </div>
+                </div>
+
+                {/* 실사 관리 */}
+                <div>
+                  <div className="flex items-center mb-3 sm:mb-4 md:mb-6">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
+                      <FileCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
+                    </div>
+                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">실사 관리</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+                    {/* 견적실사 */}
+                    <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                      <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">견적실사</h4>
+                      <div className="space-y-2 sm:space-y-3">
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">담당자</label>
+                          <input
+                            type="text"
+                            value={formData.estimate_survey_manager || ''}
+                            onChange={(e) => setFormData({...formData, estimate_survey_manager: e.target.value})}
+                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            placeholder="담당자명"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">실사일</label>
+                          <input
+                            type="date"
+                            value={formData.estimate_survey_date || ''}
+                            onChange={(e) => setFormData({...formData, estimate_survey_date: e.target.value})}
+                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 착공전실사 */}
+                    <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                      <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">착공전실사</h4>
+                      <div className="space-y-2 sm:space-y-3">
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">담당자</label>
+                          <input
+                            type="text"
+                            value={formData.pre_construction_survey_manager || ''}
+                            onChange={(e) => setFormData({...formData, pre_construction_survey_manager: e.target.value})}
+                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            placeholder="담당자명"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">실사일</label>
+                          <input
+                            type="date"
+                            value={formData.pre_construction_survey_date || ''}
+                            onChange={(e) => setFormData({...formData, pre_construction_survey_date: e.target.value})}
+                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 준공실사 */}
+                    <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                      <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">준공실사</h4>
+                      <div className="space-y-2 sm:space-y-3">
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">담당자</label>
+                          <input
+                            type="text"
+                            value={formData.completion_survey_manager || ''}
+                            onChange={(e) => setFormData({...formData, completion_survey_manager: e.target.value})}
+                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            placeholder="담당자명"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">실사일</label>
+                          <input
+                            type="date"
+                            value={formData.completion_survey_date || ''}
+                            onChange={(e) => setFormData({...formData, completion_survey_date: e.target.value})}
+                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -4353,7 +4462,8 @@ function BusinessManagementPage() {
                     </div>
                     <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">시스템 정보</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">제조사</label>
                       <select
@@ -4427,6 +4537,7 @@ function BusinessManagementPage() {
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                       />
                     </div>
+                    </div>
                   </div>
                 </div>
 
@@ -4438,7 +4549,8 @@ function BusinessManagementPage() {
                     </div>
                     <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800">측정기기</h3>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">PH센서</label>
                       <input
@@ -4615,6 +4727,7 @@ function BusinessManagementPage() {
                         placeholder="0"
                       />
                     </div>
+                    </div>
                   </div>
                 </div>
 
@@ -4626,7 +4739,8 @@ function BusinessManagementPage() {
                     </div>
                     <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800">비용 정보</h3>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">추가공사비 (원)</label>
                       <input
@@ -4652,6 +4766,7 @@ function BusinessManagementPage() {
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         placeholder="매출에서 차감될 금액 (예: 100,000)"
                       />
+                    </div>
                     </div>
                   </div>
                 </div>
