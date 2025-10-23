@@ -37,6 +37,18 @@ export class RateLimiter {
     '/api/auth': {
       windowMs: 15 * 60 * 1000, // 15분
       maxRequests: 30 // 인증 관련 API 제한 완화
+    },
+    '/api/revenue/calculate': {
+      windowMs: 60 * 60 * 1000, // 1시간
+      maxRequests: 1000 // 대량 재계산을 위한 높은 제한
+    },
+    '/api/revenue/business-summary': {
+      windowMs: 15 * 60 * 1000, // 15분
+      maxRequests: 200 // 캐시 조회는 상대적으로 제한 완화
+    },
+    '/api/facility-tasks': {
+      windowMs: 15 * 60 * 1000, // 15분
+      maxRequests: 10000 // 개발 환경: 대량 조회를 위한 높은 제한
     }
   };
 
