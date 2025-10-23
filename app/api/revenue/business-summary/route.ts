@@ -142,8 +142,40 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
+    // 사용자 ID 추출
+    const userId = decoded.userId || decoded.id;
+    if (!userId) {
+      return NextResponse.json({
+        success: false,
+        message: '토큰에 사용자 정보가 없습니다.'
+      }, { status: 401 });
+    }
+
+    // 권한 레벨 확인 - JWT에 없으면 DB에서 조회
+    let permissionLevel = decoded.permissionLevel || decoded.permission_level;
+
+    if (!permissionLevel) {
+      console.log('🔍 [BUSINESS-SUMMARY] JWT에 권한 정보 없음, DB에서 조회:', userId);
+      const { data: user, error: userError } = await supabaseAdmin
+        .from('employees')
+        .select('id, permission_level')
+        .eq('id', userId)
+        .eq('is_active', true)
+        .single();
+
+      if (userError || !user) {
+        console.error('❌ [BUSINESS-SUMMARY] 사용자 조회 실패:', userError);
+        return NextResponse.json({
+          success: false,
+          message: '사용자를 찾을 수 없습니다.'
+        }, { status: 401 });
+      }
+
+      permissionLevel = user.permission_level;
+      console.log('✅ [BUSINESS-SUMMARY] DB에서 권한 조회 완료:', { userId, permissionLevel });
+    }
+
     // 권한 2 이상 확인 (매출 조회)
-    const permissionLevel = decoded.permissionLevel || decoded.permission_level;
     if (!permissionLevel || permissionLevel < 2) {
       return NextResponse.json({
         success: false,
@@ -547,8 +579,13 @@ async function calculateBusinessRevenue(businessId: string): Promise<any> {
     const baseSurveyCosts = surveyCostMap.estimate + surveyCostMap.pre_construction + surveyCostMap.completion;
     const totalSurveyCosts = baseSurveyCosts + totalAdjustments;
 
-    // 9. 최종 계산
-    const grossProfit = totalRevenue - totalCost;
+    // 9. 추가공사비 및 협의사항 반영
+    const additionalCost = businessInfo.additional_cost || 0;
+    const negotiationDiscount = businessInfo.negotiation ? parseFloat(businessInfo.negotiation) || 0 : 0;
+    const adjustedRevenue = totalRevenue + additionalCost - negotiationDiscount;
+
+    // 10. 최종 계산 (조정된 매출 기준)
+    const grossProfit = adjustedRevenue - totalCost;
     const netProfit = grossProfit - salesCommission - totalSurveyCosts - totalInstallationCosts;
 
     return {
@@ -559,13 +596,15 @@ async function calculateBusinessRevenue(businessId: string): Promise<any> {
           business_name: businessInfo.business_name,
           sales_office: salesOffice,
           calculation_date: calcDate,
-          total_revenue: totalRevenue,
+          total_revenue: adjustedRevenue,
           total_cost: totalCost,
           gross_profit: grossProfit,
           sales_commission: salesCommission,
           survey_costs: totalSurveyCosts,
           installation_costs: totalInstallationCosts,
-          net_profit: netProfit
+          net_profit: netProfit,
+          additional_cost: additionalCost,
+          negotiation: negotiationDiscount
         }
       }
     };

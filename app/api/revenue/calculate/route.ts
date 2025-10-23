@@ -290,23 +290,67 @@ export async function POST(request: NextRequest) {
       const quantity = businessInfo[field] || 0;
 
       if (quantity > 0) {
-        // 환경부 고시가 (매출)
+        // 환경부 고시가 (매출) - DB에서 조회, 없으면 기본값 사용
         const officialPrice = officialPriceMap[field];
-        if (!officialPrice) {
-          console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name} - ${field}: 환경부 고시가 없음 (수량: ${quantity})`);
-          continue;
+
+        // 기본 환경부 고시가 (fallback)
+        const DEFAULT_OFFICIAL_PRICES: Record<string, number> = {
+          'ph_meter': 1000000,
+          'differential_pressure_meter': 400000,
+          'temperature_meter': 500000,
+          'discharge_current_meter': 300000,
+          'fan_current_meter': 300000,
+          'pump_current_meter': 300000,
+          'gateway': 1600000,
+          'vpn_wired': 400000,
+          'vpn_wireless': 400000,
+          'explosion_proof_differential_pressure_meter_domestic': 800000,
+          'explosion_proof_temperature_meter_domestic': 1500000,
+          'expansion_device': 800000,
+          'relay_8ch': 300000,
+          'relay_16ch': 1600000,
+          'main_board_replacement': 350000,
+          'multiple_stack': 480000
+        };
+
+        let unitRevenue = 0;
+        if (officialPrice) {
+          unitRevenue = officialPrice.official_price;
+        } else {
+          unitRevenue = DEFAULT_OFFICIAL_PRICES[field] || 0;
+          console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name} - ${field}: 환경부 고시가 없음 → 기본값 사용 (${unitRevenue.toLocaleString()}원)`);
         }
 
-        const unitRevenue = officialPrice.official_price;
-
-        // 제조사별 원가 (매입)
+        // 제조사별 원가 (매입) - DB에서 조회, 없으면 기본값 사용
         const manufacturerCost = manufacturerCostMap[field];
-        if (!manufacturerCost) {
-          console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name} - ${field}: ${manufacturer} 제조사 원가 없음 (수량: ${quantity})`);
-          continue;
-        }
 
-        const unitCost = manufacturerCost.cost_price;
+        // 기본 원가 (fallback)
+        const DEFAULT_COSTS: Record<string, number> = {
+          'ph_meter': 250000,
+          'differential_pressure_meter': 100000,
+          'temperature_meter': 125000,
+          'discharge_current_meter': 80000,
+          'fan_current_meter': 80000,
+          'pump_current_meter': 80000,
+          'gateway': 200000,
+          'vpn_wired': 100000,
+          'vpn_wireless': 120000,
+          'explosion_proof_differential_pressure_meter_domestic': 150000,
+          'explosion_proof_temperature_meter_domestic': 180000,
+          'expansion_device': 120000,
+          'relay_8ch': 80000,
+          'relay_16ch': 150000,
+          'main_board_replacement': 100000,
+          'multiple_stack': 120000
+        };
+
+        let unitCost = 0;
+        if (manufacturerCost) {
+          unitCost = manufacturerCost.cost_price;
+        } else {
+          unitCost = DEFAULT_COSTS[field] || 0;
+          console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name} - ${field}: ${manufacturer} 제조사 원가 없음 → 기본값 사용 (${unitCost.toLocaleString()}원)`);
+        }
 
         // 설치비 = 기본 설치비 + 사업장 추가비(공통) + 사업장 추가비(기기별)
         const baseInstallCost = installationCostMap[field] || 0;
@@ -323,9 +367,31 @@ export async function POST(request: NextRequest) {
         totalInstallationCosts += itemInstallation;
         totalEquipmentCount += quantity;
 
+        // 기기명 fallback
+        const EQUIPMENT_NAMES: Record<string, string> = {
+          'ph_meter': 'PH센서',
+          'differential_pressure_meter': '차압계',
+          'temperature_meter': '온도계',
+          'discharge_current_meter': '배출전류계',
+          'fan_current_meter': '송풍전류계',
+          'pump_current_meter': '펌프전류계',
+          'gateway': '게이트웨이',
+          'vpn_wired': 'VPN(유선)',
+          'vpn_wireless': 'VPN(무선)',
+          'explosion_proof_differential_pressure_meter_domestic': '방폭차압계(국산)',
+          'explosion_proof_temperature_meter_domestic': '방폭온도계(국산)',
+          'expansion_device': '확장디바이스',
+          'relay_8ch': '중계기(8채널)',
+          'relay_16ch': '중계기(16채널)',
+          'main_board_replacement': '메인보드교체',
+          'multiple_stack': '복수굴뚝'
+        };
+
+        const equipmentName = officialPrice?.equipment_name || EQUIPMENT_NAMES[field] || field;
+
         equipmentBreakdown.push({
           equipment_type: field,
-          equipment_name: officialPrice.equipment_name,
+          equipment_name: equipmentName,
           quantity,
           unit_official_price: unitRevenue,
           unit_manufacturer_price: unitCost,
@@ -488,8 +554,40 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
+    // 사용자 ID 추출
+    const userId = decoded.userId || decoded.id;
+    if (!userId) {
+      return NextResponse.json({
+        success: false,
+        message: '토큰에 사용자 정보가 없습니다.'
+      }, { status: 401 });
+    }
+
+    // 권한 레벨 확인 - JWT에 없으면 DB에서 조회
+    let permissionLevel = decoded.permissionLevel || decoded.permission_level;
+
+    if (!permissionLevel) {
+      console.log('🔍 [REVENUE-CALCULATE-GET] JWT에 권한 정보 없음, DB에서 조회:', userId);
+      const { data: user, error: userError } = await supabaseAdmin
+        .from('employees')
+        .select('id, permission_level')
+        .eq('id', userId)
+        .eq('is_active', true)
+        .single();
+
+      if (userError || !user) {
+        console.error('❌ [REVENUE-CALCULATE-GET] 사용자 조회 실패:', userError);
+        return NextResponse.json({
+          success: false,
+          message: '사용자를 찾을 수 없습니다.'
+        }, { status: 401 });
+      }
+
+      permissionLevel = user.permission_level;
+      console.log('✅ [REVENUE-CALCULATE-GET] DB에서 권한 조회 완료:', { userId, permissionLevel });
+    }
+
     // 권한 2 이상 확인
-    const permissionLevel = decoded.permissionLevel || decoded.permission_level;
     if (!permissionLevel || permissionLevel < 2) {
       return NextResponse.json({
         success: false,
