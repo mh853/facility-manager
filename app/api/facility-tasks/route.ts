@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { getTaskStatusKR, createStatusChangeMessage } from '@/lib/task-status-utils';
 import { createTaskAssignmentNotifications, updateTaskAssignmentNotifications, type TaskAssignee } from '@/lib/task-notification-service';
 import { verifyTokenHybrid } from '@/lib/secure-jwt';
+import { logDebug, logError } from '@/lib/logger';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
@@ -14,57 +15,44 @@ export const runtime = 'nodejs';
 
 // 사용자 권한 확인 헬퍼 함수 (Authorization 헤더 + httpOnly 쿠키 지원)
 async function checkUserPermission(request: NextRequest) {
-  console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] 권한 확인 시작');
-
-  // 1. Authorization 헤더에서 토큰 확인
+  // Authorization 헤더에서 토큰 확인
   const authHeader = request.headers.get('authorization');
-  console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] Authorization 헤더:', authHeader ? `Bearer ${authHeader.slice(7, 20)}...` : 'null');
-
   let token: string | null = null;
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.replace('Bearer ', '');
-    console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] Authorization 헤더에서 토큰 추출 성공, 길이:', token.length);
   } else {
-    // 2. httpOnly 쿠키에서 토큰 확인
+    // httpOnly 쿠키에서 토큰 확인
     const cookieToken = request.cookies.get('auth_token')?.value;
-    console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] httpOnly 쿠키 토큰:', cookieToken ? `${cookieToken.slice(0, 20)}...` : 'null');
-
     if (cookieToken) {
       token = cookieToken;
-      console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] 쿠키에서 토큰 추출 성공, 길이:', token.length);
     }
   }
 
   if (!token) {
-    console.log('❌ [FACILITY-TASKS-JWT-DEBUG] Authorization 헤더와 쿠키 모두에서 토큰 없음');
+    logDebug('FACILITY-TASKS', '토큰 없음 (헤더/쿠키 모두 없음)');
     return { authorized: false, user: null };
   }
 
   try {
-
     const result = await verifyTokenHybrid(token);
-    console.log('🔐 [FACILITY-TASKS-JWT-DEBUG] verifyTokenHybrid 결과:', {
-      success: !!result.user,
-      userId: result.user?.id,
-      userName: result.user?.name,
-      userLevel: result.user?.permission_level,
-      levelType: typeof result.user?.permission_level,
-      error: result.error
-    });
 
     if (!result.user) {
-      console.log('❌ [FACILITY-TASKS-JWT-DEBUG] 사용자 정보 없음:', result.error);
+      logDebug('FACILITY-TASKS', '사용자 정보 없음', result.error);
       return { authorized: false, user: null };
     }
 
-    console.log('✅ [FACILITY-TASKS-JWT-DEBUG] 사용자 인증 성공');
+    logDebug('FACILITY-TASKS', '사용자 인증 성공', {
+      userId: result.user.id,
+      permission: result.user.permission_level
+    });
+
     return {
       authorized: true,
       user: result.user
     };
   } catch (error) {
-    console.error('❌ [FACILITY-TASKS-JWT-DEBUG] 권한 확인 오류:', error);
+    logError('FACILITY-TASKS', '권한 확인 오류', error);
     return { authorized: false, user: null };
   }
 }
@@ -98,24 +86,20 @@ export interface FacilityTask {
 // GET: 시설 업무 목록 조회 (권한별 필터링 적용)
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
-    console.log('🚀 [FACILITY-TASKS] GET 요청 시작');
-
     const { searchParams } = new URL(request.url);
     const businessName = searchParams.get('businessName');
     const taskType = searchParams.get('type');
     const status = searchParams.get('status');
     const assignee = searchParams.get('assignee');
 
-    console.log('📋 [FACILITY-TASKS] 파라미터 파싱 완료:', { businessName, taskType, status, assignee });
-
     // 사용자 인증 및 권한 확인 (보안 강화된 JWT 시스템)
     const { authorized, user } = await checkUserPermission(request);
     if (!authorized || !user) {
-      console.log('❌ [FACILITY-TASKS] GET 인증 실패');
+      logDebug('FACILITY-TASKS', 'GET 인증 실패');
       return createErrorResponse('인증이 필요합니다', 401);
     }
 
-    console.log('📋 [FACILITY-TASKS] 시설 업무 목록 조회:', {
+    logDebug('FACILITY-TASKS', '시설 업무 목록 조회', {
       user: user.name,
       permission: user.permission_level,
       filters: { businessName, taskType, status, assignee }
@@ -157,22 +141,14 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       .eq('is_deleted', false)
       .order('created_at', { ascending: false });
 
-    // 임시로 권한 필터링 제거 - 모든 업무 조회 가능하도록 설정
-    console.log('🔓 [FACILITY-TASKS] 임시 설정: 모든 업무 조회 가능 (테스트용)');
-
-    console.log('🔍 [FACILITY-TASKS] 쿼리 필터 적용 시작');
-
     // 추가 필터 적용
     if (businessName) {
-      console.log('🔍 [FACILITY-TASKS] businessName 필터 적용:', businessName);
       query = query.eq('business_name', businessName);
     }
     if (taskType && taskType !== 'all') {
-      console.log('🔍 [FACILITY-TASKS] taskType 필터 적용:', taskType);
       query = query.eq('task_type', taskType);
     }
     if (status) {
-      console.log('🔍 [FACILITY-TASKS] status 필터 적용:', status);
       query = query.eq('status', status);
     }
     if (assignee) {
@@ -201,7 +177,6 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       throw error;
     }
 
-    console.log('✅ [FACILITY-TASKS] 조회 성공:', {
       user: user.name,
       permission: user.permission_level,
       taskCount: tasks?.length || 0
@@ -329,7 +304,6 @@ export const POST = withApiHandler(async (request: NextRequest) => {
               position: employee.position || '미정',
               email: employee.email || ''
             };
-            console.log('✅ [FACILITY-TASKS] 담당자 ID 매핑 성공:', employee.name, '→', employee.id);
           } else {
             console.warn('⚠️ [FACILITY-TASKS] 담당자 ID 조회 실패:', assigneeItem.name, employeeError?.message);
           }
@@ -366,7 +340,6 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       throw error;
     }
 
-    console.log('✅ [FACILITY-TASKS] 생성 성공:', newTask.id);
 
     // 업무 생성 시 자동 메모 생성
     await createTaskCreationNote(newTask);
@@ -528,7 +501,6 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
               position: employee.position || '미정',
               email: employee.email || ''
             };
-            console.log('✅ [FACILITY-TASKS] 수정 시 담당자 ID 매핑 성공:', employee.name, '→', employee.id);
           } else {
             console.warn('⚠️ [FACILITY-TASKS] 수정 시 담당자 ID 조회 실패:', assigneeItem.name, employeeError?.message);
           }
@@ -556,7 +528,6 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
             position: employee.position || '미정',
             email: employee.email || ''
           }];
-          console.log('✅ [FACILITY-TASKS] 단일 담당자 ID 매핑 성공:', employee.name, '→', employee.id);
         } else {
           console.warn('⚠️ [FACILITY-TASKS] 단일 담당자 ID 조회 실패:', assignee, employeeError?.message);
           updateData.assignees = [{
@@ -591,7 +562,6 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
-    console.log('✅ [FACILITY-TASKS] 수정 성공:', updatedTask.id);
 
     // 📝 수정 이력 상세 로깅
     const changedFields = Object.keys(updateData).filter(key =>
@@ -717,7 +687,6 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
-    console.log('✅ [FACILITY-TASKS] 삭제 성공:', deletedTask.id);
 
     // Supabase Realtime: PostgreSQL 트리거가 자동으로 알림 생성
     console.log('🔔 [REALTIME] 업무 삭제 - 트리거가 자동으로 알림 생성:', deletedTask.id);
