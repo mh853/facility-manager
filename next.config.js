@@ -5,6 +5,13 @@ const nextConfig = {
   swcMinify: true,
   poweredByHeader: false,
 
+  // 프로덕션 빌드에서 console 제거 (console.error와 console.warn은 유지)
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'],
+    } : false,
+  },
+
   // 배포 시 TypeScript 체크를 활성화하되, 특정 에러는 건너뛰기
   typescript: {
     // 개발 중에는 false로 설정, 배포 전에는 true로 변경 권장

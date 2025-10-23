@@ -70,6 +70,33 @@ export interface BusinessInfo {
     gateway: number;
     totalDevices: number;
   };
+
+  // 계산서 및 입금 관리 (보조금 사업장)
+  invoice_1st_date?: string;
+  invoice_1st_amount?: number;
+  payment_1st_date?: string;
+  payment_1st_amount?: number;
+
+  invoice_2nd_date?: string;
+  invoice_2nd_amount?: number;
+  payment_2nd_date?: string;
+  payment_2nd_amount?: number;
+
+  invoice_additional_date?: string;
+  // invoice_additional_amount는 additional_cost 사용
+  payment_additional_date?: string;
+  payment_additional_amount?: number;
+
+  // 계산서 및 입금 관리 (자비 사업장)
+  invoice_advance_date?: string;
+  invoice_advance_amount?: number;
+  payment_advance_date?: string;
+  payment_advance_amount?: number;
+
+  invoice_balance_date?: string;
+  invoice_balance_amount?: number;
+  payment_balance_date?: string;
+  payment_balance_amount?: number;
 }
 
 export interface FileInfo {

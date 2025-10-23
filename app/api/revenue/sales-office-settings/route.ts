@@ -191,15 +191,15 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 방식별 필수 값 검증
-    if (commission_type === 'percentage' && !commission_percentage) {
+    // 방식별 필수 값 검증 (0도 유효한 값으로 처리)
+    if (commission_type === 'percentage' && (commission_percentage === undefined || commission_percentage === null)) {
       return NextResponse.json({
         success: false,
         message: '퍼센트 방식의 경우 commission_percentage가 필요합니다.'
       }, { status: 400 });
     }
 
-    if (commission_type === 'per_unit' && !commission_per_unit) {
+    if (commission_type === 'per_unit' && (commission_per_unit === undefined || commission_per_unit === null)) {
       return NextResponse.json({
         success: false,
         message: '단가 방식의 경우 commission_per_unit이 필요합니다.'
@@ -584,6 +584,112 @@ export async function PUT(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ [SALES-OFFICE-SETTINGS] API 오류:', error);
+    return NextResponse.json({
+      success: false,
+      message: '서버 오류가 발생했습니다.'
+    }, { status: 500 });
+  }
+}
+
+// 영업점별 비용 설정 삭제
+export async function DELETE(request: NextRequest) {
+  try {
+    // JWT 토큰 검증
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({
+        success: false,
+        message: '인증이 필요합니다.'
+      }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = verifyTokenString(token);
+
+    if (!decoded) {
+      return NextResponse.json({
+        success: false,
+        message: '유효하지 않은 토큰입니다.'
+      }, { status: 401 });
+    }
+
+    // 토큰에서 사용자 정보 추출
+    const userId = decoded.userId || decoded.id;
+    const permissionLevel = decoded.permissionLevel || decoded.permission_level;
+
+    // 권한 3 이상 확인 (원가 관리)
+    if (!permissionLevel || permissionLevel < 3) {
+      return NextResponse.json({
+        success: false,
+        message: '원가 관리 권한이 필요합니다.'
+      }, { status: 403 });
+    }
+
+    // URL에서 ID 추출
+    const url = new URL(request.url);
+    const id = url.searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({
+        success: false,
+        message: 'ID가 필요합니다.'
+      }, { status: 400 });
+    }
+
+    // 기존 데이터 조회
+    const { data: existingData, error: fetchError } = await supabaseAdmin
+      .from('sales_office_cost_settings')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingData) {
+      return NextResponse.json({
+        success: false,
+        message: '해당 데이터를 찾을 수 없습니다.'
+      }, { status: 404 });
+    }
+
+    // 비활성화 처리
+    const { error: updateError } = await supabaseAdmin
+      .from('sales_office_cost_settings')
+      .update({
+        is_active: false,
+        effective_to: new Date().toISOString().split('T')[0]
+      })
+      .eq('id', id);
+
+    if (updateError) {
+      console.error('❌ [SALES-OFFICE-SETTINGS] 삭제 오류:', updateError);
+      return NextResponse.json({
+        success: false,
+        message: '영업점 비용 설정 삭제에 실패했습니다.'
+      }, { status: 500 });
+    }
+
+    // 감사 로그 기록
+    await supabaseAdmin
+      .from('revenue_audit_log')
+      .insert({
+        table_name: 'sales_office_cost_settings',
+        record_id: id,
+        action_type: 'DELETE',
+        old_values: existingData,
+        action_description: `영업점 비용 설정 삭제: ${existingData.sales_office}`,
+        user_id: userId,
+        user_name: decoded.name || decoded.username || '알 수 없음',
+        user_permission_level: permissionLevel
+      });
+
+    console.log(`🗑️ [SALES-OFFICE-SETTINGS] 삭제 완료:`, existingData.sales_office);
+
+    return NextResponse.json({
+      success: true,
+      message: '영업점 비용 설정이 성공적으로 삭제되었습니다.'
+    });
+
+  } catch (error) {
+    console.error('❌ [SALES-OFFICE-SETTINGS] DELETE API 오류:', error);
     return NextResponse.json({
       success: false,
       message: '서버 오류가 발생했습니다.'

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { TokenManager } from '@/lib/api-client';
 import AdminLayout from '@/components/ui/AdminLayout';
@@ -60,6 +61,7 @@ interface DashboardStats {
 }
 
 function RevenueDashboard() {
+  const router = useRouter();
   const [businesses, setBusinesses] = useState<BusinessInfo[]>([]);
   const [calculations, setCalculations] = useState<RevenueCalculation[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<string>('');
@@ -845,7 +847,7 @@ function RevenueDashboard() {
                   willRedirect: userPermission >= 3
                 });
                 if (userPermission >= 3) {
-                  window.location.href = '/admin/revenue/pricing';
+                  router.push('/admin/revenue/pricing');
                 } else {
                   alert(`원가 관리는 권한 레벨 3 이상이 필요합니다. 현재 권한: ${userPermission}`);
                 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { withAuth, useAuth } from '@/contexts/AuthContext';
 import { TokenManager } from '@/lib/api-client';
 import AdminLayout from '@/components/ui/AdminLayout';
@@ -91,6 +92,7 @@ interface DealerPricing {
 }
 
 function PricingManagement() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('government');
   const [governmentPricing, setGovernmentPricing] = useState<GovernmentPricing[]>([]);
   const [salesOfficeSettings, setSalesOfficeSettings] = useState<SalesOfficeSetting[]>([]);
@@ -432,7 +434,7 @@ function PricingManagement() {
       description="환경부 고시가, 제조사별 원가, 대리점 가격, 영업점 설정, 실사비용 관리"
       actions={
         <button
-          onClick={() => window.location.href = '/admin/revenue'}
+          onClick={() => router.push('/admin/revenue')}
           className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors"
         >
           <DollarSign className="w-4 h-4" />
@@ -557,12 +559,22 @@ function PricingManagement() {
                                 </span>
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                <button
-                                  onClick={() => handleEdit(pricing, 'government')}
-                                  className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleEdit(pricing, 'government')}
+                                    className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                                    title="수정"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => openDeleteModal(pricing, 'government')}
+                                    className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                                    title="삭제"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -626,12 +638,22 @@ function PricingManagement() {
                                 </span>
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                <button
-                                  onClick={() => handleEdit(setting, 'sales')}
-                                  className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleEdit(setting, 'sales')}
+                                    className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                                    title="수정"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => openDeleteModal(setting, 'sales')}
+                                    className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                                    title="삭제"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -694,12 +716,22 @@ function PricingManagement() {
                                 </span>
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                <button
-                                  onClick={() => handleEdit(cost, 'survey')}
-                                  className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleEdit(cost, 'survey')}
+                                    className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                                    title="수정"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => openDeleteModal(cost, 'survey')}
+                                    className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                                    title="삭제"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -1020,11 +1052,18 @@ function EditForm({ item, type, onSave, saving }: {
       setFormData(item);
     } else {
       // 새 항목 초기값 설정
-      setFormData({
+      const defaultData: any = {
         effective_from: new Date().toISOString().split('T')[0]
-      });
+      };
+
+      // sales 타입인 경우 commission_type 기본값 설정
+      if (type === 'sales') {
+        defaultData.commission_type = 'percentage';
+      }
+
+      setFormData(defaultData);
     }
-  }, [item]);
+  }, [item, type]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1096,7 +1135,7 @@ function EditForm({ item, type, onSave, saving }: {
               <input
                 type="number"
                 step="0.1"
-                value={formData.commission_percentage || ''}
+                value={formData.commission_percentage ?? ''}
                 onChange={(e) => setFormData({...formData, commission_percentage: Number(e.target.value)})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />

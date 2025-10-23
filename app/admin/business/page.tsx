@@ -1721,44 +1721,44 @@ function BusinessManagementPage() {
         return newState
       })
     }
-  }, [businessTaskStatuses])
+  }, []) // 의존성 배열 제거 - setBusinessTaskStatuses는 함수형 업데이트(prev =>)를 사용하므로 안전
 
   // 초기 데이터 로딩 - 의존성 제거하여 무한루프 방지
   useEffect(() => {
     loadAllBusinesses()
   }, [])
 
-  // 🎯 초기 로딩: 첫 페이지(12개)만 현재 단계 로딩
+  // 🎯 초기 로딩: 첫 페이지(8개)만 현재 단계 로딩
   useEffect(() => {
     if (allBusinesses.length > 0) {
-      console.log(`🚀 [INITIAL-LOAD] 첫 페이지 로딩 시작: 총 ${allBusinesses.length}개 중 12개`)
-      const firstPage = allBusinesses.slice(0, 12)
+      console.log(`🚀 [INITIAL-LOAD] 첫 페이지 로딩 시작: 총 ${allBusinesses.length}개 중 8개`)
+      const firstPage = allBusinesses.slice(0, 8)
       loadCurrentPageTaskStatuses(firstPage)
     }
-  }, [allBusinesses.length, loadCurrentPageTaskStatuses])
+  }, [allBusinesses.length]) // loadCurrentPageTaskStatuses 의존성 제거로 무한 루프 방지
 
   // 🎯 페이지 변경 핸들러: 새 페이지 사업장들의 현재 단계 로딩
   const handlePageChange = useCallback((page: number, pageData: UnifiedBusinessInfo[]) => {
     console.log(`📄 [PAGE-CHANGE] ${page}페이지로 이동, ${pageData.length}개 사업장`)
     loadCurrentPageTaskStatuses(pageData)
-  }, [loadCurrentPageTaskStatuses])
+  }, []) // 의존성 제거로 무한 루프 방지
 
   // 🔍 검색시 핸들러: 검색 결과의 현재 단계 로딩
   const handleSearchChange = useCallback((searchResults: UnifiedBusinessInfo[]) => {
     if (searchResults.length > 0) {
       console.log(`🔍 [SEARCH] 검색 결과 ${searchResults.length}개 사업장의 현재 단계 로딩`)
-      loadCurrentPageTaskStatuses(searchResults.slice(0, 12)) // 첫 페이지만 로딩
+      loadCurrentPageTaskStatuses(searchResults.slice(0, 8)) // 첫 페이지만 로딩
     }
-  }, [loadCurrentPageTaskStatuses])
+  }, []) // 의존성 제거로 무한 루프 방지
 
   // 🔍 검색 쿼리 변경 감지: 검색 결과의 첫 페이지 현재 단계 로딩
   useEffect(() => {
     if (searchQuery && filteredBusinesses.length > 0) {
       console.log(`🔍 [SEARCH-TRIGGER] 검색어 변경: "${searchQuery}", 결과 ${filteredBusinesses.length}개`)
-      const firstPageOfResults = filteredBusinesses.slice(0, 12)
+      const firstPageOfResults = filteredBusinesses.slice(0, 8)
       loadCurrentPageTaskStatuses(firstPageOfResults)
     }
-  }, [searchQuery, filteredBusinesses.length, loadCurrentPageTaskStatuses])
+  }, [searchQuery, filteredBusinesses.length]) // loadCurrentPageTaskStatuses 의존성 제거로 무한 루프 방지
 
   // ✅ 페이지별 지연 로딩 구현 완료 - 백그라운드 로딩 제거됨
 
@@ -2876,7 +2876,7 @@ function BusinessManagementPage() {
                 loading={isLoading}
                 emptyMessage="등록된 사업장이 없습니다."
                 searchable={false}
-                pageSize={12}
+                pageSize={8}
                 onPageChange={handlePageChange}
               />
             </div>
