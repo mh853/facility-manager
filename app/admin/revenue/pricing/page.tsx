@@ -172,7 +172,45 @@ function PricingManagement() {
 
   const loadSurveyCosts = async () => {
     try {
-      // 실사비용 API가 없으므로 임시로 빈 배열로 설정
+      const response = await fetch('/api/revenue/survey-costs', {
+        headers: getAuthHeaders()
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSurveyCosts(data.data || []);
+      } else {
+        console.error('실사비용 로드 실패:', data.message);
+        // 실패 시 기본 데이터 사용
+        setSurveyCosts([
+          {
+            id: '1',
+            survey_type: 'estimate',
+            survey_name: '견적실사',
+            base_cost: 100000,
+            effective_from: '2025-01-01',
+            is_active: true
+          },
+          {
+            id: '2',
+            survey_type: 'pre_construction',
+            survey_name: '착공전실사',
+            base_cost: 150000,
+            effective_from: '2025-01-01',
+            is_active: true
+          },
+          {
+            id: '3',
+            survey_type: 'completion',
+            survey_name: '준공실사',
+            base_cost: 200000,
+            effective_from: '2025-01-01',
+            is_active: true
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('실사비용 로드 오류:', error);
+      // 오류 시 기본 데이터 사용
       setSurveyCosts([
         {
           id: '1',
@@ -199,8 +237,6 @@ function PricingManagement() {
           is_active: true
         }
       ]);
-    } catch (error) {
-      console.error('실사비용 로드 오류:', error);
     }
   };
 
@@ -268,6 +304,7 @@ function PricingManagement() {
           break;
         case 'survey':
           endpoint = '/api/revenue/survey-costs';
+          method = isEditMode ? 'PATCH' : 'POST';
           break;
         case 'manufacturer':
           endpoint = '/api/revenue/manufacturer-pricing';
@@ -275,7 +312,7 @@ function PricingManagement() {
           break;
         case 'installation':
           endpoint = '/api/revenue/installation-cost';
-          method = isEditMode ? 'PUT' : 'POST';
+          method = isEditMode ? 'PATCH' : 'POST';
           break;
         case 'dealer':
           endpoint = '/api/revenue/dealer-pricing';
@@ -1324,16 +1361,79 @@ function EditForm({ item, type, onSave, saving }: {
         </>
       )}
 
-      <div>
-        <label className="block text-sm font-medium mb-1">시행일</label>
-        <input
-          type="date"
-          value={formData.effective_from || ''}
-          onChange={(e) => setFormData({...formData, effective_from: e.target.value})}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          required
-        />
-      </div>
+      {type === 'survey' && (
+        <>
+          <div>
+            <label className="block text-sm font-medium mb-1">실사 유형</label>
+            <select
+              value={formData.survey_type || ''}
+              onChange={(e) => setFormData({...formData, survey_type: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+              disabled={!!item?.id}
+            >
+              <option value="">선택하세요</option>
+              <option value="estimate">견적실사</option>
+              <option value="pre_construction">착공전실사</option>
+              <option value="completion">준공실사</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">실사명</label>
+            <input
+              type="text"
+              value={formData.survey_name || ''}
+              onChange={(e) => setFormData({...formData, survey_name: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="예: 견적실사"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">기본 비용 (₩)</label>
+            <input
+              type="number"
+              value={formData.base_cost ?? ''}
+              onChange={(e) => setFormData({...formData, base_cost: Number(e.target.value)})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">시행일</label>
+            <input
+              type="date"
+              value={formData.effective_from || ''}
+              onChange={(e) => setFormData({...formData, effective_from: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">종료일 (선택)</label>
+            <input
+              type="date"
+              value={formData.effective_to || ''}
+              onChange={(e) => setFormData({...formData, effective_to: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </>
+      )}
+
+      {/* 시행일 공통 필드 (survey 타입이 아닐 때만 표시) */}
+      {type !== 'survey' && type !== 'manufacturer' && type !== 'installation' && type !== 'dealer' && (
+        <div>
+          <label className="block text-sm font-medium mb-1">시행일</label>
+          <input
+            type="date"
+            value={formData.effective_from || ''}
+            onChange={(e) => setFormData({...formData, effective_from: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+        </div>
+      )}
 
       <div className="flex justify-end gap-2 pt-4">
         <button

@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url);
     const includeInactive = url.searchParams.get('include_inactive') === 'true';
+    const today = new Date().toISOString().split('T')[0];
 
     let query = supabaseAdmin
       .from('equipment_installation_cost')
@@ -77,6 +78,11 @@ export async function GET(request: NextRequest) {
     if (!includeInactive) {
       query = query.eq('is_active', true);
     }
+
+    // 현재 날짜 기준 유효한 가격만 조회
+    query = query
+      .lte('effective_from', today)
+      .or(`effective_to.is.null,effective_to.gte.${today}`);
 
     const { data: costs, error } = await query;
 

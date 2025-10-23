@@ -84,6 +84,8 @@ export async function GET(request: NextRequest) {
     const equipmentType = url.searchParams.get('equipment_type');
 
     // 환경부 고시가 조회
+    const today = new Date().toISOString().split('T')[0];
+
     let query = supabaseAdmin
       .from('government_pricing')
       .select('*')
@@ -92,6 +94,11 @@ export async function GET(request: NextRequest) {
     if (!includeInactive) {
       query = query.eq('is_active', true);
     }
+
+    // 현재 날짜 기준 유효한 가격만 조회
+    query = query
+      .lte('effective_from', today)
+      .or(`effective_to.is.null,effective_to.gte.${today}`);
 
     if (equipmentType) {
       query = query.eq('equipment_type', equipmentType);

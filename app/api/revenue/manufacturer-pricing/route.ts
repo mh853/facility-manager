@@ -78,6 +78,8 @@ export async function GET(request: NextRequest) {
     const equipmentType = url.searchParams.get('equipment_type');
 
     // 제조사별 원가 조회
+    const today = new Date().toISOString().split('T')[0];
+
     let query = supabaseAdmin
       .from('manufacturer_pricing')
       .select('*')
@@ -88,6 +90,11 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_active', true);
     }
 
+    // 현재 날짜 기준 유효한 가격만 조회
+    query = query
+      .lte('effective_from', today)
+      .or(`effective_to.is.null,effective_to.gte.${today}`);
+
     if (manufacturer) {
       query = query.eq('manufacturer', manufacturer);
     }
@@ -97,6 +104,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: pricing, error } = await query;
+
+    // 디버깅: ecosense ph_meter 가격 확인
+    const ecosensePH = pricing?.find(p => p.manufacturer === 'ecosense' && p.equipment_type === 'ph_meter');
+    if (ecosensePH) {
+      console.log('🔍 [MANUFACTURER-PRICING] ecosense ph_meter 원가:', ecosensePH.cost_price, '원');
+    }
 
     if (error) {
       console.error('❌ [MANUFACTURER-PRICING] 조회 오류:', error);
