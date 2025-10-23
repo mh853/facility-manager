@@ -1,11 +1,14 @@
 // app/admin/business/page.tsx - 사업장 관리 페이지
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { BusinessInfo } from '@/lib/database-service'
 import type { BusinessMemo, CreateBusinessMemoInput, UpdateBusinessMemoInput } from '@/types/database'
 import { getBusinessTaskStatus, getBatchBusinessTaskStatuses, getTaskSummary } from '@/lib/business-task-utils'
+import { supabase } from '@/lib/supabase'
+import BusinessRevenueModal from '@/components/business/BusinessRevenueModal'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface Contact {
   name: string;
@@ -93,7 +96,33 @@ interface UnifiedBusinessInfo {
   negotiation?: string | null;
   multiple_stack_cost?: number | null;
   representative_birth_date?: string | null;
-  
+
+  // 계산서 및 입금 정보 - 보조금 사업장 (3개)
+  invoice_1st_date?: string | null;
+  invoice_1st_amount?: number | null;
+  payment_1st_date?: string | null;
+  payment_1st_amount?: number | null;
+
+  invoice_2nd_date?: string | null;
+  invoice_2nd_amount?: number | null;
+  payment_2nd_date?: string | null;
+  payment_2nd_amount?: number | null;
+
+  invoice_additional_date?: string | null;
+  payment_additional_date?: string | null;
+  payment_additional_amount?: number | null;
+
+  // 계산서 및 입금 정보 - 자비 사업장 (2개)
+  invoice_advance_date?: string | null;
+  invoice_advance_amount?: number | null;
+  payment_advance_date?: string | null;
+  payment_advance_amount?: number | null;
+
+  invoice_balance_date?: string | null;
+  invoice_balance_amount?: number | null;
+  payment_balance_date?: string | null;
+  payment_balance_amount?: number | null;
+
   // 시스템 필드들
   manufacturer?: 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null;
   vpn?: 'wired' | 'wireless' | null;
@@ -192,11 +221,13 @@ import StatsCard from '@/components/ui/StatsCard'
 import DataTable, { commonActions } from '@/components/ui/DataTable'
 import { ConfirmModal } from '@/components/ui/Modal'
 import TaskProgressMiniBoard from '@/components/business/TaskProgressMiniBoard'
-import { 
-  Users, 
-  FileText, 
-  Database, 
-  History, 
+import { InvoiceDisplay } from '@/components/business/InvoiceDisplay'
+import { InvoiceFormInput } from '@/components/business/InvoiceFormInput'
+import {
+  Users,
+  FileText,
+  Database,
+  History,
   RefreshCw, 
   Download, 
   Upload, 
@@ -227,7 +258,8 @@ import {
   MessageSquarePlus,
   Edit3,
   MessageSquare,
-  Save
+  Save,
+  Calculator
 } from 'lucide-react'
 
 // 대한민국 지자체 목록
@@ -249,6 +281,8 @@ const KOREAN_LOCAL_GOVERNMENTS = [
 function BusinessManagementPage() {
   // 권한 확인 훅
   const { canDeleteAutoMemos } = usePermission()
+  const { user } = useAuth()
+  const userPermission = user?.permission_level || 0
 
   // URL 파라미터 처리
   const searchParams = useSearchParams()
@@ -294,7 +328,201 @@ function BusinessManagementPage() {
     vpnWireless?: number,
     multipleStack?: number
   } | null>(null)
-  
+
+  // 매출 정보 state
+  const [revenueData, setRevenueData] = useState<{
+    total_revenue?: number;
+    total_cost?: number;
+    gross_profit?: number;
+    net_profit?: number;
+    profit_margin_percentage?: number;
+    sales_commission?: number;
+    commission_rate?: number; // 실제 적용된 수수료 비율
+    survey_costs?: number; // 실사비용
+  } | null>(null)
+  const [revenueLoading, setRevenueLoading] = useState(false)
+
+  // 영업점별 수수료 정보 state
+  const [salesOfficeCommissions, setSalesOfficeCommissions] = useState<{
+    [salesOffice: string]: number; // 영업점명 -> 수수료 비율(%)
+  }>({})
+  const [commissionsLoading, setCommissionsLoading] = useState(false)
+
+  // 실사비용 정보 state
+  const [surveyCosts, setSurveyCosts] = useState<{
+    estimate: number; // 견적실사
+    pre_construction: number; // 착공전실사
+    completion: number; // 준공실사
+    total: number; // 합계
+  }>({
+    estimate: 100000,
+    pre_construction: 150000,
+    completion: 200000,
+    total: 450000
+  })
+  const [surveyCostsLoading, setSurveyCostsLoading] = useState(false)
+
+  // 제조사별 원가 정보 state
+  const [manufacturerCosts, setManufacturerCosts] = useState<{
+    [equipmentType: string]: number; // 기기 타입 -> 원가
+  }>({})
+  const [manufacturerCostsLoading, setManufacturerCostsLoading] = useState(false)
+
+  // Revenue 모달 state
+  const [showRevenueModal, setShowRevenueModal] = useState(false)
+  const [selectedRevenueBusiness, setSelectedRevenueBusiness] = useState<UnifiedBusinessInfo | null>(null)
+
+  // 영업점별 수수료 정보 로드
+  useEffect(() => {
+    const loadSalesOfficeCommissions = async () => {
+      console.log('🔄 영업점 수수료 로드 시작...')
+      setCommissionsLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from('sales_office_cost_settings')
+          .select('sales_office, commission_percentage, is_active, effective_from')
+          .eq('is_active', true)
+          .order('effective_from', { ascending: false })
+
+        console.log('📊 Supabase 응답:', { data, error })
+
+        if (error) {
+          console.error('❌ 영업점 수수료 로드 실패:', error)
+          return
+        }
+
+        if (data && data.length > 0) {
+          console.log('✅ 조회된 데이터 개수:', data.length)
+          console.log('📋 조회된 원본 데이터:', data)
+
+          // 영업점별로 가장 최신 수수료 정보만 저장
+          const commissionMap: { [key: string]: number } = {}
+          data.forEach((item: any) => {
+            if (!commissionMap[item.sales_office]) {
+              commissionMap[item.sales_office] = item.commission_percentage || 10.0
+              console.log(`  → ${item.sales_office}: ${item.commission_percentage}%`)
+            }
+          })
+          setSalesOfficeCommissions(commissionMap)
+          console.log('✅ 영업점별 수수료 로드 완료:', commissionMap)
+        } else {
+          console.warn('⚠️ 조회된 데이터가 없습니다')
+        }
+      } catch (error) {
+        console.error('❌ 영업점 수수료 로드 오류:', error)
+      } finally {
+        setCommissionsLoading(false)
+      }
+    }
+
+    loadSalesOfficeCommissions()
+  }, [])
+
+  // 실사비용 정보 로드
+  useEffect(() => {
+    const loadSurveyCosts = async () => {
+      console.log('🔄 실사비용 로드 시작...')
+      setSurveyCostsLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from('survey_cost_settings')
+          .select('survey_type, base_cost, is_active')
+          .eq('is_active', true)
+          .order('effective_from', { ascending: false })
+
+        console.log('📊 실사비용 Supabase 응답:', { data, error })
+
+        if (error) {
+          console.error('❌ 실사비용 로드 실패:', error)
+          return
+        }
+
+        if (data && data.length > 0) {
+          console.log('✅ 조회된 실사비용 데이터:', data)
+
+          // 실사 유형별로 최신 비용 저장
+          const costs = {
+            estimate: 100000,
+            pre_construction: 150000,
+            completion: 200000,
+            total: 450000
+          }
+
+          data.forEach((item: any) => {
+            const baseCost = Number(item.base_cost) || 0
+            if (item.survey_type === 'estimate') {
+              costs.estimate = baseCost
+            } else if (item.survey_type === 'pre_construction') {
+              costs.pre_construction = baseCost
+            } else if (item.survey_type === 'completion') {
+              costs.completion = baseCost
+            }
+          })
+
+          costs.total = costs.estimate + costs.pre_construction + costs.completion
+
+          setSurveyCosts(costs)
+          console.log('✅ 실사비용 로드 완료:', costs)
+        } else {
+          console.warn('⚠️ 실사비용 데이터가 없습니다 - 기본값 사용')
+        }
+      } catch (error) {
+        console.error('❌ 실사비용 로드 오류:', error)
+      } finally {
+        setSurveyCostsLoading(false)
+      }
+    }
+
+    loadSurveyCosts()
+  }, [])
+
+  // 제조사별 원가 정보 로드
+  useEffect(() => {
+    const loadManufacturerCosts = async () => {
+      console.log('🔄 제조사별 원가 로드 시작...')
+      setManufacturerCostsLoading(true)
+      try {
+        // 에코센스 제조사 기준으로 로드
+        const { data, error } = await supabase
+          .from('manufacturer_pricing')
+          .select('equipment_type, cost_price, is_active')
+          .eq('manufacturer', 'ecosense')
+          .eq('is_active', true)
+          .order('effective_from', { ascending: false })
+
+        console.log('📊 제조사별 원가 Supabase 응답:', { data, error })
+
+        if (error) {
+          console.error('❌ 제조사별 원가 로드 실패:', error)
+          return
+        }
+
+        if (data && data.length > 0) {
+          console.log('✅ 조회된 제조사별 원가 데이터:', data)
+
+          // 기기 타입별로 최신 원가 저장
+          const costsMap: { [key: string]: number } = {}
+          data.forEach((item: any) => {
+            if (!costsMap[item.equipment_type]) {
+              costsMap[item.equipment_type] = Number(item.cost_price) || 0
+            }
+          })
+
+          setManufacturerCosts(costsMap)
+          console.log('✅ 제조사별 원가 로드 완료:', costsMap)
+        } else {
+          console.warn('⚠️ 제조사별 원가 데이터가 없습니다 - MANUFACTURER_COSTS 상수 사용')
+        }
+      } catch (error) {
+        console.error('❌ 제조사별 원가 로드 오류:', error)
+      } finally {
+        setManufacturerCostsLoading(false)
+      }
+    }
+
+    loadManufacturerCosts()
+  }, [])
+
   // 시설 통계 계산 함수
   const calculateFacilityStats = useCallback((airPermitData: any[]) => {
     const stats: {[businessId: string]: {dischargeCount: number, preventionCount: number, outletCount: number}} = {}
@@ -392,7 +620,234 @@ function BusinessManagementPage() {
       setFacilityLoading(false)
     }
   }, [])
-  
+
+  // 환경부 고시가 (매출 단가)
+  const OFFICIAL_PRICES: Record<string, number> = {
+    'ph_meter': 1000000,
+    'differential_pressure_meter': 400000,
+    'temperature_meter': 500000,
+    'discharge_current_meter': 300000,
+    'fan_current_meter': 300000,
+    'pump_current_meter': 300000,
+    'gateway': 1600000,
+    'vpn_wired': 400000,
+    'vpn_wireless': 400000,
+    'explosion_proof_differential_pressure_meter_domestic': 800000,
+    'explosion_proof_temperature_meter_domestic': 1500000,
+    'expansion_device': 800000,
+    'relay_8ch': 300000,
+    'relay_16ch': 1600000,
+    'main_board_replacement': 350000,
+    'multiple_stack': 480000
+  }
+
+  // 제조사별 원가 (매입 단가) - 에코센스 기준
+  const MANUFACTURER_COSTS: Record<string, number> = {
+    'ph_meter': 250000,
+    'differential_pressure_meter': 100000,
+    'temperature_meter': 125000,
+    'discharge_current_meter': 80000,
+    'fan_current_meter': 80000,
+    'pump_current_meter': 80000,
+    'gateway': 200000,
+    'vpn_wired': 100000,
+    'vpn_wireless': 120000,
+    'explosion_proof_differential_pressure_meter_domestic': 150000,
+    'explosion_proof_temperature_meter_domestic': 180000,
+    'expansion_device': 120000,
+    'relay_8ch': 80000,
+    'relay_16ch': 150000,
+    'main_board_replacement': 100000,
+    'multiple_stack': 120000
+  }
+
+  // 기기별 기본 설치비
+  const INSTALLATION_COSTS: Record<string, number> = {
+    'ph_meter': 0,
+    'differential_pressure_meter': 0,
+    'temperature_meter': 0,
+    'discharge_current_meter': 0,
+    'fan_current_meter': 0,
+    'pump_current_meter': 0,
+    'gateway': 0,
+    'vpn_wired': 0,
+    'vpn_wireless': 0,
+    'explosion_proof_differential_pressure_meter_domestic': 0,
+    'explosion_proof_temperature_meter_domestic': 0,
+    'expansion_device': 0,
+    'relay_8ch': 0,
+    'relay_16ch': 0,
+    'main_board_replacement': 0,
+    'multiple_stack': 0
+  }
+
+  const EQUIPMENT_FIELDS = [
+    'ph_meter', 'differential_pressure_meter', 'temperature_meter',
+    'discharge_current_meter', 'fan_current_meter', 'pump_current_meter',
+    'gateway', 'vpn_wired', 'vpn_wireless',
+    'explosion_proof_differential_pressure_meter_domestic',
+    'explosion_proof_temperature_meter_domestic', 'expansion_device',
+    'relay_8ch', 'relay_16ch', 'main_board_replacement', 'multiple_stack'
+  ]
+
+  // 사업장별 매출/매입/이익 자동 계산 함수 (매출관리 페이지와 동일)
+  const calculateBusinessRevenue = useCallback((business: UnifiedBusinessInfo, commissions?: { [key: string]: number }) => {
+    const commissionsToUse = commissions || salesOfficeCommissions
+    let totalRevenue = 0
+    let totalCost = 0
+    let totalInstallation = 0
+
+    // 각 기기별 매출/매입 계산
+    console.log('🔍 [원가 계산] 제조사별 원가 상태:', manufacturerCosts)
+    console.log('🔍 [원가 계산] 하드코딩 상수:', MANUFACTURER_COSTS)
+
+    EQUIPMENT_FIELDS.forEach(field => {
+      const quantity = (business as any)[field] || 0
+      if (quantity > 0) {
+        const unitRevenue = OFFICIAL_PRICES[field] || 0
+        // 제조사별 원가: state에서 가져오고, 없으면 하드코딩 상수 사용
+        const unitCost = manufacturerCosts[field] || MANUFACTURER_COSTS[field] || 0
+        const unitInstallation = INSTALLATION_COSTS[field] || 0
+
+        console.log(`🔍 [원가 계산] ${field}: 수량=${quantity}, 매출=${unitRevenue}, 원가=${unitCost}, 설치비=${unitInstallation}`)
+
+        totalRevenue += unitRevenue * quantity
+        totalCost += unitCost * quantity
+        totalInstallation += unitInstallation * quantity
+      }
+    })
+
+    // 추가공사비 및 협의사항 반영 (문자열을 숫자로 변환)
+    const additionalCost = business.additional_cost
+      ? (typeof business.additional_cost === 'string'
+          ? parseInt(business.additional_cost.replace(/,/g, '')) || 0
+          : business.additional_cost || 0)
+      : 0
+    const negotiation = business.negotiation
+      ? (typeof business.negotiation === 'string'
+          ? parseFloat(business.negotiation.replace(/,/g, '')) || 0
+          : business.negotiation || 0)
+      : 0
+
+    // 최종 매출 = 기본 매출 + 추가공사비 - 협의사항
+    const adjustedRevenue = totalRevenue + additionalCost - negotiation
+
+    // 영업비용 - 영업점별 수수료 비율 적용
+    const salesOffice = business.sales_office || business.영업점 || ''
+    let commissionRate = 0
+    let salesCommission = 0
+
+    if (salesOffice && salesOffice.trim() !== '') {
+      // 영업점 정보가 있는 경우
+      console.log('📊 [수수료 계산] 사업장:', business.사업장명 || business.business_name)
+      console.log('📊 [수수료 계산] 영업점:', salesOffice)
+      console.log('📊 [수수료 계산] 로드된 수수료 정보:', commissionsToUse)
+
+      if (commissionsToUse[salesOffice] !== undefined) {
+        // 원가관리에 설정된 수수료율 사용
+        commissionRate = commissionsToUse[salesOffice]
+        console.log('📊 [수수료 계산] 설정된 수수료율 사용:', commissionRate + '%')
+      } else {
+        // 원가관리에 설정이 없으면 기본 10%
+        commissionRate = 10.0
+        console.log('📊 [수수료 계산] 기본 10% 적용 (원가관리 설정 없음)')
+      }
+      salesCommission = adjustedRevenue * (commissionRate / 100)
+    } else {
+      // 영업점 정보가 없으면 수수료 없음 (0%)
+      commissionRate = 0
+      salesCommission = 0
+      console.log('📊 [수수료 계산] 영업점 미설정 - 수수료 0%')
+    }
+
+    // 실사비용 (state에서 가져오기)
+    const totalSurveyCosts = surveyCosts.total
+
+    // 총 이익 = 매출 - 매입 - 설치비 - 영업비용 - 실사비용
+    const grossProfit = adjustedRevenue - totalCost
+    const netProfit = grossProfit - salesCommission - totalSurveyCosts - totalInstallation
+
+    // 이익률 계산
+    const profitMarginPercentage = adjustedRevenue > 0
+      ? ((netProfit / adjustedRevenue) * 100)
+      : 0
+
+    return {
+      total_revenue: adjustedRevenue,
+      total_cost: totalCost,
+      gross_profit: grossProfit,
+      net_profit: netProfit,
+      profit_margin_percentage: profitMarginPercentage,
+      sales_commission: salesCommission,
+      commission_rate: commissionRate,
+      survey_costs: totalSurveyCosts // 실사비용 추가
+    }
+  }, [salesOfficeCommissions, surveyCosts, manufacturerCosts])
+
+  // 매출 정보 로드 함수 - 클라이언트 측 직접 계산으로 변경
+  const loadRevenueData = useCallback(async (business: UnifiedBusinessInfo) => {
+    setRevenueLoading(true)
+    console.log('📊 매출 정보 계산 시작:', business.사업장명)
+
+    try {
+      // 수수료 정보 로드 (항상 최신 정보 사용)
+      let currentCommissions = salesOfficeCommissions
+
+      console.log('🔍 현재 수수료 정보 상태:', currentCommissions)
+
+      if (Object.keys(currentCommissions).length === 0) {
+        console.log('⚠️ 수수료 정보 미로드 - 지금 로드 시작')
+        try {
+          // 먼저 조건 없이 전체 조회 (디버깅)
+          const { data: allData, error: allError } = await supabase
+            .from('sales_office_cost_settings')
+            .select('*')
+
+          console.log('🔍 전체 데이터 조회 (조건 없음):', { allData, allError })
+
+          const { data, error } = await supabase
+            .from('sales_office_cost_settings')
+            .select('sales_office, commission_percentage')
+            .eq('is_active', true)
+            .order('effective_from', { ascending: false })
+
+          console.log('📊 즉시 로드 응답 (is_active=true):', { data, error })
+
+          if (!error && data && data.length > 0) {
+            const commissionMap: { [key: string]: number } = {}
+            data.forEach((item: any) => {
+              if (!commissionMap[item.sales_office]) {
+                commissionMap[item.sales_office] = item.commission_percentage || 10.0
+                console.log(`  ✓ ${item.sales_office}: ${item.commission_percentage}%`)
+              }
+            })
+            setSalesOfficeCommissions(commissionMap)
+            currentCommissions = commissionMap // 즉시 사용
+            console.log('✅ 수수료 정보 즉시 로드 완료:', commissionMap)
+          } else {
+            console.log('⚠️ 수수료 데이터 없음 또는 에러:', error)
+          }
+        } catch (err) {
+          console.error('❌ 수수료 정보 즉시 로드 실패:', err)
+        }
+      }
+
+      // 현재 수수료 정보를 사용해서 계산
+      const salesOffice = business.sales_office || business.영업점 || ''
+      console.log('💰 계산에 사용할 영업점:', salesOffice)
+      console.log('💰 사용할 수수료 맵:', currentCommissions)
+
+      const calculatedRevenue = calculateBusinessRevenue(business, currentCommissions)
+      console.log('📊 계산된 매출 정보:', calculatedRevenue)
+      setRevenueData(calculatedRevenue)
+    } catch (error) {
+      console.error('📊 매출 정보 계산 실패:', error)
+      setRevenueData(null)
+    } finally {
+      setRevenueLoading(false)
+    }
+  }, [calculateBusinessRevenue, salesOfficeCommissions])
+
   // 대기필증 관련 상태
   const [airPermitData, setAirPermitData] = useState<{
     business_type: string
@@ -1587,6 +2042,9 @@ function BusinessManagementPage() {
       if (businessName) {
         await loadBusinessFacilities(businessName)
       }
+
+      // 매출 정보 계산 (클라이언트 측 직접 계산)
+      loadRevenueData(business)
     } catch (error) {
       console.error('❌ 모달 열기 오류:', error)
       // 기본 데이터라도 표시
@@ -3312,177 +3770,103 @@ function BusinessManagementPage() {
                       </div>
                     </div>
 
-                    {/* Environmental Information Card */}
-                    <div className="bg-gradient-to-br from-green-50 to-lime-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-green-200">
-                      <div className="flex items-center mb-3 sm:mb-4">
-                        <div className="p-1.5 sm:p-2 bg-green-600 rounded-lg mr-2 sm:mr-3">
-                          <Factory className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                        </div>
-                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">환경 정보</h3>
-                      </div>
 
-                      <div className="space-y-2 sm:space-y-3 md:space-y-4">
-                        {selectedBusiness.pollutants && (
-                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                            <div className="text-xs sm:text-sm text-gray-600 mb-1">오염물질</div>
-                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.pollutants}</div>
-                          </div>
-                        )}
-                        
-                        {selectedBusiness.annual_emission_amount && (
-                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                            <div className="text-xs sm:text-sm text-gray-600 mb-1">발생량(톤/년)</div>
-                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.annual_emission_amount}</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Financial Information Card */}
-                    {(selectedBusiness.additional_cost || selectedBusiness.negotiation || selectedBusiness.multiple_stack_cost) && (
-                      <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-yellow-200">
-                        <div className="flex items-center mb-3 sm:mb-4">
+                    {/* Financial Information Card - Revenue Management Link */}
+                    <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-yellow-200">
+                      <div className="flex items-center justify-between mb-3 sm:mb-4">
+                        <div className="flex items-center">
                           <div className="p-1.5 sm:p-2 bg-yellow-600 rounded-lg mr-2 sm:mr-3">
                             <Database className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                           </div>
-                          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">비용 정보</h3>
+                          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">비용 및 매출 정보</h3>
                         </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
-                          {selectedBusiness.additional_cost && (
-                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                              <div className="text-xs sm:text-sm text-gray-600 mb-1">추가공사비</div>
-                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.additional_cost?.toLocaleString()}원</div>
-                            </div>
-                          )}
-                          
-                          {selectedBusiness.multiple_stack_cost && (
-                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                              <div className="text-xs sm:text-sm text-gray-600 mb-1">복수굴뚝(설치비)</div>
-                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.multiple_stack_cost?.toLocaleString()}원</div>
-                            </div>
-                          )}
-                          
-                          {selectedBusiness.negotiation && (
-                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                              <div className="text-xs sm:text-sm text-gray-600 mb-1">네고</div>
-                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">
-                                {typeof selectedBusiness.negotiation === 'number'
-                                  ? selectedBusiness.negotiation.toLocaleString() + '원'
-                                  : (typeof selectedBusiness.negotiation === 'string' && !isNaN(parseInt(selectedBusiness.negotiation.replace(/,/g, '')))
-                                      ? parseInt(selectedBusiness.negotiation.replace(/,/g, '')).toLocaleString() + '원'
-                                      : selectedBusiness.negotiation
-                                    )
+                      </div>
+
+                      <div className="text-center py-6">
+                        <p className="text-sm text-gray-600 mb-4">
+                          이 사업장의 상세한 비용 및 매출 정보를<br />
+                          확인할 수 있습니다.
+                        </p>
+                        <button
+                          onClick={async () => {
+                            try {
+                              // API를 통해 매출 계산 (DB의 환경부 고시가 및 제조사별 원가 사용)
+                              console.log('🔢 [REVENUE-MODAL] API를 통한 매출 계산 시작:', selectedBusiness.id)
+
+                              const token = localStorage.getItem('auth_token')
+                              const response = await fetch('/api/revenue/calculate', {
+                                method: 'POST',
+                                headers: {
+                                  'Authorization': `Bearer ${token}`,
+                                  'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                  business_id: selectedBusiness.id,
+                                  calculation_date: new Date().toISOString().split('T')[0],
+                                  save_result: false // 저장하지 않고 계산만 수행
+                                })
+                              })
+
+                              const data = await response.json()
+
+                              if (data.success) {
+                                const calculatedData = data.data.calculation
+                                console.log('✅ [REVENUE-MODAL] API 계산 완료:', calculatedData)
+
+                                // 계산된 데이터를 사업장 정보에 병합
+                                const enrichedBusiness = {
+                                  ...selectedBusiness,
+                                  ...calculatedData
                                 }
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Document Information Card */}
-                    {(selectedBusiness.contract_document || selectedBusiness.wireless_document || selectedBusiness.installation_support || selectedBusiness.other_equipment || selectedBusiness.inventory_check) && (
-                      <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-gray-200">
-                        <div className="flex items-center mb-3 sm:mb-4">
-                          <div className="p-1.5 sm:p-2 bg-gray-600 rounded-lg mr-2 sm:mr-3">
-                            <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                          </div>
-                          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">문서 및 기타 정보</h3>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
-                          {selectedBusiness.contract_document && (
-                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                              <div className="text-xs sm:text-sm text-gray-600 mb-1">계약서</div>
-                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.contract_document}</div>
-                            </div>
-                          )}
-                          
-                          {selectedBusiness.wireless_document && (
-                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                              <div className="text-xs sm:text-sm text-gray-600 mb-1">무선서류</div>
-                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.wireless_document}</div>
-                            </div>
-                          )}
-                          
-                          {selectedBusiness.installation_support && (
-                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                              <div className="text-xs sm:text-sm text-gray-600 mb-1">설치업무지원</div>
-                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.installation_support}</div>
-                            </div>
-                          )}
-                          
-                          {selectedBusiness.inventory_check && (
-                            <div className="bg-white rounded-lg p-4 shadow-sm">
-                              <div className="text-sm text-gray-600 mb-1">재고파악</div>
-                              <div className="text-base font-medium text-gray-900">{selectedBusiness.inventory_check}</div>
-                            </div>
-                          )}
-                          
-                          {selectedBusiness.other_equipment && (
-                            <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                              <div className="text-xs sm:text-sm text-gray-600 mb-1">기타</div>
-                              <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.other_equipment}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Status Information Card */}
-                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-amber-200">
-                      <div className="flex items-center mb-3 sm:mb-4">
-                        <div className="p-1.5 sm:p-2 bg-amber-600 rounded-lg mr-2 sm:mr-3">
-                          <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                        </div>
-                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">상태 정보</h3>
-                      </div>
-
-                      <div className="space-y-2 sm:space-y-3 md:space-y-4">
-                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                          <div className="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">활성 상태</div>
-                          <div className={`inline-flex items-center px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded-full text-xs sm:text-sm font-semibold ${
-                            selectedBusiness.is_active
-                              ? 'bg-green-100 text-green-800 border-2 border-green-200'
-                              : 'bg-gray-100 text-gray-800 border-2 border-gray-200'
-                          }`}>
-                            <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 rounded-full mr-1 sm:mr-2 ${
-                              selectedBusiness.is_active ? 'bg-green-500' : 'bg-gray-400'
-                            }`}></div>
-                            {selectedBusiness.is_active ? '활성' : '비활성'}
-                          </div>
-                        </div>
-                        
-                        <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                          <div className="flex items-center text-xs sm:text-sm text-gray-600 mb-1">
-                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-blue-500" />
-                            등록일
-                          </div>
-                          <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
-                            {selectedBusiness.등록일 ?
-                              selectedBusiness.등록일 : (selectedBusiness.created_at ?
-                              new Date(selectedBusiness.created_at).toLocaleDateString('ko-KR', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                              }) : '-')}
-                          </div>
-                        </div>
-                        
-                        {selectedBusiness.수정일 && (
-                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                            <div className="flex items-center text-xs sm:text-sm text-gray-600 mb-1">
-                              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-500" />
-                              수정일
-                            </div>
-                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
-                              {selectedBusiness.수정일}
-                            </div>
-                          </div>
-                        )}
+                                console.log('📊 [REVENUE-MODAL] 병합된 사업장 데이터:', enrichedBusiness)
+                                setSelectedRevenueBusiness(enrichedBusiness)
+                                setShowRevenueModal(true)
+                              } else {
+                                console.error('❌ [REVENUE-MODAL] API 계산 실패:', data.message)
+                                alert('매출 계산에 실패했습니다: ' + data.message)
+                              }
+                            } catch (error) {
+                              console.error('❌ [REVENUE-MODAL] API 호출 오류:', error)
+                              alert('매출 계산 중 오류가 발생했습니다.')
+                            }
+                          }}
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors shadow-md hover:shadow-lg font-medium"
+                        >
+                          <Calculator className="w-5 h-5" />
+                          매출 상세보기
+                        </button>
                       </div>
                     </div>
+
+                    {/* Invoice Management Section */}
+                    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-purple-200">
+                      <div className="flex items-center mb-3 sm:mb-4">
+                        <div className="p-1.5 sm:p-2 bg-purple-600 rounded-lg mr-2 sm:mr-3">
+                          <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                        </div>
+                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">계산서 및 입금 현황</h3>
+                      </div>
+                      {(() => {
+                        // business_category 또는 progress_status에서 카테고리 가져오기
+                        const category = selectedBusiness.business_category || selectedBusiness.진행구분 || (selectedBusiness as any).progress_status;
+                        const isValidCategory = category === '보조금' || category === '자비';
+
+                        return isValidCategory ? (
+                          <InvoiceDisplay
+                            businessId={selectedBusiness.id}
+                            businessCategory={category as '보조금' | '자비'}
+                            additionalCost={selectedBusiness.additional_cost}
+                          />
+                        ) : (
+                          <div className="text-center py-6 bg-white rounded-lg">
+                            <p className="text-sm text-gray-500">진행구분이 "보조금" 또는 "자비"로 설정되지 않았습니다</p>
+                            <p className="text-xs text-gray-400 mt-1">현재: {category || '없음'}</p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
                   </div>
                 </div>
               </div>
@@ -4272,6 +4656,419 @@ function BusinessManagementPage() {
                   </div>
                 </div>
 
+                {/* 계산서 및 입금 정보 - 진행구분에 따라 동적 표시 */}
+                {formData.progress_status && (formData.progress_status === '보조금' || formData.progress_status === '자비') && (
+                  <div>
+                    <div className="flex items-center mb-3 sm:mb-4">
+                      <div className="p-1.5 sm:p-2 bg-purple-600 rounded-lg mr-2 sm:mr-3">
+                        <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                      </div>
+                      <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800">
+                        계산서 및 입금 정보 ({formData.progress_status})
+                      </h3>
+                    </div>
+
+                    {/* 보조금: 1차/2차/추가공사비 */}
+                    {formData.progress_status === '보조금' && (
+                      <div className="space-y-4 sm:space-y-6">
+                        {/* 1차 계산서 */}
+                        <div className="p-3 sm:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                          <h4 className="text-xs sm:text-sm font-semibold text-blue-900 mb-3">1차 계산서</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <input
+                                type="date"
+                                value={formData.invoice_1st_date || ''}
+                                onChange={(e) => setFormData({...formData, invoice_1st_date: e.target.value || null})}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <input
+                                type="text"
+                                value={formData.invoice_1st_amount ? formData.invoice_1st_amount.toLocaleString() : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/,/g, '');
+                                  setFormData({...formData, invoice_1st_amount: value ? parseInt(value) : null});
+                                }}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-blue-500"
+                                placeholder="예: 10,000,000"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
+                              <input
+                                type="date"
+                                value={formData.payment_1st_date || ''}
+                                onChange={(e) => setFormData({...formData, payment_1st_date: e.target.value || null})}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <input
+                                type="text"
+                                value={formData.payment_1st_amount ? formData.payment_1st_amount.toLocaleString() : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/,/g, '');
+                                  setFormData({...formData, payment_1st_amount: value ? parseInt(value) : null});
+                                }}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-blue-500"
+                                placeholder="예: 10,000,000"
+                              />
+                            </div>
+                          </div>
+                          {formData.invoice_1st_date && formData.invoice_1st_amount && formData.invoice_1st_amount > 0 && (
+                            <div className="mt-2 p-2 bg-white rounded border border-blue-200">
+                              <div className="flex justify-between text-[10px] sm:text-xs">
+                                <span className="text-gray-600">미수금:</span>
+                                <span className={`font-bold ${
+                                  ((formData.invoice_1st_amount || 0) - (formData.payment_1st_amount || 0)) === 0
+                                    ? 'text-green-600' : 'text-orange-600'
+                                }`}>
+                                  {((formData.invoice_1st_amount || 0) - (formData.payment_1st_amount || 0)).toLocaleString()}원
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 2차 계산서 */}
+                        <div className="p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                          <h4 className="text-xs sm:text-sm font-semibold text-green-900 mb-3">2차 계산서</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <input
+                                type="date"
+                                value={formData.invoice_2nd_date || ''}
+                                onChange={(e) => setFormData({...formData, invoice_2nd_date: e.target.value || null})}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-green-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <input
+                                type="text"
+                                value={formData.invoice_2nd_amount ? formData.invoice_2nd_amount.toLocaleString() : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/,/g, '');
+                                  setFormData({...formData, invoice_2nd_amount: value ? parseInt(value) : null});
+                                }}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-green-500"
+                                placeholder="예: 5,000,000"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
+                              <input
+                                type="date"
+                                value={formData.payment_2nd_date || ''}
+                                onChange={(e) => setFormData({...formData, payment_2nd_date: e.target.value || null})}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-green-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <input
+                                type="text"
+                                value={formData.payment_2nd_amount ? formData.payment_2nd_amount.toLocaleString() : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/,/g, '');
+                                  setFormData({...formData, payment_2nd_amount: value ? parseInt(value) : null});
+                                }}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-green-500"
+                                placeholder="예: 5,000,000"
+                              />
+                            </div>
+                          </div>
+                          {formData.invoice_2nd_date && formData.invoice_2nd_amount && formData.invoice_2nd_amount > 0 && (
+                            <div className="mt-2 p-2 bg-white rounded border border-green-200">
+                              <div className="flex justify-between text-[10px] sm:text-xs">
+                                <span className="text-gray-600">미수금:</span>
+                                <span className={`font-bold ${
+                                  ((formData.invoice_2nd_amount || 0) - (formData.payment_2nd_amount || 0)) === 0
+                                    ? 'text-green-600' : 'text-orange-600'
+                                }`}>
+                                  {((formData.invoice_2nd_amount || 0) - (formData.payment_2nd_amount || 0)).toLocaleString()}원
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 추가공사비 계산서 */}
+                        {formData.additional_cost && formData.additional_cost > 0 && (
+                          <div className="p-3 sm:p-4 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg border border-amber-200">
+                            <h4 className="text-xs sm:text-sm font-semibold text-amber-900 mb-3">추가공사비 계산서</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 발행일</label>
+                                <input
+                                  type="date"
+                                  value={formData.invoice_additional_date || ''}
+                                  onChange={(e) => setFormData({...formData, invoice_additional_date: e.target.value || null})}
+                                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-amber-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                                <input
+                                  type="text"
+                                  value={formData.additional_cost.toLocaleString()}
+                                  disabled
+                                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs bg-gray-100 cursor-not-allowed"
+                                />
+                                <p className="text-[9px] text-gray-500 mt-1">※ 비용 정보의 추가공사비 금액 사용</p>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
+                                <input
+                                  type="date"
+                                  value={formData.payment_additional_date || ''}
+                                  onChange={(e) => setFormData({...formData, payment_additional_date: e.target.value || null})}
+                                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-amber-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                                <input
+                                  type="text"
+                                  value={formData.payment_additional_amount ? formData.payment_additional_amount.toLocaleString() : ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(/,/g, '');
+                                    setFormData({...formData, payment_additional_amount: value ? parseInt(value) : null});
+                                  }}
+                                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-amber-500"
+                                  placeholder="예: 500,000"
+                                />
+                              </div>
+                            </div>
+                            {formData.invoice_additional_date && (
+                              <div className="mt-2 p-2 bg-white rounded border border-amber-200">
+                                <div className="flex justify-between text-[10px] sm:text-xs">
+                                  <span className="text-gray-600">미수금:</span>
+                                  <span className={`font-bold ${
+                                    ((formData.additional_cost || 0) - (formData.payment_additional_amount || 0)) === 0
+                                      ? 'text-green-600' : 'text-orange-600'
+                                  }`}>
+                                    {((formData.additional_cost || 0) - (formData.payment_additional_amount || 0)).toLocaleString()}원
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 전체 미수금 요약 */}
+                        <div className="p-3 sm:p-4 bg-gradient-to-r from-slate-100 to-gray-100 rounded-lg border-2 border-slate-300">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 mb-2">전체 미수금 요약</h4>
+                          <div className="space-y-1 text-[10px] sm:text-xs">
+                            {formData.invoice_1st_date && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">1차 미수금:</span>
+                                <span className="font-medium">{((formData.invoice_1st_amount || 0) - (formData.payment_1st_amount || 0)).toLocaleString()}원</span>
+                              </div>
+                            )}
+                            {formData.invoice_2nd_date && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">2차 미수금:</span>
+                                <span className="font-medium">{((formData.invoice_2nd_amount || 0) - (formData.payment_2nd_amount || 0)).toLocaleString()}원</span>
+                              </div>
+                            )}
+                            {formData.invoice_additional_date && formData.additional_cost && formData.additional_cost > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">추가공사비 미수금:</span>
+                                <span className="font-medium">{((formData.additional_cost || 0) - (formData.payment_additional_amount || 0)).toLocaleString()}원</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between pt-2 mt-2 border-t-2 border-slate-300">
+                              <span className="font-bold text-gray-900">총 미수금:</span>
+                              <span className={`font-bold text-base ${
+                                ((formData.invoice_1st_date ? (formData.invoice_1st_amount || 0) - (formData.payment_1st_amount || 0) : 0) +
+                                 (formData.invoice_2nd_date ? (formData.invoice_2nd_amount || 0) - (formData.payment_2nd_amount || 0) : 0) +
+                                 (formData.invoice_additional_date ? (formData.additional_cost || 0) - (formData.payment_additional_amount || 0) : 0)) === 0
+                                  ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {((formData.invoice_1st_date ? (formData.invoice_1st_amount || 0) - (formData.payment_1st_amount || 0) : 0) +
+                                  (formData.invoice_2nd_date ? (formData.invoice_2nd_amount || 0) - (formData.payment_2nd_amount || 0) : 0) +
+                                  (formData.invoice_additional_date ? (formData.additional_cost || 0) - (formData.payment_additional_amount || 0) : 0)).toLocaleString()}원
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 자비: 선금/잔금 */}
+                    {formData.progress_status === '자비' && (
+                      <div className="space-y-4 sm:space-y-6">
+                        {/* 선금 계산서 */}
+                        <div className="p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                          <h4 className="text-xs sm:text-sm font-semibold text-purple-900 mb-3">선금 계산서</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <input
+                                type="date"
+                                value={formData.invoice_advance_date || ''}
+                                onChange={(e) => setFormData({...formData, invoice_advance_date: e.target.value || null})}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-purple-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <input
+                                type="text"
+                                value={formData.invoice_advance_amount ? formData.invoice_advance_amount.toLocaleString() : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/,/g, '');
+                                  setFormData({...formData, invoice_advance_amount: value ? parseInt(value) : null});
+                                }}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-purple-500"
+                                placeholder="예: 15,000,000 (기본 50%)"
+                              />
+                              <p className="text-[9px] text-gray-500 mt-1">※ 기본 50%, 사업장에 따라 100%도 가능</p>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
+                              <input
+                                type="date"
+                                value={formData.payment_advance_date || ''}
+                                onChange={(e) => setFormData({...formData, payment_advance_date: e.target.value || null})}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-purple-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <input
+                                type="text"
+                                value={formData.payment_advance_amount ? formData.payment_advance_amount.toLocaleString() : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/,/g, '');
+                                  setFormData({...formData, payment_advance_amount: value ? parseInt(value) : null});
+                                }}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-purple-500"
+                                placeholder="예: 15,000,000"
+                              />
+                            </div>
+                          </div>
+                          {formData.invoice_advance_date && formData.invoice_advance_amount && formData.invoice_advance_amount > 0 && (
+                            <div className="mt-2 p-2 bg-white rounded border border-purple-200">
+                              <div className="flex justify-between text-[10px] sm:text-xs">
+                                <span className="text-gray-600">미수금:</span>
+                                <span className={`font-bold ${
+                                  ((formData.invoice_advance_amount || 0) - (formData.payment_advance_amount || 0)) === 0
+                                    ? 'text-green-600' : 'text-orange-600'
+                                }`}>
+                                  {((formData.invoice_advance_amount || 0) - (formData.payment_advance_amount || 0)).toLocaleString()}원
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 잔금 계산서 */}
+                        <div className="p-3 sm:p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-lg border border-cyan-200">
+                          <h4 className="text-xs sm:text-sm font-semibold text-cyan-900 mb-3">잔금 계산서</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <input
+                                type="date"
+                                value={formData.invoice_balance_date || ''}
+                                onChange={(e) => setFormData({...formData, invoice_balance_date: e.target.value || null})}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-cyan-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <input
+                                type="text"
+                                value={formData.invoice_balance_amount ? formData.invoice_balance_amount.toLocaleString() : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/,/g, '');
+                                  setFormData({...formData, invoice_balance_amount: value ? parseInt(value) : null});
+                                }}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-cyan-500"
+                                placeholder="예: 15,000,000 (기본 50%)"
+                              />
+                              <p className="text-[9px] text-gray-500 mt-1">※ 선금 100% 경우 0원 가능</p>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
+                              <input
+                                type="date"
+                                value={formData.payment_balance_date || ''}
+                                onChange={(e) => setFormData({...formData, payment_balance_date: e.target.value || null})}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-cyan-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <input
+                                type="text"
+                                value={formData.payment_balance_amount ? formData.payment_balance_amount.toLocaleString() : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/,/g, '');
+                                  setFormData({...formData, payment_balance_amount: value ? parseInt(value) : null});
+                                }}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-cyan-500"
+                                placeholder="예: 15,000,000"
+                              />
+                            </div>
+                          </div>
+                          {formData.invoice_balance_date && formData.invoice_balance_amount && formData.invoice_balance_amount > 0 && (
+                            <div className="mt-2 p-2 bg-white rounded border border-cyan-200">
+                              <div className="flex justify-between text-[10px] sm:text-xs">
+                                <span className="text-gray-600">미수금:</span>
+                                <span className={`font-bold ${
+                                  ((formData.invoice_balance_amount || 0) - (formData.payment_balance_amount || 0)) === 0
+                                    ? 'text-green-600' : 'text-orange-600'
+                                }`}>
+                                  {((formData.invoice_balance_amount || 0) - (formData.payment_balance_amount || 0)).toLocaleString()}원
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 전체 미수금 요약 */}
+                        <div className="p-3 sm:p-4 bg-gradient-to-r from-slate-100 to-gray-100 rounded-lg border-2 border-slate-300">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 mb-2">전체 미수금 요약</h4>
+                          <div className="space-y-1 text-[10px] sm:text-xs">
+                            {formData.invoice_advance_date && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">선금 미수금:</span>
+                                <span className="font-medium">{((formData.invoice_advance_amount || 0) - (formData.payment_advance_amount || 0)).toLocaleString()}원</span>
+                              </div>
+                            )}
+                            {formData.invoice_balance_date && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">잔금 미수금:</span>
+                                <span className="font-medium">{((formData.invoice_balance_amount || 0) - (formData.payment_balance_amount || 0)).toLocaleString()}원</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between pt-2 mt-2 border-t-2 border-slate-300">
+                              <span className="font-bold text-gray-900">총 미수금:</span>
+                              <span className={`font-bold text-base ${
+                                ((formData.invoice_advance_date ? (formData.invoice_advance_amount || 0) - (formData.payment_advance_amount || 0) : 0) +
+                                 (formData.invoice_balance_date ? (formData.invoice_balance_amount || 0) - (formData.payment_balance_amount || 0) : 0)) === 0
+                                  ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {((formData.invoice_advance_date ? (formData.invoice_advance_amount || 0) - (formData.payment_advance_amount || 0) : 0) +
+                                  (formData.invoice_balance_date ? (formData.invoice_balance_amount || 0) - (formData.payment_balance_amount || 0) : 0)).toLocaleString()}원
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* 상태 설정 */}
                 <div>
                   <div className="flex items-center mb-3 sm:mb-4">
@@ -4496,6 +5293,17 @@ function BusinessManagementPage() {
           </div>
         </div>
       )}
+
+      {/* Revenue Detail Modal */}
+      <BusinessRevenueModal
+        business={selectedRevenueBusiness}
+        isOpen={showRevenueModal}
+        onClose={() => {
+          setShowRevenueModal(false)
+          setSelectedRevenueBusiness(null)
+        }}
+        userPermission={userPermission}
+      />
     </AdminLayout>
   )
 }
