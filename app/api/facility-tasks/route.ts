@@ -177,11 +177,6 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       throw error;
     }
 
-      user: user.name,
-      permission: user.permission_level,
-      taskCount: tasks?.length || 0
-    });
-
     return createSuccessResponse({
       tasks: tasks || [],
       count: tasks?.length || 0,
