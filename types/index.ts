@@ -97,6 +97,14 @@ export interface BusinessInfo {
   invoice_balance_amount?: number;
   payment_balance_date?: string;
   payment_balance_amount?: number;
+
+  // 실사 관리 (견적실사, 착공전실사, 준공실사)
+  estimate_survey_manager?: string;      // 견적실사 담당자
+  estimate_survey_date?: string;         // 견적실사일
+  pre_construction_survey_manager?: string;  // 착공전실사 담당자
+  pre_construction_survey_date?: string;     // 착공전실사일
+  completion_survey_manager?: string;    // 준공실사 담당자
+  completion_survey_date?: string;       // 준공실사일
 }
 
 export interface FileInfo {

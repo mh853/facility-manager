@@ -412,9 +412,36 @@ export async function POST(request: NextRequest) {
       salesCommission = totalEquipmentCount * (commissionSettings.commission_per_unit || 0);
     }
 
-    // 8. 실사비용 계산
-    const baseSurveyCosts = surveyCostMap.estimate + surveyCostMap.pre_construction + surveyCostMap.completion;
+    // 8. 실사비용 계산 (실사일이 있는 경우에만 비용 추가)
+    let baseSurveyCosts = 0;
+
+    // 견적실사 비용 (견적실사일이 있고 빈 문자열이 아닌 경우에만)
+    if (businessInfo.estimate_survey_date && businessInfo.estimate_survey_date.trim() !== '') {
+      baseSurveyCosts += surveyCostMap.estimate || 0;
+      console.log(`✅ [SURVEY-COST] 견적실사 비용 추가: ${surveyCostMap.estimate} (실사일: ${businessInfo.estimate_survey_date})`);
+    } else {
+      console.log(`⏭️ [SURVEY-COST] 견적실사 비용 제외 (실사일 없음)`);
+    }
+
+    // 착공전실사 비용 (착공전실사일이 있고 빈 문자열이 아닌 경우에만)
+    if (businessInfo.pre_construction_survey_date && businessInfo.pre_construction_survey_date.trim() !== '') {
+      baseSurveyCosts += surveyCostMap.pre_construction || 0;
+      console.log(`✅ [SURVEY-COST] 착공전실사 비용 추가: ${surveyCostMap.pre_construction} (실사일: ${businessInfo.pre_construction_survey_date})`);
+    } else {
+      console.log(`⏭️ [SURVEY-COST] 착공전실사 비용 제외 (실사일 없음)`);
+    }
+
+    // 준공실사 비용 (준공실사일이 있고 빈 문자열이 아닌 경우에만)
+    if (businessInfo.completion_survey_date && businessInfo.completion_survey_date.trim() !== '') {
+      baseSurveyCosts += surveyCostMap.completion || 0;
+      console.log(`✅ [SURVEY-COST] 준공실사 비용 추가: ${surveyCostMap.completion} (실사일: ${businessInfo.completion_survey_date})`);
+    } else {
+      console.log(`⏭️ [SURVEY-COST] 준공실사 비용 제외 (실사일 없음)`);
+    }
+
     const totalSurveyCosts = baseSurveyCosts + totalAdjustments;
+
+    console.log(`💰 [SURVEY-COST] 총 실사비용: ${totalSurveyCosts} (기본: ${baseSurveyCosts}, 조정: ${totalAdjustments})`);
 
     // 9. 추가공사비 및 협의사항 반영
     const additionalCost = businessInfo.additional_cost || 0; // 추가공사비 (매출에 더하기)

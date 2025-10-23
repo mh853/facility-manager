@@ -66,10 +66,6 @@ function RevenueDashboard() {
   const [calculations, setCalculations] = useState<RevenueCalculation[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<string>('');
   const [selectedOffice, setSelectedOffice] = useState<string>('');
-  const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
-  });
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -91,6 +87,8 @@ function RevenueDashboard() {
   const [costSettingsLoaded, setCostSettingsLoaded] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(''); // 카테고리(진행구분) 필터
+  const [selectedProjectYear, setSelectedProjectYear] = useState(''); // 사업 진행 연도 필터
+  const [selectedMonth, setSelectedMonth] = useState(''); // 월별 필터 (1-12)
   const [sortField, setSortField] = useState<string>('business_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -414,24 +412,33 @@ function RevenueDashboard() {
       }
     }
 
-    // 실사비용 계산 (DB 설정 사용, 실패 시 기본값)
+    // 실사비용 계산 (실사일이 있는 경우에만 비용 추가)
     let surveyCosts = 0;
 
     if (costSettingsLoaded && Object.keys(surveyCostSettings).length > 0) {
-      // DB에서 로드한 실사비용 합산 (견적 + 착공 + 준공)
-      surveyCosts = (surveyCostSettings['estimate'] || 0) +
-                    (surveyCostSettings['pre_construction'] || 0) +
-                    (surveyCostSettings['completion'] || 0);
-      console.log(`📋 [${business.business_name}] 실사비용 계산:`, {
-        견적: surveyCostSettings['estimate'] || 0,
-        착공: surveyCostSettings['pre_construction'] || 0,
-        준공: surveyCostSettings['completion'] || 0,
-        합계: surveyCosts
-      });
+      // 견적실사 비용 (견적실사일이 있고 빈 문자열이 아닌 경우에만)
+      if (business.estimate_survey_date && business.estimate_survey_date.trim() !== '') {
+        surveyCosts += surveyCostSettings['estimate'] || 0;
+        console.log(`✅ [${business.business_name}] 견적실사 비용 추가: ${surveyCostSettings['estimate']} (실사일: ${business.estimate_survey_date})`);
+      }
+
+      // 착공전실사 비용 (착공전실사일이 있고 빈 문자열이 아닌 경우에만)
+      if (business.pre_construction_survey_date && business.pre_construction_survey_date.trim() !== '') {
+        surveyCosts += surveyCostSettings['pre_construction'] || 0;
+        console.log(`✅ [${business.business_name}] 착공전실사 비용 추가: ${surveyCostSettings['pre_construction']} (실사일: ${business.pre_construction_survey_date})`);
+      }
+
+      // 준공실사 비용 (준공실사일이 있고 빈 문자열이 아닌 경우에만)
+      if (business.completion_survey_date && business.completion_survey_date.trim() !== '') {
+        surveyCosts += surveyCostSettings['completion'] || 0;
+        console.log(`✅ [${business.business_name}] 준공실사 비용 추가: ${surveyCostSettings['completion']} (실사일: ${business.completion_survey_date})`);
+      }
+
+      console.log(`💰 [${business.business_name}] 총 실사비용: ${surveyCosts}`);
     } else {
-      // DB 로드 실패 → 기본값
-      surveyCosts = 450000; // 견적 100,000 + 착공 150,000 + 준공 200,000
-      console.log(`⚠️ [${business.business_name}] 실사비용 설정 없음, 기본값 사용:`, surveyCosts);
+      // DB 로드 실패 → 실사비용 0으로 설정
+      surveyCosts = 0;
+      console.log(`⚠️ [${business.business_name}] 실사비용 설정 없음, 비용 0원`);
     }
 
     // 총 이익 = 매출 - 매입
@@ -472,14 +479,14 @@ function RevenueDashboard() {
 
   const loadBusinesses = async () => {
     try {
-      const response = await fetch('/api/business-list', {
+      // business-info-direct API 사용 (project_year 포함된 완전한 정보)
+      const response = await fetch('/api/business-info-direct', {
         headers: getAuthHeaders()
       });
       const data = await response.json();
 
       if (data.success) {
-        // business-list API는 data.data.businesses로 응답 (createSuccessResponse가 data로 감쌈)
-        const businessData = data.data?.businesses || data.businesses || [];
+        const businessData = data.data || [];
         console.log('🏢 [REVENUE] 사업장 데이터 로드:', businessData.length, '개');
 
         // 각 사업장에 대해 자동 매출 계산 적용
@@ -507,8 +514,6 @@ function RevenueDashboard() {
       const params = new URLSearchParams();
       if (selectedBusiness) params.append('business_id', selectedBusiness);
       if (selectedOffice) params.append('sales_office', selectedOffice);
-      if (dateRange.start) params.append('start_date', dateRange.start);
-      if (dateRange.end) params.append('end_date', dateRange.end);
       params.append('limit', '100');
 
       const response = await fetch(`/api/revenue/calculate?${params}`, {
@@ -726,7 +731,8 @@ function RevenueDashboard() {
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `매출관리_${dateRange.start}_${dateRange.end}.csv`;
+    const today = new Date().toISOString().split('T')[0];
+    link.download = `매출관리_${today}.csv`;
     link.click();
   };
 
@@ -737,15 +743,33 @@ function RevenueDashboard() {
   );
 
   // 사업장 데이터와 매출 계산 통합
-  const filteredBusinesses = businesses.filter(business =>
-    (!searchTerm ||
-    business.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (business.sales_office && business.sales_office.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (business.manager_name && business.manager_name.toLowerCase().includes(searchTerm.toLowerCase()))) &&
-    (!selectedOffice || business.sales_office === selectedOffice) &&
-    (!selectedRegion || (business.address && business.address.toLowerCase().includes(selectedRegion.toLowerCase()))) &&
-    (!selectedCategory || business.progress_status === selectedCategory)
-  ).map(business => {
+  const filteredBusinesses = businesses.filter(business => {
+    // 검색어 필터
+    const searchMatch = !searchTerm ||
+      business.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (business.sales_office && business.sales_office.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (business.manager_name && business.manager_name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // 드롭다운 필터
+    const officeMatch = !selectedOffice || business.sales_office === selectedOffice;
+    const regionMatch = !selectedRegion || (business.address && business.address.toLowerCase().includes(selectedRegion.toLowerCase()));
+    const categoryMatch = !selectedCategory || business.progress_status === selectedCategory;
+    const yearMatch = !selectedProjectYear || business.project_year === Number(selectedProjectYear);
+
+    // 월별 필터 (설치일 기준)
+    let monthMatch = true;
+    if (selectedMonth) {
+      const installDate = business.installation_date;
+      if (installDate) {
+        const date = new Date(installDate);
+        monthMatch = (date.getMonth() + 1) === Number(selectedMonth);
+      } else {
+        monthMatch = false; // 설치일이 없으면 필터에서 제외
+      }
+    }
+
+    return searchMatch && officeMatch && regionMatch && categoryMatch && yearMatch && monthMatch;
+  }).map(business => {
     // 해당 사업장의 매출 계산 결과 찾기 (가장 최신)
     const revenueCalc = calculations
       .filter(calc => calc.business_id === business.id)
@@ -791,6 +815,7 @@ function RevenueDashboard() {
 
   const salesOffices = [...new Set(businesses.map(b => b.sales_office).filter(Boolean))];
   const regions = [...new Set(businesses.map(b => b.address ? b.address.split(' ').slice(0, 2).join(' ') : '').filter(Boolean))];
+  const projectYears = [...new Set(businesses.map(b => b.project_year).filter(Boolean))].sort((a, b) => b - a);
 
   // 정렬 함수
   const handleSort = (field: string) => {
@@ -992,23 +1017,42 @@ function RevenueDashboard() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">시작일</label>
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              <label className="text-sm font-medium mb-2 block">사업 진행 연도</label>
+              <select
+                value={selectedProjectYear}
+                onChange={(e) => setSelectedProjectYear(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              >
+                <option value="">전체 연도</option>
+                {projectYears.map(year => (
+                  <option key={year} value={year}>
+                    {year}년
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">종료일</label>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+              <label className="text-sm font-medium mb-2 block">설치 월 (설치일 기준)</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              >
+                <option value="">전체 월</option>
+                <option value="1">1월</option>
+                <option value="2">2월</option>
+                <option value="3">3월</option>
+                <option value="4">4월</option>
+                <option value="5">5월</option>
+                <option value="6">6월</option>
+                <option value="7">7월</option>
+                <option value="8">8월</option>
+                <option value="9">9월</option>
+                <option value="10">10월</option>
+                <option value="11">11월</option>
+                <option value="12">12월</option>
+              </select>
             </div>
 
             <div className="flex items-end gap-2">

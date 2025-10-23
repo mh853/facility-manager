@@ -907,6 +907,12 @@ function BusinessManagementPage() {
   // 🔄 검색 로딩 상태 (검색시 현재 단계 로딩용)
   const [isSearchLoading, setIsSearchLoading] = useState(false)
 
+  // 필터 상태
+  const [filterOffice, setFilterOffice] = useState<string>('')
+  const [filterRegion, setFilterRegion] = useState<string>('')
+  const [filterCategory, setFilterCategory] = useState<string>('')
+  const [filterProjectYear, setFilterProjectYear] = useState<string>('')
+
   // 업무 상태 매핑 유틸리티 함수들
   const getStatusDisplayName = (status: string): string => {
     const statusMap: { [key: string]: string } = {
@@ -1491,17 +1497,40 @@ function BusinessManagementPage() {
   const filteredBusinesses = useMemo(() => {
     console.log('🔍 useMemo 필터링 실행:', searchTerms, 'allBusinesses 수:', allBusinesses.length)
 
+    let filtered = allBusinesses
+
+    // 드롭다운 필터 적용
+    if (filterOffice) {
+      filtered = filtered.filter(b => b.영업점 === filterOffice || b.sales_office === filterOffice)
+    }
+    if (filterRegion) {
+      filtered = filtered.filter(b => {
+        const address = b.주소 || b.address || ''
+        return address.includes(filterRegion)
+      })
+    }
+    if (filterCategory) {
+      filtered = filtered.filter(b => (b as any).진행상태 === filterCategory || b.progress_status === filterCategory)
+    }
+    if (filterProjectYear) {
+      filtered = filtered.filter(b => {
+        const year = (b as any).사업진행연도 || b.project_year
+        return year === Number(filterProjectYear)
+      })
+    }
+
+    // 검색어가 없으면 필터링된 결과를 정렬해서 반환
     if (searchTerms.length === 0) {
-      console.log('📋 검색어 없음 - 전체 목록 표시 (최근 수정순):', allBusinesses.length)
-      // 필터 없을 때: 최근 수정한 사업장이 위로 오도록 정렬
-      return [...allBusinesses].sort((a, b) => {
+      console.log('📋 검색어 없음 - 필터링된 목록 표시 (최근 수정순):', filtered.length)
+      return [...filtered].sort((a, b) => {
         const dateA = new Date(a.수정일 || a.updated_at || a.생성일 || a.created_at || 0)
         const dateB = new Date(b.수정일 || b.updated_at || b.생성일 || b.created_at || 0)
         return dateB.getTime() - dateA.getTime() // 내림차순 (최신이 위로)
       })
     }
 
-    const filtered = allBusinesses.filter(business => {
+    // 검색어 필터링
+    filtered = filtered.filter(business => {
       // 모든 검색 가능한 필드들을 하나의 문자열로 결합
       const searchableText = [
         // 기본 정보
@@ -1545,7 +1574,33 @@ function BusinessManagementPage() {
 
     console.log('🎯 필터링 결과:', filtered.length, '개 사업장 (검색어:', searchTerms.length, '개)')
     return filtered
-  }, [searchTerms, allBusinesses])
+  }, [searchTerms, allBusinesses, filterOffice, filterRegion, filterCategory, filterProjectYear])
+
+  // 필터 옵션 추출
+  const filterOptions = useMemo(() => {
+    const offices = [...new Set(allBusinesses.map(b => b.영업점 || b.sales_office).filter(Boolean))] as string[]
+    const regions = [...new Set(
+      allBusinesses.map(b => {
+        const address = b.주소 || b.address || ''
+        if (!address) return ''
+        const parts = address.split(' ')
+        return parts.slice(0, 2).join(' ')
+      }).filter(Boolean)
+    )] as string[]
+    const categories = [...new Set(
+      allBusinesses.map(b => (b as any).진행상태 || b.progress_status).filter(Boolean)
+    )] as string[]
+    const years = [...new Set(
+      allBusinesses.map(b => (b as any).사업진행연도 || b.project_year).filter(Boolean)
+    )] as number[]
+
+    return {
+      offices: offices.sort(),
+      regions: regions.sort(),
+      categories,
+      years: years.sort((a, b) => b - a) // 최신 연도부터
+    }
+  }, [allBusinesses])
 
   // 검색어 하이라이팅 함수
   const highlightSearchTerm = useCallback((text: string, searchTerm: string) => {
@@ -2177,6 +2232,12 @@ function BusinessManagementPage() {
       progress_status: business.progress_status || (business as any).진행상태 || null,
       project_year: business.project_year || (business as any).사업진행연도 || null,
       installation_team: business.installation_team || (business as any).설치팀 || null,
+      order_manager: business.order_manager || '',
+      // 일정 관리
+      order_request_date: business.order_request_date || '',
+      order_date: business.order_date || '',
+      shipment_date: business.shipment_date || '',
+      installation_date: business.installation_date || '',
       // 실사 관리
       estimate_survey_manager: business.estimate_survey_manager || '',
       estimate_survey_date: business.estimate_survey_date || '',
@@ -2873,6 +2934,65 @@ function BusinessManagementPage() {
                   </span>
                 </div>
               )}
+
+              {/* 필터 드롭다운 */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mt-3 pt-3 border-t border-gray-200">
+                <div>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">영업점</label>
+                  <select
+                    value={filterOffice}
+                    onChange={(e) => setFilterOffice(e.target.value)}
+                    className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">전체</option>
+                    {filterOptions.offices.map(office => (
+                      <option key={office} value={office}>{office}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">지역</label>
+                  <select
+                    value={filterRegion}
+                    onChange={(e) => setFilterRegion(e.target.value)}
+                    className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">전체</option>
+                    {filterOptions.regions.map(region => (
+                      <option key={region} value={region}>{region}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">진행구분</label>
+                  <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">전체</option>
+                    {filterOptions.categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">사업 진행 연도</label>
+                  <select
+                    value={filterProjectYear}
+                    onChange={(e) => setFilterProjectYear(e.target.value)}
+                    className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">전체</option>
+                    {filterOptions.years.map(year => (
+                      <option key={year} value={year}>{year}년</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
             
           </div>
