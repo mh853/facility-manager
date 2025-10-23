@@ -1106,7 +1106,7 @@ function EditForm({ item, type, onSave, saving }: {
               <label className="block text-sm font-medium mb-1">기기당 수수료</label>
               <input
                 type="number"
-                value={formData.commission_per_unit || ''}
+                value={formData.commission_per_unit ?? ''}
                 onChange={(e) => setFormData({...formData, commission_per_unit: Number(e.target.value)})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
