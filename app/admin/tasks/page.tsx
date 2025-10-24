@@ -774,6 +774,32 @@ function TaskManagementPage() {
         return
       }
 
+      // 프론트엔드 중복 체크: 같은 사업장의 같은 단계 업무가 이미 있는지 확인
+      const duplicateTask = tasks.find(task =>
+        task.businessName === businessSearchTerm &&
+        task.status === createTaskForm.status &&
+        task.type === createTaskForm.type
+      );
+
+      if (duplicateTask) {
+        const steps = createTaskForm.type === 'self' ? selfSteps :
+                     createTaskForm.type === 'subsidy' ? subsidySteps :
+                     createTaskForm.type === 'as' ? asSteps : etcSteps;
+        const statusInfo = steps.find(s => s.status === createTaskForm.status);
+        const statusLabel = statusInfo?.label || createTaskForm.status;
+
+        const confirmMessage =
+          `⚠️ 중복 업무 경고\n\n` +
+          `이미 "${businessSearchTerm}" 사업장에 "${statusLabel}" 단계의 업무가 있습니다.\n\n` +
+          `기존 업무: ${duplicateTask.title}\n\n` +
+          `같은 단계의 중복 업무는 업무 관리를 복잡하게 만들 수 있습니다.\n` +
+          `그래도 등록하시겠습니까?`;
+
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+      }
+
       // API 요청 데이터 준비
       const requestData = {
         title: createTaskForm.title,
@@ -802,6 +828,13 @@ function TaskManagementPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
+
+        // 409 Conflict: 중복 업무 에러를 사용자 친화적으로 표시
+        if (response.status === 409) {
+          alert(`❌ ${errorData.message || '중복된 업무가 있습니다.'}`)
+          return
+        }
+
         throw new Error(errorData.message || '업무 생성에 실패했습니다.')
       }
 
@@ -925,6 +958,33 @@ function TaskManagementPage() {
     if (!editingTask) return
 
     try {
+      // 프론트엔드 중복 체크: 다른 업무 중에 같은 사업장의 같은 단계 업무가 있는지 확인
+      const duplicateTask = tasks.find(task =>
+        task.id !== editingTask.id && // 자기 자신은 제외
+        task.businessName === editingTask.businessName &&
+        task.status === editingTask.status &&
+        task.type === editingTask.type
+      );
+
+      if (duplicateTask) {
+        const steps = editingTask.type === 'self' ? selfSteps :
+                     editingTask.type === 'subsidy' ? subsidySteps :
+                     editingTask.type === 'as' ? asSteps : etcSteps;
+        const statusInfo = steps.find(s => s.status === editingTask.status);
+        const statusLabel = statusInfo?.label || editingTask.status;
+
+        const confirmMessage =
+          `⚠️ 중복 업무 경고\n\n` +
+          `이미 "${editingTask.businessName}" 사업장에 "${statusLabel}" 단계의 업무가 있습니다.\n\n` +
+          `기존 업무: ${duplicateTask.title}\n\n` +
+          `같은 단계의 중복 업무는 업무 관리를 복잡하게 만들 수 있습니다.\n` +
+          `그래도 수정하시겠습니까?`;
+
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+      }
+
       // API 요청 데이터 준비
       const requestData = {
         id: editingTask.id,
@@ -955,6 +1015,13 @@ function TaskManagementPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
+
+        // 409 Conflict: 중복 업무 에러를 사용자 친화적으로 표시
+        if (response.status === 409) {
+          alert(`❌ ${errorData.message || '중복된 업무가 있습니다.'}`)
+          return
+        }
+
         throw new Error(errorData.message || '업무 수정에 실패했습니다.')
       }
 

@@ -3011,7 +3011,7 @@ function BusinessManagementPage() {
     {
       key: '사업장명' as string,
       title: '사업장명',
-      width: '140px',
+      width: '200px',
       render: (item: any) => (
         <button
           onClick={() => openDetailModal(item)}
@@ -3024,7 +3024,7 @@ function BusinessManagementPage() {
     {
       key: '담당자명' as string,
       title: '담당자',
-      width: '80px',
+      width: '100px',
       render: (item: any) => (
         searchQuery ? highlightSearchTerm(item.담당자명 || '-', searchQuery) : (item.담당자명 || '-')
       )
@@ -3032,15 +3032,47 @@ function BusinessManagementPage() {
     {
       key: '담당자연락처' as string,
       title: '연락처',
-      width: '100px',
+      width: '110px',
       render: (item: any) => (
         searchQuery ? highlightSearchTerm(item.담당자연락처 || '-', searchQuery) : (item.담당자연락처 || '-')
       )
     },
     {
+      key: 'manufacturer' as string,
+      title: '제조사',
+      width: '100px',
+      render: (item: any) => {
+        const manufacturer = item.manufacturer || '-'
+
+        // 제조사별 스타일 정의
+        const getManufacturerStyle = (name: string) => {
+          switch(name) {
+            case '에코센스':
+              return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            case '크린어스':
+              return 'bg-sky-50 text-sky-700 border-sky-200'
+            case '가이아CNS':
+              return 'bg-violet-50 text-violet-700 border-violet-200'
+            case 'EVS':
+              return 'bg-amber-50 text-amber-700 border-amber-200'
+            default:
+              return 'bg-gray-50 text-gray-500 border-gray-200'
+          }
+        }
+
+        return (
+          <div className="text-center">
+            <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getManufacturerStyle(manufacturer)}`}>
+              {searchQuery ? highlightSearchTerm(manufacturer, searchQuery) : manufacturer}
+            </span>
+          </div>
+        )
+      }
+    },
+    {
       key: '주소' as string,
       title: '주소',
-      width: '160px',
+      width: '210px',
       render: (item: any) => (
         <div className="truncate" title={item.주소 || item.local_government || '-'}>
           {searchQuery ? highlightSearchTerm(item.주소 || item.local_government || '-', searchQuery) : (item.주소 || item.local_government || '-')}
@@ -3158,15 +3190,12 @@ function BusinessManagementPage() {
 
   const actions = [
     {
-      ...commonActions.edit((item: UnifiedBusinessInfo) => openEditModal(item)),
-      show: () => true
-    },
-    {
       label: '삭제',
       icon: Trash2,
       onClick: (item: UnifiedBusinessInfo) => confirmDelete(item),
       variant: 'danger' as const,
-      show: () => true
+      show: () => true,
+      compact: true  // 작은 버튼 스타일
     }
   ]
 
@@ -3373,7 +3402,7 @@ function BusinessManagementPage() {
 
           {/* Data Table */}
           <div className="p-2 sm:p-6 overflow-x-auto">
-            <div className="min-w-full max-w-7xl">
+            <div className="min-w-[1090px]">
               <DataTable
                 data={businessesWithId}
                 columns={columns}

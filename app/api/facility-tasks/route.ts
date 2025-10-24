@@ -267,6 +267,41 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('유효하지 않은 우선순위입니다', 400);
     }
 
+    // 중복 업무 체크: 같은 사업장에 같은 단계의 활성 업무가 있는지 확인
+    const { data: existingTasks, error: checkError } = await supabaseAdmin
+      .from('facility_tasks')
+      .select('id, title, business_name, status, created_at, task_type')
+      .eq('business_name', business_name)
+      .eq('status', status)
+      .eq('task_type', task_type)
+      .eq('is_active', true)
+      .eq('is_deleted', false);
+
+    if (checkError) {
+      console.error('🔴 [FACILITY-TASKS] 중복 체크 오류:', checkError);
+    }
+
+    if (existingTasks && existingTasks.length > 0) {
+      const existingTask = existingTasks[0];
+      const statusLabel = getTaskStatusKR(status);
+
+      console.warn('⚠️ [FACILITY-TASKS] 중복 업무 감지:', {
+        businessName: business_name,
+        status,
+        statusLabel,
+        existingTaskId: existingTask.id,
+        existingTaskTitle: existingTask.title
+      });
+
+      return createErrorResponse(
+        `이미 "${business_name}" 사업장에 "${statusLabel}" 단계의 업무가 등록되어 있습니다.\n\n` +
+        `기존 업무: ${existingTask.title}\n` +
+        `등록일: ${new Date(existingTask.created_at).toLocaleDateString('ko-KR')}\n\n` +
+        `같은 단계의 중복 업무는 등록할 수 없습니다. 기존 업무를 수정하거나 완료 후 새 업무를 등록해주세요.`,
+        409 // Conflict
+      );
+    }
+
     // 담당자 처리: assignees 우선, 없으면 assignee를 assignees로 변환
     let finalAssignees = assignees || [];
     if (!finalAssignees.length && assignee) {
@@ -454,6 +489,51 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
         priority: priority !== undefined
       }
     });
+
+    // 중복 업무 체크: 사업장이나 상태가 변경되는 경우에만 체크
+    if ((business_name !== undefined && business_name !== existingTask.business_name) ||
+        (status !== undefined && status !== existingTask.status) ||
+        (task_type !== undefined && task_type !== existingTask.task_type)) {
+
+      const checkBusinessName = business_name !== undefined ? business_name : existingTask.business_name;
+      const checkStatus = status !== undefined ? status : existingTask.status;
+      const checkTaskType = task_type !== undefined ? task_type : existingTask.task_type;
+
+      const { data: duplicateTasks, error: duplicateCheckError } = await supabaseAdmin
+        .from('facility_tasks')
+        .select('id, title, business_name, status, created_at, task_type')
+        .eq('business_name', checkBusinessName)
+        .eq('status', checkStatus)
+        .eq('task_type', checkTaskType)
+        .eq('is_active', true)
+        .eq('is_deleted', false)
+        .neq('id', id); // 자기 자신은 제외
+
+      if (duplicateCheckError) {
+        console.error('🔴 [FACILITY-TASKS] 중복 체크 오류:', duplicateCheckError);
+      }
+
+      if (duplicateTasks && duplicateTasks.length > 0) {
+        const duplicateTask = duplicateTasks[0];
+        const statusLabel = getTaskStatusKR(checkStatus);
+
+        console.warn('⚠️ [FACILITY-TASKS] 수정 시 중복 업무 감지:', {
+          businessName: checkBusinessName,
+          status: checkStatus,
+          statusLabel,
+          duplicateTaskId: duplicateTask.id,
+          duplicateTaskTitle: duplicateTask.title
+        });
+
+        return createErrorResponse(
+          `이미 "${checkBusinessName}" 사업장에 "${statusLabel}" 단계의 업무가 등록되어 있습니다.\n\n` +
+          `기존 업무: ${duplicateTask.title}\n` +
+          `등록일: ${new Date(duplicateTask.created_at).toLocaleDateString('ko-KR')}\n\n` +
+          `같은 단계의 중복 업무는 등록할 수 없습니다. 기존 업무를 수정하거나 완료 후 새 업무를 등록해주세요.`,
+          409 // Conflict
+        );
+      }
+    }
 
     // 업데이트할 필드만 포함
     const updateData: any = {
