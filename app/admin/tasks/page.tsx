@@ -1503,8 +1503,10 @@ function TaskManagementPage() {
             </div>
           )}
         </div>
+      </div>
 
-        {/* 칸반 보드 */}
+      {/* 칸반 보드 */}
+      <div className="space-y-3 md:space-y-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
@@ -1693,6 +1695,8 @@ function TaskManagementPage() {
             </div>
           </div>
         )}
+      </div>
+
       {/* 새 업무 등록 모달 */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 backdrop-blur-sm p-2 sm:p-4">
