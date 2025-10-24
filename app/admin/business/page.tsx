@@ -123,6 +123,14 @@ interface UnifiedBusinessInfo {
   payment_balance_date?: string | null;
   payment_balance_amount?: number | null;
 
+  // 실사 관리 필드
+  estimate_survey_manager?: string | null;
+  estimate_survey_date?: string | null;
+  pre_construction_survey_manager?: string | null;
+  pre_construction_survey_date?: string | null;
+  completion_survey_manager?: string | null;
+  completion_survey_date?: string | null;
+
   // 시스템 필드들
   manufacturer?: 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null;
   vpn?: 'wired' | 'wireless' | null;
@@ -262,7 +270,8 @@ import {
   Calculator,
   FileCheck,
   DollarSign,
-  Wallet
+  Wallet,
+  Receipt
 } from 'lucide-react'
 
 // 대한민국 지자체 목록
@@ -280,6 +289,24 @@ const KOREAN_LOCAL_GOVERNMENTS = [
   '인천시 중구', '인천시 동구', '인천시 미추홀구', '인천시 연수구', '인천시 남동구', '인천시 부평구',
   '인천시 계양구', '인천시 서구', '인천시 강화군', '인천시 옹진군'
 ].sort()
+
+// 진행구분을 보조금/자비로 매핑하는 헬퍼 함수
+const mapCategoryToInvoiceType = (category: string | null | undefined): '보조금' | '자비' => {
+  const normalized = category?.trim() || '';
+
+  // 보조금 처리
+  if (normalized === '보조금' || normalized === '보조금 동시진행') {
+    return '보조금';
+  }
+
+  // 자비 처리: 자비, 대리점, AS
+  if (normalized === '자비' || normalized === '대리점' || normalized === 'AS') {
+    return '자비';
+  }
+
+  // 기본값: 자비
+  return '자비';
+};
 
 function BusinessManagementPage() {
   // 권한 확인 훅
@@ -1389,7 +1416,41 @@ function BusinessManagementPage() {
             url: business.fileStats.storageUrl,
             createdAt: business.fileStats.lastUploadDate || business.created_at,
             updatedAt: business.fileStats.lastUploadDate || business.updated_at
-          } : null
+          } : null,
+
+          // 실사 관리 필드
+          estimate_survey_manager: business.estimate_survey_manager || null,
+          estimate_survey_date: business.estimate_survey_date || null,
+          pre_construction_survey_manager: business.pre_construction_survey_manager || null,
+          pre_construction_survey_date: business.pre_construction_survey_date || null,
+          completion_survey_manager: business.completion_survey_manager || null,
+          completion_survey_date: business.completion_survey_date || null,
+
+          // 계산서 및 입금 관리 필드 (보조금 사업장)
+          invoice_1st_date: business.invoice_1st_date || null,
+          invoice_1st_amount: business.invoice_1st_amount || null,
+          payment_1st_date: business.payment_1st_date || null,
+          payment_1st_amount: business.payment_1st_amount || null,
+          invoice_2nd_date: business.invoice_2nd_date || null,
+          invoice_2nd_amount: business.invoice_2nd_amount || null,
+          payment_2nd_date: business.payment_2nd_date || null,
+          payment_2nd_amount: business.payment_2nd_amount || null,
+          invoice_additional_date: business.invoice_additional_date || null,
+          payment_additional_date: business.payment_additional_date || null,
+          payment_additional_amount: business.payment_additional_amount || null,
+
+          // 계산서 및 입금 관리 필드 (자비 사업장)
+          invoice_advance_date: business.invoice_advance_date || null,
+          invoice_advance_amount: business.invoice_advance_amount || null,
+          payment_advance_date: business.payment_advance_date || null,
+          payment_advance_amount: business.payment_advance_amount || null,
+          invoice_balance_date: business.invoice_balance_date || null,
+          invoice_balance_amount: business.invoice_balance_amount || null,
+          payment_balance_date: business.payment_balance_date || null,
+          payment_balance_amount: business.payment_balance_amount || null,
+
+          // 추가공사비
+          additional_cost: business.additional_cost || null
         }))
         
         setAllBusinesses(businessObjects)
@@ -1912,8 +1973,12 @@ function BusinessManagementPage() {
       
       const data = await response.json()
       console.log('🔄 새로고침된 데이터:', {
+        사업장명: data.data?.[0]?.business_name,
         담당자명: data.data?.[0]?.manager_name,
         담당자직급: data.data?.[0]?.manager_position,
+        계산서1차발행일: data.data?.[0]?.invoice_1st_date,
+        계산서1차금액: data.data?.[0]?.invoice_1st_amount,
+        견적실사담당자: data.data?.[0]?.estimate_survey_manager,
         fullData: data.data?.[0]
       })
       
@@ -2048,7 +2113,38 @@ function BusinessManagementPage() {
           중계기8채널: business.relay_8ch || 0,
           중계기16채널: business.relay_16ch || 0,
           메인보드교체: business.main_board_replacement || 0,
-          
+
+          // 실사 관리 필드
+          estimate_survey_manager: business.estimate_survey_manager || null,
+          estimate_survey_date: business.estimate_survey_date || null,
+          pre_construction_survey_manager: business.pre_construction_survey_manager || null,
+          pre_construction_survey_date: business.pre_construction_survey_date || null,
+          completion_survey_manager: business.completion_survey_manager || null,
+          completion_survey_date: business.completion_survey_date || null,
+
+          // 계산서 및 입금 관리 필드 (보조금 사업장)
+          invoice_1st_date: business.invoice_1st_date || null,
+          invoice_1st_amount: business.invoice_1st_amount || null,
+          payment_1st_date: business.payment_1st_date || null,
+          payment_1st_amount: business.payment_1st_amount || null,
+          invoice_2nd_date: business.invoice_2nd_date || null,
+          invoice_2nd_amount: business.invoice_2nd_amount || null,
+          payment_2nd_date: business.payment_2nd_date || null,
+          payment_2nd_amount: business.payment_2nd_amount || null,
+          invoice_additional_date: business.invoice_additional_date || null,
+          payment_additional_date: business.payment_additional_date || null,
+          payment_additional_amount: business.payment_additional_amount || null,
+
+          // 계산서 및 입금 관리 필드 (자비 사업장)
+          invoice_advance_date: business.invoice_advance_date || null,
+          invoice_advance_amount: business.invoice_advance_amount || null,
+          payment_advance_date: business.payment_advance_date || null,
+          payment_advance_amount: business.payment_advance_amount || null,
+          invoice_balance_date: business.invoice_balance_date || null,
+          invoice_balance_amount: business.invoice_balance_amount || null,
+          payment_balance_date: business.payment_balance_date || null,
+          payment_balance_amount: business.payment_balance_amount || null,
+
           // UI specific fields
           hasFiles: false,
           fileCount: 0,
@@ -2081,8 +2177,17 @@ function BusinessManagementPage() {
       if (business.id && business.사업장명) {
         const refreshedBusiness = await refreshBusinessData(business.id, business.사업장명)
         if (refreshedBusiness) {
-          console.log('🔄 모달용 최신 데이터 조회 완료:', refreshedBusiness.사업장명)
+          console.log('🔄 모달용 최신 데이터 조회 완료:', {
+            사업장명: refreshedBusiness.사업장명,
+            계산서1차발행일: refreshedBusiness.invoice_1st_date,
+            계산서1차금액: refreshedBusiness.invoice_1st_amount,
+            견적실사담당자: refreshedBusiness.estimate_survey_manager,
+            진행구분: refreshedBusiness.progress_status,
+            business_category: refreshedBusiness.business_category
+          })
           setSelectedBusiness(refreshedBusiness)
+        } else {
+          console.warn('⚠️ refreshBusinessData 반환값 null - API 실패 또는 데이터 없음')
         }
       }
 
@@ -2175,78 +2280,144 @@ function BusinessManagementPage() {
     setIsModalOpen(true)
   }
 
-  const openEditModal = (business: UnifiedBusinessInfo) => {
+  const openEditModal = async (business: UnifiedBusinessInfo) => {
     setEditingBusiness(business)
-    
-    setFormData({
-      id: business.id,
-      business_name: business.사업장명,
-      local_government: business.지자체,
-      address: business.주소,
-      manager_name: business.담당자명,
-      manager_position: business.담당자직급,
-      manager_contact: business.담당자연락처,
-      representative_name: business.대표자,
-      business_registration_number: business.사업자등록번호,
-      business_type: airPermitData?.business_type || business.업종,
-      business_category: airPermitData?.category || business.business_category,
-      business_contact: business.사업장연락처,
-      fax_number: business.팩스번호,
-      email: business.이메일,
-      business_management_code: business.사업장관리코드 ? Number(business.사업장관리코드) : null,
-      greenlink_id: business.그린링크ID,
-      greenlink_pw: business.그린링크PW,
-      sales_office: business.영업점,
-      ph_meter: business.PH센서,
-      differential_pressure_meter: business.차압계,
-      temperature_meter: business.온도계,
-      discharge_current_meter: business.배출전류계,
-      fan_current_meter: business.송풍전류계,
-      pump_current_meter: business.펌프전류계,
-      gateway: business.게이트웨이,
-      
-      // VPN 및 네트워크 관련 필드들
-      vpn_wired: business.VPN유선,
-      vpn_wireless: business.VPN무선,
-      multiple_stack: business.복수굴뚝,
-      
-      // 추가 측정기기 필드들
-      explosion_proof_differential_pressure_meter_domestic: business.방폭차압계국산,
-      explosion_proof_temperature_meter_domestic: business.방폭온도계국산,
-      expansion_device: business.확장디바이스,
-      relay_8ch: business.중계기8채널,
-      relay_16ch: business.중계기16채널,
-      main_board_replacement: business.메인보드교체,
 
-      // 비용 정보 필드들
-      additional_cost: business.additional_cost,
-      multiple_stack_cost: business.multiple_stack_cost,
-      expansion_pack: business.expansion_pack,
-      other_equipment: business.other_equipment,
-      negotiation: business.negotiation,
+    // API에서 최신 데이터 가져오기
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const response = await fetch(`/api/business-info-direct?id=${business.id}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
 
-      contacts: business.contacts || [],
-      manufacturer: business.manufacturer,
-      vpn: business.vpn,
-      is_active: business.상태 === '활성',
-      progress_status: business.progress_status || (business as any).진행상태 || null,
-      project_year: business.project_year || (business as any).사업진행연도 || null,
-      installation_team: business.installation_team || (business as any).설치팀 || null,
-      order_manager: business.order_manager || '',
-      // 일정 관리
-      order_request_date: business.order_request_date || '',
-      order_date: business.order_date || '',
-      shipment_date: business.shipment_date || '',
-      installation_date: business.installation_date || '',
-      // 실사 관리
-      estimate_survey_manager: business.estimate_survey_manager || '',
-      estimate_survey_date: business.estimate_survey_date || '',
-      pre_construction_survey_manager: business.pre_construction_survey_manager || '',
-      pre_construction_survey_date: business.pre_construction_survey_date || '',
-      completion_survey_manager: business.completion_survey_manager || '',
-      completion_survey_date: business.completion_survey_date || ''
-    })
-    setIsModalOpen(true)
+      if (!response.ok) {
+        throw new Error('Failed to fetch business data');
+      }
+
+      const result = await response.json();
+      const freshData = result.data?.[0] || business;
+
+      console.log('🔄 [openEditModal] API에서 가져온 최신 데이터:', {
+        id: freshData.id,
+        business_name: freshData.business_name,
+        invoice_1st_date: freshData.invoice_1st_date,
+        invoice_1st_amount: freshData.invoice_1st_amount,
+        payment_1st_date: freshData.payment_1st_date,
+        payment_1st_amount: freshData.payment_1st_amount,
+        invoice_2nd_date: freshData.invoice_2nd_date,
+        payment_2nd_date: freshData.payment_2nd_date,
+        payment_2nd_amount: freshData.payment_2nd_amount
+      });
+
+      setFormData({
+        id: freshData.id,
+        business_name: freshData.business_name,
+        local_government: freshData.local_government,
+        address: freshData.address,
+        manager_name: freshData.manager_name,
+        manager_position: freshData.manager_position,
+        manager_contact: freshData.manager_contact,
+        representative_name: freshData.representative_name,
+        business_registration_number: freshData.business_registration_number,
+        business_type: airPermitData?.business_type || freshData.business_type,
+        business_category: airPermitData?.category || freshData.business_category,
+        business_contact: freshData.business_contact,
+        fax_number: freshData.fax_number,
+        email: freshData.email,
+        business_management_code: freshData.business_management_code ? Number(freshData.business_management_code) : null,
+        greenlink_id: freshData.greenlink_id,
+        greenlink_pw: freshData.greenlink_pw,
+        sales_office: freshData.sales_office,
+        ph_meter: freshData.ph_meter,
+        differential_pressure_meter: freshData.differential_pressure_meter,
+        temperature_meter: freshData.temperature_meter,
+        discharge_current_meter: freshData.discharge_current_meter,
+        fan_current_meter: freshData.fan_current_meter,
+        pump_current_meter: freshData.pump_current_meter,
+        gateway: freshData.gateway,
+
+        // VPN 및 네트워크 관련 필드들
+        vpn_wired: freshData.vpn_wired,
+        vpn_wireless: freshData.vpn_wireless,
+        multiple_stack: freshData.multiple_stack,
+
+        // 추가 측정기기 필드들
+        explosion_proof_differential_pressure_meter_domestic: freshData.explosion_proof_differential_pressure_meter_domestic,
+        explosion_proof_temperature_meter_domestic: freshData.explosion_proof_temperature_meter_domestic,
+        expansion_device: freshData.expansion_device,
+        relay_8ch: freshData.relay_8ch,
+        relay_16ch: freshData.relay_16ch,
+        main_board_replacement: freshData.main_board_replacement,
+
+        // 비용 정보 필드들
+        additional_cost: freshData.additional_cost,
+        multiple_stack_cost: freshData.multiple_stack_cost,
+        expansion_pack: freshData.expansion_pack,
+        other_equipment: freshData.other_equipment,
+        negotiation: freshData.negotiation,
+
+        contacts: freshData.contacts || [],
+        manufacturer: freshData.manufacturer,
+        vpn: freshData.vpn,
+        is_active: freshData.is_active,
+        progress_status: freshData.progress_status,
+        project_year: freshData.project_year,
+        installation_team: freshData.installation_team,
+        order_manager: freshData.order_manager || '',
+
+        // 일정 관리
+        order_request_date: freshData.order_request_date || '',
+        order_date: freshData.order_date || '',
+        shipment_date: freshData.shipment_date || '',
+        installation_date: freshData.installation_date || '',
+
+        // 실사 관리
+        estimate_survey_manager: freshData.estimate_survey_manager || '',
+        estimate_survey_date: freshData.estimate_survey_date || '',
+        pre_construction_survey_manager: freshData.pre_construction_survey_manager || '',
+        pre_construction_survey_date: freshData.pre_construction_survey_date || '',
+        completion_survey_manager: freshData.completion_survey_manager || '',
+        completion_survey_date: freshData.completion_survey_date || '',
+
+        // 계산서 및 입금 관리 (보조금 사업장)
+        invoice_1st_date: freshData.invoice_1st_date || '',
+        invoice_1st_amount: freshData.invoice_1st_amount || null,
+        payment_1st_date: freshData.payment_1st_date || '',
+        payment_1st_amount: freshData.payment_1st_amount || null,
+        invoice_2nd_date: freshData.invoice_2nd_date || '',
+        invoice_2nd_amount: freshData.invoice_2nd_amount || null,
+        payment_2nd_date: freshData.payment_2nd_date || '',
+        payment_2nd_amount: freshData.payment_2nd_amount || null,
+        invoice_additional_date: freshData.invoice_additional_date || '',
+        payment_additional_date: freshData.payment_additional_date || '',
+        payment_additional_amount: freshData.payment_additional_amount || null,
+
+        // 계산서 및 입금 관리 (자비 사업장)
+        invoice_advance_date: freshData.invoice_advance_date || '',
+        invoice_advance_amount: freshData.invoice_advance_amount || null,
+        payment_advance_date: freshData.payment_advance_date || '',
+        payment_advance_amount: freshData.payment_advance_amount || null,
+        invoice_balance_date: freshData.invoice_balance_date || '',
+        invoice_balance_amount: freshData.invoice_balance_amount || null,
+        payment_balance_date: freshData.payment_balance_date || '',
+        payment_balance_amount: freshData.payment_balance_amount || null
+      })
+
+      setIsModalOpen(true)
+
+      // 대기필증 데이터 로딩
+      if (freshData.id) {
+        loadAirPermitData(freshData.id)
+      }
+
+      // 메모 로드 시도
+      if (freshData.id) {
+        await loadBusinessMemos(freshData.id)
+      }
+    } catch (error) {
+      console.error('❌ [openEditModal] API 데이터 로딩 실패:', error);
+      alert('사업장 데이터를 불러오는데 실패했습니다. 페이지를 새로고침해주세요.');
+    }
   }
 
   const confirmDelete = (business: UnifiedBusinessInfo) => {
@@ -2300,7 +2471,41 @@ function BusinessManagementPage() {
       }
       
       console.log('📊 엑셀 데이터 샘플:', jsonData.slice(0, 2))
-      
+
+      // 엑셀 날짜 변환 함수 (Excel serial date → YYYY-MM-DD)
+      const parseExcelDate = (value: any): string | null => {
+        if (!value || value === '-' || value === '') return null
+
+        // 이미 YYYY-MM-DD 형식인 경우
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          return value
+        }
+
+        // 엑셀 시리얼 날짜 (숫자)인 경우
+        if (typeof value === 'number') {
+          // Excel epoch: 1900-01-01 (단, Excel의 1900년 윤년 버그 고려)
+          const excelEpoch = new Date(1899, 11, 30) // 1899-12-30
+          const date = new Date(excelEpoch.getTime() + value * 86400000)
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        }
+
+        // 다른 문자열 형식 시도
+        if (typeof value === 'string') {
+          const date = new Date(value)
+          if (!isNaN(date.getTime())) {
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            return `${year}-${month}-${day}`
+          }
+        }
+
+        return null
+      }
+
       // 엑셀 헤더를 API 필드명으로 매핑
       const mappedBusinesses = jsonData.map((row: any) => ({
         business_name: row['사업장명'] || '',
@@ -2315,30 +2520,83 @@ function BusinessManagementPage() {
         fax_number: row['팩스번호'] || '',
         email: row['이메일'] || '',
         local_government: row['지자체'] || '',
+
+        // 센서/미터 정보
         ph_meter: parseInt(row['PH센서'] || '0') || 0,
         differential_pressure_meter: parseInt(row['차압계'] || '0') || 0,
         temperature_meter: parseInt(row['온도계'] || '0') || 0,
         discharge_current_meter: parseInt(row['배출전류계'] || '0') || 0,
         fan_current_meter: parseInt(row['송풍전류계'] || '0') || 0,
         pump_current_meter: parseInt(row['펌프전류계'] || '0') || 0,
+
+        // 네트워크 장비
         gateway: parseInt(row['게이트웨이'] || '0') || 0,
         vpn_wired: parseInt(row['VPN(유선)'] || '0') || 0,
         vpn_wireless: parseInt(row['VPN(무선)'] || '0') || 0,
+        vpn: row['VPN타입'] === '무선' ? 'wireless' : row['VPN타입'] === '유선' ? 'wired' : null,
         multiple_stack: parseInt(row['복수굴뚝(설치비)'] || '0') || 0,
+
+        // 추가 측정기기
+        explosion_proof_differential_pressure_meter_domestic: parseInt(row['방폭차압계국산'] || '0') || 0,
+        explosion_proof_temperature_meter_domestic: parseInt(row['방폭온도계국산'] || '0') || 0,
+        expansion_device: parseInt(row['확장디바이스'] || '0') || 0,
+        relay_8ch: parseInt(row['중계기8채널'] || '0') || 0,
+        relay_16ch: parseInt(row['중계기16채널'] || '0') || 0,
+        main_board_replacement: parseInt(row['메인보드교체'] || '0') || 0,
+
+        // 기타 정보
         manufacturer: row['제조사'] || '',
         sales_office: row['영업점'] || '',
         department: row['담당부서'] || '',
         progress_status: row['진행구분'] || '',
         project_year: row['사업 진행연도'] ? parseInt(row['사업 진행연도']) : null,
-        installation_team: row['설치팀'] || '',
-        order_manager: row['발주담당'] || '',
-        order_date: row['발주일'] || null,
-        shipment_date: row['출고일'] || null,
-        installation_date: row['설치일'] || null,
         greenlink_id: row['그린링크ID'] || '',
         greenlink_pw: row['그린링크PW'] || '',
         business_management_code: row['사업장관리코드'] ? parseInt(row['사업장관리코드']) : null,
+
+        // 일정 관리
+        installation_team: row['설치팀'] || '',
+        order_manager: row['발주담당'] || '',
+        order_request_date: parseExcelDate(row['발주요청일']),
+        order_date: parseExcelDate(row['발주일']),
+        shipment_date: parseExcelDate(row['출고일']),
+        installation_date: parseExcelDate(row['설치일']),
+
+        // 실사 관리
+        estimate_survey_manager: row['견적실사담당자'] || '',
+        estimate_survey_date: parseExcelDate(row['견적실사일']),
+        pre_construction_survey_manager: row['착공전실사담당자'] || '',
+        pre_construction_survey_date: parseExcelDate(row['착공전실사일']),
+        completion_survey_manager: row['준공실사담당자'] || '',
+        completion_survey_date: parseExcelDate(row['준공실사일']),
+
+        // 계산서 및 입금 관리 (보조금 사업장)
+        invoice_1st_date: parseExcelDate(row['1차계산서일']),
+        invoice_1st_amount: row['1차계산서금액'] ? parseInt(row['1차계산서금액']) : null,
+        payment_1st_date: parseExcelDate(row['1차입금일']),
+        payment_1st_amount: row['1차입금액'] ? parseInt(row['1차입금액']) : null,
+        invoice_2nd_date: parseExcelDate(row['2차계산서일']),
+        invoice_2nd_amount: row['2차계산서금액'] ? parseInt(row['2차계산서금액']) : null,
+        payment_2nd_date: parseExcelDate(row['2차입금일']),
+        payment_2nd_amount: row['2차입금액'] ? parseInt(row['2차입금액']) : null,
+        invoice_additional_date: parseExcelDate(row['추가계산서일']),
+        payment_additional_date: parseExcelDate(row['추가입금일']),
+        payment_additional_amount: row['추가입금액'] ? parseInt(row['추가입금액']) : null,
+
+        // 계산서 및 입금 관리 (자비 사업장)
+        invoice_advance_date: parseExcelDate(row['선금계산서일']),
+        invoice_advance_amount: row['선금계산서금액'] ? parseInt(row['선금계산서금액']) : null,
+        payment_advance_date: parseExcelDate(row['선금입금일']),
+        payment_advance_amount: row['선금입금액'] ? parseInt(row['선금입금액']) : null,
+        invoice_balance_date: parseExcelDate(row['잔금계산서일']),
+        invoice_balance_amount: row['잔금계산서금액'] ? parseInt(row['잔금계산서금액']) : null,
+        payment_balance_date: parseExcelDate(row['잔금입금일']),
+        payment_balance_amount: row['잔금입금액'] ? parseInt(row['잔금입금액']) : null,
+
+        // 비용 정보
         additional_cost: row['추가공사비'] ? parseInt(row['추가공사비']) : null,
+        multiple_stack_cost: row['복수굴뚝비용'] ? parseInt(row['복수굴뚝비용']) : null,
+        expansion_pack: row['확장팩'] || '',
         negotiation: row['네고'] || '',
         other_equipment: row['기타'] || ''
       }));
@@ -2562,6 +2820,29 @@ function BusinessManagementPage() {
               installation_team: serverData.installation_team || null,
               설치팀: serverData.installation_team || null,
               order_manager: serverData.order_manager || null,
+              // 계산서 및 입금 관리 필드 (보조금 사업장)
+              invoice_1st_date: serverData.invoice_1st_date || null,
+              invoice_1st_amount: serverData.invoice_1st_amount || null,
+              payment_1st_date: serverData.payment_1st_date || null,
+              payment_1st_amount: serverData.payment_1st_amount || null,
+              invoice_2nd_date: serverData.invoice_2nd_date || null,
+              invoice_2nd_amount: serverData.invoice_2nd_amount || null,
+              payment_2nd_date: serverData.payment_2nd_date || null,
+              payment_2nd_amount: serverData.payment_2nd_amount || null,
+              invoice_additional_date: serverData.invoice_additional_date || null,
+              payment_additional_date: serverData.payment_additional_date || null,
+              payment_additional_amount: serverData.payment_additional_amount || null,
+              // 계산서 및 입금 관리 필드 (자비 사업장)
+              invoice_advance_date: serverData.invoice_advance_date || null,
+              invoice_advance_amount: serverData.invoice_advance_amount || null,
+              payment_advance_date: serverData.payment_advance_date || null,
+              payment_advance_amount: serverData.payment_advance_amount || null,
+              invoice_balance_date: serverData.invoice_balance_date || null,
+              invoice_balance_amount: serverData.invoice_balance_amount || null,
+              payment_balance_date: serverData.payment_balance_date || null,
+              payment_balance_amount: serverData.payment_balance_amount || null,
+              // 추가공사비
+              additional_cost: serverData.additional_cost || null,
               // 기존 통계 데이터 유지
               fileStats: (editingBusiness as any).fileStats
             }
@@ -3981,19 +4262,16 @@ function BusinessManagementPage() {
                       {(() => {
                         // business_category 또는 progress_status에서 카테고리 가져오기
                         const category = selectedBusiness.business_category || selectedBusiness.진행구분 || (selectedBusiness as any).progress_status;
-                        const isValidCategory = category === '보조금' || category === '자비';
+                        // 진행구분을 보조금/자비로 매핑 (모든 진행구분 허용)
+                        const mappedCategory = mapCategoryToInvoiceType(category);
 
-                        return isValidCategory ? (
+                        return (
                           <InvoiceDisplay
+                            key={`invoice-${selectedBusiness.id}-${selectedBusiness.수정일 || selectedBusiness.생성일}`}
                             businessId={selectedBusiness.id}
-                            businessCategory={category as '보조금' | '자비'}
+                            businessCategory={mappedCategory}
                             additionalCost={selectedBusiness.additional_cost}
                           />
-                        ) : (
-                          <div className="text-center py-6 bg-white rounded-lg">
-                            <p className="text-sm text-gray-500">진행구분이 "보조금" 또는 "자비"로 설정되지 않았습니다</p>
-                            <p className="text-xs text-gray-400 mt-1">현재: {category || '없음'}</p>
-                          </div>
                         );
                       })()}
                     </div>
@@ -4892,19 +5170,23 @@ function BusinessManagementPage() {
                 </div>
 
                 {/* 계산서 및 입금 정보 - 진행구분에 따라 동적 표시 */}
-                {formData.progress_status && (formData.progress_status === '보조금' || formData.progress_status === '자비') && (
-                  <div>
-                    <div className="flex items-center mb-3 sm:mb-4">
-                      <div className="p-1.5 sm:p-2 bg-purple-600 rounded-lg mr-2 sm:mr-3">
-                        <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                      </div>
-                      <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800">
-                        계산서 및 입금 정보 ({formData.progress_status})
-                      </h3>
-                    </div>
+                {formData.progress_status && (() => {
+                  // 진행구분을 보조금/자비로 매핑 (모든 진행구분 허용)
+                  const mappedCategory = mapCategoryToInvoiceType(formData.progress_status);
 
-                    {/* 보조금: 1차/2차/추가공사비 */}
-                    {formData.progress_status === '보조금' && (
+                  return (
+                    <div>
+                      <div className="flex items-center mb-3 sm:mb-4">
+                        <div className="p-1.5 sm:p-2 bg-purple-600 rounded-lg mr-2 sm:mr-3">
+                          <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                        </div>
+                        <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-800">
+                          계산서 및 입금 정보 ({formData.progress_status})
+                        </h3>
+                      </div>
+
+                      {/* 보조금: 1차/2차/추가공사비 */}
+                      {mappedCategory === '보조금' && (
                       <div className="space-y-4 sm:space-y-6">
                         {/* 1차 계산서 */}
                         <div className="p-3 sm:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
@@ -5122,14 +5404,30 @@ function BusinessManagementPage() {
                             <div className="flex justify-between pt-2 mt-2 border-t-2 border-slate-300">
                               <span className="font-bold text-gray-900">총 미수금:</span>
                               <span className={`font-bold text-base ${
-                                ((formData.invoice_1st_date ? (formData.invoice_1st_amount || 0) - (formData.payment_1st_amount || 0) : 0) +
-                                 (formData.invoice_2nd_date ? (formData.invoice_2nd_amount || 0) - (formData.payment_2nd_amount || 0) : 0) +
-                                 (formData.invoice_additional_date ? (formData.additional_cost || 0) - (formData.payment_additional_amount || 0) : 0)) === 0
-                                  ? 'text-green-600' : 'text-red-600'
+                                (() => {
+                                  // 추가공사비는 계산서가 발행된 경우에만 미수금 계산
+                                  const additionalCostInvoice = formData.invoice_additional_date ? (formData.additional_cost || 0) : 0;
+                                  // 총액 방식: 전체 계산서 합계 - 전체 입금 합계
+                                  const totalInvoices = (formData.invoice_1st_amount || 0) +
+                                                       (formData.invoice_2nd_amount || 0) +
+                                                       additionalCostInvoice;
+                                  const totalPayments = (formData.payment_1st_amount || 0) +
+                                                       (formData.payment_2nd_amount || 0) +
+                                                       (formData.payment_additional_amount || 0);
+                                  return totalInvoices - totalPayments;
+                                })() === 0 ? 'text-green-600' : 'text-red-600'
                               }`}>
-                                {((formData.invoice_1st_date ? (formData.invoice_1st_amount || 0) - (formData.payment_1st_amount || 0) : 0) +
-                                  (formData.invoice_2nd_date ? (formData.invoice_2nd_amount || 0) - (formData.payment_2nd_amount || 0) : 0) +
-                                  (formData.invoice_additional_date ? (formData.additional_cost || 0) - (formData.payment_additional_amount || 0) : 0)).toLocaleString()}원
+                                {(() => {
+                                  // 추가공사비는 계산서가 발행된 경우에만 미수금 계산
+                                  const additionalCostInvoice = formData.invoice_additional_date ? (formData.additional_cost || 0) : 0;
+                                  const totalInvoices = (formData.invoice_1st_amount || 0) +
+                                                       (formData.invoice_2nd_amount || 0) +
+                                                       additionalCostInvoice;
+                                  const totalPayments = (formData.payment_1st_amount || 0) +
+                                                       (formData.payment_2nd_amount || 0) +
+                                                       (formData.payment_additional_amount || 0);
+                                  return (totalInvoices - totalPayments).toLocaleString();
+                                })()}원
                               </span>
                             </div>
                           </div>
@@ -5137,8 +5435,8 @@ function BusinessManagementPage() {
                       </div>
                     )}
 
-                    {/* 자비: 선금/잔금 */}
-                    {formData.progress_status === '자비' && (
+                      {/* 자비: 선금/잔금 */}
+                      {mappedCategory === '자비' && (
                       <div className="space-y-4 sm:space-y-6">
                         {/* 선금 계산서 */}
                         <div className="p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
@@ -5289,20 +5587,31 @@ function BusinessManagementPage() {
                             <div className="flex justify-between pt-2 mt-2 border-t-2 border-slate-300">
                               <span className="font-bold text-gray-900">총 미수금:</span>
                               <span className={`font-bold text-base ${
-                                ((formData.invoice_advance_date ? (formData.invoice_advance_amount || 0) - (formData.payment_advance_amount || 0) : 0) +
-                                 (formData.invoice_balance_date ? (formData.invoice_balance_amount || 0) - (formData.payment_balance_amount || 0) : 0)) === 0
-                                  ? 'text-green-600' : 'text-red-600'
+                                (() => {
+                                  // 총액 방식: 전체 계산서 합계 - 전체 입금 합계
+                                  const totalInvoices = (formData.invoice_advance_amount || 0) +
+                                                       (formData.invoice_balance_amount || 0);
+                                  const totalPayments = (formData.payment_advance_amount || 0) +
+                                                       (formData.payment_balance_amount || 0);
+                                  return totalInvoices - totalPayments;
+                                })() === 0 ? 'text-green-600' : 'text-red-600'
                               }`}>
-                                {((formData.invoice_advance_date ? (formData.invoice_advance_amount || 0) - (formData.payment_advance_amount || 0) : 0) +
-                                  (formData.invoice_balance_date ? (formData.invoice_balance_amount || 0) - (formData.payment_balance_amount || 0) : 0)).toLocaleString()}원
+                                {(() => {
+                                  const totalInvoices = (formData.invoice_advance_amount || 0) +
+                                                       (formData.invoice_balance_amount || 0);
+                                  const totalPayments = (formData.payment_advance_amount || 0) +
+                                                       (formData.payment_balance_amount || 0);
+                                  return (totalInvoices - totalPayments).toLocaleString();
+                                })()}원
                               </span>
                             </div>
                           </div>
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
+                    </div>
+                  );
+                })()}
 
                 {/* 상태 설정 */}
                 <div>
@@ -5419,23 +5728,33 @@ function BusinessManagementPage() {
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                     <h4 className="font-medium text-gray-900 mb-3">주요 필드 안내</h4>
                     <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
-                      <div>사업장명 * (필수)</div>
+                      <div className="font-semibold text-blue-700">사업장명 * (필수)</div>
                       <div>지자체, 주소, 대표자명</div>
                       <div>사업장담당자, 직급, 연락처</div>
-                      <div>사업장연락처, 이메일</div>
-                      <div>제조사 (1. 에코센스 등)</div>
-                      <div>VPN (1. 무선, 2. 유선)</div>
-                      <div>그린링크ID, 그린링크PW</div>
-                      <div>사업장관리코드</div>
+                      <div>사업장연락처, 이메일, 팩스</div>
                       <div>PH센서, 차압계, 온도계</div>
-                      <div>배출전류계(CT), 송풍전류계(CT), 펌프전류계(CT)</div>
-                      <div>게이트웨이 (통합 수량)</div>
-                      <div>VPN(유선), VPN(무선)</div>
+                      <div>배출/송풍/펌프 전류계(CT)</div>
+                      <div>게이트웨이, VPN(유/무선)</div>
+                      <div>방폭차압계, 방폭온도계</div>
+                      <div>확장디바이스, 중계기</div>
+                      <div>메인보드교체, 복수굴뚝</div>
+                      <div>제조사, 진행구분, 사업연도</div>
+                      <div>영업점, 담당부서, 설치팀</div>
+                      <div className="font-semibold text-green-700">일정관리: 발주/출고/설치</div>
+                      <div className="font-semibold text-green-700">실사관리: 견적/착공/준공</div>
+                      <div className="font-semibold text-purple-700">계산서/입금: 보조금(1차/2차/추가)</div>
+                      <div className="font-semibold text-purple-700">계산서/입금: 자비(선금/잔금)</div>
+                      <div>비용: 추가공사비, 네고</div>
+                      <div>그린링크ID/PW, 사업장코드</div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      • 기존 사업장은 자동 업데이트, 새 사업장은 자동 생성<br/>
-                      • CT = 전류계 (Current Transformer)<br/>
-                      • 템플릿 다운로드로 정확한 형식 확인 가능
+                    <p className="text-xs text-gray-500 mt-3 space-y-1">
+                      <span className="block">• <strong>기존 사업장</strong>: 사업장명 매칭하여 자동 업데이트</span>
+                      <span className="block">• <strong>신규 사업장</strong>: 자동 생성</span>
+                      <span className="block">• <strong>날짜 형식</strong>: YYYY-MM-DD (예: 2025-01-15)</span>
+                      <span className="block">• <strong>금액</strong>: 숫자만 입력 (예: 5000000)</span>
+                      <span className="block">• <strong>VPN타입</strong>: "유선" 또는 "무선" 입력</span>
+                      <span className="block">• <strong>보조금/자비</strong>: 진행구분에 따라 해당 계산서 항목 입력</span>
+                      <span className="block">• 템플릿 다운로드로 정확한 형식 및 가이드 확인</span>
                     </p>
                   </div>
 

@@ -5,9 +5,27 @@ import { InvoiceDisplayCard } from './InvoiceDisplayCard';
 
 interface InvoiceDisplayProps {
   businessId: string;
-  businessCategory: '보조금' | '자비';
+  businessCategory: string;  // 모든 진행구분 허용
   additionalCost?: number;
 }
+
+// 진행구분을 보조금/자비로 매핑하는 헬퍼 함수
+const mapCategoryToInvoiceType = (category: string): '보조금' | '자비' => {
+  const normalized = category?.trim() || '';
+
+  // 보조금 처리
+  if (normalized === '보조금' || normalized === '보조금 동시진행') {
+    return '보조금';
+  }
+
+  // 자비 처리: 자비, 대리점, AS
+  if (normalized === '자비' || normalized === '대리점' || normalized === 'AS') {
+    return '자비';
+  }
+
+  // 기본값: 자비
+  return '자비';
+};
 
 export const InvoiceDisplay: React.FC<InvoiceDisplayProps> = ({
   businessId,
@@ -19,19 +37,27 @@ export const InvoiceDisplay: React.FC<InvoiceDisplayProps> = ({
 
   useEffect(() => {
     loadInvoiceData();
-  }, [businessId]);
+  }, [businessId, businessCategory, additionalCost]);
 
   const loadInvoiceData = async () => {
     try {
       setLoading(true);
+      console.log('📊 [InvoiceDisplay] 계산서 데이터 로딩 시작:', businessId);
       const response = await fetch(`/api/business-invoices?business_id=${businessId}`);
       const result = await response.json();
+
+      console.log('📊 [InvoiceDisplay] API 응답:', {
+        success: result.success,
+        hasData: !!result.data,
+        invoices: result.data?.invoices,
+        total_receivables: result.data?.total_receivables
+      });
 
       if (result.success) {
         setInvoiceData(result.data);
       }
     } catch (error) {
-      console.error('Error loading invoice data:', error);
+      console.error('❌ [InvoiceDisplay] Error loading invoice data:', error);
     } finally {
       setLoading(false);
     }
@@ -56,6 +82,32 @@ export const InvoiceDisplay: React.FC<InvoiceDisplayProps> = ({
 
   const totalReceivables = invoiceData.total_receivables || 0;
 
+  // 진행구분을 보조금/자비로 매핑
+  const mappedCategory = mapCategoryToInvoiceType(businessCategory);
+
+  // 미수금 발생 내역 계산
+  const receivableDetails: { title: string; amount: number }[] = [];
+
+  if (mappedCategory === '보조금' && invoiceData.invoices) {
+    const receivable1st = (invoiceData.invoices.first?.invoice_amount || 0) - (invoiceData.invoices.first?.payment_amount || 0);
+    const receivable2nd = (invoiceData.invoices.second?.invoice_amount || 0) - (invoiceData.invoices.second?.payment_amount || 0);
+    // 추가공사비는 계산서가 발행된 경우에만 미수금 계산 (invoice_additional_date 존재 여부 확인)
+    const hasAdditionalInvoice = invoiceData.invoices.additional?.invoice_date;
+    const receivableAdditional = hasAdditionalInvoice
+      ? (additionalCost || 0) - (invoiceData.invoices.additional?.payment_amount || 0)
+      : 0;
+
+    if (receivable1st > 0) receivableDetails.push({ title: '1차', amount: receivable1st });
+    if (receivable2nd > 0) receivableDetails.push({ title: '2차', amount: receivable2nd });
+    if (receivableAdditional > 0) receivableDetails.push({ title: '추가공사비', amount: receivableAdditional });
+  } else if (mappedCategory === '자비' && invoiceData.invoices) {
+    const receivableAdvance = (invoiceData.invoices.advance?.invoice_amount || 0) - (invoiceData.invoices.advance?.payment_amount || 0);
+    const receivableBalance = (invoiceData.invoices.balance?.invoice_amount || 0) - (invoiceData.invoices.balance?.payment_amount || 0);
+
+    if (receivableAdvance > 0) receivableDetails.push({ title: '선금', amount: receivableAdvance });
+    if (receivableBalance > 0) receivableDetails.push({ title: '잔금', amount: receivableBalance });
+  }
+
   return (
     <div className="space-y-3">
       {/* 총 미수금 요약 */}
@@ -64,7 +116,7 @@ export const InvoiceDisplay: React.FC<InvoiceDisplayProps> = ({
           ? 'bg-red-50 border-red-300'
           : 'bg-green-50 border-green-300'
       }`}>
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-semibold text-gray-700">📊 총 미수금</span>
           <span className={`text-base font-bold ${
             totalReceivables > 0 ? 'text-red-700' : 'text-green-700'
@@ -73,10 +125,27 @@ export const InvoiceDisplay: React.FC<InvoiceDisplayProps> = ({
             {totalReceivables > 0 ? ' ⚠️' : ' ✅'}
           </span>
         </div>
+
+        {/* 미수금 발생 내역 */}
+        {receivableDetails.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-red-200">
+            <p className="text-xs text-gray-600 mb-1">📋 미수금 발생 내역:</p>
+            <div className="space-y-1">
+              {receivableDetails.map((detail, index) => (
+                <div key={index} className="flex justify-between items-center">
+                  <span className="text-xs text-red-600">• {detail.title}</span>
+                  <span className="text-xs font-semibold text-red-700">
+                    {detail.amount.toLocaleString()}원
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 보조금 사업장 */}
-      {businessCategory === '보조금' && invoiceData.invoices && (
+      {mappedCategory === '보조금' && invoiceData.invoices && (
         <>
           <InvoiceDisplayCard
             title="1차 계산서"
@@ -107,7 +176,7 @@ export const InvoiceDisplay: React.FC<InvoiceDisplayProps> = ({
       )}
 
       {/* 자비 사업장 */}
-      {businessCategory === '자비' && invoiceData.invoices && (
+      {mappedCategory === '자비' && invoiceData.invoices && (
         <>
           <InvoiceDisplayCard
             title="선금 (기본 50%)"

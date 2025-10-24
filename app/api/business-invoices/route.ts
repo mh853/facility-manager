@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
         id,
         business_name,
         business_category,
+        progress_status,
         additional_cost,
         invoice_1st_date,
         invoice_1st_amount,
@@ -73,10 +74,57 @@ export async function GET(request: NextRequest) {
     let totalReceivables = 0;
     let invoicesData: any = {};
 
-    if (business.business_category === '보조금') {
+    // business_category 또는 progress_status 사용
+    const rawCategory = business.business_category || business.progress_status;
+
+    // 진행구분을 보조금/자비로 매핑
+    const mapCategoryToInvoiceType = (category: string | null | undefined): '보조금' | '자비' => {
+      const normalized = category?.trim() || '';
+
+      // 보조금 처리
+      if (normalized === '보조금' || normalized === '보조금 동시진행') {
+        return '보조금';
+      }
+
+      // 자비 처리: 자비, 대리점, AS
+      if (normalized === '자비' || normalized === '대리점' || normalized === 'AS') {
+        return '자비';
+      }
+
+      // 기본값: 자비
+      return '자비';
+    };
+
+    const category = mapCategoryToInvoiceType(rawCategory);
+
+    console.log('📊 [business-invoices] 진행구분 매핑:', {
+      사업장명: business.business_name,
+      원본진행구분: rawCategory,
+      매핑된진행구분: category
+    });
+
+    if (category === '보조금') {
+      // 추가공사비는 계산서가 발행된 경우에만 미수금 계산 (invoice_additional_date 존재 여부 확인)
+      const hasAdditionalInvoice = business.invoice_additional_date;
+      const additionalCostInvoice = hasAdditionalInvoice ? (business.additional_cost || 0) : 0;
+
+      // 총액 방식: 전체 계산서 합계 - 전체 입금 합계
+      const totalInvoices = (business.invoice_1st_amount || 0) +
+                           (business.invoice_2nd_amount || 0) +
+                           additionalCostInvoice;
+
+      const totalPayments = (business.payment_1st_amount || 0) +
+                           (business.payment_2nd_amount || 0) +
+                           (business.payment_additional_amount || 0);
+
+      totalReceivables = totalInvoices - totalPayments;
+
+      // 각 차수별 미수금 (참고용)
       const receivable1st = (business.invoice_1st_amount || 0) - (business.payment_1st_amount || 0);
       const receivable2nd = (business.invoice_2nd_amount || 0) - (business.payment_2nd_amount || 0);
-      const receivableAdditional = (business.additional_cost || 0) - (business.payment_additional_amount || 0);
+      const receivableAdditional = hasAdditionalInvoice
+        ? (business.additional_cost || 0) - (business.payment_additional_amount || 0)
+        : 0;
 
       invoicesData = {
         first: {
@@ -101,9 +149,17 @@ export async function GET(request: NextRequest) {
           receivable: receivableAdditional,
         },
       };
+    } else if (category === '자비') {
+      // 총액 방식: 전체 계산서 합계 - 전체 입금 합계
+      const totalInvoices = (business.invoice_advance_amount || 0) +
+                           (business.invoice_balance_amount || 0);
 
-      totalReceivables = receivable1st + receivable2nd + receivableAdditional;
-    } else if (business.business_category === '자비') {
+      const totalPayments = (business.payment_advance_amount || 0) +
+                           (business.payment_balance_amount || 0);
+
+      totalReceivables = totalInvoices - totalPayments;
+
+      // 각 차수별 미수금 (참고용)
       const receivableAdvance = (business.invoice_advance_amount || 0) - (business.payment_advance_amount || 0);
       const receivableBalance = (business.invoice_balance_amount || 0) - (business.payment_balance_amount || 0);
 
@@ -123,8 +179,6 @@ export async function GET(request: NextRequest) {
           receivable: receivableBalance,
         },
       };
-
-      totalReceivables = receivableAdvance + receivableBalance;
     }
 
     return NextResponse.json({
@@ -132,7 +186,7 @@ export async function GET(request: NextRequest) {
       data: {
         business_id: business.id,
         business_name: business.business_name,
-        business_category: business.business_category,
+        business_category: category,
         additional_cost: business.additional_cost,
         invoices: invoicesData,
         total_receivables: totalReceivables,

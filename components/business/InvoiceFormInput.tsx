@@ -24,7 +24,7 @@ export const InvoiceFormInput: React.FC<InvoiceFormInputProps> = ({
 
   useEffect(() => {
     loadInvoiceData();
-  }, [businessId]);
+  }, [businessId, additionalCost]);
 
   const loadInvoiceData = async () => {
     try {

@@ -9,6 +9,7 @@ import { ProtectedPage } from '@/components/auth/ProtectedPage';
 import { AuthLevel } from '@/lib/auth/AuthLevels';
 import StatsCard from '@/components/ui/StatsCard';
 import Modal, { ModalActions } from '@/components/ui/Modal';
+import { InvoiceDisplay } from '@/components/business/InvoiceDisplay';
 import {
   BarChart3,
   Calculator,
@@ -89,6 +90,7 @@ function RevenueDashboard() {
   const [selectedCategory, setSelectedCategory] = useState(''); // 카테고리(진행구분) 필터
   const [selectedProjectYear, setSelectedProjectYear] = useState(''); // 사업 진행 연도 필터
   const [selectedMonth, setSelectedMonth] = useState(''); // 월별 필터 (1-12)
+  const [showReceivablesOnly, setShowReceivablesOnly] = useState(false); // 미수금 필터
   const [sortField, setSortField] = useState<string>('business_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -789,6 +791,28 @@ function RevenueDashboard() {
       return sum + (business[field as keyof BusinessInfo] as number || 0);
     }, 0);
 
+    // 미수금 계산 (진행구분에 따라 다르게 계산)
+    let totalReceivables = 0;
+    const progressStatus = business.progress_status || '';
+    const normalizedCategory = progressStatus.trim();
+
+    if (normalizedCategory === '보조금' || normalizedCategory === '보조금 동시진행') {
+      // 보조금: 1차 + 2차 + 추가공사비
+      const receivable1st = ((business as any).invoice_1st_amount || 0) - ((business as any).payment_1st_amount || 0);
+      const receivable2nd = ((business as any).invoice_2nd_amount || 0) - ((business as any).payment_2nd_amount || 0);
+      // 추가공사비는 계산서가 발행된 경우에만 미수금 계산 (invoice_additional_date 존재 여부 확인)
+      const hasAdditionalInvoice = (business as any).invoice_additional_date;
+      const receivableAdditional = hasAdditionalInvoice
+        ? (business.additional_cost || 0) - ((business as any).payment_additional_amount || 0)
+        : 0;
+      totalReceivables = receivable1st + receivable2nd + receivableAdditional;
+    } else if (normalizedCategory === '자비' || normalizedCategory === '대리점' || normalizedCategory === 'AS') {
+      // 자비: 선금 + 잔금
+      const receivableAdvance = ((business as any).invoice_advance_amount || 0) - ((business as any).payment_advance_amount || 0);
+      const receivableBalance = ((business as any).invoice_balance_amount || 0) - ((business as any).payment_balance_amount || 0);
+      totalReceivables = receivableAdvance + receivableBalance;
+    }
+
     return {
       ...business,
       // 서버 계산 결과가 있으면 우선 사용, 없으면 클라이언트 자동 계산 값 사용
@@ -801,7 +825,8 @@ function RevenueDashboard() {
       category: business.progress_status || 'N/A', // progress_status 사용 (진행구분)
       has_calculation: !!revenueCalc || business.has_calculation || false, // 서버 계산 또는 클라이언트 자동 계산
       additional_cost: business.additional_cost || 0, // 추가공사비
-      negotiation: business.negotiation ? parseFloat(business.negotiation.toString()) : 0 // 협의사항/네고
+      negotiation: business.negotiation ? parseFloat(business.negotiation.toString()) : 0, // 협의사항/네고
+      total_receivables: totalReceivables // 총 미수금
     };
   }).filter(business => {
     // 매출 금액 필터 적용 - 매출 계산이 없는 경우 필터에서 제외하지 않음
@@ -811,6 +836,12 @@ function RevenueDashboard() {
     const minRevenue = revenueFilter.min ? parseFloat(revenueFilter.min) : 0;
     const maxRevenue = revenueFilter.max ? parseFloat(revenueFilter.max) : Number.MAX_SAFE_INTEGER;
     return business.total_revenue >= minRevenue && business.total_revenue <= maxRevenue;
+  }).filter(business => {
+    // 미수금 필터 적용
+    if (!showReceivablesOnly) {
+      return true; // 미수금 필터가 꺼져있으면 모두 표시
+    }
+    return business.total_receivables > 0; // 미수금이 있는 사업장만 표시
   });
 
   const salesOffices = [...new Set(businesses.map(b => b.sales_office).filter(Boolean))];
@@ -951,7 +982,7 @@ function RevenueDashboard() {
             <Filter className="w-5 h-5" />
             필터 및 검색
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">사업장 선택</label>
               <select
@@ -1053,6 +1084,22 @@ function RevenueDashboard() {
                 <option value="11">11월</option>
                 <option value="12">12월</option>
               </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">미수금 필터</label>
+              <div className="flex items-center h-10 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="receivables-filter"
+                  checked={showReceivablesOnly}
+                  onChange={(e) => setShowReceivablesOnly(e.target.checked)}
+                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
+                />
+                <label htmlFor="receivables-filter" className="ml-2 text-sm font-medium text-gray-700 cursor-pointer">
+                  미수금 있는 사업장만
+                </label>
+              </div>
             </div>
 
             <div className="flex items-end gap-2">
@@ -1256,6 +1303,7 @@ function RevenueDashboard() {
                     setSelectedOffice('');
                     setSelectedRegion('');
                     setRevenueFilter({ min: '', max: '' });
+                    setShowReceivablesOnly(false);
                   }}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
@@ -1302,6 +1350,14 @@ function RevenueDashboard() {
                           이익금액 {sortField === 'net_profit' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th className="border border-gray-300 px-4 py-2 text-right">이익률</th>
+                        {showReceivablesOnly && (
+                          <th
+                            className="border border-gray-300 px-4 py-2 text-right cursor-pointer hover:bg-gray-100 bg-red-50"
+                            onClick={() => handleSort('total_receivables')}
+                          >
+                            미수금 {sortField === 'total_receivables' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -1373,6 +1429,16 @@ function RevenueDashboard() {
                                 {profitMargin}%
                               </span>
                             </td>
+                            {showReceivablesOnly && (
+                              <td className="border border-gray-300 px-4 py-2 text-right font-mono font-bold bg-red-50">
+                                <span className={`${
+                                  business.total_receivables > 0 ? 'text-red-600' : 'text-green-600'
+                                }`}>
+                                  {formatCurrency(business.total_receivables)}
+                                  {business.total_receivables > 0 ? ' ⚠️' : ' ✅'}
+                                </span>
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
@@ -1796,6 +1862,25 @@ function RevenueDashboard() {
                     </div>
                   </div>
                 </div>
+
+                {/* 계산서 및 입금 현황 */}
+                {selectedEquipmentBusiness.id && (
+                  <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg p-4 md:p-6 border border-purple-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-2 bg-purple-600 rounded-lg mr-3">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-base md:text-lg font-semibold text-slate-800">계산서 및 입금 현황 (미수금 관리)</h3>
+                    </div>
+                    <InvoiceDisplay
+                      businessId={selectedEquipmentBusiness.id}
+                      businessCategory={selectedEquipmentBusiness.category || selectedEquipmentBusiness.business_category || selectedEquipmentBusiness.progress_status}
+                      additionalCost={selectedEquipmentBusiness.additional_cost}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200">
