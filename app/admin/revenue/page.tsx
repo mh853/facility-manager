@@ -449,22 +449,16 @@ function RevenueDashboard() {
     // 순이익 = 총이익 - 영업비용 - 실사비용 - 기본설치비
     const netProfit = grossProfit - salesCommission - surveyCosts - totalBaseInstallationCost;
 
-    // 디버깅 로그 (송원이엔지 사업장 확인용)
-    if (business.business_name && business.business_name.includes('송원')) {
-      console.log('🔍 [송원이엔지] 계산 상세:', {
-        사업장명: business.business_name,
-        기본매출: totalRevenue,
-        추가공사비: additionalCost,
-        협의사항: negotiation,
-        최종매출: adjustedRevenue,
-        매입: totalCost,
-        순이익: netProfit,
-        원본데이터: {
-          additional_cost: business.additional_cost,
-          negotiation: business.negotiation
-        }
-      });
-    }
+    // 디버깅 로그 (필요시 활성화)
+    // if (business.business_name && business.business_name.includes('특정사업장명')) {
+    //   console.log('🔍 [매출계산] 상세:', {
+    //     사업장명: business.business_name,
+    //     기본매출: totalRevenue,
+    //     추가공사비: additionalCost,
+    //     최종매출: adjustedRevenue,
+    //     순이익: netProfit
+    //   });
+    // }
 
     return {
       total_revenue: adjustedRevenue,
@@ -531,6 +525,37 @@ function RevenueDashboard() {
       console.error('계산 결과 로드 오류:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 매출 재계산 함수 (권한 레벨 4 전용)
+  const handleRecalculate = async (businessId: string, businessName: string) => {
+    try {
+      console.log('🔄 [RECALCULATE] 재계산 시작:', { businessId, businessName });
+
+      const response = await fetch('/api/revenue/recalculate', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ businessId })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`✅ ${businessName}의 매출 정보가 재계산되었습니다.`);
+
+        // 데이터 다시 로드
+        await loadBusinesses();
+        await loadCalculations();
+
+        console.log('✅ [RECALCULATE] 재계산 완료 및 데이터 갱신');
+      } else {
+        alert(`❌ 재계산 실패: ${data.message}`);
+        console.error('❌ [RECALCULATE] 실패:', data.message);
+      }
+    } catch (error) {
+      console.error('❌ [RECALCULATE] 오류:', error);
+      alert('재계산 중 오류가 발생했습니다.');
     }
   };
 
@@ -1218,10 +1243,35 @@ function RevenueDashboard() {
                 <Building2 className="w-5 h-5" />
                 사업장별 매출 현황 ({sortedBusinesses.length}건)
               </h3>
-              <div className="text-sm text-gray-500">
-                평균 이익률: {sortedBusinesses.length > 0 ?
-                  ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
-                  : '0'}%
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-gray-500">
+                  평균 이익률: {sortedBusinesses.length > 0 ?
+                    ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
+                    : '0'}%
+                </div>
+                {/* 재계산 버튼 - 권한 레벨 4 (슈퍼관리자) 전용 */}
+                {userPermission >= 4 && (
+                  <button
+                    onClick={() => {
+                      if (confirm('선택한 사업장의 매출 정보를 재계산하시겠습니까?\n\n재계산하면 데이터베이스에 저장된 기존 계산값이 삭제되고 최신 로직으로 다시 계산됩니다.')) {
+                        const businessName = prompt('재계산할 사업장명을 입력하세요:');
+                        if (businessName) {
+                          const business = sortedBusinesses.find(b => b.business_name === businessName);
+                          if (business) {
+                            handleRecalculate(business.id, business.business_name);
+                          } else {
+                            alert('해당 사업장을 찾을 수 없습니다.');
+                          }
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    title="슈퍼관리자 전용: 매출 재계산"
+                  >
+                    <Calculator className="w-4 h-4" />
+                    재계산
+                  </button>
+                )}
               </div>
             </div>
           </div>
