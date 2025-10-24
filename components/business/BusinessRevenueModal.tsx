@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { InvoiceDisplay } from './InvoiceDisplay';
 
 interface BusinessRevenueModalProps {
   business: any;
@@ -428,6 +429,25 @@ export default function BusinessRevenueModal({
               </div>
             </div>
           </div>
+
+          {/* 계산서 및 입금 현황 */}
+          {business.id && (
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg p-4 md:p-6 border border-purple-200">
+              <div className="flex items-center mb-4">
+                <div className="p-2 bg-purple-600 rounded-lg mr-3">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-base md:text-lg font-semibold text-slate-800">계산서 및 입금 현황 (미수금 관리)</h3>
+              </div>
+              <InvoiceDisplay
+                businessId={business.id}
+                businessCategory={business.category || business.business_category || business.progress_status}
+                additionalCost={business.additional_cost}
+              />
+            </div>
+          )}
 
           {/* 읽기 전용 안내 (권한 1-2) */}
           {isReadOnly && (
