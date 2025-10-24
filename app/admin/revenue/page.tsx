@@ -559,6 +559,41 @@ function RevenueDashboard() {
     }
   };
 
+  // 전체 재계산 함수 (권한 레벨 4 전용)
+  const handleRecalculateAll = async () => {
+    try {
+      if (!confirm(`⚠️ 전체 사업장 재계산\n\n총 ${sortedBusinesses.length}개 사업장의 매출 정보를 모두 재계산하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 기존 계산 기록이 모두 삭제됩니다.`)) {
+        return;
+      }
+
+      console.log('🔄 [RECALCULATE-ALL] 전체 재계산 시작');
+
+      const response = await fetch('/api/revenue/recalculate', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ recalculateAll: true })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`✅ 모든 사업장의 매출 정보가 재계산되었습니다.`);
+
+        // 데이터 다시 로드
+        await loadBusinesses();
+        await loadCalculations();
+
+        console.log('✅ [RECALCULATE-ALL] 전체 재계산 완료 및 데이터 갱신');
+      } else {
+        alert(`❌ 전체 재계산 실패: ${data.message}`);
+        console.error('❌ [RECALCULATE-ALL] 실패:', data.message);
+      }
+    } catch (error) {
+      console.error('❌ [RECALCULATE-ALL] 오류:', error);
+      alert('전체 재계산 중 오류가 발생했습니다.');
+    }
+  };
+
   const calculateStats = (calcs: RevenueCalculation[]) => {
     if (!calcs.length) {
       setStats(null);
@@ -1251,26 +1286,36 @@ function RevenueDashboard() {
                 </div>
                 {/* 재계산 버튼 - 권한 레벨 4 (슈퍼관리자) 전용 */}
                 {userPermission >= 4 && (
-                  <button
-                    onClick={() => {
-                      if (confirm('선택한 사업장의 매출 정보를 재계산하시겠습니까?\n\n재계산하면 데이터베이스에 저장된 기존 계산값이 삭제되고 최신 로직으로 다시 계산됩니다.')) {
-                        const businessName = prompt('재계산할 사업장명을 입력하세요:');
-                        if (businessName) {
-                          const business = sortedBusinesses.find(b => b.business_name === businessName);
-                          if (business) {
-                            handleRecalculate(business.id, business.business_name);
-                          } else {
-                            alert('해당 사업장을 찾을 수 없습니다.');
+                  <>
+                    <button
+                      onClick={() => {
+                        if (confirm('선택한 사업장의 매출 정보를 재계산하시겠습니까?\n\n재계산하면 데이터베이스에 저장된 기존 계산값이 삭제되고 최신 로직으로 다시 계산됩니다.')) {
+                          const businessName = prompt('재계산할 사업장명을 입력하세요:');
+                          if (businessName) {
+                            const business = sortedBusinesses.find(b => b.business_name === businessName);
+                            if (business) {
+                              handleRecalculate(business.id, business.business_name);
+                            } else {
+                              alert('해당 사업장을 찾을 수 없습니다.');
+                            }
                           }
                         }
-                      }
-                    }}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                    title="슈퍼관리자 전용: 매출 재계산"
-                  >
-                    <Calculator className="w-4 h-4" />
-                    재계산
-                  </button>
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                      title="슈퍼관리자 전용: 개별 사업장 재계산"
+                    >
+                      <Calculator className="w-4 h-4" />
+                      개별 재계산
+                    </button>
+                    <button
+                      onClick={handleRecalculateAll}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      title="슈퍼관리자 전용: 전체 사업장 재계산"
+                    >
+                      <Calculator className="w-4 h-4" />
+                      전체 재계산
+                    </button>
+                  </>
                 )}
               </div>
             </div>

@@ -49,8 +49,34 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { businessId } = body;
+    const { businessId, recalculateAll } = body;
 
+    // 전체 재계산 요청인 경우
+    if (recalculateAll === true) {
+      console.log('🔄 [RECALCULATE-ALL] 전체 재계산 요청:', {
+        requestedBy: decodedToken.email
+      });
+
+      // revenue_calculations 테이블의 모든 기록 삭제
+      const { error: deleteAllError } = await supabaseAdmin
+        .from('revenue_calculations')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // 모든 레코드 삭제
+
+      if (deleteAllError) {
+        console.log('⚠️  [RECALCULATE-ALL] revenue_calculations 전체 삭제 시 오류:', deleteAllError.message);
+      }
+
+      console.log('✅ [RECALCULATE-ALL] 전체 재계산 준비 완료');
+
+      return NextResponse.json({
+        success: true,
+        message: '모든 사업장의 매출 정보가 재계산되었습니다.',
+        data: { recalculatedAll: true }
+      });
+    }
+
+    // 개별 사업장 재계산
     if (!businessId) {
       return NextResponse.json(
         { success: false, message: '사업장 ID가 필요합니다.' },
