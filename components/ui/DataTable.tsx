@@ -335,8 +335,9 @@ export default function DataTable<T extends { id: string }>({
 
       {/* Results Info & Pagination */}
       {pagination && (
-        <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="text-[10px] sm:text-sm text-gray-500">
+        <div className="border-t border-gray-200 px-6 py-4">
+          {/* Results Info */}
+          <div className="text-[10px] sm:text-sm text-gray-500 mb-3">
             {searchTerm ? (
               <>
                 검색결과: {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, sortedData.length)} / {sortedData.length}개
@@ -348,44 +349,47 @@ export default function DataTable<T extends { id: string }>({
               `${((currentPage - 1) * pageSize) + 1}-${Math.min(currentPage * pageSize, sortedData.length)} / ${sortedData.length}개`
             )}
           </div>
-          
+
+          {/* Pagination with horizontal scroll */}
           {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-sm border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                이전
-              </button>
-            
-            {[...Array(totalPages)].map((_, i) => {
-              const page = i + 1
-              const isCurrentPage = page === currentPage
-              
-              return (
+            <div className="overflow-x-auto">
+              <div className="flex items-center gap-2 min-w-min">
                 <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-sm rounded-md transition-colors
-                    ${isCurrentPage
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-gray-200 hover:bg-gray-50'
-                    }
-                  `}
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-sm border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                 >
-                  {page}
+                  이전
                 </button>
-              )
-            })}
-            
-              <button
-                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                className="px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-sm border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                다음
-              </button>
+
+              {[...Array(totalPages)].map((_, i) => {
+                const page = i + 1
+                const isCurrentPage = page === currentPage
+
+                return (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-sm rounded-md transition-colors flex-shrink-0
+                      ${isCurrentPage
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-gray-200 hover:bg-gray-50'
+                      }
+                    `}
+                  >
+                    {page}
+                  </button>
+                )
+              })}
+
+                <button
+                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-sm border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                >
+                  다음
+                </button>
+              </div>
             </div>
           )}
         </div>

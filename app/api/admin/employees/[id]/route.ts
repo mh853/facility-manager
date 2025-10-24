@@ -155,10 +155,17 @@ export async function PUT(
     }
 
     const body = await request.json();
+    console.log('📥 [USER-UPDATE] 받은 데이터:', {
+      userId: params.id,
+      body,
+      requestorPermission: decodedToken.permissionLevel
+    });
+
     const { name, email, department, position, permission_level } = body;
 
     // 입력 데이터 검증
     if (!name || !email) {
+      console.error('❌ [USER-UPDATE] 필수 필드 누락:', { name, email });
       return NextResponse.json(
         { success: false, message: '이름과 이메일은 필수 항목입니다.' },
         { status: 400 }
@@ -189,6 +196,8 @@ export async function PUT(
       permission_level: permission_level || 1
     };
 
+    console.log('📝 [USER-UPDATE] 업데이트할 데이터:', updateData);
+
     const { data: updatedEmployee, error: updateError } = await supabaseAdmin
       .from('employees')
       .update(updateData)
@@ -197,12 +206,19 @@ export async function PUT(
       .single();
 
     if (updateError) {
-      console.error('사용자 업데이트 오류:', updateError);
+      console.error('❌ [USER-UPDATE] Supabase 업데이트 오류:', {
+        error: updateError,
+        code: updateError.code,
+        message: updateError.message,
+        details: updateError.details
+      });
       return NextResponse.json(
         { success: false, message: `사용자 업데이트에 실패했습니다: ${updateError.message}` },
         { status: 500 }
       );
     }
+
+    console.log('✅ [USER-UPDATE] 업데이트 성공:', updatedEmployee);
 
     return NextResponse.json({
       success: true,

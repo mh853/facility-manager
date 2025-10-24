@@ -22,7 +22,7 @@ export default function BusinessRevenueModal({
     return `₩${amount.toLocaleString()}`;
   };
 
-  const isReadOnly = userPermission < 3;
+  const isReadOnly = userPermission < 2;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -449,11 +449,11 @@ export default function BusinessRevenueModal({
             </div>
           )}
 
-          {/* 읽기 전용 안내 (권한 1-2) */}
+          {/* 읽기 전용 안내 (권한 0-1) */}
           {isReadOnly && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                ℹ️ 현재 읽기 전용 모드입니다. 정보 수정은 권한 레벨 3 이상이 필요합니다.
+                ℹ️ 현재 읽기 전용 모드입니다. 정보 수정은 권한 레벨 2 이상이 필요합니다.
               </p>
             </div>
           )}

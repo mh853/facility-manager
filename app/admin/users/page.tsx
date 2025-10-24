@@ -485,6 +485,11 @@ function UsersManagementPage() {
     if (!editingUser) return;
 
     try {
+      console.log('🔄 사용자 업데이트 시작:', {
+        userId: editingUser.id,
+        userData
+      });
+
       const token = TokenManager.getToken();
       const response = await fetch(`/api/admin/employees/${editingUser.id}`, {
         method: 'PUT',
@@ -495,6 +500,8 @@ function UsersManagementPage() {
         body: JSON.stringify(userData)
       });
 
+      console.log('📡 API 응답 상태:', response.status, response.statusText);
+
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -502,13 +509,17 @@ function UsersManagementPage() {
           setShowEditModal(false);
           setEditingUser(null);
           alert('사용자 정보가 성공적으로 업데이트되었습니다.');
+        } else {
+          throw new Error(data.message || '사용자 업데이트 실패');
         }
       } else {
-        throw new Error('사용자 업데이트 실패');
+        const errorData = await response.json();
+        throw new Error(errorData.message || '사용자 업데이트 실패');
       }
     } catch (error) {
       console.error('사용자 업데이트 오류:', error);
-      alert('사용자 업데이트 중 오류가 발생했습니다.');
+      const errorMessage = error instanceof Error ? error.message : '사용자 업데이트 중 오류가 발생했습니다.';
+      alert(`사용자 업데이트 실패: ${errorMessage}`);
     }
   };
 

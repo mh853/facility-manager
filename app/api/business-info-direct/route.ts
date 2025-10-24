@@ -24,6 +24,9 @@ export async function GET(request: Request) {
 
     let query = supabaseAdmin.from('business_info').select('*');
 
+    // 삭제되지 않은 사업장만 조회
+    query = query.eq('is_deleted', false);
+
     if (id) {
       query = query.eq('id', id);
     } else if (searchQuery) {
@@ -741,9 +744,80 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('❌ [BUSINESS-INFO-DIRECT] POST 실패:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : '알 수 없는 오류' 
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류'
+    }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { id } = await request.json();
+
+    if (!id) {
+      return NextResponse.json({
+        success: false,
+        error: 'ID가 필요합니다'
+      }, { status: 400 });
+    }
+
+    console.log('🗑️ [BUSINESS-INFO-DIRECT] 삭제 요청 - ID:', id);
+
+    // 사업장 존재 여부 확인
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('business_info')
+      .select('id, business_name, is_deleted')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existing) {
+      console.error('❌ [BUSINESS-INFO-DIRECT] 사업장을 찾을 수 없음:', fetchError);
+      return NextResponse.json({
+        success: false,
+        error: `사업장을 찾을 수 없습니다: ${fetchError?.message || 'Not found'}`
+      }, { status: 404 });
+    }
+
+    if (existing.is_deleted) {
+      return NextResponse.json({
+        success: false,
+        error: '이미 삭제된 사업장입니다'
+      }, { status: 400 });
+    }
+
+    // Soft delete: is_deleted 플래그를 true로 설정
+    const { data: deletedBusiness, error: deleteError } = await supabaseAdmin
+      .from('business_info')
+      .update({
+        is_deleted: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (deleteError) {
+      console.error('❌ [BUSINESS-INFO-DIRECT] 삭제 실패:', deleteError);
+      return NextResponse.json({
+        success: false,
+        error: `삭제에 실패했습니다: ${deleteError.message}`
+      }, { status: 500 });
+    }
+
+    console.log('✅ [BUSINESS-INFO-DIRECT] 삭제 성공:', existing.business_name, '(ID:', id, ')');
+
+    return NextResponse.json({
+      success: true,
+      message: `${existing.business_name} 사업장이 성공적으로 삭제되었습니다.`,
+      data: deletedBusiness
+    });
+
+  } catch (error) {
+    console.error('❌ [BUSINESS-INFO-DIRECT] DELETE 실패:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류'
     }, { status: 500 });
   }
 }

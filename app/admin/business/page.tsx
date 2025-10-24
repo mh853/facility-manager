@@ -2435,16 +2435,21 @@ function BusinessManagementPage() {
         body: JSON.stringify({ id: businessToDelete.id }),
       })
 
-      if (response.ok) {
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        console.log('✅ 삭제 성공:', result.message)
+        alert(result.message || '사업장이 성공적으로 삭제되었습니다.')
         await loadAllBusinesses()
         setDeleteConfirmOpen(false)
         setBusinessToDelete(null)
       } else {
-        throw new Error('삭제에 실패했습니다.')
+        console.error('❌ 삭제 실패:', result.error)
+        alert(result.error || '삭제에 실패했습니다.')
       }
     } catch (error) {
       console.error('삭제 오류:', error)
-      alert('삭제에 실패했습니다.')
+      alert('삭제 중 오류가 발생했습니다.')
     }
   }
 

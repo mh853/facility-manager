@@ -108,7 +108,8 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/auth/social/*/callback',
     '/api/tasks/*',
     '/api/work-tasks/*',
-    '/api/revenue/*'  // 매출 관리 API 전체 제외 (JWT 인증 사용)
+    '/api/revenue/*',  // 매출 관리 API 전체 제외 (JWT 인증 사용)
+    '/api/admin/employees/*'  // 사용자 관리 API 제외 (JWT 인증 사용)
   ];
 
   if (excludePaths.includes(request.nextUrl.pathname)) {
