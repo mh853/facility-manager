@@ -191,7 +191,7 @@ function TaskManagementPage() {
 
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(12) // 사업장 관리와 동일하게 12개
+  const [itemsPerPage] = useState(10) // 업무 목록 페이지당 10개
 
   const searchTimeoutRef = useRef<NodeJS.Timeout>()
   const refreshIntervalRef = useRef<NodeJS.Timeout>()
@@ -1276,6 +1276,234 @@ function TaskManagementPage() {
           </div>
         </div>
 
+
+        {/* 업무 리스트 뷰 */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">업무 목록</h2>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-gray-500">로딩 중...</span>
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              등록된 업무가 없습니다.
+            </div>
+          ) : (
+            <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
+              <table className="w-full min-w-[800px]">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">사업장</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800 w-32 sm:w-80 max-w-32 sm:max-w-80">업무명</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">업무 단계</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">담당자</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">상태</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">우선순위</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">마감일</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">작업</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedTasks.map((task, index) => {
+                    const step = (task.type === 'self' ? selfSteps :
+                                   task.type === 'subsidy' ? subsidySteps :
+                                   task.type === 'etc' ? etcSteps : asSteps).find(s => s.status === task.status)
+                    return (
+                      <tr key={task.id} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                          <button
+                            onClick={() => handleOpenEditModal(task)}
+                            className="font-medium text-gray-900 hover:text-blue-600 transition-colors cursor-pointer text-left block truncate max-w-[120px] sm:max-w-none"
+                            title="클릭하여 수정"
+                          >
+                            {task.businessName}
+                          </button>
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                          <div className="flex flex-col gap-1">
+                            {/* 타입 뱃지 (전체 필터일 때만 표시) */}
+                            {selectedType === 'all' && (
+                              <div>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getTaskTypeBadge(task.type).color}`}>
+                                  {getTaskTypeBadge(task.type).label}
+                                </span>
+                              </div>
+                            )}
+                            <div
+                              className="font-medium text-gray-900 max-w-xs leading-tight"
+                              style={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                            >
+                              {task.title}
+                            </div>
+                            {task.description && (
+                              <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">{task.description}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                          <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getColorClasses(step?.color || 'gray')}`}>
+                            {step?.label || task.status}
+                          </span>
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm text-gray-600">
+                          {task.assignees && task.assignees.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {task.assignees.slice(0, 3).map((assignee) => (
+                                <span
+                                  key={assignee.id}
+                                  className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium"
+                                  title={`${assignee.name} (${assignee.position})`}
+                                >
+                                  {assignee.name}
+                                </span>
+                              ))}
+                              {task.assignees.length > 3 && (
+                                <span className="text-gray-400 text-xs">
+                                  +{task.assignees.length - 3}명
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            task.assignee || '미배정'
+                          )}
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                          <span className={`inline-flex px-2 py-1 text-xs rounded ${
+                            task.type === 'self'
+                              ? 'bg-blue-100 text-blue-800'
+                              : task.type === 'subsidy'
+                              ? 'bg-purple-100 text-purple-800'
+                              : task.type === 'etc'
+                              ? 'bg-gray-100 text-gray-800'
+                              : 'bg-orange-100 text-orange-800'
+                          }`}>
+                            {task.type === 'self' ? '자비' :
+                             task.type === 'subsidy' ? '보조금' :
+                             task.type === 'etc' ? '기타' : 'AS'}
+                          </span>
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                          <div className="flex items-center gap-1">
+                            {getPriorityIcon(task.priority)}
+                            <span className="capitalize">{task.priority}</span>
+                          </div>
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm text-gray-600">
+                          {task.dueDate ? formatDate(task.dueDate) : '-'}
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteTask(task.id)
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-600 rounded"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 페이지네이션 */}
+          {!isLoading && filteredTasks.length > 0 && totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 px-4">
+              <div className="text-sm text-gray-600">
+                전체 {filteredTasks.length}개 중 {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredTasks.length)}개 표시
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === 1
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  처음
+                </button>
+                <button
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === 1
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  이전
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    // 현재 페이지 근처만 표시
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <span key={page} className="text-gray-400">...</span>
+                    }
+                    return null
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === totalPages
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  다음
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === totalPages
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  마지막
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* 칸반 보드 */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -1465,153 +1693,6 @@ function TaskManagementPage() {
             </div>
           </div>
         )}
-
-        {/* 업무 리스트 뷰 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">업무 목록</h2>
-
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-500">로딩 중...</span>
-            </div>
-          ) : filteredTasks.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              등록된 업무가 없습니다.
-            </div>
-          ) : (
-            <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
-              <table className="w-full min-w-[800px]">
-                <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">사업장</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800 w-32 sm:w-80 max-w-32 sm:max-w-80">업무명</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">업무 단계</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">담당자</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">상태</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">우선순위</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">마감일</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">작업</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedTasks.map((task, index) => {
-                    const step = (task.type === 'self' ? selfSteps :
-                                   task.type === 'subsidy' ? subsidySteps :
-                                   task.type === 'etc' ? etcSteps : asSteps).find(s => s.status === task.status)
-                    return (
-                      <tr key={task.id} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
-                          <button
-                            onClick={() => handleOpenEditModal(task)}
-                            className="font-medium text-gray-900 hover:text-blue-600 transition-colors cursor-pointer text-left block truncate max-w-[120px] sm:max-w-none"
-                            title="클릭하여 수정"
-                          >
-                            {task.businessName}
-                          </button>
-                        </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
-                          <div className="flex flex-col gap-1">
-                            {/* 타입 뱃지 (전체 필터일 때만 표시) */}
-                            {selectedType === 'all' && (
-                              <div>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getTaskTypeBadge(task.type).color}`}>
-                                  {getTaskTypeBadge(task.type).label}
-                                </span>
-                              </div>
-                            )}
-                            <div
-                              className="font-medium text-gray-900 max-w-xs leading-tight"
-                              style={{
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                              }}
-                            >
-                              {task.title}
-                            </div>
-                            {task.description && (
-                              <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">{task.description}</div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
-                          <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getColorClasses(step?.color || 'gray')}`}>
-                            {step?.label || task.status}
-                          </span>
-                        </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm text-gray-600">
-                          {task.assignees && task.assignees.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {task.assignees.slice(0, 3).map((assignee) => (
-                                <span
-                                  key={assignee.id}
-                                  className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium"
-                                  title={`${assignee.name} (${assignee.position})`}
-                                >
-                                  {assignee.name}
-                                </span>
-                              ))}
-                              {task.assignees.length > 3 && (
-                                <span className="text-gray-400 text-xs">
-                                  +{task.assignees.length - 3}명
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            task.assignee || '미배정'
-                          )}
-                        </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
-                          <span className={`inline-flex px-2 py-1 text-xs rounded ${
-                            task.type === 'self'
-                              ? 'bg-blue-100 text-blue-800'
-                              : task.type === 'subsidy'
-                              ? 'bg-purple-100 text-purple-800'
-                              : task.type === 'etc'
-                              ? 'bg-gray-100 text-gray-800'
-                              : 'bg-orange-100 text-orange-800'
-                          }`}>
-                            {task.type === 'self' ? '자비' :
-                             task.type === 'subsidy' ? '보조금' :
-                             task.type === 'etc' ? '기타' : 'AS'}
-                          </span>
-                        </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
-                          <div className="flex items-center gap-1">
-                            {getPriorityIcon(task.priority)}
-                            <span className="capitalize">{task.priority}</span>
-                          </div>
-                        </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm text-gray-600">
-                          {task.dueDate ? formatDate(task.dueDate) : '-'}
-                        </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteTask(task.id)
-                              }}
-                              className="p-1 text-gray-400 hover:text-red-600 rounded"
-                              title="삭제"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* 새 업무 등록 모달 */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 backdrop-blur-sm p-2 sm:p-4">
