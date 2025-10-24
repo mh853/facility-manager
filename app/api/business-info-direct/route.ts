@@ -298,6 +298,87 @@ export async function PUT(request: Request) {
       updateObject.is_active = Boolean(updateData.is_active);
     }
 
+    // 실사 관리 필드
+    if (updateData.estimate_survey_manager !== undefined) {
+      updateObject.estimate_survey_manager = normalizeUTF8(updateData.estimate_survey_manager || '');
+    }
+    if (updateData.estimate_survey_date !== undefined) {
+      updateObject.estimate_survey_date = updateData.estimate_survey_date || null;
+    }
+    if (updateData.pre_construction_survey_manager !== undefined) {
+      updateObject.pre_construction_survey_manager = normalizeUTF8(updateData.pre_construction_survey_manager || '');
+    }
+    if (updateData.pre_construction_survey_date !== undefined) {
+      updateObject.pre_construction_survey_date = updateData.pre_construction_survey_date || null;
+    }
+    if (updateData.completion_survey_manager !== undefined) {
+      updateObject.completion_survey_manager = normalizeUTF8(updateData.completion_survey_manager || '');
+    }
+    if (updateData.completion_survey_date !== undefined) {
+      updateObject.completion_survey_date = updateData.completion_survey_date || null;
+    }
+
+    // 계산서 및 입금 관리 필드 (보조금 사업장)
+    if (updateData.invoice_1st_date !== undefined) {
+      updateObject.invoice_1st_date = updateData.invoice_1st_date || null;
+    }
+    if (updateData.invoice_1st_amount !== undefined) {
+      updateObject.invoice_1st_amount = updateData.invoice_1st_amount ? parseInt(updateData.invoice_1st_amount) : null;
+    }
+    if (updateData.payment_1st_date !== undefined) {
+      updateObject.payment_1st_date = updateData.payment_1st_date || null;
+    }
+    if (updateData.payment_1st_amount !== undefined) {
+      updateObject.payment_1st_amount = updateData.payment_1st_amount ? parseInt(updateData.payment_1st_amount) : null;
+    }
+    if (updateData.invoice_2nd_date !== undefined) {
+      updateObject.invoice_2nd_date = updateData.invoice_2nd_date || null;
+    }
+    if (updateData.invoice_2nd_amount !== undefined) {
+      updateObject.invoice_2nd_amount = updateData.invoice_2nd_amount ? parseInt(updateData.invoice_2nd_amount) : null;
+    }
+    if (updateData.payment_2nd_date !== undefined) {
+      updateObject.payment_2nd_date = updateData.payment_2nd_date || null;
+    }
+    if (updateData.payment_2nd_amount !== undefined) {
+      updateObject.payment_2nd_amount = updateData.payment_2nd_amount ? parseInt(updateData.payment_2nd_amount) : null;
+    }
+    if (updateData.invoice_additional_date !== undefined) {
+      updateObject.invoice_additional_date = updateData.invoice_additional_date || null;
+    }
+    if (updateData.payment_additional_date !== undefined) {
+      updateObject.payment_additional_date = updateData.payment_additional_date || null;
+    }
+    if (updateData.payment_additional_amount !== undefined) {
+      updateObject.payment_additional_amount = updateData.payment_additional_amount ? parseInt(updateData.payment_additional_amount) : null;
+    }
+
+    // 계산서 및 입금 관리 필드 (자비 사업장)
+    if (updateData.invoice_advance_date !== undefined) {
+      updateObject.invoice_advance_date = updateData.invoice_advance_date || null;
+    }
+    if (updateData.invoice_advance_amount !== undefined) {
+      updateObject.invoice_advance_amount = updateData.invoice_advance_amount ? parseInt(updateData.invoice_advance_amount) : null;
+    }
+    if (updateData.payment_advance_date !== undefined) {
+      updateObject.payment_advance_date = updateData.payment_advance_date || null;
+    }
+    if (updateData.payment_advance_amount !== undefined) {
+      updateObject.payment_advance_amount = updateData.payment_advance_amount ? parseInt(updateData.payment_advance_amount) : null;
+    }
+    if (updateData.invoice_balance_date !== undefined) {
+      updateObject.invoice_balance_date = updateData.invoice_balance_date || null;
+    }
+    if (updateData.invoice_balance_amount !== undefined) {
+      updateObject.invoice_balance_amount = updateData.invoice_balance_amount ? parseInt(updateData.invoice_balance_amount) : null;
+    }
+    if (updateData.payment_balance_date !== undefined) {
+      updateObject.payment_balance_date = updateData.payment_balance_date || null;
+    }
+    if (updateData.payment_balance_amount !== undefined) {
+      updateObject.payment_balance_amount = updateData.payment_balance_amount ? parseInt(updateData.payment_balance_amount) : null;
+    }
+
     // Set updated timestamp
     updateObject.updated_at = new Date().toISOString();
 
@@ -414,6 +495,45 @@ export async function POST(request: Request) {
             greenlink_pw: normalizeUTF8(business.greenlink_pw || ''),
             additional_cost: business.additional_cost ? parseInt(business.additional_cost) : null,
             negotiation: normalizeUTF8(business.negotiation || ''),
+
+            // 일정 관리
+            order_manager: normalizeUTF8(business.order_manager || ''),
+            order_request_date: business.order_request_date || null,
+            order_date: business.order_date || null,
+            shipment_date: business.shipment_date || null,
+            installation_date: business.installation_date || null,
+
+            // 실사 관리
+            estimate_survey_manager: normalizeUTF8(business.estimate_survey_manager || ''),
+            estimate_survey_date: business.estimate_survey_date || null,
+            pre_construction_survey_manager: normalizeUTF8(business.pre_construction_survey_manager || ''),
+            pre_construction_survey_date: business.pre_construction_survey_date || null,
+            completion_survey_manager: normalizeUTF8(business.completion_survey_manager || ''),
+            completion_survey_date: business.completion_survey_date || null,
+
+            // 계산서 및 입금 관리 (보조금 사업장)
+            invoice_1st_date: business.invoice_1st_date || null,
+            invoice_1st_amount: business.invoice_1st_amount ? parseInt(business.invoice_1st_amount) : null,
+            payment_1st_date: business.payment_1st_date || null,
+            payment_1st_amount: business.payment_1st_amount ? parseInt(business.payment_1st_amount) : null,
+            invoice_2nd_date: business.invoice_2nd_date || null,
+            invoice_2nd_amount: business.invoice_2nd_amount ? parseInt(business.invoice_2nd_amount) : null,
+            payment_2nd_date: business.payment_2nd_date || null,
+            payment_2nd_amount: business.payment_2nd_amount ? parseInt(business.payment_2nd_amount) : null,
+            invoice_additional_date: business.invoice_additional_date || null,
+            payment_additional_date: business.payment_additional_date || null,
+            payment_additional_amount: business.payment_additional_amount ? parseInt(business.payment_additional_amount) : null,
+
+            // 계산서 및 입금 관리 (자비 사업장)
+            invoice_advance_date: business.invoice_advance_date || null,
+            invoice_advance_amount: business.invoice_advance_amount ? parseInt(business.invoice_advance_amount) : null,
+            payment_advance_date: business.payment_advance_date || null,
+            payment_advance_amount: business.payment_advance_amount ? parseInt(business.payment_advance_amount) : null,
+            invoice_balance_date: business.invoice_balance_date || null,
+            invoice_balance_amount: business.invoice_balance_amount ? parseInt(business.invoice_balance_amount) : null,
+            payment_balance_date: business.payment_balance_date || null,
+            payment_balance_amount: business.payment_balance_amount ? parseInt(business.payment_balance_amount) : null,
+
             updated_at: new Date().toISOString()
           };
 
@@ -558,7 +678,38 @@ export async function POST(request: Request) {
       negotiation: normalizeUTF8(businessData.negotiation || ''),
       multiple_stack_cost: businessData.multiple_stack_cost ? parseInt(businessData.multiple_stack_cost) : null,
       representative_birth_date: businessData.representative_birth_date || null,
-      
+
+      // 실사 관리 필드
+      estimate_survey_manager: normalizeUTF8(businessData.estimate_survey_manager || ''),
+      estimate_survey_date: businessData.estimate_survey_date || null,
+      pre_construction_survey_manager: normalizeUTF8(businessData.pre_construction_survey_manager || ''),
+      pre_construction_survey_date: businessData.pre_construction_survey_date || null,
+      completion_survey_manager: normalizeUTF8(businessData.completion_survey_manager || ''),
+      completion_survey_date: businessData.completion_survey_date || null,
+
+      // 계산서 및 입금 관리 (보조금 사업장)
+      invoice_1st_date: businessData.invoice_1st_date || null,
+      invoice_1st_amount: businessData.invoice_1st_amount ? parseInt(businessData.invoice_1st_amount) : null,
+      payment_1st_date: businessData.payment_1st_date || null,
+      payment_1st_amount: businessData.payment_1st_amount ? parseInt(businessData.payment_1st_amount) : null,
+      invoice_2nd_date: businessData.invoice_2nd_date || null,
+      invoice_2nd_amount: businessData.invoice_2nd_amount ? parseInt(businessData.invoice_2nd_amount) : null,
+      payment_2nd_date: businessData.payment_2nd_date || null,
+      payment_2nd_amount: businessData.payment_2nd_amount ? parseInt(businessData.payment_2nd_amount) : null,
+      invoice_additional_date: businessData.invoice_additional_date || null,
+      payment_additional_date: businessData.payment_additional_date || null,
+      payment_additional_amount: businessData.payment_additional_amount ? parseInt(businessData.payment_additional_amount) : null,
+
+      // 계산서 및 입금 관리 (자비 사업장)
+      invoice_advance_date: businessData.invoice_advance_date || null,
+      invoice_advance_amount: businessData.invoice_advance_amount ? parseInt(businessData.invoice_advance_amount) : null,
+      payment_advance_date: businessData.payment_advance_date || null,
+      payment_advance_amount: businessData.payment_advance_amount ? parseInt(businessData.payment_advance_amount) : null,
+      invoice_balance_date: businessData.invoice_balance_date || null,
+      invoice_balance_amount: businessData.invoice_balance_amount ? parseInt(businessData.invoice_balance_amount) : null,
+      payment_balance_date: businessData.payment_balance_date || null,
+      payment_balance_amount: businessData.payment_balance_amount ? parseInt(businessData.payment_balance_amount) : null,
+
       // System fields
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
