@@ -91,10 +91,10 @@ export const InvoiceDisplay: React.FC<InvoiceDisplayProps> = ({
   if (mappedCategory === '보조금' && invoiceData.invoices) {
     const receivable1st = (invoiceData.invoices.first?.invoice_amount || 0) - (invoiceData.invoices.first?.payment_amount || 0);
     const receivable2nd = (invoiceData.invoices.second?.invoice_amount || 0) - (invoiceData.invoices.second?.payment_amount || 0);
-    // 추가공사비는 계산서가 발행된 경우에만 미수금 계산 (invoice_additional_date 존재 여부 확인)
+    // 추가공사비는 계산서가 발행된 경우에만 미수금 계산 (부가세 10% 포함)
     const hasAdditionalInvoice = invoiceData.invoices.additional?.invoice_date;
     const receivableAdditional = hasAdditionalInvoice
-      ? (additionalCost || 0) - (invoiceData.invoices.additional?.payment_amount || 0)
+      ? Math.round((additionalCost || 0) * 1.1) - (invoiceData.invoices.additional?.payment_amount || 0)
       : 0;
 
     if (receivable1st > 0) receivableDetails.push({ title: '1차', amount: receivable1st });
@@ -167,7 +167,7 @@ export const InvoiceDisplay: React.FC<InvoiceDisplayProps> = ({
             <InvoiceDisplayCard
               title="추가공사비"
               invoiceDate={invoiceData.invoices.additional?.invoice_date}
-              invoiceAmount={additionalCost}
+              invoiceAmount={Math.round(additionalCost * 1.1)}
               paymentDate={invoiceData.invoices.additional?.payment_date}
               paymentAmount={invoiceData.invoices.additional?.payment_amount}
             />

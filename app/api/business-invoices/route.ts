@@ -104,9 +104,9 @@ export async function GET(request: NextRequest) {
     });
 
     if (category === '보조금') {
-      // 추가공사비는 계산서가 발행된 경우에만 미수금 계산 (invoice_additional_date 존재 여부 확인)
+      // 추가공사비는 계산서가 발행된 경우에만 미수금 계산 (부가세 10% 포함)
       const hasAdditionalInvoice = business.invoice_additional_date;
-      const additionalCostInvoice = hasAdditionalInvoice ? (business.additional_cost || 0) : 0;
+      const additionalCostInvoice = hasAdditionalInvoice ? Math.round((business.additional_cost || 0) * 1.1) : 0;
 
       // 총액 방식: 전체 계산서 합계 - 전체 입금 합계
       const totalInvoices = (business.invoice_1st_amount || 0) +
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
       const receivable1st = (business.invoice_1st_amount || 0) - (business.payment_1st_amount || 0);
       const receivable2nd = (business.invoice_2nd_amount || 0) - (business.payment_2nd_amount || 0);
       const receivableAdditional = hasAdditionalInvoice
-        ? (business.additional_cost || 0) - (business.payment_additional_amount || 0)
+        ? Math.round((business.additional_cost || 0) * 1.1) - (business.payment_additional_amount || 0)
         : 0;
 
       invoicesData = {
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
         },
         additional: {
           invoice_date: business.invoice_additional_date,
-          invoice_amount: business.additional_cost, // 추가공사비는 additional_cost 사용
+          invoice_amount: Math.round((business.additional_cost || 0) * 1.1), // 추가공사비 + 부가세 10%
           payment_date: business.payment_additional_date,
           payment_amount: business.payment_additional_amount,
           receivable: receivableAdditional,

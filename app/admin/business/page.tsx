@@ -2798,20 +2798,41 @@ function BusinessManagementPage() {
             const serverData = result.data
             const updatedBusiness = {
               id: serverData.id,
+              // 기본 정보 (한글/영어 병행)
               사업장명: serverData.business_name || '',
+              business_name: serverData.business_name || '',
               지자체: serverData.local_government || '',
+              local_government: serverData.local_government || '',
               주소: serverData.address || '',
+              address: serverData.address || '',
               대표자명: serverData.representative_name || '',
+              대표자: serverData.representative_name || '',
+              representative_name: serverData.representative_name || '',
               사업자등록번호: serverData.business_registration_number || '',
+              business_registration_number: serverData.business_registration_number || '',
               업종: serverData.business_type || '',
+              business_type: serverData.business_type || '',
               사업장전화번호: serverData.business_contact || '',
+              사업장연락처: serverData.business_contact || '',
+              business_contact: serverData.business_contact || '',
               담당자명: serverData.manager_name || '',
+              manager_name: serverData.manager_name || '',
               담당자연락처: serverData.manager_contact || '',
+              manager_contact: serverData.manager_contact || '',
               담당자직급: serverData.manager_position || '',
+              manager_position: serverData.manager_position || '',
               팩스번호: serverData.fax_number || '',
+              fax_number: serverData.fax_number || '',
               이메일: serverData.email || '',
+              email: serverData.email || '',
               생성일: serverData.created_at,
+              등록일: serverData.created_at,
+              created_at: serverData.created_at,
               수정일: serverData.updated_at,
+              updated_at: serverData.updated_at,
+              상태: serverData.is_active ? '활성' : '비활성',
+              is_active: serverData.is_active ?? true,
+              is_deleted: serverData.is_deleted ?? false,
               // 프로젝트 관리 필드
               progress_status: serverData.progress_status || null,
               진행상태: serverData.progress_status || null,
@@ -2820,6 +2841,50 @@ function BusinessManagementPage() {
               installation_team: serverData.installation_team || null,
               설치팀: serverData.installation_team || null,
               order_manager: serverData.order_manager || null,
+              // 시스템 필드 (한글/영어 병행)
+              manufacturer: serverData.manufacturer || null,
+              vpn: serverData.vpn || null,
+              greenlink_id: serverData.greenlink_id || null,
+              그린링크ID: serverData.greenlink_id || null,
+              greenlink_pw: serverData.greenlink_pw || null,
+              그린링크PW: serverData.greenlink_pw || null,
+              business_management_code: serverData.business_management_code || null,
+              사업장관리코드: serverData.business_management_code || null,
+              sales_office: serverData.sales_office || null,
+              영업점: serverData.sales_office || null,
+              // 측정기기 수량 필드 (한글/영어 병행)
+              ph_meter: serverData.ph_meter || null,
+              PH센서: serverData.ph_meter || null,
+              differential_pressure_meter: serverData.differential_pressure_meter || null,
+              차압계: serverData.differential_pressure_meter || null,
+              temperature_meter: serverData.temperature_meter || null,
+              온도계: serverData.temperature_meter || null,
+              discharge_current_meter: serverData.discharge_current_meter || null,
+              배출전류계: serverData.discharge_current_meter || null,
+              fan_current_meter: serverData.fan_current_meter || null,
+              송풍전류계: serverData.fan_current_meter || null,
+              pump_current_meter: serverData.pump_current_meter || null,
+              펌프전류계: serverData.pump_current_meter || null,
+              gateway: serverData.gateway || null,
+              게이트웨이: serverData.gateway || null,
+              vpn_wired: serverData.vpn_wired || null,
+              VPN유선: serverData.vpn_wired || null,
+              vpn_wireless: serverData.vpn_wireless || null,
+              VPN무선: serverData.vpn_wireless || null,
+              explosion_proof_differential_pressure_meter_domestic: serverData.explosion_proof_differential_pressure_meter_domestic || null,
+              방폭차압계국산: serverData.explosion_proof_differential_pressure_meter_domestic || null,
+              explosion_proof_temperature_meter_domestic: serverData.explosion_proof_temperature_meter_domestic || null,
+              방폭온도계국산: serverData.explosion_proof_temperature_meter_domestic || null,
+              expansion_device: serverData.expansion_device || null,
+              확장디바이스: serverData.expansion_device || null,
+              relay_8ch: serverData.relay_8ch || null,
+              중계기8채널: serverData.relay_8ch || null,
+              relay_16ch: serverData.relay_16ch || null,
+              중계기16채널: serverData.relay_16ch || null,
+              main_board_replacement: serverData.main_board_replacement || null,
+              메인보드교체: serverData.main_board_replacement || null,
+              multiple_stack: serverData.multiple_stack || null,
+              복수굴뚝: serverData.multiple_stack || null,
               // 계산서 및 입금 관리 필드 (보조금 사업장)
               invoice_1st_date: serverData.invoice_1st_date || null,
               invoice_1st_amount: serverData.invoice_1st_amount || null,
@@ -2841,8 +2906,36 @@ function BusinessManagementPage() {
               invoice_balance_amount: serverData.invoice_balance_amount || null,
               payment_balance_date: serverData.payment_balance_date || null,
               payment_balance_amount: serverData.payment_balance_amount || null,
-              // 추가공사비
+              // 실사 관리 필드
+              estimate_survey_manager: serverData.estimate_survey_manager || null,
+              estimate_survey_date: serverData.estimate_survey_date || null,
+              pre_construction_survey_manager: serverData.pre_construction_survey_manager || null,
+              pre_construction_survey_date: serverData.pre_construction_survey_date || null,
+              completion_survey_manager: serverData.completion_survey_manager || null,
+              completion_survey_date: serverData.completion_survey_date || null,
+              // 비용 정보
               additional_cost: serverData.additional_cost || null,
+              multiple_stack_cost: serverData.multiple_stack_cost || null,
+              expansion_pack: serverData.expansion_pack || null,
+              other_equipment: serverData.other_equipment || null,
+              negotiation: serverData.negotiation || null,
+              // 기타 프로젝트 필드
+              department: serverData.department || null,
+              contract_document: serverData.contract_document || null,
+              order_request_date: serverData.order_request_date || null,
+              wireless_document: serverData.wireless_document || null,
+              installation_support: serverData.installation_support || null,
+              order_date: serverData.order_date || null,
+              shipment_date: serverData.shipment_date || null,
+              inventory_check: serverData.inventory_check || null,
+              installation_date: serverData.installation_date || null,
+              business_category: serverData.business_category || null,
+              pollutants: serverData.pollutants || null,
+              annual_emission_amount: serverData.annual_emission_amount || null,
+              first_report_date: serverData.first_report_date || null,
+              operation_start_date: serverData.operation_start_date || null,
+              subsidy_approval_date: serverData.subsidy_approval_date || null,
+              representative_birth_date: serverData.representative_birth_date || null,
               // 기존 통계 데이터 유지
               fileStats: (editingBusiness as any).fileStats
             }
@@ -5334,11 +5427,11 @@ function BusinessManagementPage() {
                                 <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                                 <input
                                   type="text"
-                                  value={formData.additional_cost.toLocaleString()}
+                                  value={Math.round(formData.additional_cost * 1.1).toLocaleString()}
                                   disabled
                                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs bg-gray-100 cursor-not-allowed"
                                 />
-                                <p className="text-[9px] text-gray-500 mt-1">※ 비용 정보의 추가공사비 금액 사용</p>
+                                <p className="text-[9px] text-gray-500 mt-1">※ 추가공사비 + 부가세 10% (공급가액: {formData.additional_cost.toLocaleString()}원)</p>
                               </div>
                               <div>
                                 <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
@@ -5368,10 +5461,10 @@ function BusinessManagementPage() {
                                 <div className="flex justify-between text-[10px] sm:text-xs">
                                   <span className="text-gray-600">미수금:</span>
                                   <span className={`font-bold ${
-                                    ((formData.additional_cost || 0) - (formData.payment_additional_amount || 0)) === 0
+                                    (Math.round((formData.additional_cost || 0) * 1.1) - (formData.payment_additional_amount || 0)) === 0
                                       ? 'text-green-600' : 'text-orange-600'
                                   }`}>
-                                    {((formData.additional_cost || 0) - (formData.payment_additional_amount || 0)).toLocaleString()}원
+                                    {(Math.round((formData.additional_cost || 0) * 1.1) - (formData.payment_additional_amount || 0)).toLocaleString()}원
                                   </span>
                                 </div>
                               </div>
@@ -5398,15 +5491,15 @@ function BusinessManagementPage() {
                             {formData.invoice_additional_date && formData.additional_cost && formData.additional_cost > 0 && (
                               <div className="flex justify-between">
                                 <span className="text-gray-600">추가공사비 미수금:</span>
-                                <span className="font-medium">{((formData.additional_cost || 0) - (formData.payment_additional_amount || 0)).toLocaleString()}원</span>
+                                <span className="font-medium">{(Math.round((formData.additional_cost || 0) * 1.1) - (formData.payment_additional_amount || 0)).toLocaleString()}원</span>
                               </div>
                             )}
                             <div className="flex justify-between pt-2 mt-2 border-t-2 border-slate-300">
                               <span className="font-bold text-gray-900">총 미수금:</span>
                               <span className={`font-bold text-base ${
                                 (() => {
-                                  // 추가공사비는 계산서가 발행된 경우에만 미수금 계산
-                                  const additionalCostInvoice = formData.invoice_additional_date ? (formData.additional_cost || 0) : 0;
+                                  // 추가공사비는 계산서가 발행된 경우에만 미수금 계산 (부가세 10% 포함)
+                                  const additionalCostInvoice = formData.invoice_additional_date ? Math.round((formData.additional_cost || 0) * 1.1) : 0;
                                   // 총액 방식: 전체 계산서 합계 - 전체 입금 합계
                                   const totalInvoices = (formData.invoice_1st_amount || 0) +
                                                        (formData.invoice_2nd_amount || 0) +
@@ -5418,8 +5511,8 @@ function BusinessManagementPage() {
                                 })() === 0 ? 'text-green-600' : 'text-red-600'
                               }`}>
                                 {(() => {
-                                  // 추가공사비는 계산서가 발행된 경우에만 미수금 계산
-                                  const additionalCostInvoice = formData.invoice_additional_date ? (formData.additional_cost || 0) : 0;
+                                  // 추가공사비는 계산서가 발행된 경우에만 미수금 계산 (부가세 10% 포함)
+                                  const additionalCostInvoice = formData.invoice_additional_date ? Math.round((formData.additional_cost || 0) * 1.1) : 0;
                                   const totalInvoices = (formData.invoice_1st_amount || 0) +
                                                        (formData.invoice_2nd_amount || 0) +
                                                        additionalCostInvoice;
