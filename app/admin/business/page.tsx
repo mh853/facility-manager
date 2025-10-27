@@ -9,6 +9,8 @@ import { getBusinessTaskStatus, getBatchBusinessTaskStatuses, getTaskSummary } f
 import { supabase } from '@/lib/supabase'
 import BusinessRevenueModal from '@/components/business/BusinessRevenueModal'
 import { useAuth } from '@/contexts/AuthContext'
+import { TokenManager } from '@/lib/api-client'
+import { getManufacturerName } from '@/constants/manufacturers'
 
 interface Contact {
   name: string;
@@ -512,27 +514,37 @@ function BusinessManagementPage() {
       console.log('🔄 제조사별 원가 로드 시작...')
       setManufacturerCostsLoading(true)
       try {
-        // 에코센스 제조사 기준으로 로드
-        const { data, error } = await supabase
-          .from('manufacturer_pricing')
-          .select('equipment_type, cost_price, is_active')
-          .eq('manufacturer', 'ecosense')
-          .eq('is_active', true)
-          .order('effective_from', { ascending: false })
-
-        console.log('📊 제조사별 원가 Supabase 응답:', { data, error })
-
-        if (error) {
-          console.error('❌ 제조사별 원가 로드 실패:', error)
+        const token = TokenManager.getToken()
+        if (!token) {
+          console.warn('⚠️ 인증 토큰이 없습니다')
           return
         }
 
-        if (data && data.length > 0) {
-          console.log('✅ 조회된 제조사별 원가 데이터:', data)
+        // API를 통해 제조사별 원가 조회 (영어 코드 → 한글 이름 변환)
+        const manufacturerName = getManufacturerName('cleanearth') // 'cleanearth' → '크린어스'
+        console.log('🔍 조회할 제조사:', manufacturerName)
+        const response = await fetch(`/api/revenue/manufacturer-pricing?manufacturer=${encodeURIComponent(manufacturerName)}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (!response.ok) {
+          console.error('❌ 제조사별 원가 API 호출 실패:', response.status)
+          return
+        }
+
+        const result = await response.json()
+        console.log('📊 제조사별 원가 API 응답:', result)
+
+        if (result.success && result.data?.pricing && result.data.pricing.length > 0) {
+          console.log('✅ 조회된 제조사별 원가 데이터:', result.data.pricing)
 
           // 기기 타입별로 최신 원가 저장
           const costsMap: { [key: string]: number } = {}
-          data.forEach((item: any) => {
+          result.data.pricing.forEach((item: any) => {
             if (!costsMap[item.equipment_type]) {
               costsMap[item.equipment_type] = Number(item.cost_price) || 0
             }
@@ -1345,7 +1357,11 @@ function BusinessManagementPage() {
           vpn_wired: business.vpn_wired || 0,
           vpn_wireless: business.vpn_wireless || 0,
           multiple_stack: business.multiple_stack || 0,
-          manufacturer: business.manufacturer || '',
+          manufacturer: business.manufacturer === 'ecosense' ? '에코센스' :
+                        business.manufacturer === 'cleanearth' ? '크린어스' :
+                        business.manufacturer === 'gaia_cns' ? '가이아씨앤에스' :
+                        business.manufacturer === 'evs' ? '이브이에스' :
+                        business.manufacturer || '',
           negotiation: business.negotiation || '',
           // 한국어 센서/장비 필드명 매핑
           PH센서: business.ph_meter || 0,
@@ -3056,9 +3072,9 @@ function BusinessManagementPage() {
               return 'bg-emerald-50 text-emerald-700 border-emerald-200'
             case '크린어스':
               return 'bg-sky-50 text-sky-700 border-sky-200'
-            case '가이아CNS':
+            case '가이아씨앤에스':
               return 'bg-violet-50 text-violet-700 border-violet-200'
-            case 'EVS':
+            case '이브이에스':
               return 'bg-amber-50 text-amber-700 border-amber-200'
             default:
               return 'bg-gray-50 text-gray-500 border-gray-200'
