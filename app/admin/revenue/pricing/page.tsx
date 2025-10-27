@@ -639,18 +639,75 @@ function PricingManagement() {
                 {/* 영업점 설정 탭 */}
                 {activeTab === 'sales' && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">영업점 수수료 설정</h3>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <h3 className="text-base md:text-lg font-semibold">영업점 수수료 설정</h3>
                       <button
                         onClick={() => handleEdit(null, 'sales')}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                        className="px-3 md:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
                       >
                         <Plus className="w-4 h-4" />
-                        새 설정 추가
+                        <span className="hidden sm:inline">새 설정 추가</span>
+                        <span className="sm:hidden">추가</span>
                       </button>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* 모바일 카드뷰 */}
+                    <div className="md:hidden space-y-3">
+                      {salesOfficeSettings.map(setting => (
+                        <div key={setting.id} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start justify-between mb-3">
+                            <h4 className="font-semibold text-gray-900">{setting.sales_office}</h4>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              setting.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {setting.is_active ? '활성' : '비활성'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                            <div>
+                              <div className="text-gray-500">수수료 방식</div>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                setting.commission_type === 'percentage' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                              }`}>
+                                {setting.commission_type === 'percentage' ? '매출 비율' : '기기당 단가'}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">수수료율</div>
+                              <div className="font-mono font-semibold text-blue-700">
+                                {setting.commission_type === 'percentage'
+                                  ? `${setting.commission_percentage}%`
+                                  : formatCurrency(setting.commission_per_unit || 0)
+                                }
+                              </div>
+                            </div>
+                            <div className="col-span-2">
+                              <div className="text-gray-500">시행일</div>
+                              <div className="font-medium">{setting.effective_from}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                            <button
+                              onClick={() => handleEdit(setting, 'sales')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-1"
+                            >
+                              <Edit className="w-3 h-3" />
+                              수정
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(setting, 'sales')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              삭제
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 데스크톱 테이블뷰 */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full border-collapse border border-gray-300">
                         <thead>
                           <tr className="bg-gray-50">
@@ -718,18 +775,71 @@ function PricingManagement() {
                 {/* 실사비용 탭 */}
                 {activeTab === 'survey' && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">실사비용 관리</h3>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <h3 className="text-base md:text-lg font-semibold">실사비용 관리</h3>
                       <button
                         onClick={() => handleEdit(null, 'survey')}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                        className="px-3 md:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
                       >
                         <Plus className="w-4 h-4" />
-                        새 비용 추가
+                        <span className="hidden sm:inline">새 비용 추가</span>
+                        <span className="sm:hidden">추가</span>
                       </button>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* 모바일 카드뷰 */}
+                    <div className="md:hidden space-y-3">
+                      {surveyCosts.map(cost => (
+                        <div key={cost.id} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-1">{cost.survey_name}</h4>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                cost.survey_type === 'estimate' ? 'bg-yellow-100 text-yellow-800' :
+                                cost.survey_type === 'pre_construction' ? 'bg-blue-100 text-blue-800' :
+                                'bg-green-100 text-green-800'
+                              }`}>
+                                {cost.survey_type}
+                              </span>
+                            </div>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              cost.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {cost.is_active ? '활성' : '비활성'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                            <div>
+                              <div className="text-gray-500">기본 비용</div>
+                              <div className="font-mono font-semibold text-blue-700">{formatCurrency(cost.base_cost)}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">시행일</div>
+                              <div className="font-medium">{cost.effective_from}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                            <button
+                              onClick={() => handleEdit(cost, 'survey')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-1"
+                            >
+                              <Edit className="w-3 h-3" />
+                              수정
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(cost, 'survey')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              삭제
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 데스크톱 테이블뷰 */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full border-collapse border border-gray-300">
                         <thead>
                           <tr className="bg-gray-50">
@@ -796,18 +906,82 @@ function PricingManagement() {
                 {/* 제조사별 원가 탭 */}
                 {activeTab === 'manufacturer' && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">제조사별 원가 관리</h3>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <h3 className="text-base md:text-lg font-semibold">제조사별 원가 관리</h3>
                       <button
                         onClick={() => handleEdit(null, 'manufacturer')}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                        className="px-3 md:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
                       >
                         <Plus className="w-4 h-4" />
-                        새 제조사 원가 추가
+                        <span className="hidden sm:inline">새 제조사 원가 추가</span>
+                        <span className="sm:hidden">추가</span>
                       </button>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* 모바일 카드뷰 */}
+                    <div className="md:hidden space-y-3">
+                      {manufacturerPricing.map(pricing => (
+                        <div key={pricing.id} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-1">{pricing.equipment_name}</h4>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                pricing.manufacturer === 'ecosense' ? 'bg-blue-100 text-blue-800' :
+                                pricing.manufacturer === 'cleanearth' ? 'bg-green-100 text-green-800' :
+                                pricing.manufacturer === 'gaia_cns' ? 'bg-purple-100 text-purple-800' :
+                                pricing.manufacturer === 'evs' ? 'bg-orange-100 text-orange-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {pricing.manufacturer === 'ecosense' ? '에코센스' :
+                                 pricing.manufacturer === 'cleanearth' ? '크린어스' :
+                                 pricing.manufacturer === 'gaia_cns' ? '가이아씨앤에스' :
+                                 pricing.manufacturer === 'evs' ? '이브이에스' : pricing.manufacturer}
+                              </span>
+                            </div>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              pricing.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {pricing.is_active ? '활성' : '비활성'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                            <div>
+                              <div className="text-gray-500">원가</div>
+                              <div className="font-mono font-semibold text-red-700">₩{pricing.cost_price.toLocaleString()}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">시행일</div>
+                              <div className="font-medium">{pricing.effective_from}</div>
+                            </div>
+                            {pricing.effective_to && (
+                              <div className="col-span-2">
+                                <div className="text-gray-500">종료일</div>
+                                <div className="font-medium">{pricing.effective_to}</div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                            <button
+                              onClick={() => handleEdit(pricing, 'manufacturer')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-1"
+                            >
+                              <Edit className="w-3 h-3" />
+                              수정
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(pricing, 'manufacturer')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              삭제
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 데스크톱 테이블뷰 */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full border-collapse border border-gray-300">
                         <thead>
                           <tr className="bg-gray-50">
@@ -883,18 +1057,66 @@ function PricingManagement() {
                 {/* 기본 설치비 탭 */}
                 {activeTab === 'installation' && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">기본 설치비 관리</h3>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <h3 className="text-base md:text-lg font-semibold">기본 설치비 관리</h3>
                       <button
                         onClick={() => handleEdit(null, 'installation')}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                        className="px-3 md:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
                       >
                         <Plus className="w-4 h-4" />
-                        새 설치비 추가
+                        <span className="hidden sm:inline">새 설치비 추가</span>
+                        <span className="sm:hidden">추가</span>
                       </button>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* 모바일 카드뷰 */}
+                    <div className="md:hidden space-y-3">
+                      {installationCosts.map(cost => (
+                        <div key={cost.id} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start justify-between mb-3">
+                            <h4 className="font-semibold text-gray-900">{cost.equipment_name}</h4>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              cost.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {cost.is_active ? '활성' : '비활성'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                            <div className="col-span-2">
+                              <div className="text-gray-500">기본 설치비</div>
+                              <div className="font-mono font-semibold text-blue-700">₩{cost.base_installation_cost.toLocaleString()}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">시행일</div>
+                              <div className="font-medium">{cost.effective_from}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">종료일</div>
+                              <div className="font-medium">{cost.effective_to || '-'}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                            <button
+                              onClick={() => handleEdit(cost, 'installation')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-1 transition-colors"
+                            >
+                              <Edit className="w-3 h-3" />
+                              수정
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(cost, 'installation')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-1 transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              삭제
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 데스크톱 테이블뷰 */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full border-collapse border border-gray-300">
                         <thead>
                           <tr className="bg-gray-50">
@@ -955,18 +1177,91 @@ function PricingManagement() {
                 {/* 대리점 가격 탭 */}
                 {activeTab === 'dealer' && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">대리점 가격 관리</h3>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <h3 className="text-base md:text-lg font-semibold">대리점 가격 관리</h3>
                       <button
                         onClick={() => handleEdit(null, 'dealer')}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                        className="px-3 md:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
                       >
                         <Plus className="w-4 h-4" />
-                        새 대리점 가격 추가
+                        <span className="hidden sm:inline">새 대리점 가격 추가</span>
+                        <span className="sm:hidden">추가</span>
                       </button>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* 모바일 카드뷰 */}
+                    <div className="md:hidden space-y-3">
+                      {dealerPricing.map(pricing => (
+                        <div key={pricing.id} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-1">{pricing.equipment_name}</h4>
+                              {pricing.manufacturer && (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  pricing.manufacturer === '에코센스' ? 'bg-blue-100 text-blue-800' :
+                                  pricing.manufacturer === '크린어스' ? 'bg-green-100 text-green-800' :
+                                  pricing.manufacturer === '가이아씨앤에스' ? 'bg-purple-100 text-purple-800' :
+                                  pricing.manufacturer === '이브이에스' ? 'bg-orange-100 text-orange-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {pricing.manufacturer}
+                                </span>
+                              )}
+                            </div>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              pricing.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {pricing.is_active ? '활성' : '비활성'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                            <div>
+                              <div className="text-gray-500">공급가</div>
+                              <div className="font-mono font-semibold text-blue-700">{formatCurrency(pricing.dealer_cost_price)}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">판매가</div>
+                              <div className="font-mono font-semibold text-green-700">{formatCurrency(pricing.dealer_selling_price)}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">마진율</div>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                {pricing.margin_rate.toFixed(2)}%
+                              </span>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">시행일</div>
+                              <div className="font-medium">{pricing.effective_from}</div>
+                            </div>
+                            {pricing.effective_to && (
+                              <div className="col-span-2">
+                                <div className="text-gray-500">종료일</div>
+                                <div className="font-medium">{pricing.effective_to}</div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                            <button
+                              onClick={() => handleEdit(pricing, 'dealer')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-1"
+                            >
+                              <Edit className="w-3 h-3" />
+                              수정
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(pricing, 'dealer')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              삭제
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 데스크톱 테이블뷰 */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full border-collapse border border-gray-300">
                         <thead>
                           <tr className="bg-gray-50">
