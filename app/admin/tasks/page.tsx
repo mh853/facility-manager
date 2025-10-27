@@ -5,6 +5,8 @@ import AdminLayout from '@/components/ui/AdminLayout'
 import { withAuth, useAuth } from '@/contexts/AuthContext'
 import { TokenManager } from '@/lib/api-client'
 import MultiAssigneeSelector, { SelectedAssignee } from '@/components/ui/MultiAssigneeSelector'
+import TaskCardList from './components/TaskCardList'
+import TaskMobileModal from './components/TaskMobileModal'
 import {
   Plus,
   Search,
@@ -168,6 +170,8 @@ function TaskManagementPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
+  const [mobileModalOpen, setMobileModalOpen] = useState(false)
+  const [mobileSelectedTask, setMobileSelectedTask] = useState<Task | null>(null)
   const [createTaskForm, setCreateTaskForm] = useState<CreateTaskForm>({
     title: '',
     businessName: '',
@@ -953,6 +957,12 @@ function TaskManagementPage() {
     setShowEditModal(true)
   }, [])
 
+  // 모바일 카드 클릭 핸들러
+  const handleTaskClick = useCallback((task: Task) => {
+    setMobileSelectedTask(task)
+    setMobileModalOpen(true)
+  }, [])
+
   // 업무 수정 핸들러
   const handleUpdateTask = useCallback(async () => {
     if (!editingTask) return
@@ -1278,20 +1288,36 @@ function TaskManagementPage() {
 
 
         {/* 업무 리스트 뷰 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">업무 목록</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-6">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">업무 목록</h2>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-500">로딩 중...</span>
-            </div>
-          ) : filteredTasks.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              등록된 업무가 없습니다.
-            </div>
-          ) : (
-            <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
+          {/* 모바일: 카드 뷰 */}
+          <div className="md:hidden">
+            <TaskCardList
+              tasks={paginatedTasks}
+              onTaskClick={handleTaskClick}
+              onTaskEdit={(task) => {
+                setEditingTask(task)
+                setEditBusinessSearchTerm(task.businessName || '')
+                setShowEditModal(true)
+              }}
+              isLoading={isLoading}
+            />
+          </div>
+
+          {/* 데스크톱: 기존 테이블 */}
+          <div className="hidden md:block">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-gray-500">로딩 중...</span>
+              </div>
+            ) : filteredTasks.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                등록된 업무가 없습니다.
+              </div>
+            ) : (
+              <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
               <table className="w-full min-w-[800px]">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
@@ -1419,10 +1445,10 @@ function TaskManagementPage() {
                 </tbody>
               </table>
             </div>
-          )}
+            )}
 
-          {/* 페이지네이션 */}
-          {!isLoading && filteredTasks.length > 0 && totalPages > 1 && (
+            {/* 페이지네이션 */}
+            {!isLoading && filteredTasks.length > 0 && totalPages > 1 && (
             <div className="flex items-center justify-between mt-6 px-4">
               <div className="text-sm text-gray-600">
                 전체 {filteredTasks.length}개 중 {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredTasks.length)}개 표시
@@ -1501,8 +1527,29 @@ function TaskManagementPage() {
                 </button>
               </div>
             </div>
-          )}
+            )}
+          </div>
         </div>
+
+        {/* 모바일 상세 모달 */}
+        <TaskMobileModal
+          task={mobileSelectedTask}
+          isOpen={mobileModalOpen}
+          onClose={() => {
+            setMobileModalOpen(false)
+            setMobileSelectedTask(null)
+          }}
+          onEdit={(task) => {
+            setEditingTask(task)
+            setEditBusinessSearchTerm(task.businessName || '')
+            setShowEditModal(true)
+            setMobileModalOpen(false)
+          }}
+          onDelete={async (task) => {
+            await handleDeleteTask(task.id)
+            setMobileModalOpen(false)
+          }}
+        />
       </div>
 
       {/* 칸반 보드 */}
