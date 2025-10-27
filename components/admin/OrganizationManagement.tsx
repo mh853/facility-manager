@@ -327,104 +327,106 @@ export default function OrganizationManagement() {
       )}
 
       {/* 액션 버튼 */}
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
         <button
           onClick={() => openModal('department')}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center justify-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-sm md:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          <Plus className="w-4 h-4" />
-          새 부서 추가
+          <Plus className="w-3 h-3 md:w-4 md:h-4" />
+          <span className="hidden sm:inline">새 부서 추가</span>
+          <span className="sm:hidden">부서 추가</span>
         </button>
         <button
           onClick={() => openModal('team')}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          className="flex items-center justify-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-sm md:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
         >
-          <Plus className="w-4 h-4" />
-          새 팀 추가
+          <Plus className="w-3 h-3 md:w-4 md:h-4" />
+          <span className="hidden sm:inline">새 팀 추가</span>
+          <span className="sm:hidden">팀 추가</span>
         </button>
       </div>
 
       {/* 조직 구조 */}
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4">
         {departments.map((department) => (
           <div key={department.id} className="bg-white border border-gray-200 rounded-lg">
             {/* 부서 헤더 */}
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Building className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <h3 className="font-medium text-gray-900">{department.name}</h3>
+            <div className="px-3 md:px-4 lg:px-6 py-3 md:py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                  <Building className="w-4 h-4 md:w-5 md:h-5 text-blue-600 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <h3 className="text-sm md:text-base font-medium text-gray-900 truncate">{department.name}</h3>
                     {department.description && (
-                      <p className="text-sm text-gray-600">{department.description}</p>
+                      <p className="text-xs md:text-sm text-gray-600 truncate">{department.description}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <button
                     onClick={() => openModal('department', department)}
-                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    className="p-1.5 md:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                     title="부서 수정"
                   >
-                    <Edit className="w-4 h-4" />
+                    <Edit className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   </button>
                   <button
                     onClick={() => analyzeDeleteImpact('department', department)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-1.5 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="부서 삭제"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   </button>
                 </div>
               </div>
             </div>
 
             {/* 부서 내 팀들 */}
-            <div className="p-6">
+            <div className="p-3 md:p-4 lg:p-6">
               {department.teams && department.teams.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2 md:space-y-3">
                   {department.teams.map((team) => (
-                    <div key={team.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Users className="w-4 h-4 text-green-600" />
-                        <div>
-                          <span className="font-medium text-gray-900">{team.name}</span>
+                    <div key={team.id} className="flex items-center justify-between p-2 md:p-3 bg-gray-50 rounded-lg gap-2">
+                      <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                        <Users className="w-3 h-3 md:w-4 md:h-4 text-green-600 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-xs md:text-sm font-medium text-gray-900 truncate block">{team.name}</span>
                           {team.description && (
-                            <span className="text-sm text-gray-600 ml-2">- {team.description}</span>
+                            <span className="text-[10px] md:text-xs text-gray-600 truncate block">{team.description}</span>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 md:gap-1">
                         <button
                           onClick={() => openModal('team', team)}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          className="p-1 md:p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                           title="팀 수정"
                         >
-                          <Edit className="w-3.5 h-3.5" />
+                          <Edit className="w-3 h-3 md:w-3.5 md:h-3.5" />
                         </button>
                         <button
                           onClick={() => analyzeDeleteImpact('team', team)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          className="p-1 md:p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                           title="팀 삭제"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p>이 부서에는 아직 팀이 없습니다.</p>
+                <div className="text-center py-6 md:py-8 text-gray-500">
+                  <Users className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-xs md:text-sm">이 부서에는 아직 팀이 없습니다.</p>
                   <button
                     onClick={() => {
                       setFormData(prev => ({ ...prev, department_id: department.id }));
                       openModal('team');
                     }}
-                    className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    className="mt-2 text-xs md:text-sm text-blue-600 hover:text-blue-800 font-medium"
                   >
                     첫 번째 팀 추가하기
                   </button>
