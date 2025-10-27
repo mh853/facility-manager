@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
 
     console.log('🔍 [REVENUE-CALCULATE] 토큰 검증:', { userId, permissionLevel });
 
-    // 권한 2 이상 확인 (매출 조회/계산)
-    if (!permissionLevel || permissionLevel < 2) {
+    // 권한 1 이상 확인 (매출 조회/계산)
+    if (!permissionLevel || permissionLevel < 1) {
       console.log('❌ [REVENUE-CALCULATE] 권한 부족:', { permissionLevel });
       return NextResponse.json({
         success: false,
@@ -614,8 +614,8 @@ export async function GET(request: NextRequest) {
       console.log('✅ [REVENUE-CALCULATE-GET] DB에서 권한 조회 완료:', { userId, permissionLevel });
     }
 
-    // 권한 2 이상 확인
-    if (!permissionLevel || permissionLevel < 2) {
+    // 권한 1 이상 확인
+    if (!permissionLevel || permissionLevel < 1) {
       return NextResponse.json({
         success: false,
         message: '매출 조회 권한이 필요합니다.'

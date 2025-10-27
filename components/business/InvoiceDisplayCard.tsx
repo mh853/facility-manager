@@ -18,7 +18,7 @@ export const InvoiceDisplayCard: React.FC<InvoiceDisplayCardProps> = ({
   paymentAmount,
 }) => {
   const receivable = (invoiceAmount || 0) - (paymentAmount || 0);
-  const hasInvoice = invoiceDate && invoiceAmount && invoiceAmount > 0;
+  const hasInvoice = invoiceDate && invoiceAmount && invoiceAmount > 0;  // 발행일이 있어야 계산서로 인정
   const hasPayment = paymentDate && paymentAmount && paymentAmount > 0;
   const hasAnyData = hasInvoice || hasPayment;  // 계산서 또는 입금 중 하나라도 있으면 표시
   const isFullyPaid = receivable === 0 && hasInvoice;

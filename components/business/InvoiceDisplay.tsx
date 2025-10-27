@@ -163,7 +163,9 @@ export const InvoiceDisplay: React.FC<InvoiceDisplayProps> = ({
             paymentAmount={invoiceData.invoices.second?.payment_amount}
           />
 
-          {additionalCost && additionalCost > 0 && (
+          {additionalCost > 0 &&
+           (invoiceData.invoices.additional?.invoice_date ||
+            invoiceData.invoices.additional?.payment_date) && (
             <InvoiceDisplayCard
               title="추가공사비"
               invoiceDate={invoiceData.invoices.additional?.invoice_date}
