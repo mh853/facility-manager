@@ -218,6 +218,27 @@ export function setRefreshTokenHeader(response: Response, newToken: string): Res
   return response;
 }
 
+/**
+ * 간단한 토큰 검증 (기존 API 호환용)
+ * 사용자 정보 대신 디코딩된 페이로드만 반환
+ */
+export function verifyToken(token: string): JWTPayload | null {
+  try {
+    // 새로운 시크릿으로 검증 시도
+    const decoded = jwt.verify(token, NEW_JWT_SECRET) as JWTPayload;
+    return decoded;
+  } catch (newSecretError) {
+    try {
+      // 기존 시크릿으로 검증 시도
+      const decoded = jwt.verify(token, OLD_JWT_SECRET) as JWTPayload;
+      return decoded;
+    } catch (oldSecretError) {
+      console.error('❌ [JWT] verifyToken 실패');
+      return null;
+    }
+  }
+}
+
 export {
   NEW_JWT_SECRET,
   OLD_JWT_SECRET,

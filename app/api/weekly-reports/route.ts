@@ -86,8 +86,9 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     const userId = searchParams.get('userId');
     const weekDate = searchParams.get('weekDate'); // YYYY-MM-DD 형식
     const includeTeam = searchParams.get('includeTeam') === 'true';
+    const forceRegenerate = searchParams.get('forceRegenerate') === 'true';
 
-    console.log('📊 [WEEKLY-REPORTS] 주간 리포트 조회:', { userId, weekDate, includeTeam });
+    console.log('📊 [WEEKLY-REPORTS] 주간 리포트 조회:', { userId, weekDate, includeTeam, forceRegenerate });
 
     if (!userId) {
       return createErrorResponse('사용자 ID가 필요합니다', 400);
@@ -106,7 +107,76 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('사용자를 찾을 수 없습니다', 404);
     }
 
+    // 1. 저장된 리포트 확인 (forceRegenerate가 아닐 때만)
+    if (!forceRegenerate) {
+      const { data: existingReport, error: reportError } = await supabaseAdmin
+        .from('weekly_reports')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('week_start', weekStart)
+        .single();
+
+      if (!reportError && existingReport) {
+        console.log('✅ [WEEKLY-REPORTS] 저장된 리포트 발견:', existingReport.id);
+
+        // JSONB 필드 파싱
+        const parsedReport = {
+          ...existingReport,
+          completed_task_details: typeof existingReport.completed_task_details === 'string'
+            ? JSON.parse(existingReport.completed_task_details)
+            : existingReport.completed_task_details,
+          pending_task_details: typeof existingReport.pending_task_details === 'string'
+            ? JSON.parse(existingReport.pending_task_details)
+            : existingReport.pending_task_details
+        };
+
+        // 🔥 구버전 리포트 감지 로직
+        const hasCompletedDetails = parsedReport.completed_task_details && parsedReport.completed_task_details.length > 0;
+        const hasPendingDetails = parsedReport.pending_task_details && parsedReport.pending_task_details.length > 0;
+        const hasTaskDetails = hasCompletedDetails || hasPendingDetails;
+
+        // 🔥 잘못된 분류 로직 감지: completed_tasks가 있는데 in_progress_tasks가 0인 경우
+        const hasWrongClassification = parsedReport.completed_tasks > 0 &&
+                                       parsedReport.in_progress_tasks === 0 &&
+                                       parsedReport.total_tasks > 0;
+
+        console.log('🔍 [WEEKLY-REPORTS] 리포트 검증:', {
+          total_tasks: parsedReport.total_tasks,
+          completed_tasks: parsedReport.completed_tasks,
+          in_progress_tasks: parsedReport.in_progress_tasks,
+          completed_details_length: parsedReport.completed_task_details?.length || 0,
+          pending_details_length: parsedReport.pending_task_details?.length || 0,
+          hasTaskDetails,
+          hasWrongClassification,
+          shouldRegenerate: (!hasTaskDetails && parsedReport.total_tasks > 0) || hasWrongClassification
+        });
+
+        // 구버전이거나 잘못된 분류 로직이면 재생성
+        const shouldRegenerate = (!hasTaskDetails && parsedReport.total_tasks > 0) || hasWrongClassification;
+
+        if (shouldRegenerate) {
+          console.log('⚠️ [WEEKLY-REPORTS] 구버전 또는 잘못된 분류 리포트 감지, 자동 재생성...');
+          // 아래로 진행하여 재생성 (나중에 update로 덮어씀)
+        } else {
+          return createSuccessResponse({
+            report: parsedReport,
+            summary: {
+              week_period: `${weekStart.split('T')[0]} ~ ${weekEnd.split('T')[0]}`,
+              performance_summary: `${parsedReport.completed_tasks}/${parsedReport.total_tasks} 업무 완료 (${parsedReport.completion_rate}%)`,
+              overdue_alert: parsedReport.overdue_tasks > 0 ? `${parsedReport.overdue_tasks}개 연체 업무` : null,
+              data_source: 'database',
+              is_auto_generated: parsedReport.is_auto_generated
+            }
+          });
+        }
+      }
+    }
+
+    // 2. 저장된 리포트 없음 → 실시간 생성
+    console.log('🔄 [WEEKLY-REPORTS] 저장된 리포트 없음, 실시간 생성 시작...');
+
     // 해당 주간의 업무 조회
+    // 주간 내에 created/updated/completed 중 하나라도 있으면 포함
     const { data: weeklyTasks, error: tasksError } = await supabaseAdmin
       .from('facility_tasks')
       .select(`
@@ -124,31 +194,64 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       `)
       .eq('assignee', user.name)
       .eq('is_active', true)
-      .eq('is_deleted', false)
-      .or(`created_at.gte.${weekStart},updated_at.gte.${weekStart},completed_at.gte.${weekStart}`)
-      .lte('created_at', weekEnd);
+      .eq('is_deleted', false);
+
+    // 클라이언트 사이드에서 필터링 (OR 조건 + 범위 체크)
+    const filteredTasks = (weeklyTasks || []).filter(task => {
+      const created = new Date(task.created_at);
+      const updated = task.updated_at ? new Date(task.updated_at) : null;
+      const completed = task.completed_at ? new Date(task.completed_at) : null;
+      const weekStartDate = new Date(weekStart);
+      const weekEndDate = new Date(weekEnd);
+
+      // 주간 범위 내에 생성/수정/완료 중 하나라도 있으면 포함
+      return (
+        (created >= weekStartDate && created <= weekEndDate) ||
+        (updated && updated >= weekStartDate && updated <= weekEndDate) ||
+        (completed && completed >= weekStartDate && completed <= weekEndDate)
+      );
+    });
 
     if (tasksError) {
       console.error('🔴 [WEEKLY-REPORTS] 업무 조회 오류:', tasksError);
       throw tasksError;
     }
 
-    const tasks = weeklyTasks || [];
+    const tasks = filteredTasks;
+    console.log(`📊 [WEEKLY-REPORTS] 주간 업무 필터링: 전체 ${weeklyTasks?.length || 0}개 → 주간 범위 ${tasks.length}개`);
+
+    // 🔍 업무 상태 분석 (디버깅)
+    const statusCounts = tasks.reduce((acc, t) => {
+      acc[t.status] = (acc[t.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log('📋 [WEEKLY-REPORTS] 업무 상태 분포:', statusCounts);
 
     // 업무 통계 계산
     const totalTasks = tasks.length;
+
+    // 완료된 업무: 보조금 지급 완료만 "완료"로 간주
     const completedTasks = tasks.filter(t =>
-      ['document_complete', 'subsidy_payment', 'final_document_submit'].includes(t.status) &&
-      t.completed_at &&
-      new Date(t.completed_at) >= new Date(weekStart) &&
-      new Date(t.completed_at) <= new Date(weekEnd)
+      ['subsidy_payment'].includes(t.status)
     );
+
+    // 진행중 업무: 현장조사부터 서류완료까지 모든 단계
     const inProgressTasks = tasks.filter(t =>
-      ['site_survey', 'document_preparation', 'subsidy_application'].includes(t.status)
+      ['site_survey', 'document_preparation', 'subsidy_application',
+       'completion_inspection', 'product_shipment', 'final_document_submit', 'document_complete'].includes(t.status)
     );
+
+    // 대기 업무
     const pendingTasks = tasks.filter(t =>
       ['customer_contact', 'consultation_scheduled'].includes(t.status)
     );
+
+    console.log('📊 [WEEKLY-REPORTS] 업무 분류:', {
+      completed: completedTasks.length,
+      inProgress: inProgressTasks.length,
+      pending: pendingTasks.length,
+      unclassified: totalTasks - completedTasks.length - inProgressTasks.length - pendingTasks.length
+    });
 
     const completionRate = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
 
@@ -168,7 +271,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       business_name: task.business_name,
       task_type: task.task_type,
       status: task.status,
-      completed_at: task.completed_at!,
+      completed_at: task.completed_at || task.updated_at || task.created_at,  // 폴백 처리
       priority: task.priority
     }));
 
@@ -234,12 +337,95 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       completionRate
     });
 
+    // 3. 생성된 리포트를 DB에 저장 (기존 리포트 확인 후 insert/update)
+    try {
+      // 기존 리포트 확인
+      const { data: existingReport } = await supabaseAdmin
+        .from('weekly_reports')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('week_start', weekStart)
+        .single();
+
+      if (existingReport) {
+        // 기존 리포트가 있으면 update
+        const { error: updateError } = await supabaseAdmin
+          .from('weekly_reports')
+          .update({
+            user_name: user.name,
+            week_end: weekEnd,
+            total_tasks: totalTasks,
+            completed_tasks: completedTasks.length,
+            in_progress_tasks: inProgressTasks.length,
+            pending_tasks: pendingTasks.length,
+            completion_rate: completionRate,
+            self_tasks: selfTasks,
+            subsidy_tasks: subsidyTasks,
+            high_priority_completed: highPriorityCompleted,
+            medium_priority_completed: mediumPriorityCompleted,
+            low_priority_completed: lowPriorityCompleted,
+            completed_task_details: JSON.stringify(completedTaskDetails),
+            pending_task_details: JSON.stringify(pendingTaskDetails),
+            average_completion_time_days: Math.round(averageCompletionTime * 10) / 10,
+            overdue_tasks: overdueTasks,
+            is_auto_generated: false,
+            generated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingReport.id);
+
+        if (updateError) {
+          console.warn('⚠️ [WEEKLY-REPORTS] DB 업데이트 실패:', updateError);
+        } else {
+          console.log('💾 [WEEKLY-REPORTS] DB에 업데이트 완료:', existingReport.id);
+        }
+      } else {
+        // 새 리포트 insert
+        const { data: savedReport, error: insertError } = await supabaseAdmin
+          .from('weekly_reports')
+          .insert({
+            user_id: userId,
+            user_name: user.name,
+            week_start: weekStart,
+            week_end: weekEnd,
+            total_tasks: totalTasks,
+            completed_tasks: completedTasks.length,
+            in_progress_tasks: inProgressTasks.length,
+            pending_tasks: pendingTasks.length,
+            completion_rate: completionRate,
+            self_tasks: selfTasks,
+            subsidy_tasks: subsidyTasks,
+            high_priority_completed: highPriorityCompleted,
+            medium_priority_completed: mediumPriorityCompleted,
+            low_priority_completed: lowPriorityCompleted,
+            completed_task_details: JSON.stringify(completedTaskDetails),
+            pending_task_details: JSON.stringify(pendingTaskDetails),
+            average_completion_time_days: Math.round(averageCompletionTime * 10) / 10,
+            overdue_tasks: overdueTasks,
+            is_auto_generated: false,
+            generated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.warn('⚠️ [WEEKLY-REPORTS] DB 저장 실패:', insertError);
+        } else {
+          console.log('💾 [WEEKLY-REPORTS] DB에 저장 완료:', savedReport.id);
+        }
+      }
+    } catch (saveError) {
+      console.warn('⚠️ [WEEKLY-REPORTS] DB 저장 중 오류:', saveError);
+    }
+
     return createSuccessResponse({
       report: weeklyReport,
       summary: {
         week_period: `${weekStart.split('T')[0]} ~ ${weekEnd.split('T')[0]}`,
         performance_summary: `${completedTasks.length}/${totalTasks} 업무 완료 (${completionRate}%)`,
-        overdue_alert: overdueTasks > 0 ? `${overdueTasks}개 연체 업무` : null
+        overdue_alert: overdueTasks > 0 ? `${overdueTasks}개 연체 업무` : null,
+        data_source: 'generated',
+        is_auto_generated: false
       }
     });
 

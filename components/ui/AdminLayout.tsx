@@ -21,7 +21,8 @@ import {
   ClipboardList,
   TrendingUp,
   Sliders,
-  DollarSign
+  DollarSign,
+  Users
 } from 'lucide-react'
 
 interface AdminLayoutProps {
@@ -95,6 +96,13 @@ const navigationItems: NavigationItem[] = [
     icon: TrendingUp,
     description: '개인별 주간 업무 성과 분석',
     requiredLevel: 1
+  },
+  {
+    name: '전체 리포트 관리',
+    href: '/admin/weekly-reports/admin',
+    icon: Users,
+    description: '전체 사용자 주간 리포트 관리 (관리자 전용)',
+    requiredLevel: 3
   },
   {
     name: '문서 자동화',
