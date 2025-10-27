@@ -1691,11 +1691,12 @@ function RevenueDashboard() {
 
         {/* 기기 상세 정보 모달 */}
         {showEquipmentModal && selectedEquipmentBusiness && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">
-                  {selectedEquipmentBusiness.business_name} - 기기 상세 정보
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-3 md:px-6 py-3 md:py-4 flex justify-between items-center">
+                <h3 className="text-base md:text-xl font-bold text-gray-900 pr-2">
+                  {selectedEquipmentBusiness.business_name}
+                  <span className="hidden md:inline"> - 기기 상세 정보</span>
                 </h3>
                 <button
                   onClick={async () => {
@@ -1705,24 +1706,24 @@ function RevenueDashboard() {
                     await loadCalculations();
                     console.log('✅ [MODAL-CLOSE] 매출 데이터 새로고침 완료');
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 flex-shrink-0"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="p-3 md:p-6 space-y-4 md:space-y-6">
                 {/* 사업장 기본 정보 */}
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-lg p-3 md:p-4 space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
                     <div>
-                      <span className="text-sm font-medium text-gray-600">영업점:</span>
-                      <span className="ml-2 text-sm text-gray-900">{selectedEquipmentBusiness.sales_office || '미배정'}</span>
+                      <span className="text-xs md:text-sm font-medium text-gray-600">영업점:</span>
+                      <span className="ml-2 text-xs md:text-sm text-gray-900">{selectedEquipmentBusiness.sales_office || '미배정'}</span>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-600">진행 구분:</span>
+                      <span className="text-xs md:text-sm font-medium text-gray-600">진행 구분:</span>
                       <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                         selectedEquipmentBusiness.category === '보조금' || selectedEquipmentBusiness.category === '보조금 동시진행'
                           ? 'bg-purple-100 text-purple-800' :
@@ -1734,36 +1735,36 @@ function RevenueDashboard() {
                       </span>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-600">제조사:</span>
-                      <span className="ml-2 text-sm text-gray-900">{selectedEquipmentBusiness.manufacturer || '미지정'}</span>
+                      <span className="text-xs md:text-sm font-medium text-gray-600">제조사:</span>
+                      <span className="ml-2 text-xs md:text-sm text-gray-900">{selectedEquipmentBusiness.manufacturer || '미지정'}</span>
                     </div>
                   </div>
                   {selectedEquipmentBusiness.address && (
                     <div>
-                      <span className="text-sm font-medium text-gray-600">주소:</span>
-                      <span className="ml-2 text-sm text-gray-900">{selectedEquipmentBusiness.address}</span>
+                      <span className="text-xs md:text-sm font-medium text-gray-600">주소:</span>
+                      <span className="ml-2 text-xs md:text-sm text-gray-900">{selectedEquipmentBusiness.address}</span>
                     </div>
                   )}
                 </div>
 
                 {/* 매출/매입/이익 정보 */}
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                      <div className="bg-green-50 rounded-lg p-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mb-3 md:mb-4">
+                      <div className="bg-green-50 rounded-lg p-3 md:p-4">
                         <p className="text-xs font-medium text-green-600 mb-1">매출금액</p>
-                        <p className="text-lg font-bold text-green-700">
+                        <p className="text-sm md:text-lg font-bold text-green-700 break-words">
                           {formatCurrency(selectedEquipmentBusiness.total_revenue)}
                         </p>
                       </div>
-                      <div className="bg-red-50 rounded-lg p-4">
+                      <div className="bg-red-50 rounded-lg p-3 md:p-4">
                         <p className="text-xs font-medium text-red-600 mb-1">매입금액</p>
-                        <p className="text-lg font-bold text-red-700">
+                        <p className="text-sm md:text-lg font-bold text-red-700 break-words">
                           {formatCurrency(selectedEquipmentBusiness.total_cost)}
                         </p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="bg-gray-50 rounded-lg p-3 md:p-4 col-span-2 md:col-span-1">
                         <p className="text-xs font-medium text-gray-600 mb-1">총 이익 (매출-매입)</p>
-                        <p className="text-lg font-bold text-gray-700">
+                        <p className="text-sm md:text-lg font-bold text-gray-700 break-words">
                           {formatCurrency(selectedEquipmentBusiness.gross_profit || (selectedEquipmentBusiness.total_revenue - selectedEquipmentBusiness.total_cost))}
                         </p>
                       </div>
@@ -1773,9 +1774,9 @@ function RevenueDashboard() {
                     {(selectedEquipmentBusiness.sales_commission > 0 ||
                       selectedEquipmentBusiness.survey_costs > 0 ||
                       selectedEquipmentBusiness.installation_costs > 0) && (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mb-3 md:mb-4">
                         {selectedEquipmentBusiness.sales_commission > 0 && (
-                          <div className="bg-orange-50 rounded-lg p-4">
+                          <div className="bg-orange-50 rounded-lg p-3 md:p-4">
                             <p className="text-xs font-medium text-orange-600 mb-1">
                               영업비용 ({(() => {
                                 const salesOffice = businesses.find(b => b.id === selectedEquipmentBusiness.id)?.sales_office || '';
@@ -1790,25 +1791,25 @@ function RevenueDashboard() {
                                 return '10%';
                               })()})
                             </p>
-                            <p className="text-lg font-bold text-orange-700">
+                            <p className="text-sm md:text-lg font-bold text-orange-700 break-words">
                               {formatCurrency(selectedEquipmentBusiness.sales_commission)}
                             </p>
                           </div>
                         )}
                         {selectedEquipmentBusiness.survey_costs > 0 && (
-                          <div className="bg-yellow-50 rounded-lg p-4">
+                          <div className="bg-yellow-50 rounded-lg p-3 md:p-4">
                             <p className="text-xs font-medium text-yellow-600 mb-1">
                               실사비용 (견적{costSettingsLoaded && surveyCostSettings['estimate'] ? `${(surveyCostSettings['estimate']/10000).toFixed(0)}만` : ''}+착공{costSettingsLoaded && surveyCostSettings['pre_construction'] ? `${(surveyCostSettings['pre_construction']/10000).toFixed(0)}만` : ''}+준공{costSettingsLoaded && surveyCostSettings['completion'] ? `${(surveyCostSettings['completion']/10000).toFixed(0)}만` : ''})
                             </p>
-                            <p className="text-lg font-bold text-yellow-700">
+                            <p className="text-sm md:text-lg font-bold text-yellow-700 break-words">
                               {formatCurrency(selectedEquipmentBusiness.survey_costs)}
                             </p>
                           </div>
                         )}
                         {selectedEquipmentBusiness.installation_costs > 0 && (
-                          <div className="bg-indigo-50 rounded-lg p-4">
+                          <div className="bg-indigo-50 rounded-lg p-3 md:p-4">
                             <p className="text-xs font-medium text-indigo-600 mb-1">기본 설치비</p>
-                            <p className="text-lg font-bold text-indigo-700">
+                            <p className="text-sm md:text-lg font-bold text-indigo-700 break-words">
                               {formatCurrency(selectedEquipmentBusiness.installation_costs)}
                             </p>
                           </div>
@@ -1817,17 +1818,17 @@ function RevenueDashboard() {
                     )}
 
                     {/* 최종 이익 */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className={`rounded-lg p-4 ${selectedEquipmentBusiness.net_profit >= 0 ? 'bg-blue-50' : 'bg-red-50'}`}>
+                    <div className="grid grid-cols-2 gap-2 md:gap-4">
+                      <div className={`rounded-lg p-3 md:p-4 ${selectedEquipmentBusiness.net_profit >= 0 ? 'bg-blue-50' : 'bg-red-50'}`}>
                         <p className={`text-xs font-medium mb-1 ${selectedEquipmentBusiness.net_profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>순이익</p>
-                        <p className={`text-lg font-bold ${selectedEquipmentBusiness.net_profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                        <p className={`text-sm md:text-lg font-bold ${selectedEquipmentBusiness.net_profit >= 0 ? 'text-blue-700' : 'text-red-700'} break-words`}>
                           {formatCurrency(selectedEquipmentBusiness.net_profit)}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">= 총이익 - 영업 - 실사 - 설치</p>
+                        <p className="text-xs text-gray-500 mt-1 hidden md:block">= 총이익 - 영업 - 실사 - 설치</p>
                       </div>
-                      <div className="bg-purple-50 rounded-lg p-4">
+                      <div className="bg-purple-50 rounded-lg p-3 md:p-4">
                         <p className="text-xs font-medium text-purple-600 mb-1">이익률</p>
-                        <p className="text-lg font-bold text-purple-700">
+                        <p className="text-sm md:text-lg font-bold text-purple-700">
                           {selectedEquipmentBusiness.total_revenue > 0
                             ? ((selectedEquipmentBusiness.net_profit / selectedEquipmentBusiness.total_revenue) * 100).toFixed(1)
                             : '0'}%
@@ -1895,8 +1896,118 @@ function RevenueDashboard() {
 
                 {/* 설치 기기 목록 */}
                 <div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">설치 기기 목록</h4>
-                  <div className="overflow-x-auto">
+                  <h4 className="text-sm md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">설치 기기 목록</h4>
+
+                  {/* 모바일 카드뷰 */}
+                  <div className="md:hidden space-y-3 mb-4">
+                    {(() => {
+                      const equipmentFields = [
+                        { key: 'ph_meter', name: 'PH센서' },
+                        { key: 'differential_pressure_meter', name: '차압계' },
+                        { key: 'temperature_meter', name: '온도계' },
+                        { key: 'discharge_current_meter', name: '배출전류계' },
+                        { key: 'fan_current_meter', name: '송풍전류계' },
+                        { key: 'pump_current_meter', name: '펌프전류계' },
+                        { key: 'gateway', name: '게이트웨이' },
+                        { key: 'vpn_wired', name: 'VPN(유선)' },
+                        { key: 'vpn_wireless', name: 'VPN(무선)' },
+                        { key: 'explosion_proof_differential_pressure_meter_domestic', name: '방폭차압계(국산)' },
+                        { key: 'explosion_proof_temperature_meter_domestic', name: '방폭온도계(국산)' },
+                        { key: 'expansion_device', name: '확장디바이스' },
+                        { key: 'relay_8ch', name: '중계기(8채널)' },
+                        { key: 'relay_16ch', name: '중계기(16채널)' },
+                        { key: 'main_board_replacement', name: '메인보드교체' },
+                        { key: 'multiple_stack', name: '복수굴뚝' }
+                      ];
+
+                      const equipmentList = equipmentFields
+                        .filter(field => {
+                          const quantity = selectedEquipmentBusiness[field.key];
+                          return quantity && quantity > 0;
+                        })
+                        .map(field => {
+                          const quantity = selectedEquipmentBusiness[field.key];
+                          const businessManufacturer = selectedEquipmentBusiness.manufacturer || 'ecosense';
+
+                          const unitRevenue = (pricesLoaded && officialPrices[field.key] !== undefined)
+                            ? officialPrices[field.key]
+                            : (OFFICIAL_PRICES[field.key] || 0);
+
+                          const unitCost = (pricesLoaded && manufacturerPrices[businessManufacturer]?.[field.key] !== undefined)
+                            ? manufacturerPrices[businessManufacturer][field.key]
+                            : (MANUFACTURER_COSTS[field.key] || 0);
+
+                          const totalRevenue = unitRevenue * quantity;
+                          const totalCost = unitCost * quantity;
+
+                          return { field, quantity, unitRevenue, unitCost, totalRevenue, totalCost };
+                        });
+
+                      if (equipmentList.length === 0) {
+                        return (
+                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center text-gray-500">
+                            등록된 기기 정보가 없습니다.
+                          </div>
+                        );
+                      }
+
+                      const businessManufacturer = selectedEquipmentBusiness.manufacturer || 'ecosense';
+                      const totals = equipmentList.reduce((acc, item) => {
+                        acc.totalRevenue += item.totalRevenue;
+                        acc.totalCost += item.totalCost;
+                        return acc;
+                      }, { totalRevenue: 0, totalCost: 0 });
+
+                      return (
+                        <>
+                          {equipmentList.map(({ field, quantity, unitRevenue, unitCost, totalRevenue, totalCost }) => (
+                            <div key={field.key} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                              <div className="flex items-start justify-between mb-2">
+                                <h5 className="font-semibold text-gray-900">{field.name}</h5>
+                                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded">{quantity}대</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <div className="text-gray-500">매출단가</div>
+                                  <div className="font-mono font-medium text-green-700">{unitRevenue.toLocaleString()}원</div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-500">매입단가</div>
+                                  <div className="font-mono font-medium text-red-700">{unitCost.toLocaleString()}원</div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-500">매출합계</div>
+                                  <div className="font-mono font-semibold text-green-700">{totalRevenue.toLocaleString()}원</div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-500">매입합계</div>
+                                  <div className="font-mono font-semibold text-red-700">{totalCost.toLocaleString()}원</div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* 합계 카드 */}
+                          <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3">
+                            <h5 className="font-bold text-blue-900 mb-2">합계</h5>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <div className="text-blue-700 font-medium">총 매출</div>
+                                <div className="font-mono font-bold text-blue-900">{totals.totalRevenue.toLocaleString()}원</div>
+                              </div>
+                              <div>
+                                <div className="text-red-700 font-medium">총 매입</div>
+                                <div className="font-mono font-bold text-red-900">{totals.totalCost.toLocaleString()}원</div>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  {/* 데스크톱 테이블뷰 */}
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="w-full border-collapse border border-gray-300">
                       <thead>
                         <tr className="bg-gray-50">
@@ -2035,20 +2146,20 @@ function RevenueDashboard() {
                 </div>
 
                 {/* 추가 비용 정보 */}
-                <div className="mt-6">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">추가 비용 정보</h4>
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between py-2 border-b border-gray-200">
-                      <span className="text-sm font-medium text-gray-700">추가공사비</span>
-                      <span className="text-base font-semibold text-green-700">
+                <div className="mt-4 md:mt-6">
+                  <h4 className="text-sm md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">추가 비용 정보</h4>
+                  <div className="bg-gray-50 rounded-lg p-3 md:p-4 space-y-2 md:space-y-3">
+                    <div className="flex items-center justify-between py-1.5 md:py-2 border-b border-gray-200">
+                      <span className="text-xs md:text-sm font-medium text-gray-700">추가공사비</span>
+                      <span className="text-sm md:text-base font-semibold text-green-700">
                         {selectedEquipmentBusiness.additional_cost
                           ? `+${formatCurrency(selectedEquipmentBusiness.additional_cost)}`
                           : '₩0'}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between py-2">
-                      <span className="text-sm font-medium text-gray-700">협의사항 (할인 금액)</span>
-                      <span className="text-base font-semibold text-red-700">
+                    <div className="flex items-center justify-between py-1.5 md:py-2">
+                      <span className="text-xs md:text-sm font-medium text-gray-700">협의사항 (할인 금액)</span>
+                      <span className="text-sm md:text-base font-semibold text-red-700">
                         {selectedEquipmentBusiness.negotiation
                           ? `-${formatCurrency(selectedEquipmentBusiness.negotiation)}`
                           : '₩0'}
@@ -2077,7 +2188,7 @@ function RevenueDashboard() {
                 )}
               </div>
 
-              <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200">
+              <div className="sticky bottom-0 bg-gray-50 px-3 md:px-6 py-3 md:py-4 border-t border-gray-200">
                 <button
                   onClick={async () => {
                     setShowEquipmentModal(false);
@@ -2086,7 +2197,7 @@ function RevenueDashboard() {
                     await loadCalculations();
                     console.log('✅ [MODAL-CLOSE] 매출 데이터 새로고침 완료');
                   }}
-                  className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  className="w-full px-4 py-2 md:py-3 text-sm md:text-base bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
                 >
                   닫기
                 </button>
