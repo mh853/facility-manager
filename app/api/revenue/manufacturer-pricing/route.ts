@@ -105,12 +105,6 @@ export async function GET(request: NextRequest) {
 
     const { data: pricing, error } = await query;
 
-    // 디버깅: ecosense ph_meter 가격 확인
-    const ecosensePH = pricing?.find(p => p.manufacturer === 'ecosense' && p.equipment_type === 'ph_meter');
-    if (ecosensePH) {
-      console.log('🔍 [MANUFACTURER-PRICING] ecosense ph_meter 원가:', ecosensePH.cost_price, '원');
-    }
-
     if (error) {
       console.error('❌ [MANUFACTURER-PRICING] 조회 오류:', error);
       return NextResponse.json({
@@ -118,8 +112,6 @@ export async function GET(request: NextRequest) {
         message: '제조사별 원가 조회에 실패했습니다.'
       }, { status: 500 });
     }
-
-    console.log(`📊 [MANUFACTURER-PRICING] 조회 완료: ${pricing?.length || 0}개`);
 
     return NextResponse.json({
       success: true,
@@ -250,8 +242,6 @@ export async function POST(request: NextRequest) {
           user_name: decoded.name || decoded.username || '알 수 없음'
         });
     }
-
-    console.log(`✅ [MANUFACTURER-PRICING] ${existingData ? '수정' : '생성'} 완료:`, `${manufacturer} - ${equipment_name}`);
 
     return NextResponse.json({
       success: true,
@@ -392,8 +382,6 @@ export async function PATCH(request: NextRequest) {
         });
     }
 
-    console.log(`✏️ [MANUFACTURER-PRICING] 수정 완료:`, `${existingData.manufacturer} - ${existingData.equipment_name}`);
-
     return NextResponse.json({
       success: true,
       data: updatedData,
@@ -481,8 +469,6 @@ export async function DELETE(request: NextRequest) {
         message: '제조사별 원가 삭제에 실패했습니다.'
       }, { status: 500 });
     }
-
-    console.log(`🗑️ [MANUFACTURER-PRICING] 삭제 완료:`, `${existingData.manufacturer} - ${existingData.equipment_name}`);
 
     return NextResponse.json({
       success: true,

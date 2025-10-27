@@ -225,13 +225,11 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     }
 
     if (!token) {
-      console.log('❌ [GENERATE-ALL] 토큰 없음');
       return createErrorResponse('인증이 필요합니다', 401);
     }
 
     const decoded = verifyToken(token);
     if (!decoded) {
-      console.log('❌ [GENERATE-ALL] 토큰 검증 실패');
       return createErrorResponse('유효하지 않은 토큰입니다', 401);
     }
 
@@ -240,23 +238,14 @@ export const POST = withApiHandler(async (request: NextRequest) => {
 
     // 권한 3 이상 확인
     if (permissionLevel < 3) {
-      console.log('❌ [GENERATE-ALL] 권한 부족:', { userId, permissionLevel });
       return createErrorResponse('권한이 부족합니다 (권한 3 이상 필요)', 403);
     }
-
-    console.log('✅ [GENERATE-ALL] 관리자 인증 성공:', { userId, permissionLevel });
 
     const body = await request.json();
     const { weekDate } = body;
 
     // 주간 범위 계산
     const { start, end } = getWeekRange(weekDate || undefined);
-
-    console.log('📅 [GENERATE-ALL] 주간 범위:', {
-      weekDate,
-      start: start.split('T')[0],
-      end: end.split('T')[0]
-    });
 
     // 모든 활성 사용자 조회
     const { data: users, error: usersError } = await supabaseAdmin
@@ -268,8 +257,6 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       console.error('❌ [GENERATE-ALL] 사용자 조회 실패:', usersError);
       throw usersError;
     }
-
-    console.log(`👥 [GENERATE-ALL] 활성 사용자 ${users?.length || 0}명 발견`);
 
     const results = {
       total: users?.length || 0,
@@ -285,7 +272,6 @@ export const POST = withApiHandler(async (request: NextRequest) => {
         const result = await generateAndSaveReport(user.id, user.name, start, end);
         results.success++;
         if (result.action === 'updated') results.updated++;
-        console.log(`✅ [GENERATE-ALL] ${user.name} 리포트 ${result.action === 'created' ? '생성' : '업데이트'} 완료`);
       } catch (error: any) {
         results.failed++;
         results.errors.push({
@@ -296,13 +282,6 @@ export const POST = withApiHandler(async (request: NextRequest) => {
         console.error(`❌ [GENERATE-ALL] ${user.name} 리포트 생성 실패:`, error.message);
       }
     }
-
-    console.log('✅ [GENERATE-ALL] 주간 리포트 생성 완료:', {
-      total: results.total,
-      success: results.success,
-      updated: results.updated,
-      failed: results.failed
-    });
 
     return createSuccessResponse({
       message: '전체 사용자 리포트 생성이 완료되었습니다',

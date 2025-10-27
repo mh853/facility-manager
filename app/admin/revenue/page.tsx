@@ -945,23 +945,13 @@ function RevenueDashboard() {
       requiredLevel={AuthLevel.ADMIN}
       fallbackMessage="매출 관리 시스템은 관리자 권한이 필요합니다."
     >
-      <AdminLayout>
-        <div className="space-y-6">
-        {/* 헤더 */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">매출 관리 대시보드</h1>
-            <p className="text-gray-600 mt-1">환경부 고시가 기준 매출 현황 및 분석</p>
-          </div>
+      <AdminLayout
+        title="매출 관리"
+        description="환경부 고시가 기준 매출 현황 및 분석"
+        actions={
           <div className="flex gap-2">
             <button
               onClick={() => {
-                console.log('🔍 [REVENUE-PAGE] 원가관리 버튼 클릭:', {
-                  userPermission,
-                  user_permission_level: user?.permission_level,
-                  hasAccess: userPermission >= 3,
-                  willRedirect: userPermission >= 3
-                });
                 if (userPermission >= 3) {
                   router.push('/admin/revenue/pricing');
                 } else {
@@ -969,7 +959,7 @@ function RevenueDashboard() {
                 }
               }}
               disabled={userPermission < 3}
-              className={`px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors ${
+              className={`px-3 md:px-4 py-2 border rounded-lg flex items-center gap-1 md:gap-2 transition-colors text-sm ${
                 userPermission >= 3
                   ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer'
                   : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-50'
@@ -977,20 +967,24 @@ function RevenueDashboard() {
               title={userPermission < 3 ? `권한 부족: 레벨 ${userPermission} (필요: 레벨 3+)` : '원가 관리 페이지로 이동'}
             >
               <DollarSign className="w-4 h-4" />
-              원가 관리 {userPermission < 3 && `(권한${userPermission}/3 필요)`}
+              <span className="hidden sm:inline">원가 관리</span>
+              <span className="sm:hidden">원가</span>
             </button>
             <button
               onClick={exportData}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors"
+              className="px-3 md:px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-1 md:gap-2 transition-colors text-sm"
             >
               <Download className="w-4 h-4" />
-              엑셀 내보내기
+              <span className="hidden sm:inline">엑셀 내보내기</span>
+              <span className="sm:hidden">엑셀</span>
             </button>
           </div>
-        </div>
+        }
+      >
+        <div className="space-y-4">
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <StatsCard
             title="총 사업장 수"
             value={`${businesses.length}개`}
@@ -1037,18 +1031,18 @@ function RevenueDashboard() {
         </div>
 
         {/* 필터 및 검색 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Filter className="w-5 h-5" />
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 md:p-4">
+          <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <Filter className="w-4 h-4" />
             필터 및 검색
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
             <div>
-              <label className="text-sm font-medium mb-2 block">사업장 선택</label>
+              <label className="text-xs md:text-sm font-medium mb-1.5 block">사업장 선택</label>
               <select
                 value={selectedBusiness}
                 onChange={(e) => setSelectedBusiness(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체 사업장</option>
                 {businesses.map(business => (
@@ -1060,11 +1054,11 @@ function RevenueDashboard() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">영업점</label>
+              <label className="text-xs md:text-sm font-medium mb-1.5 block">영업점</label>
               <select
                 value={selectedOffice}
                 onChange={(e) => setSelectedOffice(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체 영업점</option>
                 {salesOffices.map(office => (
@@ -1076,11 +1070,11 @@ function RevenueDashboard() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">지역</label>
+              <label className="text-xs md:text-sm font-medium mb-1.5 block">지역</label>
               <select
                 value={selectedRegion}
                 onChange={(e) => setSelectedRegion(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체 지역</option>
                 {regions.sort().map(region => (
@@ -1092,11 +1086,11 @@ function RevenueDashboard() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">진행구분</label>
+              <label className="text-xs md:text-sm font-medium mb-1.5 block">진행구분</label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체</option>
                 <option value="자비">자비</option>
@@ -1108,11 +1102,11 @@ function RevenueDashboard() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">사업 진행 연도</label>
+              <label className="text-xs md:text-sm font-medium mb-1.5 block">사업 진행 연도</label>
               <select
                 value={selectedProjectYear}
                 onChange={(e) => setSelectedProjectYear(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체 연도</option>
                 {projectYears.map(year => (
@@ -1124,11 +1118,11 @@ function RevenueDashboard() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">설치 월 (설치일 기준)</label>
+              <label className="text-xs md:text-sm font-medium mb-1.5 block">설치 월</label>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체 월</option>
                 <option value="1">1월</option>
@@ -1147,8 +1141,8 @@ function RevenueDashboard() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">미수금 필터</label>
-              <div className="flex items-center h-10 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
+              <label className="text-xs md:text-sm font-medium mb-1.5 block">미수금 필터</label>
+              <div className="flex items-center h-8 px-2 py-1.5 bg-gray-50 border border-gray-300 rounded">
                 <input
                   type="checkbox"
                   id="receivables-filter"
@@ -1156,8 +1150,8 @@ function RevenueDashboard() {
                   onChange={(e) => setShowReceivablesOnly(e.target.checked)}
                   className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
                 />
-                <label htmlFor="receivables-filter" className="ml-2 text-sm font-medium text-gray-700 cursor-pointer">
-                  미수금 있는 사업장만
+                <label htmlFor="receivables-filter" className="ml-2 text-xs md:text-sm font-medium text-gray-700 cursor-pointer">
+                  미수금만
                 </label>
               </div>
             </div>
@@ -1166,7 +1160,7 @@ function RevenueDashboard() {
               <button
                 onClick={loadCalculations}
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
                 <Search className="w-4 h-4" />
                 조회
@@ -1175,7 +1169,7 @@ function RevenueDashboard() {
                 <button
                   onClick={() => calculateRevenue(selectedBusiness)}
                   disabled={isCalculating}
-                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                  className="px-3 py-1.5 text-sm bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
                 >
                   <Calculator className="w-4 h-4" />
                   {isCalculating ? '계산 중...' : '계산'}
@@ -1184,42 +1178,42 @@ function RevenueDashboard() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="text-sm font-medium mb-2 block">검색</label>
+              <label className="text-xs md:text-sm font-medium mb-1.5 block">검색</label>
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Search className="w-4 h-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="사업장명 또는 영업점으로 검색..."
+                  placeholder="사업장명 또는 영업점..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">최소 매출금액 (원)</label>
+              <label className="text-xs md:text-sm font-medium mb-1.5 block">최소 매출금액 (원)</label>
               <input
                 type="number"
                 placeholder="0"
                 value={revenueFilter.min}
                 onChange={(e) => setRevenueFilter(prev => ({ ...prev, min: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min="0"
                 step="100000"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">최대 매출금액 (원)</label>
+              <label className="text-xs md:text-sm font-medium mb-1.5 block">최대 매출금액 (원)</label>
               <input
                 type="number"
                 placeholder="제한없음"
                 value={revenueFilter.max}
                 onChange={(e) => setRevenueFilter(prev => ({ ...prev, max: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min="0"
                 step="100000"
               />
@@ -1228,42 +1222,58 @@ function RevenueDashboard() {
         </div>
 
         {/* 요약 통계 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-50 rounded-lg flex-shrink-0">
-                <Building2 className="w-5 h-5 text-blue-600" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+          <div className="bg-white p-3 md:p-6 rounded-lg md:rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="p-1.5 md:p-2 bg-blue-50 rounded-lg flex-shrink-0">
+                <Building2 className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-600">총 사업장</p>
-                <p className="text-2xl font-bold text-gray-900">{sortedBusinesses.length}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-600">총 사업장</p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900">{sortedBusinesses.length}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-50 rounded-lg flex-shrink-0">
-                <TrendingUp className="w-5 h-5 text-green-600" />
+          <div className="bg-white p-3 md:p-6 rounded-lg md:rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="p-1.5 md:p-2 bg-green-50 rounded-lg flex-shrink-0">
+                <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-600 mb-1">총 매출금액</p>
-                <p className="text-lg font-bold text-green-600 break-words">
+                <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">총 매출금액</p>
+                <p className="text-sm md:text-lg font-bold text-green-600 break-words">
                   {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.total_revenue, 0))}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-50 rounded-lg flex-shrink-0">
-                <DollarSign className="w-5 h-5 text-purple-600" />
+          <div className="bg-white p-3 md:p-6 rounded-lg md:rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="p-1.5 md:p-2 bg-purple-50 rounded-lg flex-shrink-0">
+                <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-purple-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-600 mb-1">총 이익금액</p>
-                <p className="text-lg font-bold text-purple-600 break-words">
+                <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">총 이익금액</p>
+                <p className="text-sm md:text-lg font-bold text-purple-600 break-words">
                   {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.net_profit, 0))}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-3 md:p-6 rounded-lg md:rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="p-1.5 md:p-2 bg-orange-50 rounded-lg flex-shrink-0">
+                <BarChart3 className="w-4 h-4 md:w-5 md:h-5 text-orange-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">평균 이익률</p>
+                <p className="text-sm md:text-lg font-bold text-orange-600">
+                  {sortedBusinesses.length > 0 ?
+                    ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
+                    : '0'}%
                 </p>
               </div>
             </div>
@@ -1407,7 +1417,96 @@ function RevenueDashboard() {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                {/* 모바일 카드뷰 */}
+                <div className="md:hidden space-y-3">
+                  {paginatedBusinesses.map((business) => {
+                    const profitMargin = business.total_revenue > 0
+                      ? ((business.net_profit / business.total_revenue) * 100).toFixed(1)
+                      : '0';
+
+                    return (
+                      <div
+                        key={business.id}
+                        className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <button
+                            onClick={() => {
+                              setSelectedEquipmentBusiness(business);
+                              setShowEquipmentModal(true);
+                            }}
+                            className="font-semibold text-blue-600 hover:text-blue-800 hover:underline text-left flex-1"
+                          >
+                            {business.business_name}
+                          </button>
+                          <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            business.category === '보조금' || business.category === '보조금 동시진행'
+                              ? 'bg-purple-100 text-purple-800' :
+                            business.category === '자비' ? 'bg-green-100 text-green-800' :
+                            business.category === 'AS' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {business.category || 'N/A'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-gray-500">지역:</span>{' '}
+                            <span className="font-medium">{business.address ? business.address.split(' ').slice(0, 2).join(' ') : '미등록'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">영업점:</span>{' '}
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {business.sales_office || '미배정'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">담당자:</span>{' '}
+                            <span className="font-medium">{business.manager_name || '미등록'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">이익률:</span>{' '}
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              parseFloat(profitMargin) >= 10 ? 'bg-green-100 text-green-800' :
+                              parseFloat(profitMargin) >= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {profitMargin}%
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">매출금액</div>
+                            <div className="font-mono font-semibold text-green-600">{formatCurrency(business.total_revenue)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">매입금액</div>
+                            <div className="font-mono font-semibold text-orange-600">{formatCurrency(business.total_cost)}</div>
+                          </div>
+                          <div className="col-span-2">
+                            <div className="text-xs text-gray-500 mb-1">이익금액</div>
+                            <div className={`font-mono font-bold text-lg ${business.net_profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                              {formatCurrency(business.net_profit)}
+                            </div>
+                          </div>
+                          {showReceivablesOnly && business.total_receivables > 0 && (
+                            <div className="col-span-2 bg-red-50 p-2 rounded">
+                              <div className="text-xs text-gray-500 mb-1">미수금</div>
+                              <div className="font-mono font-bold text-red-600">
+                                {formatCurrency(business.total_receivables)} ⚠️
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 데스크톱 테이블뷰 */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full border-collapse border border-gray-300">
                     <thead>
                       <tr className="bg-gray-50">
