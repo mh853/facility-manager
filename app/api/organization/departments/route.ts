@@ -83,10 +83,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '부서 목록을 불러올 수 없습니다.' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: departments || []
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: departments || []
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }
+    );
 
   } catch (error) {
     console.error('부서 목록 조회 중 오류:', error);
