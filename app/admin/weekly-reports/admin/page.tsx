@@ -189,125 +189,131 @@ function AdminWeeklyReportsPage() {
     >
       <div className="space-y-6">
         {/* 컨트롤 영역 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex items-center gap-4 flex-1">
-              <Calendar className="w-5 h-5 text-gray-500" />
-              <label className="text-sm font-medium text-gray-700">주간 선택:</label>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
+          <div className="flex flex-col gap-3 md:gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 md:w-5 md:h-5 text-gray-500" />
+                <label className="text-xs md:text-sm font-medium text-gray-700">주간 선택:</label>
+              </div>
               <input
                 type="date"
                 value={selectedWeek}
                 onChange={(e) => setSelectedWeek(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              {weekPeriod && (
+                <div className="text-xs md:text-sm text-gray-600">
+                  기간: {weekPeriod.display}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
               <button
                 onClick={fetchAdminReports}
                 disabled={loading || generating}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                {loading ? '조회중...' : '리포트 조회'}
+                <span className="hidden sm:inline">{loading ? '조회중...' : '리포트 조회'}</span>
+                <span className="sm:hidden">{loading ? '조회중...' : '조회'}</span>
               </button>
               <button
                 onClick={generateAllReports}
                 disabled={loading || generating}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
               >
                 <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-                {generating ? '생성중...' : '전체 생성'}
+                <span className="hidden sm:inline">{generating ? '생성중...' : '전체 생성'}</span>
+                <span className="sm:hidden">{generating ? '생성중...' : '생성'}</span>
               </button>
             </div>
-            {weekPeriod && (
-              <div className="text-sm text-gray-600">
-                기간: {weekPeriod.display}
-              </div>
-            )}
           </div>
         </div>
 
         {/* 전체 통계 카드 */}
         {summary && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Users className="w-6 h-6 text-blue-600" />
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 md:gap-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Users className="w-4 h-4 md:w-6 md:h-6 text-blue-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">{summary.total_users}</div>
-                  <div className="text-xs text-gray-600">전체 사용자</div>
+                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_users}</div>
+                  <div className="text-xs text-gray-600">사용자</div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <BarChart3 className="w-6 h-6 text-purple-600" />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <BarChart3 className="w-4 h-4 md:w-6 md:h-6 text-purple-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">{summary.total_tasks}</div>
+                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_tasks}</div>
                   <div className="text-xs text-gray-600">총 업무</div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="w-4 h-4 md:w-6 md:h-6 text-green-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">{summary.total_completed}</div>
+                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_completed}</div>
                   <div className="text-xs text-gray-600">완료</div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-6 h-6 text-blue-600" />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-4 h-4 md:w-6 md:h-6 text-blue-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">{summary.total_in_progress}</div>
+                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_in_progress}</div>
                   <div className="text-xs text-gray-600">진행중</div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-6 h-6 text-gray-600" />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-4 h-4 md:w-6 md:h-6 text-gray-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">{summary.total_pending}</div>
+                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_pending}</div>
                   <div className="text-xs text-gray-600">대기</div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-6 h-6 text-indigo-600" />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-4 h-4 md:w-6 md:h-6 text-indigo-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">{summary.average_completion_rate}%</div>
-                  <div className="text-xs text-gray-600">평균 완료율</div>
+                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.average_completion_rate}%</div>
+                  <div className="text-xs text-gray-600">평균율</div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle className="w-6 h-6 text-red-600" />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-4 h-4 md:w-6 md:h-6 text-red-600" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">{summary.total_overdue}</div>
-                  <div className="text-xs text-gray-600">전체 연체</div>
+                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_overdue}</div>
+                  <div className="text-xs text-gray-600">연체</div>
                 </div>
               </div>
             </div>
@@ -316,9 +322,9 @@ function AdminWeeklyReportsPage() {
 
         {/* 사용자별 리포트 목록 */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">사용자별 주간 성과</h3>
-            <p className="text-sm text-gray-600 mt-1">
+          <div className="p-4 md:p-6 border-b border-gray-200">
+            <h3 className="text-base md:text-lg font-semibold text-gray-900">사용자별 주간 성과</h3>
+            <p className="text-xs md:text-sm text-gray-600 mt-1">
               {reports.length}명의 사용자 리포트
             </p>
           </div>
@@ -327,68 +333,69 @@ function AdminWeeklyReportsPage() {
             {reports.map((report) => (
               <div
                 key={report.id}
-                className="p-6 hover:bg-gray-50 transition-colors"
+                className="p-4 md:p-6 hover:bg-gray-50 transition-colors"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <h4 className="text-lg font-semibold text-gray-900">{report.user_name}</h4>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPerformanceColor(report.completion_rate)}`}>
+                <div className="flex flex-col gap-3">
+                  {/* 헤더 */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+                    <h4 className="text-base md:text-lg font-semibold text-gray-900">{report.user_name}</h4>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-medium ${getPerformanceColor(report.completion_rate)}`}>
                         완료율 {report.completion_rate}%
                       </span>
                       {report.is_auto_generated && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
                           자동생성
                         </span>
                       )}
                       <button
                         onClick={() => router.push(`/admin/weekly-reports/${report.user_id}?weekDate=${selectedWeek}`)}
-                        className="flex items-center gap-1 px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs transition-colors"
+                        className="flex items-center gap-1 px-2 md:px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs transition-colors"
                       >
                         <Eye className="w-3 h-3" />
-                        상세보기
+                        <span className="hidden sm:inline">상세보기</span>
                       </button>
                     </div>
+                  </div>
 
-                    {/* 통계 그리드 */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
-                      <div>
-                        <div className="text-gray-500">총 업무</div>
-                        <div className="text-xl font-bold text-gray-900">{report.total_tasks}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">완료</div>
-                        <div className="text-xl font-bold text-green-600">{report.completed_tasks}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">진행중</div>
-                        <div className="text-xl font-bold text-blue-600">{report.in_progress_tasks}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">대기</div>
-                        <div className="text-xl font-bold text-gray-600">{report.pending_tasks}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">연체</div>
-                        <div className={`text-xl font-bold ${report.overdue_tasks > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                          {report.overdue_tasks}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">평균 완료시간</div>
-                        <div className="text-xl font-bold text-gray-900">{report.average_completion_time_days}일</div>
+                  {/* 통계 그리드 */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 text-sm">
+                    <div>
+                      <div className="text-xs text-gray-500">총 업무</div>
+                      <div className="text-base md:text-xl font-bold text-gray-900">{report.total_tasks}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">완료</div>
+                      <div className="text-base md:text-xl font-bold text-green-600">{report.completed_tasks}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">진행중</div>
+                      <div className="text-base md:text-xl font-bold text-blue-600">{report.in_progress_tasks}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">대기</div>
+                      <div className="text-base md:text-xl font-bold text-gray-600">{report.pending_tasks}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">연체</div>
+                      <div className={`text-base md:text-xl font-bold ${report.overdue_tasks > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                        {report.overdue_tasks}
                       </div>
                     </div>
-
-                    {/* 업무 타입 */}
-                    <div className="mt-3 flex items-center gap-4 text-sm text-gray-600">
-                      <span>자체 {report.self_tasks}개</span>
-                      <span>보조 {report.subsidy_tasks}개</span>
-                      <span className="text-gray-400">•</span>
-                      <span className="text-xs text-gray-500">
-                        {formatDate(report.generated_at)} 생성
-                      </span>
+                    <div>
+                      <div className="text-xs text-gray-500">평균시간</div>
+                      <div className="text-base md:text-xl font-bold text-gray-900">{report.average_completion_time_days}일</div>
                     </div>
+                  </div>
+
+                  {/* 업무 타입 */}
+                  <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-gray-600 flex-wrap">
+                    <span>자체 {report.self_tasks}개</span>
+                    <span>보조 {report.subsidy_tasks}개</span>
+                    <span className="text-gray-400">•</span>
+                    <span className="text-xs text-gray-500">
+                      {formatDate(report.generated_at)} 생성
+                    </span>
                   </div>
                 </div>
               </div>
