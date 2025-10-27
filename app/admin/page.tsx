@@ -43,10 +43,10 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     totalBusinesses: 0,
     activeBusinesses: 0,
-    monthlyRevenue: 15000000,
-    installationsInProgress: 3,
-    completedThisMonth: 8,
-    upcomingInstallations: 5
+    monthlyRevenue: 0,
+    installationsInProgress: 0,
+    completedThisMonth: 0,
+    upcomingInstallations: 0
   })
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([
     {
@@ -69,92 +69,228 @@ export default function AdminDashboard() {
     try {
       setLoading(true)
 
-      // Load business stats from business-list API with proper error handling
-      try {
-        const businessResponse = await fetch('/api/business-list')
-
-        if (businessResponse.ok) {
-          const contentType = businessResponse.headers.get('content-type')
-
-          if (contentType && contentType.includes('application/json')) {
-            const businessData = await businessResponse.json()
-            const businesses = businessData.data?.businesses || []
-
-            setStats(prev => ({
-              ...prev,
-              totalBusinesses: businesses.length,
-              activeBusinesses: businesses.length
-            }))
-          } else {
-            console.warn('API returned non-JSON response')
-            setStats(prev => ({
-              ...prev,
-              totalBusinesses: 0,
-              activeBusinesses: 0
-            }))
-          }
-        } else {
-          console.warn('API request failed:', businessResponse.status)
-          setStats(prev => ({
-            ...prev,
-            totalBusinesses: 0,
-            activeBusinesses: 0
-          }))
-        }
-      } catch (apiError) {
-        console.warn('Business API error:', apiError)
-        setStats(prev => ({
-          ...prev,
-          totalBusinesses: 0,
-          activeBusinesses: 0
-        }))
-      }
-
-      // Mock data for future features
-      setStats(prev => ({
-        ...prev,
-        monthlyRevenue: 15000000, // 1,500만원 (예시)
-        installationsInProgress: 3,
-        completedThisMonth: 8,
-        upcomingInstallations: 5
-      }))
-
-      // Mock recent activities
-      setRecentActivities([
-        {
-          id: '1',
-          type: 'business_added',
-          message: '새 사업장 "오메가칼라" 등록됨',
-          timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-          link: '/admin/business'
-        },
-        {
-          id: '2',
-          type: 'installation_completed',
-          message: '농업회사법인 주식회사 건양 2공장 설치 완료',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString()
-        },
-        {
-          id: '3',
-          type: 'revenue_recorded',
-          message: '이번 달 매출 목표 달성 (120%)',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString()
-        }
+      // 병렬로 모든 데이터 로드
+      await Promise.all([
+        loadBusinessStats(),
+        loadMonthlyRevenue(),
+        loadInstallationStats(),
+        loadRecentActivities()
       ])
 
     } catch (error) {
       console.warn('Dashboard data loading error:', error)
-      // 오류 발생 시에도 기본값으로 계속 진행 (사용자에게 알림 없이)
-      setStats({
-        totalBusinesses: 0,
-        activeBusinesses: 0,
-        monthlyRevenue: 15000000,
-        installationsInProgress: 3,
-        completedThisMonth: 8,
-        upcomingInstallations: 5
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 사업장 통계 로드
+  const loadBusinessStats = async () => {
+    try {
+      const businessResponse = await fetch('/api/business-list')
+
+      if (businessResponse.ok) {
+        const contentType = businessResponse.headers.get('content-type')
+
+        if (contentType && contentType.includes('application/json')) {
+          const businessData = await businessResponse.json()
+          const businesses = businessData.data?.businesses || []
+
+          setStats(prev => ({
+            ...prev,
+            totalBusinesses: businesses.length,
+            activeBusinesses: businesses.length
+          }))
+        }
+      }
+    } catch (error) {
+      console.warn('Business stats loading error:', error)
+    }
+  }
+
+  // 이번 달 매출 로드 (설치월 기준) - 저장된 계산 결과 + 미계산 사업장 자동 계산
+  const loadMonthlyRevenue = async () => {
+    try {
+      const now = new Date()
+      const currentMonth = now.getMonth() + 1  // 1-12
+      const currentYear = now.getFullYear()
+
+      console.log('📊 [Dashboard] 현재 날짜:', { currentYear, currentMonth })
+
+      // business-info-direct API 사용 (installation_date 조회)
+      const businessResponse = await fetch('/api/business-info-direct')
+
+      if (!businessResponse.ok) {
+        console.warn('📊 [Dashboard] 사업장 조회 실패')
+        setStats(prev => ({ ...prev, monthlyRevenue: 0 }))
+        return
+      }
+
+      const businessData = await businessResponse.json()
+      const businesses = businessData.data || []
+
+      console.log('📊 [Dashboard] 전체 사업장:', businesses.length, '건')
+
+      // 이번 달 설치된 사업장 필터링
+      const monthlyBusinesses = businesses.filter((business: any) => {
+        if (!business.installation_date) return false
+        const installDate = new Date(business.installation_date)
+        const installMonth = installDate.getMonth() + 1
+        const installYear = installDate.getFullYear()
+        return installMonth === currentMonth && installYear === currentYear
       })
 
-      // 기본 활동 내역도 설정
+      console.log('📊 [Dashboard] 이번 달 설치 사업장:', monthlyBusinesses.length, '건')
+
+      // 저장된 매출 계산 데이터 조회
+      const revenueResponse = await fetch('/api/revenue/calculate?limit=10000')
+      const revenueData = await revenueResponse.json()
+      const calculations = revenueData.data?.calculations || []
+
+      console.log('📊 [Dashboard] 전체 저장된 매출 계산:', calculations.length, '건')
+
+      // 매출 합산: 저장된 계산 결과 우선, 없으면 0
+      const monthlyRevenue = monthlyBusinesses.reduce((sum: number, business: any) => {
+        // 저장된 계산 결과 찾기
+        const savedCalc = calculations.find((calc: any) => calc.business_id === business.id)
+
+        if (savedCalc) {
+          console.log('📊 [Dashboard] 사업장 매출 (저장됨):', {
+            name: business.business_name,
+            net_profit: (savedCalc.net_profit || 0).toLocaleString()
+          })
+          return sum + (savedCalc.net_profit || 0)
+        } else {
+          console.log('⚠️ [Dashboard] 사업장 매출 미계산:', business.business_name)
+          return sum
+        }
+      }, 0)
+
+      console.log('📊 [Dashboard] 이번 달 매출 합계:', monthlyRevenue.toLocaleString(), '원')
+
+      setStats(prev => ({
+        ...prev,
+        monthlyRevenue: monthlyRevenue
+      }))
+    } catch (error) {
+      console.warn('Monthly revenue loading error:', error)
+      setStats(prev => ({ ...prev, monthlyRevenue: 0 }))
+    }
+  }
+
+  // 설치 업무 통계 로드
+  const loadInstallationStats = async () => {
+    try {
+      const response = await fetch('/api/facility-tasks')
+
+      if (response.ok) {
+        const data = await response.json()
+        // API 응답 구조: { data: { tasks: [], count: 0 } }
+        const tasks = data.data?.tasks || []
+
+        const now = new Date()
+        const currentMonth = now.getMonth()
+        const currentYear = now.getFullYear()
+
+        const inProgress = tasks.filter((t: any) => t.status === 'in_progress').length
+        const completed = tasks.filter((t: any) => {
+          if (t.status !== 'completed' || !t.updated_at) return false
+          const updatedDate = new Date(t.updated_at)
+          return updatedDate.getMonth() === currentMonth &&
+                 updatedDate.getFullYear() === currentYear
+        }).length
+        const upcoming = tasks.filter((t: any) => t.status === 'backlog').length
+
+        setStats(prev => ({
+          ...prev,
+          installationsInProgress: inProgress,
+          completedThisMonth: completed,
+          upcomingInstallations: upcoming
+        }))
+      }
+    } catch (error) {
+      console.warn('Installation stats loading error:', error)
+      setStats(prev => ({
+        ...prev,
+        installationsInProgress: 0,
+        completedThisMonth: 0,
+        upcomingInstallations: 0
+      }))
+    }
+  }
+
+  // 최근 활동 로드
+  const loadRecentActivities = async () => {
+    try {
+      const activities: RecentActivity[] = []
+
+      // 최근 사업장 추가 활동
+      const businessResponse = await fetch('/api/business-list')
+      if (businessResponse.ok) {
+        const businessData = await businessResponse.json()
+        const businesses = businessData.data?.businesses || []
+
+        // 최근 3개 사업장
+        const recentBusinesses = businesses
+          .sort((a: any, b: any) =>
+            new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+          )
+          .slice(0, 2)
+
+        recentBusinesses.forEach((business: any) => {
+          activities.push({
+            id: `business-${business.id}`,
+            type: 'business_added',
+            message: `새 사업장 "${business.business_name}" 등록됨`,
+            timestamp: business.created_at || new Date().toISOString(),
+            link: '/admin/business'
+          })
+        })
+      }
+
+      // 최근 완료된 업무
+      const tasksResponse = await fetch('/api/facility-tasks')
+      if (tasksResponse.ok) {
+        const tasksData = await tasksResponse.json()
+        // API 응답 구조: { data: { tasks: [], count: 0 } }
+        const tasks = tasksData.data?.tasks || []
+
+        // 최근 완료된 업무 2개
+        const completedTasks = tasks
+          .filter((t: any) => t.status === 'completed')
+          .sort((a: any, b: any) =>
+            new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
+          )
+          .slice(0, 2)
+
+        completedTasks.forEach((task: any) => {
+          activities.push({
+            id: `task-${task.id}`,
+            type: 'installation_completed',
+            message: `${task.title} 완료`,
+            timestamp: task.updated_at || new Date().toISOString()
+          })
+        })
+      }
+
+      // 시간순 정렬 (최신순)
+      const sortedActivities = activities
+        .sort((a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )
+        .slice(0, 5) // 최대 5개
+
+      setRecentActivities(sortedActivities.length > 0 ? sortedActivities : [
+        {
+          id: '1',
+          type: 'business_added',
+          message: '시스템 시작됨',
+          timestamp: new Date().toISOString(),
+          link: '/admin/business'
+        }
+      ])
+    } catch (error) {
+      console.warn('Recent activities loading error:', error)
       setRecentActivities([
         {
           id: '1',
@@ -164,8 +300,6 @@ export default function AdminDashboard() {
           link: '/admin/business'
         }
       ])
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -189,21 +323,21 @@ export default function AdminDashboard() {
       disabled: false
     },
     {
-      title: '설치 현황',
-      description: '설치 진행 상황 관리 (준비중)',
+      title: '업무 관리',
+      description: '시설 설치 업무 관리',
       icon: Wrench,
       color: 'orange',
-      href: '#',
-      stats: '준비중',
-      disabled: true
+      href: '/admin/tasks',
+      stats: `${stats.installationsInProgress}건 진행중`,
+      disabled: false
     },
     {
-      title: '데이터 히스토리',
-      description: '데이터 변경 이력 조회',
+      title: '실사 관리',
+      description: '대기배출시설 실사 관리',
       icon: FileText,
       color: 'purple',
-      href: '/admin/data-history',
-      stats: '이력 조회',
+      href: '/admin/air-permit',
+      stats: '실사 조회',
       disabled: false
     }
   ]
@@ -233,8 +367,8 @@ export default function AdminDashboard() {
       description="시설 관리 시스템 종합 현황"
     >
       <div className="space-y-8">
-        {/* 핵심 KPI 카드들 - 2열 레이아웃 */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
+        {/* 핵심 KPI 카드들 - 1행 레이아웃 (반응형) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
           <StatsCard
             title="전체 사업장"
             value={stats.totalBusinesses}
@@ -254,11 +388,6 @@ export default function AdminDashboard() {
             icon={CreditCard}
             color="green"
             description="당월 누적 매출"
-            trend={{
-              value: 120,
-              direction: 'up',
-              label: '목표 대비'
-            }}
           />
 
           <StatsCard
@@ -282,9 +411,6 @@ export default function AdminDashboard() {
             description="예정된 설치 건수"
           />
         </div>
-
-        {/* 조직 현황 섹션 */}
-        <OrganizationChart />
 
         {/* 빠른 액션 섹션 - 업무 관리 */}
         <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6">
@@ -457,6 +583,9 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
+        {/* 조직 현황 섹션 - 최하단 */}
+        <OrganizationChart />
       </div>
     </AdminLayout>
   )

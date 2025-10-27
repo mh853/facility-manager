@@ -562,19 +562,32 @@ export async function POST(request: NextRequest) {
 // 저장된 계산 결과 조회
 export async function GET(request: NextRequest) {
   try {
-    // JWT 토큰 검증
+    // JWT 토큰 검증 (헤더 또는 쿠키)
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    let token: string | null = null;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else {
+      // 쿠키에서 토큰 확인
+      const cookieToken = request.cookies.get('auth_token')?.value;
+      if (cookieToken) {
+        token = cookieToken;
+      }
+    }
+
+    if (!token) {
+      console.log('❌ [REVENUE-CALCULATE-GET] 토큰 없음 (헤더/쿠키 모두 없음)');
       return NextResponse.json({
         success: false,
         message: '인증이 필요합니다.'
       }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
     const decoded = verifyTokenString(token);
 
     if (!decoded) {
+      console.log('❌ [REVENUE-CALCULATE-GET] 토큰 검증 실패');
       return NextResponse.json({
         success: false,
         message: '유효하지 않은 토큰입니다.'
@@ -584,11 +597,14 @@ export async function GET(request: NextRequest) {
     // 사용자 ID 추출
     const userId = decoded.userId || decoded.id;
     if (!userId) {
+      console.log('❌ [REVENUE-CALCULATE-GET] 사용자 ID 없음');
       return NextResponse.json({
         success: false,
         message: '토큰에 사용자 정보가 없습니다.'
       }, { status: 401 });
     }
+
+    console.log('✅ [REVENUE-CALCULATE-GET] 인증 성공:', { userId });
 
     // 권한 레벨 확인 - JWT에 없으면 DB에서 조회
     let permissionLevel = decoded.permissionLevel || decoded.permission_level;
