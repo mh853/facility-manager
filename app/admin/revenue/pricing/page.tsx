@@ -445,7 +445,7 @@ function PricingManagement() {
       <div className="space-y-6">
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <StatsCard
             title="활성 기기 종류"
             value={`${governmentPricing.filter(p => p.is_active).length}개`}
@@ -511,18 +511,70 @@ function PricingManagement() {
                 {/* 환경부 고시가 탭 */}
                 {activeTab === 'government' && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">환경부 고시가 관리</h3>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <h3 className="text-base md:text-lg font-semibold">환경부 고시가 관리</h3>
                       <button
                         onClick={() => handleEdit(null, 'government')}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                        className="px-3 md:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
                       >
                         <Plus className="w-4 h-4" />
-                        새 가격 추가
+                        <span className="hidden sm:inline">새 가격 추가</span>
+                        <span className="sm:hidden">추가</span>
                       </button>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* 모바일 카드뷰 */}
+                    <div className="md:hidden space-y-3">
+                      {governmentPricing.map(pricing => (
+                        <div key={pricing.id} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start justify-between mb-3">
+                            <h4 className="font-semibold text-gray-900">{pricing.equipment_name}</h4>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              pricing.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {pricing.is_active ? '활성' : '비활성'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                            <div>
+                              <div className="text-gray-500">환경부 고시가</div>
+                              <div className="font-mono font-semibold text-green-700">{formatCurrency(pricing.official_price)}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">제조사 원가</div>
+                              <div className="font-mono font-semibold text-red-700">{formatCurrency(pricing.manufacturer_price)}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">설치비용</div>
+                              <div className="font-mono font-medium">{formatCurrency(pricing.installation_cost)}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">시행일</div>
+                              <div className="font-medium">{pricing.effective_from}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                            <button
+                              onClick={() => handleEdit(pricing, 'government')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-1"
+                            >
+                              <Edit className="w-3 h-3" />
+                              수정
+                            </button>
+                            <button
+                              onClick={() => openDeleteModal(pricing, 'government')}
+                              className="flex-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              삭제
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 데스크톱 테이블뷰 */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full border-collapse border border-gray-300">
                         <thead>
                           <tr className="bg-gray-50">
