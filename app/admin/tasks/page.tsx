@@ -153,6 +153,23 @@ const asSteps: Array<{status: TaskStatus, label: string, color: string}> = [
   { status: 'as_completed', label: 'AS 완료', color: 'green' }
 ]
 
+// 진행률 자동 계산 함수
+const calculateProgressPercentage = (type: TaskType, status: TaskStatus): number => {
+  const steps = type === 'self' ? selfSteps :
+                type === 'subsidy' ? subsidySteps :
+                type === 'etc' ? etcSteps : asSteps
+
+  const currentStepIndex = steps.findIndex(step => step.status === status)
+
+  if (currentStepIndex === -1) {
+    return 0 // 단계를 찾을 수 없으면 0%
+  }
+
+  // 현재 단계 / 전체 단계 * 100 (소수점 첫째자리 반올림)
+  const progress = ((currentStepIndex + 1) / steps.length) * 100
+  return Math.round(progress)
+}
+
 function TaskManagementPage() {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
@@ -241,7 +258,7 @@ function TaskManagementPage() {
           assignees: dbTask.assignees || [],
           startDate: dbTask.start_date || undefined,
           dueDate: dbTask.due_date || undefined,
-          progressPercentage: 0,
+          progressPercentage: calculateProgressPercentage(dbTask.task_type, dbTask.status),
           delayStatus: 'on_time',
           delayDays: 0,
           createdAt: dbTask.created_at,
@@ -857,7 +874,7 @@ function TaskManagementPage() {
         assignees: result.data.task.assignees || [],
         startDate: createTaskForm.startDate || undefined,
         dueDate: result.data.task.due_date || undefined,
-        progressPercentage: 0,
+        progressPercentage: calculateProgressPercentage(result.data.task.task_type, result.data.task.status),
         delayStatus: 'on_time',
         delayDays: 0,
         createdAt: result.data.task.created_at,
@@ -1294,9 +1311,9 @@ function TaskManagementPage() {
           {/* 모바일: 카드 뷰 */}
           <div className="md:hidden">
             <TaskCardList
-              tasks={paginatedTasks}
-              onTaskClick={handleTaskClick}
-              onTaskEdit={(task) => {
+              tasks={paginatedTasks as any}
+              onTaskClick={handleTaskClick as any}
+              onTaskEdit={(task: any) => {
                 setEditingTask(task)
                 setEditBusinessSearchTerm(task.businessName || '')
                 setShowEditModal(true)
@@ -1533,19 +1550,19 @@ function TaskManagementPage() {
 
         {/* 모바일 상세 모달 */}
         <TaskMobileModal
-          task={mobileSelectedTask}
+          task={mobileSelectedTask as any}
           isOpen={mobileModalOpen}
           onClose={() => {
             setMobileModalOpen(false)
             setMobileSelectedTask(null)
           }}
-          onEdit={(task) => {
+          onEdit={(task: any) => {
             setEditingTask(task)
             setEditBusinessSearchTerm(task.businessName || '')
             setShowEditModal(true)
             setMobileModalOpen(false)
           }}
-          onDelete={async (task) => {
+          onDelete={async (task: any) => {
             await handleDeleteTask(task.id)
             setMobileModalOpen(false)
           }}
