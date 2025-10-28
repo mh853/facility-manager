@@ -50,3 +50,14 @@ secrets/
 .secrets/
 test-*.js
 .env.production
+
+# Backup files
+*.bak
+*.backup
+*.tmp
+
+# Screenshots and images (optional - uncomment if needed)
+# 스샷/
+# *.png
+# *.jpg
+# *.jpeg
