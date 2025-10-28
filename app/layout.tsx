@@ -32,7 +32,13 @@ export const metadata = {
   description: '실사관리 시스템 - 시설 정보 관리 및 보고서 작성',
   keywords: '시설관리, 실사, 보고서, 시설정보',
   authors: [{ name: '시설관리팀' }],
-  
+
+  // 파비콘 및 아이콘
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
+  },
+
   // PWA 설정
   manifest: '/manifest.json',
   
