@@ -135,29 +135,29 @@ export default function TaskMobileModal({
           }
         `}
       >
-        <div className="bg-white w-full h-[90vh] md:h-auto md:max-h-[85vh] md:max-w-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="bg-white w-full h-[90vh] md:h-auto md:max-h-[85vh] md:max-w-3xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           {/* 헤더 */}
-          <div className="flex-shrink-0 px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
+          <div className="flex-shrink-0 px-5 py-4 sm:px-7 sm:py-5 border-b border-gray-200 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
                   <span
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border ${priority.bg} ${priority.color} ${priority.border}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/20 backdrop-blur-sm text-white border border-white/30`}
                   >
-                    <Flag className="w-3 h-3" />
+                    <Flag className="w-3.5 h-3.5" />
                     {priority.label}
                   </span>
-                  <span className="px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-md">
+                  <span className="px-2.5 py-1 bg-white/90 text-blue-700 text-xs font-semibold rounded-lg shadow-sm">
                     {typeLabels[task.type]}
                   </span>
                 </div>
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900 pr-8">
+                <h2 className="text-xl sm:text-2xl font-bold text-white pr-8 leading-tight">
                   {task.title}
                 </h2>
               </div>
               <button
                 onClick={onClose}
-                className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-white/50 rounded-full transition-colors"
+                className="flex-shrink-0 p-2 text-white/80 hover:text-white hover:bg-white/20 rounded-full transition-colors"
                 aria-label="닫기"
               >
                 <X className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -166,22 +166,28 @@ export default function TaskMobileModal({
           </div>
 
           {/* 스크롤 가능한 본문 */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4 sm:p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+            <div className="p-5 sm:p-7 space-y-6">
               {/* 진행 상태 */}
               {task.progressPercentage !== undefined && (
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-gray-700">
-                      {task._stepInfo?.label || '진행 상태'}
-                    </span>
-                    <span className="text-2xl font-bold text-blue-600">
-                      {task.progressPercentage}%
-                    </span>
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">현재 진행 단계</p>
+                      <p className="text-base font-bold text-gray-900">
+                        {task._stepInfo?.label || '진행 상태'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 mb-1">완료율</p>
+                      <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                        {task.progressPercentage}%
+                      </p>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div className="relative w-full bg-gray-100 rounded-full h-3 overflow-hidden">
                     <div
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500"
+                      className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 rounded-full transition-all duration-500 shadow-sm"
                       style={{ width: `${task.progressPercentage}%` }}
                     />
                   </div>
@@ -189,18 +195,18 @@ export default function TaskMobileModal({
               )}
 
               {/* 기본 정보 */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                  <div className="w-1 h-4 bg-blue-600 rounded-full"></div>
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <div className="w-1 h-5 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full"></div>
                   기본 정보
                 </h3>
 
-                <dl className="space-y-3">
+                <dl className="space-y-4">
                   {/* 담당자 */}
                   {task.assignees && task.assignees.length > 0 && (
-                    <div className="flex items-start gap-3">
-                      <dt className="flex items-center gap-2 text-sm text-gray-600 w-20 flex-shrink-0">
-                        <Users className="w-4 h-4" />
+                    <div className="flex items-start gap-4 py-3 border-b border-gray-100 last:border-0">
+                      <dt className="flex items-center gap-2 text-sm font-medium text-gray-500 min-w-[80px]">
+                        <Users className="w-4 h-4 text-blue-600" />
                         담당자
                       </dt>
                       <dd className="text-sm font-medium text-gray-900 flex-1">
@@ -208,9 +214,9 @@ export default function TaskMobileModal({
                           {task.assignees.map((assignee, idx) => (
                             <span
                               key={idx}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-lg text-xs font-semibold border border-blue-100"
                             >
-                              <User className="w-3 h-3" />
+                              <User className="w-3.5 h-3.5" />
                               {assignee.name}
                             </span>
                           ))}
@@ -221,12 +227,12 @@ export default function TaskMobileModal({
 
                   {/* 사업장 */}
                   {task.businessName && (
-                    <div className="flex items-start gap-3">
-                      <dt className="flex items-center gap-2 text-sm text-gray-600 w-20 flex-shrink-0">
-                        <MapPin className="w-4 h-4" />
+                    <div className="flex items-start gap-4 py-3 border-b border-gray-100 last:border-0">
+                      <dt className="flex items-center gap-2 text-sm font-medium text-gray-500 min-w-[80px]">
+                        <MapPin className="w-4 h-4 text-blue-600" />
                         사업장
                       </dt>
-                      <dd className="text-sm font-medium text-gray-900 flex-1">
+                      <dd className="text-sm font-semibold text-gray-900 flex-1">
                         {task.businessName}
                       </dd>
                     </div>
@@ -234,11 +240,11 @@ export default function TaskMobileModal({
 
                   {/* 주소 */}
                   {task.businessInfo?.address && (
-                    <div className="flex items-start gap-3">
-                      <dt className="text-sm text-gray-600 w-20 flex-shrink-0 pl-6">
+                    <div className="flex items-start gap-4 py-3 border-b border-gray-100 last:border-0">
+                      <dt className="text-sm font-medium text-gray-500 min-w-[80px] pl-6">
                         주소
                       </dt>
-                      <dd className="text-sm text-gray-700 flex-1">
+                      <dd className="text-sm text-gray-700 flex-1 leading-relaxed">
                         {task.businessInfo.address}
                       </dd>
                     </div>
@@ -246,15 +252,15 @@ export default function TaskMobileModal({
 
                   {/* 연락처 */}
                   {task.businessInfo?.contact && (
-                    <div className="flex items-start gap-3">
-                      <dt className="flex items-center gap-2 text-sm text-gray-600 w-20 flex-shrink-0">
-                        <Phone className="w-4 h-4" />
+                    <div className="flex items-start gap-4 py-3 border-b border-gray-100 last:border-0">
+                      <dt className="flex items-center gap-2 text-sm font-medium text-gray-500 min-w-[80px]">
+                        <Phone className="w-4 h-4 text-blue-600" />
                         연락처
                       </dt>
                       <dd className="text-sm text-gray-700 flex-1">
                         <a
                           href={`tel:${task.businessInfo.contact}`}
-                          className="text-blue-600 hover:underline"
+                          className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
                         >
                           {task.businessInfo.contact}
                         </a>
@@ -264,23 +270,18 @@ export default function TaskMobileModal({
 
                   {/* 기간 */}
                   {task.startDate && task.dueDate && (
-                    <div className="flex items-start gap-3">
-                      <dt className="flex items-center gap-2 text-sm text-gray-600 w-20 flex-shrink-0">
-                        <Calendar className="w-4 h-4" />
+                    <div className="flex items-start gap-4 py-3 border-b border-gray-100 last:border-0">
+                      <dt className="flex items-center gap-2 text-sm font-medium text-gray-500 min-w-[80px]">
+                        <Calendar className="w-4 h-4 text-blue-600" />
                         기간
                       </dt>
                       <dd className="text-sm font-medium text-gray-900 flex-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                          <span>
-                            {new Date(task.startDate).toLocaleDateString(
-                              'ko-KR'
-                            )}
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-gray-100 rounded-lg">
+                            {new Date(task.startDate).toLocaleDateString('ko-KR')}
                           </span>
-                          <span className="text-gray-400 hidden sm:inline">
-                            ~
-                          </span>
-                          <span className="text-gray-400 sm:hidden">↓</span>
-                          <span>
+                          <span className="text-gray-400">→</span>
+                          <span className="px-2 py-1 bg-gray-100 rounded-lg">
                             {new Date(task.dueDate).toLocaleDateString('ko-KR')}
                           </span>
                         </div>
@@ -290,38 +291,38 @@ export default function TaskMobileModal({
 
                   {/* 지연 상태 */}
                   {task.delayStatus && task.delayStatus !== 'on_time' && (
-                    <div className="flex items-start gap-3">
-                      <dt className="flex items-center gap-2 text-sm text-gray-600 w-20 flex-shrink-0">
-                        <Clock className="w-4 h-4" />
+                    <div className="flex items-start gap-4 py-3 border-b border-gray-100 last:border-0">
+                      <dt className="flex items-center gap-2 text-sm font-medium text-gray-500 min-w-[80px]">
+                        <Clock className="w-4 h-4 text-blue-600" />
                         상태
                       </dt>
                       <dd className="text-sm flex-1">
                         <span
-                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm ${
                             task.delayStatus === 'delayed' ||
                             task.delayStatus === 'overdue'
-                              ? 'bg-red-50 text-red-600'
+                              ? 'bg-red-50 text-red-700 border border-red-200'
                               : task.delayStatus === 'at_risk'
-                              ? 'bg-yellow-50 text-yellow-600'
-                              : 'bg-green-50 text-green-600'
+                              ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                              : 'bg-green-50 text-green-700 border border-green-200'
                           }`}
                         >
                           {task.delayStatus === 'delayed' &&
                             task.delayDays && (
                               <>
-                                <AlertCircle className="w-3 h-3" />
+                                <AlertCircle className="w-3.5 h-3.5" />
                                 {`${task.delayDays}일 지연`}
                               </>
                             )}
                           {task.delayStatus === 'at_risk' && (
                             <>
-                              <Clock className="w-3 h-3" />
+                              <Clock className="w-3.5 h-3.5" />
                               위험
                             </>
                           )}
                           {task.delayStatus === 'overdue' && (
                             <>
-                              <AlertCircle className="w-3 h-3" />
+                              <AlertCircle className="w-3.5 h-3.5" />
                               기한 초과
                             </>
                           )}
@@ -334,12 +335,12 @@ export default function TaskMobileModal({
 
               {/* 설명 */}
               {task.description && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <div className="w-1 h-4 bg-blue-600 rounded-full"></div>
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                  <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <div className="w-1 h-5 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full"></div>
                     설명
                   </h3>
-                  <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-lg p-4 whitespace-pre-wrap">
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
                     {task.description}
                   </p>
                 </div>
@@ -347,12 +348,12 @@ export default function TaskMobileModal({
 
               {/* 메모 */}
               {task.notes && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <div className="w-1 h-4 bg-blue-600 rounded-full"></div>
+                <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-5 shadow-sm border border-amber-200">
+                  <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <div className="w-1 h-5 bg-gradient-to-b from-amber-500 to-yellow-600 rounded-full"></div>
                     메모
                   </h3>
-                  <p className="text-sm text-gray-700 leading-relaxed bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-4 whitespace-pre-wrap">
+                  <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
                     {task.notes}
                   </p>
                 </div>
@@ -361,7 +362,7 @@ export default function TaskMobileModal({
           </div>
 
           {/* 하단 액션 버튼 */}
-          <div className="flex-shrink-0 p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex-shrink-0 p-5 sm:p-6 border-t border-gray-200 bg-white">
             <div className="flex gap-3">
               {onEdit && (
                 <button
@@ -369,10 +370,10 @@ export default function TaskMobileModal({
                     onEdit(task)
                     onClose()
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 active:scale-95 transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all shadow-md hover:shadow-lg"
                 >
                   <Edit className="w-4 h-4" />
-                  수정
+                  수정하기
                 </button>
               )}
               {onDelete && (
@@ -383,7 +384,7 @@ export default function TaskMobileModal({
                       onClose()
                     }
                   }}
-                  className="flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-100 active:scale-95 transition-all"
+                  className="flex items-center justify-center gap-2 px-5 py-3.5 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 hover:border-gray-400 active:scale-95 transition-all"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

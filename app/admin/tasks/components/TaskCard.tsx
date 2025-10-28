@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Flag,
   Users,
@@ -9,7 +9,9 @@ import {
   CheckCircle,
   Edit,
   ChevronRight,
-  User
+  User,
+  ArrowRight,
+  Loader2
 } from 'lucide-react'
 
 // Task 타입 (부모에서 import할 예정)
@@ -53,9 +55,12 @@ interface TaskCardProps {
   task: Task
   onClick: (task: Task) => void
   onEdit?: (task: Task) => void
+  onComplete?: (taskId: string) => Promise<void>
 }
 
-export default function TaskCard({ task, onClick, onEdit }: TaskCardProps) {
+export default function TaskCard({ task, onClick, onEdit, onComplete }: TaskCardProps) {
+  const [isCompleting, setIsCompleting] = useState(false)
+
   // 우선순위 색상 설정
   const priorityColors = {
     high: {
@@ -139,33 +144,33 @@ export default function TaskCard({ task, onClick, onEdit }: TaskCardProps) {
         bg-white rounded-lg border-l-4 ${priorityColor.border}
         shadow-sm hover:shadow-md transition-all duration-200
         active:scale-[0.98] cursor-pointer
-        p-3 sm:p-4
+        p-2 sm:p-3
       `}
     >
       {/* 헤더: 우선순위 + 업무 타입 */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-1.5">
-          <Flag className={`w-3 h-3 sm:w-4 sm:h-4 ${priorityColor.icon}`} />
-          <span className={`text-xs sm:text-sm font-medium ${priorityColor.text}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1">
+          <Flag className={`w-3 h-3 ${priorityColor.icon}`} />
+          <span className={`text-[10px] sm:text-xs font-medium ${priorityColor.text}`}>
             {priorityLabels[task.priority]}
           </span>
         </div>
-        <span className={`px-2 py-1 text-[10px] sm:text-xs font-medium border rounded-md ${typeColors[task.type]}`}>
+        <span className={`px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium border rounded ${typeColors[task.type]}`}>
           {typeLabels[task.type]}
         </span>
       </div>
 
       {/* 업무명 */}
-      <h3 className="font-semibold text-sm sm:text-base text-gray-900 mb-3 line-clamp-2">
+      <h3 className="font-semibold text-xs sm:text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">
         {task.title}
       </h3>
 
       {/* 정보 그리드 */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {/* 담당자 */}
         {task.assignees && task.assignees.length > 0 && (
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-            <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-600">
+            <Users className="w-3 h-3 flex-shrink-0" />
             <span className="truncate">
               {task.assignees.map(a => a.name).join(', ')}
             </span>
@@ -174,24 +179,16 @@ export default function TaskCard({ task, onClick, onEdit }: TaskCardProps) {
 
         {/* 사업장 정보 */}
         {task.businessName && (
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-            <MapPin className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-600">
+            <MapPin className="w-3 h-3 flex-shrink-0" />
             <span className="truncate">{task.businessName}</span>
-          </div>
-        )}
-
-        {/* 주소 */}
-        {task.businessInfo?.address && (
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="truncate">{task.businessInfo.address}</span>
           </div>
         )}
 
         {/* 기간 */}
         {task.startDate && task.dueDate && (
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-600">
+            <Calendar className="w-3 h-3 flex-shrink-0" />
             <span>
               {new Date(task.startDate).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}
               {' ~ '}
@@ -203,18 +200,18 @@ export default function TaskCard({ task, onClick, onEdit }: TaskCardProps) {
 
       {/* 진행률 바 */}
       {task.progressPercentage !== undefined && (
-        <div className="mt-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] sm:text-xs text-gray-600">
+        <div className="mt-2">
+          <div className="flex items-center justify-between mb-0.5">
+            <span className="text-[9px] sm:text-[10px] text-gray-600">
               {task._stepInfo?.label || '진행 중'}
             </span>
-            <span className="text-[10px] sm:text-xs font-medium text-blue-600">
+            <span className="text-[9px] sm:text-[10px] font-medium text-blue-600">
               {task.progressPercentage}%
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2">
+          <div className="w-full bg-gray-200 rounded-full h-1">
             <div
-              className="bg-blue-600 h-1.5 sm:h-2 rounded-full transition-all duration-300"
+              className="bg-blue-600 h-1 rounded-full transition-all duration-300"
               style={{ width: `${task.progressPercentage}%` }}
             />
           </div>
@@ -224,7 +221,7 @@ export default function TaskCard({ task, onClick, onEdit }: TaskCardProps) {
       {/* 지연 상태 배지 */}
       {delayConfig && task.delayStatus !== 'on_time' && (
         <div
-          className={`mt-3 flex items-center gap-1.5 text-[10px] sm:text-xs ${delayConfig.text} ${delayConfig.bg} px-2 py-1.5 rounded-md`}
+          className={`mt-2 flex items-center gap-1 text-[9px] sm:text-[10px] ${delayConfig.text} ${delayConfig.bg} px-1.5 py-1 rounded`}
         >
           {delayConfig.icon}
           <span className="font-medium">{delayConfig.label}</span>
@@ -232,30 +229,55 @@ export default function TaskCard({ task, onClick, onEdit }: TaskCardProps) {
       )}
 
       {/* 액션 버튼 영역 */}
-      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+      <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
         <button
           onClick={(e) => {
             e.stopPropagation()
             onClick(task)
           }}
-          className="flex items-center gap-1 text-xs sm:text-sm text-blue-600 font-medium hover:text-blue-700"
+          className="flex items-center gap-0.5 text-[10px] sm:text-xs text-blue-600 font-medium hover:text-blue-700"
         >
           상세보기
-          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
+          <ChevronRight className="w-3 h-3" />
         </button>
 
-        {onEdit && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onEdit(task)
-            }}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="수정"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-1.5">
+          {onComplete && (
+            <button
+              onClick={async (e) => {
+                e.stopPropagation()
+                setIsCompleting(true)
+                try {
+                  await onComplete(task.id)
+                } finally {
+                  setIsCompleting(false)
+                }
+              }}
+              disabled={isCompleting}
+              className="flex items-center gap-0.5 px-2 py-1 text-[10px] sm:text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isCompleting ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <ArrowRight className="w-3 h-3" />
+              )}
+              완료
+            </button>
+          )}
+
+          {onEdit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit(task)
+              }}
+              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+              aria-label="수정"
+            >
+              <Edit className="w-3 h-3" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

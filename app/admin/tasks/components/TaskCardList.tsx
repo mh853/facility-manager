@@ -42,6 +42,7 @@ interface TaskCardListProps {
   tasks: Task[]
   onTaskClick: (task: Task) => void
   onTaskEdit?: (task: Task) => void
+  onComplete?: (taskId: string) => Promise<void>
   isLoading?: boolean
 }
 
@@ -49,6 +50,7 @@ export default function TaskCardList({
   tasks,
   onTaskClick,
   onTaskEdit,
+  onComplete,
   isLoading
 }: TaskCardListProps) {
   // 로딩 스켈레톤
@@ -117,6 +119,7 @@ export default function TaskCardList({
           task={task}
           onClick={onTaskClick}
           onEdit={onTaskEdit}
+          onComplete={onComplete}
         />
       ))}
     </div>

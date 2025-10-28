@@ -6,6 +6,7 @@ import { withAuth, useAuth } from '@/contexts/AuthContext'
 import { TokenManager } from '@/lib/api-client'
 import MultiAssigneeSelector, { SelectedAssignee } from '@/components/ui/MultiAssigneeSelector'
 import TaskCardList from './components/TaskCardList'
+import TaskCard from './components/TaskCard'
 import TaskMobileModal from './components/TaskMobileModal'
 import {
   Plus,
@@ -44,12 +45,19 @@ import {
 // 업무 타입 정의
 type TaskType = 'self' | 'subsidy' | 'etc' | 'as'
 type TaskStatus =
-  | 'customer_contact' | 'site_inspection' | 'quotation' | 'contract'
+  // 공통 단계
+  | 'pending' | 'site_survey' | 'customer_contact' | 'site_inspection' | 'quotation' | 'contract'
+  // 자비 단계
   | 'deposit_confirm' | 'product_order' | 'product_shipment' | 'installation_schedule'
   | 'installation' | 'balance_payment' | 'document_complete'
-  // 보조금 전용 단계
-  | 'application_submit' | 'document_supplement' | 'pre_construction_inspection'
-  | 'pre_construction_supplement' | 'completion_inspection' | 'completion_supplement'
+  // 보조금 단계
+  | 'approval_pending' | 'approved' | 'rejected'
+  | 'application_submit' | 'document_supplement' | 'document_preparation' | 'pre_construction_inspection'
+  // 착공 보완 세분화
+  | 'pre_construction_supplement_1st' | 'pre_construction_supplement_2nd'
+  | 'completion_inspection'
+  // 준공 보완 세분화
+  | 'completion_supplement_1st' | 'completion_supplement_2nd' | 'completion_supplement_3rd'
   | 'final_document_submit' | 'subsidy_payment'
   // AS 전용 단계
   | 'as_customer_contact' | 'as_site_inspection' | 'as_quotation' | 'as_contract'
@@ -81,6 +89,11 @@ interface Task {
   createdAt: string
   description?: string
   notes?: string
+  // 보완 관련 필드
+  supplementReason?: string
+  supplementEvidence?: string
+  supplementCompletedAt?: string
+  stepStartedAt?: string
   _stepInfo?: {status: TaskStatus, label: string, color: string} // 전체 보기에서 올바른 단계 정보
 }
 
@@ -125,16 +138,25 @@ const subsidySteps: Array<{status: TaskStatus, label: string, color: string}> = 
   { status: 'site_inspection', label: '현장 실사', color: 'yellow' },
   { status: 'quotation', label: '견적서 작성', color: 'orange' },
   { status: 'application_submit', label: '신청서 제출', color: 'purple' },
-  { status: 'document_supplement', label: '서류 보완', color: 'red' },
+  // 보조금 승인 단계
+  { status: 'approval_pending', label: '보조금 승인대기', color: 'sky' },
+  { status: 'approved', label: '보조금 승인', color: 'lime' },
+  { status: 'rejected', label: '보조금 탈락', color: 'red' },
+  { status: 'document_supplement', label: '서류 보완', color: 'pink' },
   { status: 'pre_construction_inspection', label: '착공 전 실사', color: 'indigo' },
-  { status: 'pre_construction_supplement', label: '착공 보완', color: 'pink' },
+  // 착공 보완 세분화
+  { status: 'pre_construction_supplement_1st', label: '착공 보완 1차', color: 'rose' },
+  { status: 'pre_construction_supplement_2nd', label: '착공 보완 2차', color: 'fuchsia' },
   { status: 'product_order', label: '제품 발주', color: 'cyan' },
   { status: 'product_shipment', label: '제품 출고', color: 'emerald' },
   { status: 'installation_schedule', label: '설치 협의', color: 'teal' },
   { status: 'installation', label: '제품 설치', color: 'green' },
   { status: 'completion_inspection', label: '준공 실사', color: 'violet' },
-  { status: 'completion_supplement', label: '준공 보완', color: 'fuchsia' },
-  { status: 'final_document_submit', label: '서류 제출', color: 'rose' },
+  // 준공 보완 세분화
+  { status: 'completion_supplement_1st', label: '준공 보완 1차', color: 'slate' },
+  { status: 'completion_supplement_2nd', label: '준공 보완 2차', color: 'zinc' },
+  { status: 'completion_supplement_3rd', label: '준공 보완 3차', color: 'stone' },
+  { status: 'final_document_submit', label: '서류 제출', color: 'gray' },
   { status: 'subsidy_payment', label: '보조금 입금', color: 'green' }
 ]
 
@@ -217,6 +239,12 @@ function TaskManagementPage() {
   const searchTimeoutRef = useRef<NodeJS.Timeout>()
   const refreshIntervalRef = useRef<NodeJS.Timeout>()
   const businessSearchTimeoutRef = useRef<NodeJS.Timeout>()
+
+  // Textarea refs for auto-resize
+  const editDescriptionRef = useRef<HTMLTextAreaElement>(null)
+  const editNotesRef = useRef<HTMLTextAreaElement>(null)
+  const createDescriptionRef = useRef<HTMLTextAreaElement>(null)
+  const createNotesRef = useRef<HTMLTextAreaElement>(null)
 
   // 실제 업무 데이터 로딩
   const loadTasks = useCallback(async () => {
@@ -330,6 +358,31 @@ function TaskManagementPage() {
     }
   }, [loadBusinesses])
 
+  // Auto-resize textareas when modals open with existing content
+  useEffect(() => {
+    const resizeTextarea = (textarea: HTMLTextAreaElement | null) => {
+      if (textarea && textarea.value) {
+        textarea.style.height = 'auto'
+        textarea.style.height = Math.min(textarea.scrollHeight, window.innerHeight * 0.5) + 'px'
+      }
+    }
+
+    if (showEditModal && editingTask) {
+      // Delay to ensure DOM is ready
+      setTimeout(() => {
+        resizeTextarea(editDescriptionRef.current)
+        resizeTextarea(editNotesRef.current)
+      }, 0)
+    }
+
+    if (showCreateModal) {
+      setTimeout(() => {
+        resizeTextarea(createDescriptionRef.current)
+        resizeTextarea(createNotesRef.current)
+      }, 0)
+    }
+  }, [showEditModal, editingTask, showCreateModal])
+
   // 수동 새로고침 (데이터 다시 로딩)
   const refreshTasks = useCallback(async () => {
     setIsRefreshing(true)
@@ -384,6 +437,39 @@ function TaskManagementPage() {
       alert(`업무 삭제 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
     }
   }, [])
+
+  // 업무 완료 핸들러 (다음 단계로 자동 이동)
+  const handleCompleteTask = useCallback(async (taskId: string) => {
+    try {
+      console.log('✅ 업무 완료 요청:', taskId)
+
+      const token = TokenManager.getToken()
+      const response = await fetch('/api/facility-tasks/advance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ taskId })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || '다음 단계로 이동하는 데 실패했습니다.')
+      }
+
+      const result = await response.json()
+      console.log('✅ 다음 단계로 이동 성공:', result)
+
+      // 업무 목록 새로고침
+      await refreshTasks()
+
+      alert(`${result.message}\n새 단계: ${result.newStatus}`)
+    } catch (error) {
+      console.error('Failed to complete task:', error)
+      alert(`업무 완료 처리 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+    }
+  }, [refreshTasks])
 
   // 디바운스된 검색
   const debouncedSearch = useCallback((term: string) => {
@@ -737,8 +823,10 @@ function TaskManagementPage() {
   const getColorClasses = useCallback((color: string) => {
     const colorMap = {
       blue: 'bg-blue-100 text-blue-800 border-blue-200',
+      sky: 'bg-sky-100 text-sky-800 border-sky-200',
       yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200',
       orange: 'bg-orange-100 text-orange-800 border-orange-200',
+      amber: 'bg-amber-100 text-amber-800 border-amber-200',
       purple: 'bg-purple-100 text-purple-800 border-purple-200',
       indigo: 'bg-indigo-100 text-indigo-800 border-indigo-200',
       cyan: 'bg-cyan-100 text-cyan-800 border-cyan-200',
@@ -750,9 +838,40 @@ function TaskManagementPage() {
       pink: 'bg-pink-100 text-pink-800 border-pink-200',
       violet: 'bg-violet-100 text-violet-800 border-violet-200',
       fuchsia: 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200',
-      rose: 'bg-rose-100 text-rose-800 border-rose-200'
+      rose: 'bg-rose-100 text-rose-800 border-rose-200',
+      slate: 'bg-slate-100 text-slate-800 border-slate-200',
+      zinc: 'bg-zinc-100 text-zinc-800 border-zinc-200',
+      stone: 'bg-stone-100 text-stone-800 border-stone-200',
+      gray: 'bg-gray-100 text-gray-800 border-gray-200'
     }
     return colorMap[color as keyof typeof colorMap] || 'bg-gray-100 text-gray-800 border-gray-200'
+  }, [])
+
+  const getDotColor = useCallback((color: string) => {
+    const dotColorMap = {
+      blue: 'bg-blue-500',
+      sky: 'bg-sky-500',
+      yellow: 'bg-yellow-500',
+      orange: 'bg-orange-500',
+      amber: 'bg-amber-500',
+      purple: 'bg-purple-500',
+      indigo: 'bg-indigo-500',
+      cyan: 'bg-cyan-500',
+      emerald: 'bg-emerald-500',
+      teal: 'bg-teal-500',
+      green: 'bg-green-500',
+      lime: 'bg-lime-500',
+      red: 'bg-red-500',
+      pink: 'bg-pink-500',
+      violet: 'bg-violet-500',
+      fuchsia: 'bg-fuchsia-500',
+      rose: 'bg-rose-500',
+      slate: 'bg-slate-500',
+      zinc: 'bg-zinc-500',
+      stone: 'bg-stone-500',
+      gray: 'bg-gray-500'
+    }
+    return dotColorMap[color as keyof typeof dotColorMap] || 'bg-gray-500'
   }, [])
 
   const getPriorityIcon = useCallback((priority: Priority) => {
@@ -1318,6 +1437,7 @@ function TaskManagementPage() {
                 setEditBusinessSearchTerm(task.businessName || '')
                 setShowEditModal(true)
               }}
+              onComplete={handleCompleteTask}
               isLoading={isLoading}
             />
           </div>
@@ -1654,7 +1774,7 @@ function TaskManagementPage() {
                   {/* 칼럼 헤더 */}
                   <div className="flex items-center justify-between mb-2 sm:mb-3">
                     <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full bg-${step.color}-500`} />
+                      <div className={`w-3 h-3 rounded-full ${getDotColor(step.color)}`} />
                       <h3 className="font-medium text-gray-900 text-xs sm:text-sm">{step.label}</h3>
                     </div>
                     <span className="text-xs text-gray-500 bg-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded">
@@ -1670,126 +1790,17 @@ function TaskManagementPage() {
                         draggable
                         onDragStart={() => handleDragStart(task)}
                         onDragEnd={handleDragEnd}
-                        onClick={() => handleOpenEditModal(task)}
-                        className={`bg-white border rounded-lg p-2 sm:p-3 cursor-pointer hover:shadow-sm transition-all group ${
-                          task.delayStatus === 'overdue'
-                            ? 'border-red-300 bg-red-50'
-                            : task.delayStatus === 'delayed'
-                            ? 'border-red-200 bg-red-25'
-                            : task.delayStatus === 'at_risk'
-                            ? 'border-yellow-200 bg-yellow-25'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
                       >
-                        {/* 카드 헤더 */}
-                        <div className="flex items-start justify-between mb-1.5 sm:mb-2">
-                          <div className="flex-1 pr-2">
-                            {/* 타입 뱃지 (전체 필터일 때만 표시) */}
-                            {selectedType === 'all' && (
-                              <div className="mb-1">
-                                <span className={`inline-flex items-center px-1.5 py-0.5 sm:px-2 rounded-full text-xs font-medium border ${getTaskTypeBadge(task.type).color}`}>
-                                  {getTaskTypeBadge(task.type).label}
-                                </span>
-                              </div>
-                            )}
-                            <h4 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight">
-                              {task.title}
-                            </h4>
-                          </div>
-                          <div className="flex items-center gap-1 flex-col">
-                            <div className="flex items-center gap-1">
-                              {getPriorityIcon(task.priority)}
-                              <span className={`px-1 py-0.5 sm:px-1.5 text-xs rounded ${
-                                task.type === 'self'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : task.type === 'subsidy'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : task.type === 'etc'
-                                  ? 'bg-gray-100 text-gray-800'
-                                  : 'bg-orange-100 text-orange-800'
-                              }`}>
-                                {task.type === 'self' ? '자비' :
-                                 task.type === 'subsidy' ? '보조금' :
-                                 task.type === 'etc' ? '기타' : 'AS'}
-                              </span>
-                            </div>
-                            {/* 지연 상태 표시 */}
-                            {task.delayStatus && task.delayStatus !== 'on_time' && (
-                              <span className={`px-1 py-0.5 sm:px-1.5 text-xs rounded font-medium ${
-                                task.delayStatus === 'overdue'
-                                  ? 'bg-red-100 text-red-800'
-                                  : task.delayStatus === 'delayed'
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {task.delayStatus === 'overdue'
-                                  ? `${task.delayDays}일 초과`
-                                  : task.delayStatus === 'delayed'
-                                  ? `${task.delayDays}일 지연`
-                                  : '위험'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 사업장 정보 */}
-                        <div className="flex items-center gap-1 text-xs text-gray-600 mb-1.5 sm:mb-2">
-                          <Building2 className="w-3 h-3" />
-                          <span className="truncate">{task.businessName}</span>
-                        </div>
-
-                        {/* 담당자 및 마감일 */}
-                        <div className="flex flex-col gap-2 text-xs">
-                          {/* 담당자 (다중 지원) */}
-                          <div className="flex items-center gap-1 text-gray-500">
-                            {task.assignees && task.assignees.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                <Users className="w-3 h-3 mt-0.5 text-gray-400" />
-                                {task.assignees.slice(0, 2).map((assignee, index) => (
-                                  <span
-                                    key={assignee.id}
-                                    className="inline-flex items-center px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-medium"
-                                    title={`${assignee.name} (${assignee.position})`}
-                                  >
-                                    {assignee.name}
-                                  </span>
-                                ))}
-                                {task.assignees.length > 2 && (
-                                  <span className="text-gray-400 text-xs">
-                                    +{task.assignees.length - 2}명
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <User className="w-3 h-3" />
-                                <span>{task.assignee || '미배정'}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* 마감일 */}
-                          {task.dueDate && (
-                            <div className="flex items-center gap-1 text-gray-500">
-                              <Calendar className="w-3 h-3" />
-                              <span>{formatDate(task.dueDate)}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* 호버 시 액션 버튼 */}
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-2 flex justify-end gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenEditModal(task)
-                            }}
-                            className="p-1 text-gray-400 hover:text-green-600 rounded"
-                            title="수정"
-                          >
-                            <Edit className="w-3 h-3" />
-                          </button>
-                        </div>
+                        <TaskCard
+                          task={task as any}
+                          onClick={() => handleOpenEditModal(task)}
+                          onEdit={(task: any) => {
+                            setEditingTask(task)
+                            setEditBusinessSearchTerm(task.businessName || '')
+                            setShowEditModal(true)
+                          }}
+                          onComplete={handleCompleteTask}
+                        />
                       </div>
                     ))}
                   </div>
@@ -2054,11 +2065,18 @@ function TaskManagementPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">업무 설명</label>
                   <textarea
+                    ref={createDescriptionRef}
                     value={createTaskForm.description}
-                    onChange={(e) => setCreateTaskForm(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) => {
+                      setCreateTaskForm(prev => ({ ...prev, description: e.target.value }))
+                      // Auto-resize
+                      const target = e.target as HTMLTextAreaElement
+                      target.style.height = 'auto'
+                      target.style.height = Math.min(target.scrollHeight, window.innerHeight * 0.5) + 'px'
+                    }}
                     placeholder="업무에 대한 설명을 입력하세요"
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    style={{ minHeight: '80px', maxHeight: '50vh' }}
                   />
                 </div>
 
@@ -2066,11 +2084,18 @@ function TaskManagementPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">메모</label>
                   <textarea
+                    ref={createNotesRef}
                     value={createTaskForm.notes}
-                    onChange={(e) => setCreateTaskForm(prev => ({ ...prev, notes: e.target.value }))}
+                    onChange={(e) => {
+                      setCreateTaskForm(prev => ({ ...prev, notes: e.target.value }))
+                      // Auto-resize
+                      const target = e.target as HTMLTextAreaElement
+                      target.style.height = 'auto'
+                      target.style.height = Math.min(target.scrollHeight, window.innerHeight * 0.5) + 'px'
+                    }}
                     placeholder="메모나 추가 정보를 입력하세요"
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    style={{ minHeight: '60px', maxHeight: '50vh' }}
                   />
                 </div>
                 </div>
@@ -2360,11 +2385,18 @@ function TaskManagementPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">업무 설명</label>
                   <textarea
+                    ref={editDescriptionRef}
                     value={editingTask.description || ''}
-                    onChange={(e) => setEditingTask(prev => prev ? { ...prev, description: e.target.value || undefined } : null)}
+                    onChange={(e) => {
+                      setEditingTask(prev => prev ? { ...prev, description: e.target.value || undefined } : null)
+                      // Auto-resize
+                      const target = e.target as HTMLTextAreaElement
+                      target.style.height = 'auto'
+                      target.style.height = Math.min(target.scrollHeight, window.innerHeight * 0.5) + 'px'
+                    }}
                     placeholder="업무에 대한 설명을 입력하세요"
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    style={{ minHeight: '80px', maxHeight: '50vh' }}
                   />
                 </div>
 
@@ -2372,11 +2404,18 @@ function TaskManagementPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">메모</label>
                   <textarea
+                    ref={editNotesRef}
                     value={editingTask.notes || ''}
-                    onChange={(e) => setEditingTask(prev => prev ? { ...prev, notes: e.target.value || undefined } : null)}
+                    onChange={(e) => {
+                      setEditingTask(prev => prev ? { ...prev, notes: e.target.value || undefined } : null)
+                      // Auto-resize
+                      const target = e.target as HTMLTextAreaElement
+                      target.style.height = 'auto'
+                      target.style.height = Math.min(target.scrollHeight, window.innerHeight * 0.5) + 'px'
+                    }}
                     placeholder="메모나 추가 정보를 입력하세요"
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    style={{ minHeight: '60px', maxHeight: '50vh' }}
                   />
                 </div>
                 </div>
