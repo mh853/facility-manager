@@ -40,6 +40,7 @@ interface RevenueCalculationResult {
   calculation_date: string;
   total_revenue: number;
   total_cost: number;
+  installation_extra_cost: number;  // 추가설치비 (설치팀 요청 추가 비용)
   gross_profit: number;
   sales_commission: number;
   survey_costs: number;
@@ -450,11 +451,16 @@ export async function POST(request: NextRequest) {
     // 최종 매출 = 기본 매출 + 추가공사비 - 협의사항
     const adjustedRevenue = totalRevenue + additionalCost - negotiationDiscount;
 
+    // 추가설치비 (설치팀 요청 추가 비용)
+    const installationExtraCost = businessInfo.installation_extra_cost || 0;
+
     console.log(`💰 [REVENUE-CALCULATE] 매출 조정: 기본 ${totalRevenue} + 추가공사비 ${additionalCost} - 협의사항 ${negotiationDiscount} = ${adjustedRevenue}`);
+    console.log(`💰 [REVENUE-CALCULATE] 추가설치비: ${installationExtraCost}`);
 
     // 10. 최종 계산 (조정된 매출 기준)
+    // 순이익 = 매출 - 매입 - 추가설치비 - 영업비용 - 실사비용 - 설치비용
     const grossProfit = adjustedRevenue - totalCost;
-    const netProfit = grossProfit - salesCommission - totalSurveyCosts - totalInstallationCosts;
+    const netProfit = grossProfit - installationExtraCost - salesCommission - totalSurveyCosts - totalInstallationCosts;
 
     const result: RevenueCalculationResult = {
       business_id,
@@ -463,6 +469,7 @@ export async function POST(request: NextRequest) {
       calculation_date: calcDate,
       total_revenue: adjustedRevenue, // 조정된 최종 매출
       total_cost: totalCost,
+      installation_extra_cost: installationExtraCost,  // 추가설치비
       gross_profit: grossProfit,
       sales_commission: salesCommission,
       survey_costs: totalSurveyCosts,

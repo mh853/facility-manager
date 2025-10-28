@@ -95,6 +95,7 @@ interface UnifiedBusinessInfo {
   expansion_pack?: number | null;
   other_equipment?: string | null;
   additional_cost?: number | null;
+  installation_extra_cost?: number | null;  // 추가설치비 (설치팀 요청 추가 비용)
   negotiation?: string | null;
   multiple_stack_cost?: number | null;
   representative_birth_date?: string | null;
@@ -5294,6 +5295,25 @@ function BusinessManagementPage() {
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
                         placeholder="매출에 추가될 금액 (예: 500,000)"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                        추가설치비 (원)
+                        <span className="ml-1 text-[9px] sm:text-[10px] text-gray-500">(설치팀 요청 추가 비용)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.installation_extra_cost ? formData.installation_extra_cost.toLocaleString() : ''}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/,/g, '');
+                          setFormData({...formData, installation_extra_cost: value ? parseInt(value) : null});
+                        }}
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-[10px] sm:text-xs md:text-sm focus:ring-1 focus:ring-blue-500"
+                        placeholder="순이익에서 차감될 금액 (예: 300,000)"
+                      />
+                      <p className="mt-0.5 sm:mt-1 text-[8px] sm:text-[9px] md:text-[10px] text-orange-600">
+                        💡 기본 공사비로 충당 불가능한 추가 설치 비용
+                      </p>
                     </div>
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">협의사항 (할인 금액, 원)</label>

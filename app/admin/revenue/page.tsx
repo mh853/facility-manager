@@ -1814,6 +1814,15 @@ function RevenueDashboard() {
                             </p>
                           </div>
                         )}
+                        {(selectedEquipmentBusiness.installation_extra_cost || 0) > 0 && (
+                          <div className="bg-orange-50 rounded-lg p-3 md:p-4">
+                            <p className="text-xs font-medium text-orange-600 mb-1">추가설치비</p>
+                            <p className="text-sm md:text-lg font-bold text-orange-700 break-words">
+                              {formatCurrency(selectedEquipmentBusiness.installation_extra_cost)}
+                            </p>
+                            <p className="text-xs text-orange-600 mt-1">설치팀 추가 비용</p>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1824,7 +1833,9 @@ function RevenueDashboard() {
                         <p className={`text-sm md:text-lg font-bold ${selectedEquipmentBusiness.net_profit >= 0 ? 'text-blue-700' : 'text-red-700'} break-words`}>
                           {formatCurrency(selectedEquipmentBusiness.net_profit)}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1 hidden md:block">= 총이익 - 영업 - 실사 - 설치</p>
+                        <p className="text-xs text-gray-500 mt-1 hidden md:block">
+                          = 총이익 - {(selectedEquipmentBusiness.installation_extra_cost || 0) > 0 ? '추가설치비 - ' : ''}영업 - 실사 - 설치
+                        </p>
                       </div>
                       <div className="bg-purple-50 rounded-lg p-3 md:p-4">
                         <p className="text-xs font-medium text-purple-600 mb-1">이익률</p>

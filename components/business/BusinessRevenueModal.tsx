@@ -105,6 +105,17 @@ export default function BusinessRevenueModal({
               </div>
             </div>
 
+            {/* 추가설치비 (설치팀 요청 추가 비용) */}
+            {(business.installation_extra_cost || 0) > 0 && (
+              <div className="bg-orange-50 rounded-lg p-4">
+                <p className="text-xs font-medium text-orange-600 mb-1">추가설치비</p>
+                <p className="text-lg font-bold text-orange-700">
+                  {formatCurrency(business.installation_extra_cost || 0)}
+                </p>
+                <p className="text-xs text-orange-600 mt-1">설치팀 추가 비용 (순이익에서 차감)</p>
+              </div>
+            )}
+
             {/* 추가공사비 및 협의사항 */}
             {(business.additional_cost || business.negotiation) && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -407,6 +418,12 @@ export default function BusinessRevenueModal({
                     <span>- 매입금액</span>
                     <span className="font-bold text-red-700">-{formatCurrency(business.total_cost || 0)}</span>
                   </div>
+                  {(business.installation_extra_cost || 0) > 0 && (
+                    <div className="flex justify-between border-b border-gray-200 pb-2">
+                      <span>- 추가설치비</span>
+                      <span className="font-bold text-orange-700">-{formatCurrency(business.installation_extra_cost || 0)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 영업비용</span>
                     <span className="font-bold text-orange-700">-{formatCurrency(business.sales_commission || 0)}</span>

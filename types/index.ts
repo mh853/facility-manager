@@ -105,6 +105,10 @@ export interface BusinessInfo {
   pre_construction_survey_date?: string;     // 착공전실사일
   completion_survey_manager?: string;    // 준공실사 담당자
   completion_survey_date?: string;       // 준공실사일
+
+  // 비용 정보
+  additional_cost?: number;              // 추가공사비 (계산서 발행 항목)
+  installation_extra_cost?: number;      // 추가설치비 (설치팀 요청 추가 비용)
 }
 
 export interface FileInfo {

@@ -176,6 +176,9 @@ export async function PUT(request: NextRequest) {
     if (updateData.additional_cost !== undefined) {
       updateObject.additional_cost = updateData.additional_cost;
     }
+    if (updateData.installation_extra_cost !== undefined) {
+      updateObject.installation_extra_cost = updateData.installation_extra_cost;
+    }
     if (updateData.negotiation || updateData.네고) {
       updateObject.negotiation = updateData.negotiation || updateData.네고;
     }
