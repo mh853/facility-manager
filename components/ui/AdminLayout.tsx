@@ -46,7 +46,7 @@ const navigationItems: NavigationItem[] = [
     href: '/admin',
     icon: Activity,
     description: '관리자 종합 현황 대시보드',
-    requiredLevel: 1
+    requiredLevel: 3
   },
   {
     name: '사업장 관리',
