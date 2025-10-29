@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import {
+  determineAggregationLevel,
+  getAggregationKey,
+  generateAggregationKeys,
+  type AggregationLevel
+} from '@/lib/dashboard-utils'
 
 interface RevenueQueryParams {
   months?: string;
@@ -14,8 +20,8 @@ export async function GET(request: NextRequest) {
 
     // 기간 파라미터 (3가지 모드)
     const months = searchParams.get('months') ? parseInt(searchParams.get('months')!) : null;
-    const startDate = searchParams.get('startDate'); // YYYY-MM 형식
-    const endDate = searchParams.get('endDate');     // YYYY-MM 형식
+    const startDate = searchParams.get('startDate'); // YYYY-MM-DD 또는 YYYY-MM 형식
+    const endDate = searchParams.get('endDate');     // YYYY-MM-DD 또는 YYYY-MM 형식
     const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : null;
 
     // 필터 파라미터
@@ -36,6 +42,13 @@ export async function GET(request: NextRequest) {
       .eq('is_active', true)
       .eq('is_deleted', false)
       .not('installation_date', 'is', null);
+
+    // 날짜 범위 필터 (기간 지정 모드에서만 적용)
+    if (startDate && endDate) {
+      businessQuery = businessQuery
+        .gte('installation_date', startDate)
+        .lte('installation_date', endDate);
+    }
 
     // 필터 적용
     if (manufacturer) businessQuery = businessQuery.eq('manufacturer', manufacturer);
@@ -153,14 +166,16 @@ export async function GET(request: NextRequest) {
       console.log('📊 [Dashboard Revenue API] Survey adjustments loaded for', Object.keys(surveyAdjustmentsMap).length, 'businesses');
     }
 
-    // 3. 월별 데이터 집계 맵 초기화
-    const monthlyData: Map<string, any> = new Map();
+    // 3. 집계 단위 결정 및 데이터 맵 초기화
+    let aggregationLevel: AggregationLevel = 'monthly'; // 기본값
+    const aggregationData: Map<string, any> = new Map();
 
     if (year) {
-      // 연도별 모드: 해당 연도의 12개월 초기화
+      // 연도별 모드: 월별 집계 (기존 로직 유지)
+      aggregationLevel = 'monthly';
       for (let month = 1; month <= 12; month++) {
         const monthKey = `${year}-${String(month).padStart(2, '0')}`;
-        monthlyData.set(monthKey, {
+        aggregationData.set(monthKey, {
           month: monthKey,
           revenue: 0,
           cost: 0,
@@ -171,15 +186,15 @@ export async function GET(request: NextRequest) {
         });
       }
     } else if (startDate && endDate) {
-      // 기간 지정 모드: 시작월부터 종료월까지 초기화
-      const start = new Date(startDate + '-01');
-      const end = new Date(endDate + '-01');
+      // 기간 지정 모드: 집계 단위 자동 결정
+      aggregationLevel = determineAggregationLevel(startDate, endDate);
+      console.log('📊 [Dashboard Revenue API] Aggregation level:', aggregationLevel);
 
-      const current = new Date(start);
-      while (current <= end) {
-        const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
-        monthlyData.set(monthKey, {
-          month: monthKey,
+      // 집계 키 생성
+      const keys = generateAggregationKeys(startDate, endDate, aggregationLevel);
+      keys.forEach(key => {
+        aggregationData.set(key, {
+          month: key, // 호환성을 위해 'month' 키 유지
           revenue: 0,
           cost: 0,
           profit: 0,
@@ -187,16 +202,16 @@ export async function GET(request: NextRequest) {
           prevMonthChange: 0,
           count: 0
         });
-        current.setMonth(current.getMonth() + 1);
-      }
+      });
     } else {
-      // 최근 N개월 모드 (기본값: 12개월)
+      // 최근 N개월 모드: 월별 집계 (기존 로직 유지)
+      aggregationLevel = 'monthly';
       const monthsToShow = months || 12;
       for (let i = 0; i < monthsToShow; i++) {
         const date = new Date();
         date.setMonth(date.getMonth() - i);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        monthlyData.set(monthKey, {
+        aggregationData.set(monthKey, {
           month: monthKey,
           revenue: 0,
           cost: 0,
@@ -251,14 +266,14 @@ export async function GET(request: NextRequest) {
       'relay_8ch', 'relay_16ch', 'main_board_replacement', 'multiple_stack'
     ];
 
-    // 6. 사업장별 실시간 매출 계산 및 월별 집계
+    // 6. 사업장별 실시간 매출 계산 및 집계
     for (const business of filteredBusinesses) {
       if (!business.installation_date) continue;
 
       const installDate = new Date(business.installation_date);
-      const monthKey = `${installDate.getFullYear()}-${String(installDate.getMonth() + 1).padStart(2, '0')}`;
+      const aggregationKey = getAggregationKey(installDate, aggregationLevel);
 
-      if (!monthlyData.has(monthKey)) continue;
+      if (!aggregationData.has(aggregationKey)) continue;
 
       // 사업장의 제조사 정보 (기본값: ecosense)
       const businessManufacturer = business.manufacturer || 'ecosense';
@@ -341,7 +356,7 @@ export async function GET(request: NextRequest) {
       const netProfit = grossProfit - salesCommission - totalSurveyCosts - totalInstallationCosts - installationExtraCost;
 
       // 월별 데이터 업데이트
-      const current = monthlyData.get(monthKey);
+      const current = aggregationData.get(aggregationKey);
       current.revenue += businessRevenue;
       current.cost += totalCost;  // 매입금액 (제조사 매입만)
       current.profit += netProfit;  // 순이익 (모든 비용 차감 후)
@@ -349,11 +364,11 @@ export async function GET(request: NextRequest) {
     }
 
     // 6. 이익률 계산 및 전월 대비 증감 계산
-    const sortedMonths = Array.from(monthlyData.keys()).sort();
+    const sortedMonths = Array.from(aggregationData.keys()).sort();
     let prevProfit = 0;
 
     sortedMonths.forEach((monthKey, index) => {
-      const data = monthlyData.get(monthKey);
+      const data = aggregationData.get(monthKey);
 
       // 이익률 계산
       if (data.revenue > 0) {
@@ -383,7 +398,7 @@ export async function GET(request: NextRequest) {
 
     // 8. 목표 달성률 계산
     sortedMonths.forEach(monthKey => {
-      const data = monthlyData.get(monthKey);
+      const data = aggregationData.get(monthKey);
       const target = targetMap.get(monthKey);
       if (target && target > 0) {
         data.target = target;
@@ -394,8 +409,8 @@ export async function GET(request: NextRequest) {
     // 9. 평균값 계산 및 최종 데이터 배열 생성
     // 연도별/기간지정 모드는 오래된 것부터, 최근 모드는 최신부터
     const dataArray = (year || (startDate && endDate))
-      ? Array.from(monthlyData.values()) // 연도별/기간지정: 순방향 (1월→12월)
-      : Array.from(monthlyData.values()).reverse(); // 최근 모드: 역방향 (최신→과거)
+      ? Array.from(aggregationData.values()) // 연도별/기간지정: 순방향 (1월→12월)
+      : Array.from(aggregationData.values()).reverse(); // 최근 모드: 역방향 (최신→과거)
     const totalProfit = dataArray.reduce((sum, d) => sum + d.profit, 0);
     const totalRevenue = dataArray.reduce((sum, d) => sum + d.revenue, 0);
     const validProfitRates = dataArray.filter(d => d.profitRate > 0);

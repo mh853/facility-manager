@@ -15,6 +15,7 @@ export default function FilterPanel({ onFilterChange }: FilterPanelProps) {
   const [progressStatuses, setProgressStatuses] = useState<string[]>([]); // 진행구분
   const [salesOffices, setSalesOffices] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [activeQuickFilter, setActiveQuickFilter] = useState<string | null>(null);
 
   useEffect(() => {
     loadFilterOptions();
@@ -76,6 +77,7 @@ export default function FilterPanel({ onFilterChange }: FilterPanelProps) {
   const resetFilters = () => {
     const resetFilters = { periodMode: 'recent' as const, months: 12 };
     setFilters(resetFilters);
+    setActiveQuickFilter(null);
     onFilterChange(resetFilters);
   };
 
@@ -120,12 +122,100 @@ export default function FilterPanel({ onFilterChange }: FilterPanelProps) {
               📅 조회 기간 설정
             </label>
 
+            {/* 빠른 필터 버튼 (항상 표시) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const todayStr = today.toISOString().split('T')[0];
+                  const newFilters = { ...filters, periodMode: 'recent' as const, startDate: todayStr, endDate: todayStr };
+                  setFilters(newFilters);
+                  setActiveQuickFilter('today');
+                  onFilterChange(newFilters);
+                }}
+                className={`px-3 py-2 text-xs font-medium border rounded hover:bg-indigo-50 transition-colors ${
+                  activeQuickFilter === 'today'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-indigo-600 border-indigo-300'
+                }`}
+              >
+                오늘
+              </button>
+              <button
+                onClick={() => {
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  const yesterdayStr = yesterday.toISOString().split('T')[0];
+                  const newFilters = { ...filters, periodMode: 'recent' as const, startDate: yesterdayStr, endDate: yesterdayStr };
+                  setFilters(newFilters);
+                  setActiveQuickFilter('yesterday');
+                  onFilterChange(newFilters);
+                }}
+                className={`px-3 py-2 text-xs font-medium border rounded hover:bg-indigo-50 transition-colors ${
+                  activeQuickFilter === 'yesterday'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-indigo-600 border-indigo-300'
+                }`}
+              >
+                어제
+              </button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const startOfWeek = new Date(today);
+                  startOfWeek.setDate(today.getDate() - today.getDay()); // 일요일
+                  const endOfWeek = new Date(startOfWeek);
+                  endOfWeek.setDate(startOfWeek.getDate() + 6); // 토요일
+                  const newFilters = {
+                    ...filters,
+                    periodMode: 'recent' as const,
+                    startDate: startOfWeek.toISOString().split('T')[0],
+                    endDate: endOfWeek.toISOString().split('T')[0]
+                  };
+                  setFilters(newFilters);
+                  setActiveQuickFilter('thisWeek');
+                  onFilterChange(newFilters);
+                }}
+                className={`px-3 py-2 text-xs font-medium border rounded hover:bg-indigo-50 transition-colors ${
+                  activeQuickFilter === 'thisWeek'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-indigo-600 border-indigo-300'
+                }`}
+              >
+                이번주
+              </button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                  const newFilters = {
+                    ...filters,
+                    periodMode: 'recent' as const,
+                    startDate: startOfMonth.toISOString().split('T')[0],
+                    endDate: endOfMonth.toISOString().split('T')[0]
+                  };
+                  setFilters(newFilters);
+                  setActiveQuickFilter('thisMonth');
+                  onFilterChange(newFilters);
+                }}
+                className={`px-3 py-2 text-xs font-medium border rounded hover:bg-indigo-50 transition-colors ${
+                  activeQuickFilter === 'thisMonth'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-indigo-600 border-indigo-300'
+                }`}
+              >
+                이번달
+              </button>
+            </div>
+
             {/* 모드 선택 */}
             <div className="grid grid-cols-3 gap-2 mb-3">
               <button
                 onClick={() => {
-                  const newFilters = { ...filters, periodMode: 'recent' as const, months: 12 };
+                  const newFilters = { ...filters, periodMode: 'recent' as const, months: 12, startDate: undefined, endDate: undefined };
                   setFilters(newFilters);
+                  setActiveQuickFilter(null);
                   onFilterChange(newFilters);
                 }}
                 className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
@@ -138,8 +228,9 @@ export default function FilterPanel({ onFilterChange }: FilterPanelProps) {
               </button>
               <button
                 onClick={() => {
-                  const newFilters = { ...filters, periodMode: 'custom' as const };
+                  const newFilters = { ...filters, periodMode: 'custom' as const, months: undefined };
                   setFilters(newFilters);
+                  setActiveQuickFilter(null);
                   onFilterChange(newFilters);
                 }}
                 className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
@@ -153,8 +244,9 @@ export default function FilterPanel({ onFilterChange }: FilterPanelProps) {
               <button
                 onClick={() => {
                   const currentYear = new Date().getFullYear();
-                  const newFilters = { ...filters, periodMode: 'yearly' as const, year: currentYear };
+                  const newFilters = { ...filters, periodMode: 'yearly' as const, year: currentYear, months: undefined, startDate: undefined, endDate: undefined };
                   setFilters(newFilters);
+                  setActiveQuickFilter(null);
                   onFilterChange(newFilters);
                 }}
                 className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
@@ -170,17 +262,26 @@ export default function FilterPanel({ onFilterChange }: FilterPanelProps) {
             {/* 최근 기간 모드 */}
             {(!filters.periodMode || filters.periodMode === 'recent') && (
               <div>
-                <select
-                  value={filters.months || 12}
-                  onChange={(e) => handleFilterChange('months', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-indigo-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value={3}>최근 3개월</option>
-                  <option value={6}>최근 6개월</option>
-                  <option value={12}>최근 12개월</option>
-                  <option value={24}>최근 24개월</option>
-                  <option value={36}>최근 36개월</option>
-                </select>
+                {/* 월단위 선택 (빠른 필터로 startDate가 설정된 경우 숨김) */}
+                {!filters.startDate && (
+                  <select
+                    value={filters.months || 12}
+                    onChange={(e) => handleFilterChange('months', parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border border-indigo-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value={3}>최근 3개월</option>
+                    <option value={6}>최근 6개월</option>
+                    <option value={12}>최근 12개월</option>
+                    <option value={24}>최근 24개월</option>
+                    <option value={36}>최근 36개월</option>
+                  </select>
+                )}
+                {/* 빠른 필터 선택된 기간 표시 */}
+                {filters.startDate && filters.endDate && (
+                  <div className="px-3 py-2 bg-indigo-100 border border-indigo-300 rounded text-sm text-indigo-700 text-center">
+                    📅 {filters.startDate} ~ {filters.endDate}
+                  </div>
+                )}
               </div>
             )}
 
@@ -188,18 +289,18 @@ export default function FilterPanel({ onFilterChange }: FilterPanelProps) {
             {filters.periodMode === 'custom' && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs text-indigo-700 mb-1">시작월</label>
+                  <label className="block text-xs text-indigo-700 mb-1">시작일</label>
                   <input
-                    type="month"
+                    type="date"
                     value={filters.startDate || ''}
                     onChange={(e) => handleFilterChange('startDate', e.target.value)}
                     className="w-full px-3 py-2 border border-indigo-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-indigo-700 mb-1">종료월</label>
+                  <label className="block text-xs text-indigo-700 mb-1">종료일</label>
                   <input
-                    type="month"
+                    type="date"
                     value={filters.endDate || ''}
                     onChange={(e) => handleFilterChange('endDate', e.target.value)}
                     className="w-full px-3 py-2 border border-indigo-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"

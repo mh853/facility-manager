@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import {
+  determineAggregationLevel,
+  getAggregationKey,
+  generateAggregationKeys,
+  type AggregationLevel
+} from '@/lib/dashboard-utils'
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,8 +13,8 @@ export async function GET(request: NextRequest) {
 
     // 기간 파라미터 (3가지 모드)
     const months = searchParams.get('months') ? parseInt(searchParams.get('months')!) : null;
-    const startDate = searchParams.get('startDate'); // YYYY-MM 형식
-    const endDate = searchParams.get('endDate');     // YYYY-MM 형식
+    const startDate = searchParams.get('startDate'); // YYYY-MM-DD 또는 YYYY-MM 형식
+    const endDate = searchParams.get('endDate');     // YYYY-MM-DD 또는 YYYY-MM 형식
     const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : null;
 
     // 필터 파라미터
@@ -27,6 +33,15 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('is_active', true)
       .eq('is_deleted', false);
+
+    // 날짜 범위 필터 (기간 지정 모드에서만 적용)
+    // 설치 현황은 installation_date가 있는 것만 필터링
+    if (startDate && endDate) {
+      businessQuery = businessQuery
+        .not('installation_date', 'is', null)
+        .gte('installation_date', startDate)
+        .lte('installation_date', endDate);
+    }
 
     // 필터 적용
     if (manufacturer) businessQuery = businessQuery.eq('manufacturer', manufacturer);
@@ -59,13 +74,15 @@ export async function GET(request: NextRequest) {
     console.log('🔧 [Dashboard Installations API] Total businesses (after filters):', filteredBusinesses.length);
 
     // 2. 월별 데이터 집계 맵 초기화
-    const monthlyData: Map<string, any> = new Map();
+    let aggregationLevel: AggregationLevel = 'monthly'; // 기본값
+    const aggregationData: Map<string, any> = new Map();
 
     if (year) {
-      // 연도별 모드: 해당 연도의 12개월 초기화
+      // 연도별 모드: 월별 집계 (기존 로직 유지)
+      aggregationLevel = 'monthly';
       for (let month = 1; month <= 12; month++) {
         const monthKey = `${year}-${String(month).padStart(2, '0')}`;
-        monthlyData.set(monthKey, {
+        aggregationData.set(monthKey, {
           month: monthKey,
           waiting: 0,
           inProgress: 0,
@@ -76,15 +93,15 @@ export async function GET(request: NextRequest) {
         });
       }
     } else if (startDate && endDate) {
-      // 기간 지정 모드: 시작월부터 종료월까지 초기화
-      const start = new Date(startDate + '-01');
-      const end = new Date(endDate + '-01');
+      // 기간 지정 모드: 집계 단위 자동 결정
+      aggregationLevel = determineAggregationLevel(startDate, endDate);
+      console.log('📊 [Dashboard Installations API] Aggregation level:', aggregationLevel);
 
-      const current = new Date(start);
-      while (current <= end) {
-        const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
-        monthlyData.set(monthKey, {
-          month: monthKey,
+      // 집계 키 생성
+      const keys = generateAggregationKeys(startDate, endDate, aggregationLevel);
+      keys.forEach(key => {
+        aggregationData.set(key, {
+          month: key, // 호환성을 위해 'month' 키 유지
           waiting: 0,
           inProgress: 0,
           completed: 0,
@@ -92,16 +109,16 @@ export async function GET(request: NextRequest) {
           completionRate: 0,
           prevMonthChange: 0
         });
-        current.setMonth(current.getMonth() + 1);
-      }
+      });
     } else {
-      // 최근 N개월 모드 (기본값: 12개월)
+      // 최근 N개월 모드: 월별 집계 (기존 로직 유지)
+      aggregationLevel = 'monthly';
       const monthsToShow = months || 12;
       for (let i = 0; i < monthsToShow; i++) {
         const date = new Date();
         date.setMonth(date.getMonth() - i);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        monthlyData.set(monthKey, {
+        aggregationData.set(monthKey, {
           month: monthKey,
           waiting: 0,
           inProgress: 0,
@@ -113,28 +130,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 3. 월별 설치 현황 집계
-    // 사업진행연도(project_year)를 기준으로 월별 집계
+    // 3. 설치 현황 집계
     filteredBusinesses.forEach(business => {
       const projectYear = business.project_year;
       if (!projectYear) return; // 사업 진행 연도가 없으면 스킵
 
-      // 사업장의 월을 추정 (설치일이 있으면 설치월, 없으면 1월로 가정)
-      let monthKey: string;
+      // 사업장의 집계 키 결정 (설치일이 있으면 설치일, 없으면 프로젝트 연도의 1월로 가정)
+      let aggregationKey: string;
       if (business.installation_date) {
         const installDate = new Date(business.installation_date);
-        monthKey = `${installDate.getFullYear()}-${String(installDate.getMonth() + 1).padStart(2, '0')}`;
+        aggregationKey = getAggregationKey(installDate, aggregationLevel);
       } else {
         // 설치일이 없으면 프로젝트 연도의 1월로 가정
-        monthKey = `${projectYear}-01`;
+        const fallbackDate = new Date(`${projectYear}-01-01`);
+        aggregationKey = getAggregationKey(fallbackDate, aggregationLevel);
       }
 
-      if (!monthlyData.has(monthKey)) {
+      if (!aggregationData.has(aggregationKey)) {
         // 집계 기간 밖이면 스킵
         return;
       }
 
-      const current = monthlyData.get(monthKey);
+      const current = aggregationData.get(aggregationKey);
       current.total += 1;
 
       // 설치 진행 상태 판단
@@ -166,11 +183,11 @@ export async function GET(request: NextRequest) {
     });
 
     // 4. 완료율 및 전월 대비 계산
-    const sortedMonths = Array.from(monthlyData.keys()).sort();
+    const sortedMonths = Array.from(aggregationData.keys()).sort();
     let prevTotal = 0;
 
     sortedMonths.forEach((monthKey, index) => {
-      const data = monthlyData.get(monthKey);
+      const data = aggregationData.get(monthKey);
 
       // 완료율 계산
       if (data.total > 0) {
@@ -188,8 +205,8 @@ export async function GET(request: NextRequest) {
     // 5. 요약 정보 계산
     // 연도별/기간지정 모드는 오래된 것부터, 최근 모드는 최신부터
     const dataArray = (year || (startDate && endDate))
-      ? Array.from(monthlyData.values()) // 연도별/기간지정: 순방향 (1월→12월)
-      : Array.from(monthlyData.values()).reverse(); // 최근 모드: 역방향 (최신→과거)
+      ? Array.from(aggregationData.values()) // 연도별/기간지정: 순방향 (1월→12월)
+      : Array.from(aggregationData.values()).reverse(); // 최근 모드: 역방향 (최신→과거)
     const totalInstallations = dataArray.reduce((sum, d) => sum + d.total, 0);
     const validCompletionRates = dataArray.filter(d => d.total > 0);
 

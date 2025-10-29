@@ -17,6 +17,7 @@ import { RevenueData, RevenueSummary, DashboardFilters } from '@/types/dashboard
 import { RefreshCw, Target } from 'lucide-react'
 import TargetSettingModal from '../modals/TargetSettingModal'
 import MonthDetailModal from '../modals/MonthDetailModal'
+import { determineAggregationLevel, getCurrentTimeKey } from '@/lib/dashboard-utils'
 
 interface RevenueChartProps {
   filters?: DashboardFilters;
@@ -41,7 +42,13 @@ export default function RevenueChart({ filters }: RevenueChartProps) {
 
       // 기간 필터 파라미터 구성
       const periodParams: Record<string, string> = {};
-      if (filters?.periodMode === 'custom') {
+
+      // startDate/endDate가 있으면 우선 사용 (빠른 필터 지원)
+      if (filters?.startDate && filters?.endDate) {
+        // YYYY-MM-DD 형식 그대로 전달 (API에서 자동으로 집계 단위 결정)
+        periodParams.startDate = filters.startDate;
+        periodParams.endDate = filters.endDate;
+      } else if (filters?.periodMode === 'custom') {
         if (filters.startDate) periodParams.startDate = filters.startDate;
         if (filters.endDate) periodParams.endDate = filters.endDate;
       } else if (filters?.periodMode === 'yearly') {
@@ -99,6 +106,40 @@ export default function RevenueChart({ filters }: RevenueChartProps) {
       return `${(value / 100000000).toFixed(1)}억`;
     }
     return `${(value / 10000).toFixed(0)}만`;
+  };
+
+  // 현재 시점 계산
+  const getCurrentTimePoint = () => {
+    if (!filters) return null;
+
+    // 집계 레벨 결정
+    let aggregationLevel: 'daily' | 'weekly' | 'monthly' = 'monthly';
+
+    if (filters.startDate && filters.endDate) {
+      aggregationLevel = determineAggregationLevel(filters.startDate, filters.endDate);
+    } else if (filters.periodMode === 'yearly' || filters.periodMode === 'recent' || !filters.periodMode) {
+      aggregationLevel = 'monthly';
+    }
+
+    return getCurrentTimeKey(aggregationLevel);
+  };
+
+  const currentTimeKey = getCurrentTimePoint();
+
+  // X축 레이블 포맷 함수
+  const formatXAxisLabel = (value: string) => {
+    // YYYY-MM-DD 형식 (일별): MM/DD로 변환
+    if (value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [, month, day] = value.split('-');
+      return `${month}/${day}`;
+    }
+    // YYYY-Www 형식 (주별): ww주차로 변환
+    if (value.match(/^\d{4}-W\d{2}$/)) {
+      const weekNum = value.split('-W')[1];
+      return `${weekNum}주`;
+    }
+    // 그 외 (월별): 그대로 표시
+    return value;
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -182,11 +223,11 @@ export default function RevenueChart({ filters }: RevenueChartProps) {
           </div>
           <div className="bg-purple-50 p-3 rounded">
             <p className="text-xs text-gray-600">총 매출</p>
-            <p className="text-base md:text-lg font-bold">{formatCurrency(summary.totalRevenue)}</p>
+            <p className="text-base md:text-lg font-bold">{summary.totalRevenue.toLocaleString()}원</p>
           </div>
           <div className="bg-indigo-50 p-3 rounded">
             <p className="text-xs text-gray-600">총 순이익</p>
-            <p className="text-base md:text-lg font-bold">{formatCurrency(summary.totalProfit)}</p>
+            <p className="text-base md:text-lg font-bold">{summary.totalProfit.toLocaleString()}원</p>
           </div>
         </div>
       )}
@@ -196,6 +237,7 @@ export default function RevenueChart({ filters }: RevenueChartProps) {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             dataKey="month"
+            tickFormatter={formatXAxisLabel}
             tick={{ fontSize: 12 }}
             angle={-45}
             textAnchor="end"
@@ -218,6 +260,17 @@ export default function RevenueChart({ filters }: RevenueChartProps) {
               stroke="#888"
               strokeDasharray="3 3"
               label={{ value: '평균', fontSize: 12, fill: '#888' }}
+            />
+          )}
+
+          {/* 현재 시점 강조 */}
+          {currentTimeKey && data.some(d => d.month === currentTimeKey) && (
+            <ReferenceLine
+              x={currentTimeKey}
+              stroke="#ef4444"
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              label={{ value: '현재', position: 'top', fontSize: 11, fill: '#ef4444', fontWeight: 'bold' }}
             />
           )}
 
