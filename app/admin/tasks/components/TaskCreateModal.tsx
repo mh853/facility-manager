@@ -47,6 +47,7 @@ export default function TaskCreateModal({
 
   const [businessSearchTerm, setBusinessSearchTerm] = useState('')
   const [showBusinessDropdown, setShowBusinessDropdown] = useState(false)
+  const [selectedBusinessIndex, setSelectedBusinessIndex] = useState(-1)
 
   // 모달이 닫혀있으면 렌더링하지 않음
   if (!isOpen) return null
@@ -75,6 +76,37 @@ export default function TaskCreateModal({
       business.address?.toLowerCase().includes(businessSearchTerm.toLowerCase())
     )
     .slice(0, 10)
+
+  // 사업장 선택 핸들러
+  const handleBusinessSelect = (business: BusinessOption) => {
+    setBusinessSearchTerm(business.name)
+    setForm({ ...form, businessName: business.name })
+    setShowBusinessDropdown(false)
+    setSelectedBusinessIndex(-1)
+  }
+
+  // 키보드 네비게이션 핸들러
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showBusinessDropdown || filteredBusinesses.length === 0) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedBusinessIndex(prev =>
+        prev < filteredBusinesses.length - 1 ? prev + 1 : prev
+      )
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedBusinessIndex(prev => prev > 0 ? prev - 1 : -1)
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (selectedBusinessIndex >= 0 && selectedBusinessIndex < filteredBusinesses.length) {
+        e.preventDefault()
+        handleBusinessSelect(filteredBusinesses[selectedBusinessIndex])
+      }
+    } else if (e.key === 'Escape') {
+      setShowBusinessDropdown(false)
+      setSelectedBusinessIndex(-1)
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -137,7 +169,9 @@ export default function TaskCreateModal({
                 onChange={(e) => {
                   setBusinessSearchTerm(e.target.value)
                   setShowBusinessDropdown(e.target.value.length >= 2)
+                  setSelectedBusinessIndex(-1)
                 }}
+                onKeyDown={handleKeyDown}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="사업장 이름 또는 주소로 검색..."
                 required={form.type !== 'etc'}
@@ -146,18 +180,25 @@ export default function TaskCreateModal({
               {/* 자동완성 드롭다운 */}
               {showBusinessDropdown && filteredBusinesses.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {filteredBusinesses.map((business) => (
+                  {filteredBusinesses.map((business, index) => (
                     <button
                       key={business.id}
                       type="button"
-                      onClick={() => {
-                        setBusinessSearchTerm(business.name)
-                        setForm({ ...form, businessName: business.name })
-                        setShowBusinessDropdown(false)
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors"
+                      onClick={() => handleBusinessSelect(business)}
+                      className={`w-full text-left px-4 py-2 transition-colors border-b border-gray-100 last:border-b-0 ${
+                        index === selectedBusinessIndex
+                          ? 'bg-blue-100 text-blue-900'
+                          : 'hover:bg-blue-50'
+                      }`}
                     >
-                      <div className="font-medium">{business.name}</div>
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium">{business.name}</div>
+                        {business.progress_status && (
+                          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full">
+                            {business.progress_status}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-sm text-gray-600">{business.address}</div>
                     </button>
                   ))}

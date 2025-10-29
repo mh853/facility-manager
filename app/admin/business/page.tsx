@@ -2775,7 +2775,52 @@ function BusinessManagementPage() {
               'manager_contact': '담당자연락처',
               'manager_position': '담당자직급',
               'fax_number': '팩스번호',
-              'email': '이메일'
+              'email': '이메일',
+              // 시스템 정보 필드
+              'manufacturer': 'manufacturer',
+              'vpn': 'vpn',
+              'greenlink_id': '그린링크ID',
+              'greenlink_pw': '그린링크PW',
+              'business_management_code': '사업장관리코드',
+              'sales_office': '영업점',
+              // 프로젝트 관리 필드
+              'progress_status': '진행상태',
+              'project_year': '사업진행연도',
+              'installation_team': '설치팀',
+              'order_manager': 'order_manager',
+              // 일정 관리 필드
+              'order_request_date': 'order_request_date',
+              'order_date': 'order_date',
+              'shipment_date': 'shipment_date',
+              'installation_date': 'installation_date',
+              // 실사 관리 필드
+              'estimate_survey_manager': 'estimate_survey_manager',
+              'estimate_survey_date': 'estimate_survey_date',
+              'pre_construction_survey_manager': 'pre_construction_survey_manager',
+              'pre_construction_survey_date': 'pre_construction_survey_date',
+              'completion_survey_manager': 'completion_survey_manager',
+              'completion_survey_date': 'completion_survey_date',
+              // 계산서 및 입금 관리 필드 (보조금)
+              'invoice_1st_date': 'invoice_1st_date',
+              'invoice_1st_amount': 'invoice_1st_amount',
+              'payment_1st_date': 'payment_1st_date',
+              'payment_1st_amount': 'payment_1st_amount',
+              'invoice_2nd_date': 'invoice_2nd_date',
+              'invoice_2nd_amount': 'invoice_2nd_amount',
+              'payment_2nd_date': 'payment_2nd_date',
+              'payment_2nd_amount': 'payment_2nd_amount',
+              'invoice_additional_date': 'invoice_additional_date',
+              'payment_additional_date': 'payment_additional_date',
+              'payment_additional_amount': 'payment_additional_amount',
+              // 계산서 및 입금 관리 필드 (자비)
+              'invoice_advance_date': 'invoice_advance_date',
+              'invoice_advance_amount': 'invoice_advance_amount',
+              'payment_advance_date': 'payment_advance_date',
+              'payment_advance_amount': 'payment_advance_amount',
+              'invoice_balance_date': 'invoice_balance_date',
+              'invoice_balance_amount': 'invoice_balance_amount',
+              'payment_balance_date': 'payment_balance_date',
+              'payment_balance_amount': 'payment_balance_amount'
             }
             
             const koreanKey = koreanKeyMap[key] || key
