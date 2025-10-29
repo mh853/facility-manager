@@ -505,7 +505,7 @@ async function calculateBusinessRevenue(businessId: string): Promise<any> {
 
     const defaultCommission = {
       commission_type: 'percentage',
-      commission_percentage: 3.0,
+      commission_percentage: 10.0,
       commission_per_unit: null
     };
 

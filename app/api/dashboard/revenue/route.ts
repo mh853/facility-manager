@@ -222,7 +222,7 @@ export async function GET(request: NextRequest) {
 
     const defaultCommission = {
       commission_type: 'percentage',
-      commission_percentage: 3.0,
+      commission_percentage: 10.0,
       commission_per_unit: null
     };
 

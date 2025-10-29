@@ -383,7 +383,7 @@ function RevenueDashboard() {
     // 최종 매출 = 기본 매출 + 추가공사비 + 추가설치비 - 협의사항
     const adjustedRevenue = totalRevenue + additionalCost + additionalInstallationRevenue - negotiation;
 
-    // 영업비용 계산 (DB 설정 사용, 실패 시 기본값 3%)
+    // 영업비용 계산 (DB 설정 사용, 실패 시 기본값 10%)
     let salesCommission = 0;
     const salesOffice = business.sales_office || '';
 

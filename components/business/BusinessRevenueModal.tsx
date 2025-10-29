@@ -18,8 +18,9 @@ export default function BusinessRevenueModal({
 }: BusinessRevenueModalProps) {
   if (!isOpen || !business) return null;
 
-  const formatCurrency = (amount: number) => {
-    return `₩${amount.toLocaleString()}`;
+  const formatCurrency = (amount: number | string) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+    return `₩${numAmount.toLocaleString()}`;
   };
 
   const isReadOnly = userPermission < 2;
@@ -148,9 +149,9 @@ export default function BusinessRevenueModal({
                 <div className="flex items-center justify-between border-b border-blue-200 pb-2">
                   <span>기본 매출 (기기 합계)</span>
                   <span className="font-mono">{formatCurrency(
-                    (business.total_revenue || 0) -
-                    (business.additional_cost || 0) +
-                    (business.negotiation || 0)
+                    Number(business.total_revenue || 0) -
+                    Number(business.additional_cost || 0) +
+                    Number(business.negotiation || 0)
                   )}</span>
                 </div>
                 {business.additional_cost > 0 && (
@@ -381,11 +382,18 @@ export default function BusinessRevenueModal({
                     <span className="text-sm font-medium text-gray-600">🔧 설치비용</span>
                   </div>
                   <p className="text-xl font-bold text-cyan-700">
-                    {formatCurrency(business.installation_costs || 0)}
+                    {formatCurrency((business.installation_costs || 0) + (business.installation_extra_cost || 0))}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    기본 설치비 + 추가 설치비
-                  </p>
+                  {business.installation_extra_cost > 0 ? (
+                    <div className="text-xs text-gray-500 mt-2 space-y-0.5">
+                      <div>• 기본 설치비: {formatCurrency(business.installation_costs || 0)}</div>
+                      <div>• 추가 설치비: {formatCurrency(business.installation_extra_cost || 0)}</div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">
+                      기본 설치비
+                    </p>
+                  )}
                 </div>
 
                 {/* 총 비용 */}
@@ -397,11 +405,12 @@ export default function BusinessRevenueModal({
                     {formatCurrency(
                       (business.sales_commission || 0) +
                       (business.survey_costs || 0) +
-                      (business.installation_costs || 0)
+                      (business.installation_costs || 0) +
+                      (business.installation_extra_cost || 0)
                     )}
                   </p>
                   <p className="text-xs opacity-80 mt-1">
-                    영업비용 + 실사비용 + 설치비
+                    영업비용 + 실사비용 + 기본설치비 + 추가설치비
                   </p>
                 </div>
               </div>
@@ -418,12 +427,6 @@ export default function BusinessRevenueModal({
                     <span>- 매입금액</span>
                     <span className="font-bold text-red-700">-{formatCurrency(business.total_cost || 0)}</span>
                   </div>
-                  {(business.installation_extra_cost || 0) > 0 && (
-                    <div className="flex justify-between border-b border-gray-200 pb-2">
-                      <span>- 추가설치비</span>
-                      <span className="font-bold text-orange-700">-{formatCurrency(business.installation_extra_cost || 0)}</span>
-                    </div>
-                  )}
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 영업비용</span>
                     <span className="font-bold text-orange-700">-{formatCurrency(business.sales_commission || 0)}</span>
@@ -433,9 +436,15 @@ export default function BusinessRevenueModal({
                     <span className="font-bold text-purple-700">-{formatCurrency(business.survey_costs || 0)}</span>
                   </div>
                   <div className="flex justify-between border-b border-gray-200 pb-2">
-                    <span>- 설치비용</span>
+                    <span>- 기본설치비</span>
                     <span className="font-bold text-cyan-700">-{formatCurrency(business.installation_costs || 0)}</span>
                   </div>
+                  {(business.installation_extra_cost || 0) > 0 && (
+                    <div className="flex justify-between border-b border-gray-200 pb-2">
+                      <span>- 추가설치비</span>
+                      <span className="font-bold text-orange-700">-{formatCurrency(business.installation_extra_cost || 0)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between border-t-2 border-blue-400 pt-3">
                     <span className="font-bold text-lg">= 순이익</span>
                     <span className={`font-bold text-lg ${business.net_profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>

@@ -237,10 +237,10 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .single();
 
-    // 기본 영업비용 설정 (3%)
+    // 기본 영업비용 설정 (10%)
     const defaultCommission = {
       commission_type: 'percentage',
-      commission_percentage: 3.0,
+      commission_percentage: 10.0,
       commission_per_unit: null
     };
 
@@ -405,15 +405,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 7. 영업비용 계산
-    let salesCommission = 0;
-    if (commissionSettings.commission_type === 'percentage') {
-      salesCommission = totalRevenue * (commissionSettings.commission_percentage / 100);
-    } else {
-      salesCommission = totalEquipmentCount * (commissionSettings.commission_per_unit || 0);
-    }
-
-    // 8. 실사비용 계산 (실사일이 있는 경우에만 비용 추가)
+    // 7. 실사비용 계산 (실사일이 있는 경우에만 비용 추가)
     let baseSurveyCosts = 0;
 
     // 견적실사 비용 (견적실사일이 있고 빈 문자열이 아닌 경우에만)
@@ -444,7 +436,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`💰 [SURVEY-COST] 총 실사비용: ${totalSurveyCosts} (기본: ${baseSurveyCosts}, 조정: ${totalAdjustments})`);
 
-    // 9. 추가공사비 및 협의사항 반영
+    // 8. 추가공사비 및 협의사항 반영
     const additionalCost = businessInfo.additional_cost || 0; // 추가공사비 (매출에 더하기)
     const negotiationDiscount = businessInfo.negotiation ? parseFloat(businessInfo.negotiation) || 0 : 0; // 협의사항 (매출에서 빼기)
 
@@ -456,6 +448,16 @@ export async function POST(request: NextRequest) {
 
     console.log(`💰 [REVENUE-CALCULATE] 매출 조정: 기본 ${totalRevenue} + 추가공사비 ${additionalCost} - 협의사항 ${negotiationDiscount} = ${adjustedRevenue}`);
     console.log(`💰 [REVENUE-CALCULATE] 추가설치비: ${installationExtraCost}`);
+
+    // 9. 영업비용 계산 (최종 매출 기준)
+    let salesCommission = 0;
+    if (commissionSettings.commission_type === 'percentage') {
+      salesCommission = adjustedRevenue * (commissionSettings.commission_percentage / 100);
+      console.log(`💰 [COMMISSION] 퍼센트 방식: ${adjustedRevenue} × ${commissionSettings.commission_percentage}% = ${salesCommission}`);
+    } else {
+      salesCommission = totalEquipmentCount * (commissionSettings.commission_per_unit || 0);
+      console.log(`💰 [COMMISSION] 대당 방식: ${totalEquipmentCount}대 × ${commissionSettings.commission_per_unit} = ${salesCommission}`);
+    }
 
     // 10. 최종 계산 (조정된 매출 기준)
     // 순이익 = 매출 - 매입 - 추가설치비 - 영업비용 - 실사비용 - 설치비용

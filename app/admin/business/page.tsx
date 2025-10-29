@@ -11,6 +11,7 @@ import BusinessRevenueModal from '@/components/business/BusinessRevenueModal'
 import { useAuth } from '@/contexts/AuthContext'
 import { TokenManager } from '@/lib/api-client'
 import { getManufacturerName } from '@/constants/manufacturers'
+import AutocompleteInput from '@/components/ui/AutocompleteInput'
 
 interface Contact {
   name: string;
@@ -381,6 +382,10 @@ function BusinessManagementPage() {
   }>({})
   const [commissionsLoading, setCommissionsLoading] = useState(false)
 
+  // 영업점 목록 (자동완성용)
+  const [salesOfficeList, setSalesOfficeList] = useState<string[]>([])
+  const [salesOfficeLoading, setSalesOfficeLoading] = useState(false)
+
   // 실사비용 정보 state
   const [surveyCosts, setSurveyCosts] = useState<{
     estimate: number; // 견적실사
@@ -449,6 +454,32 @@ function BusinessManagementPage() {
     }
 
     loadSalesOfficeCommissions()
+  }, [])
+
+  // 영업점 목록 로드 (자동완성용)
+  useEffect(() => {
+    const loadSalesOfficeList = async () => {
+      console.log('🔄 영업점 목록 로드 시작...')
+      setSalesOfficeLoading(true)
+      try {
+        const response = await fetch('/api/sales-office-list')
+        const result = await response.json()
+
+        if (result.success && result.data.sales_offices) {
+          const officeNames = result.data.sales_offices.map((office: any) => office.name)
+          setSalesOfficeList(officeNames)
+          console.log('✅ 영업점 목록 로드 완료:', officeNames)
+        } else {
+          console.error('❌ 영업점 목록 로드 실패:', result.message)
+        }
+      } catch (error) {
+        console.error('❌ 영업점 목록 로드 오류:', error)
+      } finally {
+        setSalesOfficeLoading(false)
+      }
+    }
+
+    loadSalesOfficeList()
   }, [])
 
   // 실사비용 정보 로드
@@ -2571,6 +2602,7 @@ function BusinessManagementPage() {
         sales_office: row['영업점'] || '',
         department: row['담당부서'] || '',
         progress_status: row['진행구분'] || '',
+        business_category: row['사업장분류'] || '',
         project_year: row['사업 진행연도'] ? parseInt(row['사업 진행연도']) : null,
         greenlink_id: row['그린링크ID'] || '',
         greenlink_pw: row['그린링크PW'] || '',
@@ -2617,6 +2649,7 @@ function BusinessManagementPage() {
 
         // 비용 정보
         additional_cost: row['추가공사비'] ? parseInt(row['추가공사비']) : null,
+        installation_extra_cost: row['추가설치비'] ? parseInt(row['추가설치비']) : null,
         multiple_stack_cost: row['복수굴뚝비용'] ? parseInt(row['복수굴뚝비용']) : null,
         expansion_pack: row['확장팩'] || '',
         negotiation: row['네고'] || '',
@@ -5070,13 +5103,13 @@ function BusinessManagementPage() {
 
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">영업점</label>
-                      <input
-                        type="text"
-                        lang="ko"
-                        inputMode="text"
+                      <AutocompleteInput
                         value={formData.sales_office || ''}
-                        onChange={(e) => setFormData({...formData, sales_office: e.target.value})}
+                        onChange={(value) => setFormData({...formData, sales_office: value})}
+                        options={salesOfficeList}
+                        placeholder="영업점 선택 또는 입력"
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
+                        disabled={salesOfficeLoading}
                       />
                     </div>
                     </div>

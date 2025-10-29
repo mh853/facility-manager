@@ -288,6 +288,9 @@ export async function PUT(request: Request) {
     if (updateData.additional_cost !== undefined) {
       updateObject.additional_cost = parseInt(updateData.additional_cost) || null;
     }
+    if (updateData.installation_extra_cost !== undefined) {
+      updateObject.installation_extra_cost = parseInt(updateData.installation_extra_cost) || null;
+    }
     if (updateData.negotiation !== undefined) {
       updateObject.negotiation = normalizeUTF8(updateData.negotiation || '');
     }
