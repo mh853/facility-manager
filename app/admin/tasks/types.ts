@@ -16,7 +16,7 @@ export type TaskStatus =
   | 'application_submit' | 'document_supplement' | 'document_preparation' | 'pre_construction_inspection'
   // 착공 보완 세분화
   | 'pre_construction_supplement_1st' | 'pre_construction_supplement_2nd'
-  | 'completion_inspection'
+  | 'pre_completion_document_submit' | 'completion_inspection'
   // 준공 보완 세분화
   | 'completion_supplement_1st' | 'completion_supplement_2nd' | 'completion_supplement_3rd'
   | 'final_document_submit' | 'subsidy_payment'
@@ -78,6 +78,7 @@ export interface BusinessOption {
   id: string
   name: string
   address: string
+  progress_status?: string // 진행구분 (자비, 보조금, AS, 대리점 등)
 }
 
 export interface StepInfo {
@@ -122,12 +123,13 @@ export const subsidySteps: StepInfo[] = [
   { status: 'product_shipment', label: '제품 출고', color: 'emerald' },
   { status: 'installation_schedule', label: '설치 협의', color: 'teal' },
   { status: 'installation', label: '제품 설치', color: 'green' },
+  { status: 'pre_completion_document_submit', label: '준공실사 전 서류 제출', color: 'amber' },
   { status: 'completion_inspection', label: '준공 실사', color: 'violet' },
   // 준공 보완 세분화
   { status: 'completion_supplement_1st', label: '준공 보완 1차', color: 'slate' },
   { status: 'completion_supplement_2nd', label: '준공 보완 2차', color: 'zinc' },
   { status: 'completion_supplement_3rd', label: '준공 보완 3차', color: 'stone' },
-  { status: 'final_document_submit', label: '서류 제출', color: 'gray' },
+  { status: 'final_document_submit', label: '보조금지급신청서 제출', color: 'gray' },
   { status: 'subsidy_payment', label: '보조금 입금', color: 'green' }
 ]
 

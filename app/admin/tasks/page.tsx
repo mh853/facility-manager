@@ -55,7 +55,7 @@ type TaskStatus =
   | 'application_submit' | 'document_supplement' | 'document_preparation' | 'pre_construction_inspection'
   // 착공 보완 세분화
   | 'pre_construction_supplement_1st' | 'pre_construction_supplement_2nd'
-  | 'completion_inspection'
+  | 'pre_completion_document_submit' | 'completion_inspection'
   // 준공 보완 세분화
   | 'completion_supplement_1st' | 'completion_supplement_2nd' | 'completion_supplement_3rd'
   | 'final_document_submit' | 'subsidy_payment'
@@ -151,12 +151,13 @@ const subsidySteps: Array<{status: TaskStatus, label: string, color: string}> = 
   { status: 'product_shipment', label: '제품 출고', color: 'emerald' },
   { status: 'installation_schedule', label: '설치 협의', color: 'teal' },
   { status: 'installation', label: '제품 설치', color: 'green' },
+  { status: 'pre_completion_document_submit', label: '준공실사 전 서류 제출', color: 'amber' },
   { status: 'completion_inspection', label: '준공 실사', color: 'violet' },
   // 준공 보완 세분화
   { status: 'completion_supplement_1st', label: '준공 보완 1차', color: 'slate' },
   { status: 'completion_supplement_2nd', label: '준공 보완 2차', color: 'zinc' },
   { status: 'completion_supplement_3rd', label: '준공 보완 3차', color: 'stone' },
-  { status: 'final_document_submit', label: '서류 제출', color: 'gray' },
+  { status: 'final_document_submit', label: '보조금지급신청서 제출', color: 'gray' },
   { status: 'subsidy_payment', label: '보조금 입금', color: 'green' }
 ]
 
@@ -331,7 +332,8 @@ function TaskManagementPage() {
         const businessOptions = data.data.map((business: any) => ({
           id: business.id,
           name: business.business_name,
-          address: business.address || ''
+          address: business.address || '',
+          progress_status: business.progress_status || '' // 진행구분 추가
         }))
         setAvailableBusinesses(businessOptions)
         console.log(`✅ ${businessOptions.length}개 사업장 정보 로딩 완료`)
@@ -524,7 +526,7 @@ function TaskManagementPage() {
       e.preventDefault()
       const newIndex = selectedIndex > 0 ? selectedIndex - 1 : businesses.length - 1
       setSelectedIndex(newIndex)
-    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && selectedIndex >= 0) {
       e.preventDefault()
       const selectedBusiness = businesses[selectedIndex]
       handleBusinessSelect(selectedBusiness, isEdit)
@@ -542,13 +544,34 @@ function TaskManagementPage() {
 
   // 사업장 선택
   const handleBusinessSelect = useCallback((business: BusinessOption, isEdit = false) => {
+    // progress_status를 task_type으로 매핑
+    const mapProgressStatusToTaskType = (progressStatus?: string): TaskType => {
+      if (!progressStatus) return 'self' // 기본값
+
+      const statusLower = progressStatus.toLowerCase()
+      if (statusLower.includes('자비')) return 'self'
+      if (statusLower.includes('보조금')) return 'subsidy'
+      if (statusLower.includes('as')) return 'as'
+      return 'etc'
+    }
+
+    const taskType = mapProgressStatusToTaskType(business.progress_status)
+
     if (isEdit && editingTask) {
-      setEditingTask(prev => prev ? { ...prev, businessName: business.name } : null)
+      setEditingTask(prev => prev ? {
+        ...prev,
+        businessName: business.name,
+        type: taskType
+      } : null)
       setEditBusinessSearchTerm(business.name)
       setShowEditBusinessDropdown(false)
       setEditSelectedBusinessIndex(-1)
     } else {
-      setCreateTaskForm(prev => ({ ...prev, businessName: business.name }))
+      setCreateTaskForm(prev => ({
+        ...prev,
+        businessName: business.name,
+        type: taskType
+      }))
       setBusinessSearchTerm(business.name)
       setShowBusinessDropdown(false)
       setSelectedBusinessIndex(-1)
@@ -1945,7 +1968,14 @@ function TaskManagementPage() {
                               : 'hover:bg-gray-50'
                           }`}
                         >
-                          <div className="font-medium text-gray-900">{business.name}</div>
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium text-gray-900">{business.name}</div>
+                            {business.progress_status && (
+                              <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full ml-2">
+                                {business.progress_status}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-sm text-gray-500">{business.address}</div>
                         </div>
                       ))}
@@ -2265,7 +2295,14 @@ function TaskManagementPage() {
                               : 'hover:bg-gray-50'
                           }`}
                         >
-                          <div className="font-medium text-gray-900">{business.name}</div>
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium text-gray-900">{business.name}</div>
+                            {business.progress_status && (
+                              <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full ml-2">
+                                {business.progress_status}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-sm text-gray-500">{business.address}</div>
                         </div>
                       ))}
