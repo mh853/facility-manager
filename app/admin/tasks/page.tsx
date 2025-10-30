@@ -8,6 +8,7 @@ import MultiAssigneeSelector, { SelectedAssignee } from '@/components/ui/MultiAs
 import TaskCardList from './components/TaskCardList'
 import TaskCard from './components/TaskCard'
 import TaskMobileModal from './components/TaskMobileModal'
+import TaskHistoryTimeline from '@/components/TaskHistoryTimeline'
 import {
   Plus,
   Search,
@@ -39,7 +40,8 @@ import {
   Users,
   Target,
   TrendingUp,
-  FileText
+  FileText,
+  History
 } from 'lucide-react'
 
 // 업무 타입 정의
@@ -207,6 +209,7 @@ function TaskManagementPage() {
   const [isCompactMode, setIsCompactMode] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showEditHistory, setShowEditHistory] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
@@ -2454,6 +2457,28 @@ function TaskManagementPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                     style={{ minHeight: '60px', maxHeight: '50vh' }}
                   />
+                </div>
+
+                {/* 단계 이력 */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditHistory(!showEditHistory)}
+                    className="w-full flex items-center justify-between mb-3 group"
+                  >
+                    <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                      <History className="w-4 h-4 text-purple-600" />
+                      단계 이력
+                    </h3>
+                    <span className="text-xs text-gray-500 group-hover:text-gray-700">
+                      {showEditHistory ? '접기' : '펼치기'}
+                    </span>
+                  </button>
+                  {showEditHistory && (
+                    <div className="mt-4">
+                      <TaskHistoryTimeline taskId={editingTask.id} />
+                    </div>
+                  )}
                 </div>
                 </div>
 
