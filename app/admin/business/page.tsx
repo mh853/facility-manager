@@ -12,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { TokenManager } from '@/lib/api-client'
 import { getManufacturerName } from '@/constants/manufacturers'
 import AutocompleteInput from '@/components/ui/AutocompleteInput'
+import DateInput from '@/components/ui/DateInput'
+import { formatMobilePhone, formatLandlinePhone } from '@/utils/phone-formatter'
 
 interface Contact {
   name: string;
@@ -4712,9 +4714,13 @@ function BusinessManagementPage() {
                       <input
                         type="tel"
                         value={formData.manager_contact || ''}
-                        onChange={(e) => setFormData({...formData, manager_contact: e.target.value})}
+                        onChange={(e) => {
+                          const formatted = formatMobilePhone(e.target.value)
+                          setFormData({...formData, manager_contact: formatted})
+                        }}
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="010-1234-5678"
+                        maxLength={13}
                       />
                     </div>
 
@@ -4723,9 +4729,13 @@ function BusinessManagementPage() {
                       <input
                         type="tel"
                         value={formData.business_contact || ''}
-                        onChange={(e) => setFormData({...formData, business_contact: e.target.value})}
+                        onChange={(e) => {
+                          const formatted = formatLandlinePhone(e.target.value)
+                          setFormData({...formData, business_contact: formatted})
+                        }}
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
-                        placeholder="02-0000-0000"
+                        placeholder="02-000-0000"
+                        maxLength={13}
                       />
                     </div>
 
@@ -4734,9 +4744,13 @@ function BusinessManagementPage() {
                       <input
                         type="tel"
                         value={formData.fax_number || ''}
-                        onChange={(e) => setFormData({...formData, fax_number: e.target.value})}
+                        onChange={(e) => {
+                          const formatted = formatLandlinePhone(e.target.value)
+                          setFormData({...formData, fax_number: formatted})
+                        }}
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
-                        placeholder="02-0000-0000"
+                        placeholder="02-000-0000"
+                        maxLength={13}
                       />
                     </div>
 
@@ -4753,11 +4767,10 @@ function BusinessManagementPage() {
 
                     <div>
                       <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">대표자생년월일</label>
-                      <input
-                        type="date"
+                      <DateInput
                         value={formData.representative_birth_date || ''}
-                        onChange={(e) => setFormData({...formData, representative_birth_date: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
+                        onChange={(value) => setFormData({...formData, representative_birth_date: value})}
+                        className="w-full"
                       />
                     </div>
                     </div>
