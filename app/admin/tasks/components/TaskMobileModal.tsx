@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   X,
   Calendar,
@@ -11,8 +11,10 @@ import {
   Trash2,
   User,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  History
 } from 'lucide-react'
+import TaskHistoryTimeline from '@/components/TaskHistoryTimeline'
 
 // Task 타입
 interface SelectedAssignee {
@@ -66,6 +68,8 @@ export default function TaskMobileModal({
   onEdit,
   onDelete
 }: TaskMobileModalProps) {
+  const [showHistory, setShowHistory] = useState(false)
+
   // 스크롤 방지
   useEffect(() => {
     if (isOpen) {
@@ -358,6 +362,28 @@ export default function TaskMobileModal({
                   </p>
                 </div>
               )}
+
+              {/* 🆕 단계 이력 섹션 */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="w-full flex items-center justify-between mb-3 group"
+                >
+                  <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <div className="w-1 h-5 bg-gradient-to-b from-purple-600 to-indigo-600 rounded-full"></div>
+                    <History className="w-4 h-4 text-purple-600" />
+                    단계 이력
+                  </h3>
+                  <span className="text-xs text-gray-500 group-hover:text-gray-700">
+                    {showHistory ? '접기' : '펼치기'}
+                  </span>
+                </button>
+                {showHistory && (
+                  <div className="mt-4">
+                    <TaskHistoryTimeline taskId={task.id} />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
