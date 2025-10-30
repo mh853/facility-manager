@@ -36,11 +36,13 @@ export const metadata = {
   // 파비콘 및 아이콘 설정
   icons: {
     icon: [
+      { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' },
       { url: '/icon.png', sizes: '192x192', type: 'image/png' },
     ],
     apple: [
       { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
     ],
+    shortcut: '/favicon.ico',
   },
 
   // PWA 설정
