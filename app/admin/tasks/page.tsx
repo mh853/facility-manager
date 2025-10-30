@@ -658,7 +658,7 @@ function TaskManagementPage() {
   const filteredTasks = useMemo(() => {
     return tasksWithDelayStatus.filter(task => {
       const matchesSearch = searchTerm === '' ||
-        task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         task.businessName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         task.assignee?.toLowerCase().includes(searchTerm.toLowerCase())
 
@@ -935,8 +935,8 @@ function TaskManagementPage() {
         alert('사업장을 선택해주세요.')
         return
       }
-      if (!createTaskForm.title.trim()) {
-        alert('업무명을 입력해주세요.')
+      if (!createTaskForm.status) {
+        alert('현재 단계를 선택해주세요.')
         return
       }
 
@@ -957,7 +957,7 @@ function TaskManagementPage() {
         const confirmMessage =
           `⚠️ 중복 업무 경고\n\n` +
           `이미 "${businessSearchTerm}" 사업장에 "${statusLabel}" 단계의 업무가 있습니다.\n\n` +
-          `기존 업무: ${duplicateTask.title}\n\n` +
+          `기존 업무: ${duplicateTask.description || '설명 없음'}\n\n` +
           `같은 단계의 중복 업무는 업무 관리를 복잡하게 만들 수 있습니다.\n` +
           `그래도 등록하시겠습니까?`;
 
@@ -967,8 +967,15 @@ function TaskManagementPage() {
       }
 
       // API 요청 데이터 준비
+      // 현재 단계명을 title로 자동 설정
+      const steps = createTaskForm.type === 'self' ? selfSteps :
+                   createTaskForm.type === 'subsidy' ? subsidySteps :
+                   createTaskForm.type === 'as' ? asSteps : etcSteps;
+      const currentStep = steps.find(s => s.status === createTaskForm.status);
+      const autoTitle = currentStep?.label || createTaskForm.status;
+
       const requestData = {
-        title: createTaskForm.title,
+        title: autoTitle,
         business_name: businessSearchTerm || '기타',
         task_type: createTaskForm.type,
         status: createTaskForm.status,
@@ -1421,7 +1428,7 @@ function TaskManagementPage() {
               <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4" />
               <input
                 type="text"
-                placeholder="업무명, 사업장명, 담당자로 검색..."
+                placeholder="사업장명, 담당자, 설명으로 검색..."
                 className="w-full pl-8 pr-3 py-1.5 sm:pl-10 sm:pr-4 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                 onChange={(e) => debouncedSearch(e.target.value)}
               />
@@ -1486,7 +1493,7 @@ function TaskManagementPage() {
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
                     <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">사업장</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800 w-32 sm:w-80 max-w-32 sm:max-w-80">업무명</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800 w-32 sm:w-80 max-w-32 sm:max-w-80">업무 설명</th>
                     <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">업무 단계</th>
                     <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">담당자</th>
                     <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">상태</th>
@@ -1512,30 +1519,17 @@ function TaskManagementPage() {
                           </button>
                         </td>
                         <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
-                          <div className="flex flex-col gap-1">
-                            {/* 타입 뱃지 (전체 필터일 때만 표시) */}
-                            {selectedType === 'all' && (
-                              <div>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getTaskTypeBadge(task.type).color}`}>
-                                  {getTaskTypeBadge(task.type).label}
-                                </span>
-                              </div>
-                            )}
-                            <div
-                              className="font-medium text-gray-900 max-w-xs leading-tight"
-                              style={{
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                              }}
-                            >
-                              {task.title}
-                            </div>
-                            {task.description && (
-                              <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">{task.description}</div>
-                            )}
+                          <div
+                            className="font-medium text-gray-900 max-w-xs leading-tight"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
+                          >
+                            {task.description || '-'}
                           </div>
                         </td>
                         <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
@@ -1987,20 +1981,6 @@ function TaskManagementPage() {
                   )}
                 </div>
 
-                {/* 업무명 (필수) */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    업무명 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={createTaskForm.title}
-                    onChange={(e) => setCreateTaskForm(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="업무명을 입력하세요"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* 업무 타입 */}
                   <div>
@@ -2032,13 +2012,16 @@ function TaskManagementPage() {
                   </div>
                 </div>
 
-                {/* 시작 단계 */}
+                {/* 현재 단계 (필수) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">시작 단계</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    현재 단계 <span className="text-red-500">*</span>
+                  </label>
                   <select
                     value={createTaskForm.status}
                     onChange={(e) => setCreateTaskForm(prev => ({ ...prev, status: e.target.value as TaskStatus }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
                   >
                     {(createTaskForm.type === 'self' ? selfSteps :
                      createTaskForm.type === 'subsidy' ? subsidySteps :
@@ -2314,20 +2297,6 @@ function TaskManagementPage() {
                   )}
                 </div>
 
-                {/* 업무명 (필수) */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    업무명 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editingTask.title}
-                    onChange={(e) => setEditingTask(prev => prev ? { ...prev, title: e.target.value } : null)}
-                    placeholder="업무명을 입력하세요"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* 업무 타입 */}
                   <div>
@@ -2359,11 +2328,14 @@ function TaskManagementPage() {
                   </div>
                 </div>
 
-                {/* 현재 단계 */}
+                {/* 현재 단계 (필수) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">현재 단계</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    현재 단계 <span className="text-red-500">*</span>
+                  </label>
                   <select
                     value={editingTask.status}
+                    required
                     onChange={(e) => setEditingTask(prev => prev ? { ...prev, status: e.target.value as TaskStatus } : null)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >

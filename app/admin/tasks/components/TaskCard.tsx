@@ -11,7 +11,8 @@ import {
   ChevronRight,
   User,
   ArrowRight,
-  Loader2
+  Loader2,
+  FileText
 } from 'lucide-react'
 
 // Task 타입 (부모에서 import할 예정)
@@ -160,9 +161,9 @@ export default function TaskCard({ task, onClick, onEdit, onComplete }: TaskCard
         </span>
       </div>
 
-      {/* 업무명 */}
+      {/* 사업장명 */}
       <h3 className="font-semibold text-xs sm:text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">
-        {task.title}
+        {task.businessName || task.title}
       </h3>
 
       {/* 정보 그리드 */}
@@ -177,11 +178,11 @@ export default function TaskCard({ task, onClick, onEdit, onComplete }: TaskCard
           </div>
         )}
 
-        {/* 사업장 정보 */}
-        {task.businessName && (
+        {/* 업무 설명 */}
+        {task.description && (
           <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-600">
-            <MapPin className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{task.businessName}</span>
+            <FileText className="w-3 h-3 flex-shrink-0" />
+            <span className="truncate">{task.description}</span>
           </div>
         )}
 
