@@ -6,6 +6,7 @@ import { getTaskStatusKR, createStatusChangeMessage } from '@/lib/task-status-ut
 import { createTaskAssignmentNotifications, updateTaskAssignmentNotifications, type TaskAssignee } from '@/lib/task-notification-service';
 import { verifyTokenHybrid } from '@/lib/secure-jwt';
 import { logDebug, logError } from '@/lib/logger';
+import { startNewStatus, completeCurrentStatus, getTaskStatusHistory } from '@/lib/task-status-history';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
@@ -371,6 +372,25 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     }
 
 
+    // 🆕 업무 생성 시 첫 단계 이력 기록
+    try {
+      await startNewStatus({
+        taskId: newTask.id,
+        status: newTask.status,
+        taskType: newTask.task_type,
+        businessName: newTask.business_name,
+        assigneeId: finalAssignees.length > 0 ? finalAssignees[0].id : undefined,
+        assigneeName: finalAssignees.length > 0 ? finalAssignees[0].name : undefined,
+        primaryAssigneeId: newTask.primary_assignee_id,
+        notes: `업무 생성 - ${newTask.title}`,
+        createdBy: user.id,
+        createdByName: user.name
+      });
+      console.log('✅ [FACILITY-TASKS] 첫 단계 이력 기록 완료:', newTask.id);
+    } catch (historyError) {
+      console.error('⚠️ [FACILITY-TASKS] 단계 이력 기록 실패 (계속 진행):', historyError);
+    }
+
     // 업무 생성 시 자동 메모 생성
     await createTaskCreationNote(newTask);
 
@@ -662,6 +682,32 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
           last_edit_summary: `${user.name}이(가) ${changedFields.join(', ')} 수정함`
         })
         .eq('id', updatedTask.id);
+    }
+
+    // 🆕 상태 변경 감지 및 이력 기록
+    const statusChanged = status !== undefined && existingTask.status !== updatedTask.status;
+    if (statusChanged) {
+      try {
+        await startNewStatus({
+          taskId: updatedTask.id,
+          status: updatedTask.status,
+          taskType: updatedTask.task_type,
+          businessName: updatedTask.business_name,
+          assigneeId: updatedTask.assignees?.[0]?.id,
+          assigneeName: updatedTask.assignees?.[0]?.name,
+          primaryAssigneeId: updatedTask.primary_assignee_id,
+          notes: `단계 변경: ${getTaskStatusKR(existingTask.status)} → ${getTaskStatusKR(updatedTask.status)}`,
+          createdBy: user.id,
+          createdByName: user.name
+        });
+        console.log('✅ [FACILITY-TASKS] 단계 변경 이력 기록:', {
+          taskId: updatedTask.id,
+          from: existingTask.status,
+          to: updatedTask.status
+        });
+      } catch (historyError) {
+        console.error('⚠️ [FACILITY-TASKS] 단계 이력 기록 실패 (계속 진행):', historyError);
+      }
     }
 
     // 상태 변경 시 자동 메모 및 알림 생성
