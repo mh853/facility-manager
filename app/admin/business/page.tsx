@@ -940,6 +940,7 @@ function BusinessManagementPage() {
   
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadMode, setUploadMode] = useState<'overwrite' | 'merge' | 'skip'>('overwrite')
   const [uploadResults, setUploadResults] = useState<{
     total: number
     success: number
@@ -947,6 +948,7 @@ function BusinessManagementPage() {
     errors: string[]
     created?: number
     updated?: number
+    skipped?: number
   } | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   
@@ -1355,9 +1357,16 @@ function BusinessManagementPage() {
         throw new Error('사업장 데이터를 불러오는데 실패했습니다.')
       }
       const data = await response.json()
-      
+
+      console.log('📊 [BUSINESS] API 응답 데이터:', {
+        success: data.success,
+        dataLength: data.data?.length,
+        count: data.count,
+        hasData: !!data.data
+      })
+
       if (data.success && data.data && Array.isArray(data.data)) {
-        console.log(`✅ ${data.data.length}개 사업장 정보 로딩 완료`)
+        console.log(`✅ ${data.data.length}개 사업장 정보 로딩 완료 (API count: ${data.count})`)
         
         // 직접 API 응답 데이터를 한국어 필드명으로 매핑
         const businessObjects = data.data.map((business: any) => ({
@@ -2679,6 +2688,7 @@ function BusinessManagementPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             isBatchUpload: true,
+            uploadMode: uploadMode,
             businesses: mappedBusinesses
           })
         })
@@ -2697,7 +2707,8 @@ function BusinessManagementPage() {
             failed: result.data.results.errors,
             errors: result.data.results.errorDetails || [],
             created: result.data.results.created,
-            updated: result.data.results.updated
+            updated: result.data.results.updated,
+            skipped: result.data.results.skipped || 0
           })
           
           console.log('✅ 배치 업로드 완료:', result.data.results)
@@ -5965,6 +5976,73 @@ function BusinessManagementPage() {
                       </p>
                     </div>
                   )}
+
+                  {/* 중복 처리 모드 선택 */}
+                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="text-blue-600">⚙️</span>
+                      중복 사업장 처리 방식
+                    </h4>
+
+                    <div className="space-y-3">
+                      <label className="flex items-start cursor-pointer group">
+                        <input
+                          type="radio"
+                          name="uploadMode"
+                          value="overwrite"
+                          checked={uploadMode === 'overwrite'}
+                          onChange={(e) => setUploadMode(e.target.value as any)}
+                          className="mt-1 mr-3"
+                          disabled={isUploading}
+                        />
+                        <div>
+                          <div className="font-medium text-gray-900 group-hover:text-blue-700">덮어쓰기 (권장)</div>
+                          <div className="text-xs text-gray-600">
+                            엑셀의 모든 값으로 기존 데이터를 완전히 교체합니다.
+                            <span className="block text-blue-600 mt-0.5">💡 전체 데이터 동기화에 적합</span>
+                          </div>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start cursor-pointer group">
+                        <input
+                          type="radio"
+                          name="uploadMode"
+                          value="merge"
+                          checked={uploadMode === 'merge'}
+                          onChange={(e) => setUploadMode(e.target.value as any)}
+                          className="mt-1 mr-3"
+                          disabled={isUploading}
+                        />
+                        <div>
+                          <div className="font-medium text-gray-900 group-hover:text-green-700">병합 (스마트 업데이트)</div>
+                          <div className="text-xs text-gray-600">
+                            엑셀에 값이 있는 필드만 업데이트하고, 빈 칸은 기존 값을 유지합니다.
+                            <span className="block text-green-600 mt-0.5">💡 일부 필드만 수정할 때 적합</span>
+                          </div>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start cursor-pointer group">
+                        <input
+                          type="radio"
+                          name="uploadMode"
+                          value="skip"
+                          checked={uploadMode === 'skip'}
+                          onChange={(e) => setUploadMode(e.target.value as any)}
+                          className="mt-1 mr-3"
+                          disabled={isUploading}
+                        />
+                        <div>
+                          <div className="font-medium text-gray-900 group-hover:text-orange-700">건너뛰기</div>
+                          <div className="text-xs text-gray-600">
+                            중복된 사업장은 무시하고, 새로운 사업장만 추가합니다.
+                            <span className="block text-orange-600 mt-0.5">💡 신규 데이터만 추가할 때 적합</span>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
 
                   {/* 템플릿 다운로드 버튼 */}
                   <div className="mb-4">

@@ -16,13 +16,13 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const searchQuery = searchParams.get('search') || '';
-    const limit = parseInt(searchParams.get('limit') || '1500');
+    const limit = parseInt(searchParams.get('limit') || '5000');
     const id = searchParams.get('id');
     const includeFileStats = searchParams.get('includeFileStats') === 'true';
 
-    console.log('📊 [BUSINESS-INFO-DIRECT] 직접 조회 시작 - 검색:', `"${searchQuery}"`, '제한:', limit, 'ID:', id || 'N/A');
+    console.log('📊 [BUSINESS-INFO-DIRECT] 직접 조회 시작 - 검색:', `"${searchQuery}"`, '제한:', limit, 'ID:', id || 'N/A', 'includeFileStats:', includeFileStats);
 
-    let query = supabaseAdmin.from('business_info').select('*');
+    let query = supabaseAdmin.from('business_info').select('*', { count: 'exact' });
 
     // 삭제되지 않은 사업장만 조회
     query = query.eq('is_deleted', false);
@@ -37,19 +37,49 @@ export async function GET(request: Request) {
       );
     }
 
-    if (limit > 0) {
-      query = query.limit(limit);
+    // Supabase 1000개 제한을 우회하기 위해 페이지네이션 방식으로 모든 데이터 가져오기
+    let allBusinesses: any[] = [];
+    let totalCount = 0;
+    const pageSize = 1000; // Supabase 최대 허용치
+    let page = 0;
+    let hasMore = true;
+
+    while (hasMore && allBusinesses.length < limit) {
+      const rangeStart = page * pageSize;
+      const rangeEnd = rangeStart + pageSize - 1;
+
+      const { data, error, count } = await query
+        .order('updated_at', { ascending: false })
+        .range(rangeStart, rangeEnd);
+
+      if (error) {
+        console.error('❌ [BUSINESS-INFO-DIRECT] 페이지', page, '조회 오류:', error);
+        break;
+      }
+
+      if (data && data.length > 0) {
+        allBusinesses = allBusinesses.concat(data);
+        totalCount = count || 0;
+        console.log(`📄 [BUSINESS-INFO-DIRECT] 페이지 ${page} 로드: ${data.length}개 (누적: ${allBusinesses.length}개)`);
+      }
+
+      // 더 이상 데이터가 없거나, 요청한 limit에 도달하면 중단
+      hasMore = data && data.length === pageSize;
+      page++;
     }
 
-    const { data: businesses, error } = await query.order('updated_at', { ascending: false });
+    const businesses = allBusinesses;
+    const count = totalCount;
 
-    if (error) {
-      console.error('❌ [BUSINESS-INFO-DIRECT] 조회 오류:', error);
-      return NextResponse.json({ 
-        success: false, 
-        error: error.message,
-        data: []
-      }, { status: 500 });
+    console.log('🔍 [BUSINESS-INFO-DIRECT] Supabase 쿼리 완료:', {
+      businessesLength: businesses?.length,
+      totalCount: count,
+      requestedLimit: limit,
+      pages: page
+    });
+
+    if (!businesses || businesses.length === 0) {
+      console.log('⚠️ [BUSINESS-INFO-DIRECT] 조회 결과 없음');
     }
 
     console.log('✅ [BUSINESS-INFO-DIRECT] 조회 완료 -', `${businesses?.length}개 사업장`);
@@ -61,10 +91,12 @@ export async function GET(request: Request) {
       console.log('✅ [BUSINESS-INFO-DIRECT] 파일 통계 추가 완료 - 0개 매칭');
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: businesses || [],
-      count: businesses?.length || 0
+      count: businesses?.length || 0,
+      totalCount: count, // Supabase에서 반환한 전체 개수
+      requestedLimit: limit
     });
 
   } catch (error) {
@@ -427,10 +459,12 @@ export async function POST(request: Request) {
 
     // 배치 업로드 모드 확인
     if (businessData.isBatchUpload && Array.isArray(businessData.businesses)) {
-      console.log('📦 [BUSINESS-INFO-DIRECT] 배치 업로드 시작 - 총', businessData.businesses.length, '개');
+      const uploadMode = businessData.uploadMode || 'overwrite';
+      console.log('📦 [BUSINESS-INFO-DIRECT] 배치 업로드 시작 - 총', businessData.businesses.length, '개 / 모드:', uploadMode);
 
       let created = 0;
       let updated = 0;
+      let skipped = 0;
       let errors = 0;
       const errorDetails: Array<{ business_name: string; error: string }> = [];
 
@@ -444,10 +478,10 @@ export async function POST(request: Request) {
             continue;
           }
 
-          // 기존 사업장 검색 (사업장명으로)
+          // 기존 사업장 검색 (사업장명으로) - merge 모드를 위해 전체 데이터 가져오기
           const { data: existing, error: searchError } = await supabaseAdmin
             .from('business_info')
-            .select('id')
+            .select('*')
             .eq('business_name', normalizedName)
             .eq('is_deleted', false)
             .maybeSingle();
@@ -544,22 +578,61 @@ export async function POST(request: Request) {
           };
 
           if (existing) {
-            // UPDATE: 기존 사업장 업데이트
-            const { error: updateError } = await supabaseAdmin
-              .from('business_info')
-              .update(normalizedData)
-              .eq('id', existing.id);
+            // 중복 사업장 처리 - 모드에 따라 분기
+            switch (uploadMode) {
+              case 'overwrite':
+                // 덮어쓰기: 모든 필드 업데이트
+                const { error: overwriteError } = await supabaseAdmin
+                  .from('business_info')
+                  .update(normalizedData)
+                  .eq('id', existing.id);
 
-            if (updateError) {
-              console.error('❌ [BATCH] 업데이트 실패:', normalizedName, updateError);
-              errors++;
-              errorDetails.push({ business_name: normalizedName, error: updateError.message });
-            } else {
-              updated++;
-              console.log('✅ [BATCH] 업데이트:', normalizedName);
+                if (overwriteError) {
+                  console.error('❌ [BATCH] 덮어쓰기 실패:', normalizedName, overwriteError);
+                  errors++;
+                  errorDetails.push({ business_name: normalizedName, error: overwriteError.message });
+                } else {
+                  updated++;
+                  console.log('✅ [BATCH] 덮어쓰기:', normalizedName);
+                }
+                break;
+
+              case 'merge':
+                // 병합: 빈 값이 아닌 필드만 업데이트
+                const mergeData: any = { updated_at: new Date().toISOString() };
+
+                // 각 필드를 확인하여 값이 있는 경우만 업데이트 데이터에 추가
+                Object.keys(normalizedData).forEach(key => {
+                  const value = (normalizedData as any)[key];
+                  // 값이 있으면 업데이트, 없거나 빈 문자열이면 기존 값 유지
+                  if (value !== null && value !== undefined && value !== '') {
+                    mergeData[key] = value;
+                  }
+                });
+
+                const { error: mergeError } = await supabaseAdmin
+                  .from('business_info')
+                  .update(mergeData)
+                  .eq('id', existing.id);
+
+                if (mergeError) {
+                  console.error('❌ [BATCH] 병합 실패:', normalizedName, mergeError);
+                  errors++;
+                  errorDetails.push({ business_name: normalizedName, error: mergeError.message });
+                } else {
+                  updated++;
+                  console.log('✅ [BATCH] 병합:', normalizedName);
+                }
+                break;
+
+              case 'skip':
+                // 건너뛰기: 아무것도 안 함
+                skipped++;
+                console.log('⏭️ [BATCH] 건너뛰기:', normalizedName);
+                break;
             }
           } else {
-            // INSERT: 새 사업장 추가
+            // INSERT: 새 사업장 추가 (모든 모드에서 동일)
             const insertData = {
               ...normalizedData,
               created_at: new Date().toISOString(),
@@ -589,7 +662,7 @@ export async function POST(request: Request) {
         }
       }
 
-      console.log('📦 [BATCH] 완료 - 생성:', created, '/ 업데이트:', updated, '/ 오류:', errors);
+      console.log('📦 [BATCH] 완료 - 생성:', created, '/ 업데이트:', updated, '/ 건너뛰기:', skipped, '/ 오류:', errors);
 
       return NextResponse.json({
         success: true,
@@ -599,6 +672,7 @@ export async function POST(request: Request) {
             total: businessData.businesses.length,
             created,
             updated,
+            skipped,
             errors,
             errorDetails: errorDetails.slice(0, 10) // 최대 10개만 반환
           }

@@ -56,8 +56,14 @@ test-*.js
 *.backup
 *.tmp
 
-# Screenshots and images (optional - uncomment if needed)
-# 스샷/
-# *.png
-# *.jpg
-# *.jpeg
+# Screenshots and temporary files
+스샷/
+*.png
+*.jpg
+*.jpeg
+dev.log
+nul
+debug-*.js
+test-*.js
+!test-api.html
+!api-test-after-fix.js

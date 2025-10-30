@@ -484,6 +484,7 @@ function RevenueDashboard() {
       if (data.success) {
         const businessData = data.data || [];
         console.log('🏢 [REVENUE] 사업장 데이터 로드:', businessData.length, '개');
+        console.log('📊 [REVENUE] API 응답 count:', data.count, '개');
 
         // 각 사업장에 대해 자동 매출 계산 적용
         const businessesWithCalculation = businessData.map((business: any) => {
