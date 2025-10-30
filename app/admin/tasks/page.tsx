@@ -1114,6 +1114,15 @@ function TaskManagementPage() {
       return
     }
 
+    console.log('📋 [DEBUG] 수정 모달 열기 - task 데이터:', {
+      id: task.id,
+      title: task.title,
+      startDate: task.startDate,
+      dueDate: task.dueDate,
+      hasStartDate: !!task.startDate,
+      hasDueDate: !!task.dueDate
+    })
+
     setEditingTask(task)
     setEditBusinessSearchTerm(task.businessName || '')
     setShowEditBusinessDropdown(false)
@@ -1743,6 +1752,14 @@ function TaskManagementPage() {
             setMobileSelectedTask(null)
           }}
           onEdit={(task: any) => {
+            console.log('📋 [DEBUG] TaskMobileModal onEdit - task 데이터:', {
+              id: task.id,
+              title: task.title,
+              startDate: task.startDate,
+              dueDate: task.dueDate,
+              hasStartDate: !!task.startDate,
+              hasDueDate: !!task.dueDate
+            })
             setEditingTask(task)
             setEditBusinessSearchTerm(task.businessName || '')
             setShowEditModal(true)
