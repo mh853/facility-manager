@@ -974,6 +974,7 @@ function TaskManagementPage() {
         status: createTaskForm.status,
         priority: createTaskForm.priority,
         assignees: createTaskForm.assignees,
+        start_date: createTaskForm.startDate || null,
         due_date: createTaskForm.dueDate || null,
         description: createTaskForm.description || null,
         notes: createTaskForm.notes || null
@@ -1017,7 +1018,7 @@ function TaskManagementPage() {
         priority: result.data.task.priority,
         assignee: result.data.task.assignee || undefined,
         assignees: result.data.task.assignees || [],
-        startDate: createTaskForm.startDate || undefined,
+        startDate: result.data.task.start_date || undefined,
         dueDate: result.data.task.due_date || undefined,
         progressPercentage: calculateProgressPercentage(result.data.task.task_type, result.data.task.status),
         delayStatus: 'on_time',
