@@ -483,8 +483,10 @@ function RevenueDashboard() {
 
       if (data.success) {
         const businessData = data.data || [];
-        console.log('🏢 [REVENUE] 사업장 데이터 로드:', businessData.length, '개');
-        console.log('📊 [REVENUE] API 응답 count:', data.count, '개');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🏢 [REVENUE] 사업장 데이터 로드:', businessData.length, '개');
+          console.log('📊 [REVENUE] API 응답 count:', data.count, '개');
+        }
 
         // 각 사업장에 대해 자동 매출 계산 적용
         const businessesWithCalculation = businessData.map((business: any) => {
@@ -495,7 +497,9 @@ function RevenueDashboard() {
           };
         });
 
-        console.log('💰 [REVENUE] 자동 계산 완료:', businessesWithCalculation.length, '개');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('💰 [REVENUE] 자동 계산 완료:', businessesWithCalculation.length, '개');
+        }
         setBusinesses(businessesWithCalculation);
       } else {
         console.error('🔴 [REVENUE] 사업장 로드 실패:', data.message);

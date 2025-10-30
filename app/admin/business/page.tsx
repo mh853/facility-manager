@@ -1358,15 +1358,19 @@ function BusinessManagementPage() {
       }
       const data = await response.json()
 
-      console.log('📊 [BUSINESS] API 응답 데이터:', {
-        success: data.success,
-        dataLength: data.data?.length,
-        count: data.count,
-        hasData: !!data.data
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📊 [BUSINESS] API 응답 데이터:', {
+          success: data.success,
+          dataLength: data.data?.length,
+          count: data.count,
+          hasData: !!data.data
+        })
+      }
 
       if (data.success && data.data && Array.isArray(data.data)) {
-        console.log(`✅ ${data.data.length}개 사업장 정보 로딩 완료 (API count: ${data.count})`)
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`✅ ${data.data.length}개 사업장 정보 로딩 완료 (API count: ${data.count})`)
+        }
         
         // 직접 API 응답 데이터를 한국어 필드명으로 매핑
         const businessObjects = data.data.map((business: any) => ({

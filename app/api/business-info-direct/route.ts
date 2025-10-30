@@ -5,6 +5,10 @@ import { supabaseAdmin } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// Debug logging control
+const DEBUG = process.env.NODE_ENV === 'development';
+const log = (...args: any[]) => DEBUG && console.log(...args);
+const logError = (...args: any[]) => console.error(...args); // Always log errors
 
 // UTF-8 normalization function
 function normalizeUTF8(str: string): string {
@@ -20,7 +24,7 @@ export async function GET(request: Request) {
     const id = searchParams.get('id');
     const includeFileStats = searchParams.get('includeFileStats') === 'true';
 
-    console.log('📊 [BUSINESS-INFO-DIRECT] 직접 조회 시작 - 검색:', `"${searchQuery}"`, '제한:', limit, 'ID:', id || 'N/A', 'includeFileStats:', includeFileStats);
+    log('📊 [BUSINESS-INFO-DIRECT] 직접 조회 시작 - 검색:', `"${searchQuery}"`, '제한:', limit, 'ID:', id || 'N/A', 'includeFileStats:', includeFileStats);
 
     let query = supabaseAdmin.from('business_info').select('*', { count: 'exact' });
 
@@ -53,14 +57,14 @@ export async function GET(request: Request) {
         .range(rangeStart, rangeEnd);
 
       if (error) {
-        console.error('❌ [BUSINESS-INFO-DIRECT] 페이지', page, '조회 오류:', error);
+        logError('❌ [BUSINESS-INFO-DIRECT] 페이지', page, '조회 오류:', error);
         break;
       }
 
       if (data && data.length > 0) {
         allBusinesses = allBusinesses.concat(data);
         totalCount = count || 0;
-        console.log(`📄 [BUSINESS-INFO-DIRECT] 페이지 ${page} 로드: ${data.length}개 (누적: ${allBusinesses.length}개)`);
+        log(`📄 [BUSINESS-INFO-DIRECT] 페이지 ${page} 로드: ${data.length}개 (누적: ${allBusinesses.length}개)`);
       }
 
       // 더 이상 데이터가 없거나, 요청한 limit에 도달하면 중단
@@ -71,7 +75,7 @@ export async function GET(request: Request) {
     const businesses = allBusinesses;
     const count = totalCount;
 
-    console.log('🔍 [BUSINESS-INFO-DIRECT] Supabase 쿼리 완료:', {
+    log('🔍 [BUSINESS-INFO-DIRECT] Supabase 쿼리 완료:', {
       businessesLength: businesses?.length,
       totalCount: count,
       requestedLimit: limit,
@@ -79,16 +83,16 @@ export async function GET(request: Request) {
     });
 
     if (!businesses || businesses.length === 0) {
-      console.log('⚠️ [BUSINESS-INFO-DIRECT] 조회 결과 없음');
+      log('⚠️ [BUSINESS-INFO-DIRECT] 조회 결과 없음');
     }
 
-    console.log('✅ [BUSINESS-INFO-DIRECT] 조회 완료 -', `${businesses?.length}개 사업장`);
+    log('✅ [BUSINESS-INFO-DIRECT] 조회 완료 -', `${businesses?.length}개 사업장`);
 
     // Include file statistics if requested
     if (includeFileStats && businesses?.length) {
-      console.log('📊 [BUSINESS-INFO-DIRECT] 파일 통계 추가 중...');
+      log('📊 [BUSINESS-INFO-DIRECT] 파일 통계 추가 중...');
       // Add file stats logic here if needed
-      console.log('✅ [BUSINESS-INFO-DIRECT] 파일 통계 추가 완료 - 0개 매칭');
+      log('✅ [BUSINESS-INFO-DIRECT] 파일 통계 추가 완료 - 0개 매칭');
     }
 
     return NextResponse.json({
@@ -100,7 +104,7 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.error('❌ [BUSINESS-INFO-DIRECT] 조회 실패:', error);
+    logError('❌ [BUSINESS-INFO-DIRECT] 조회 실패:', error);
     return NextResponse.json({ 
       success: false, 
       error: error instanceof Error ? error.message : '알 수 없는 오류',
@@ -429,14 +433,14 @@ export async function PUT(request: Request) {
       .single();
 
     if (updateError) {
-      console.error('❌ [BUSINESS-INFO-DIRECT] PUT 실패:', updateError);
+      logError('❌ [BUSINESS-INFO-DIRECT] PUT 실패:', updateError);
       return NextResponse.json({ 
         success: false, 
         error: `업데이트 실패: ${updateError.message}` 
       }, { status: 500 });
     }
 
-    console.log('✅ [BUSINESS-INFO-DIRECT] PUT 성공:', `사업장 ${updatedBusiness.business_name} 업데이트 완료`);
+    log('✅ [BUSINESS-INFO-DIRECT] PUT 성공:', `사업장 ${updatedBusiness.business_name} 업데이트 완료`);
 
     return NextResponse.json({ 
       success: true, 
@@ -445,10 +449,10 @@ export async function PUT(request: Request) {
     });
 
   } catch (error) {
-    console.error('❌ [BUSINESS-INFO-DIRECT] PUT 실패:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : '알 수 없는 오류' 
+    logError('❌ [BUSINESS-INFO-DIRECT] PUT 실패:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류'
     }, { status: 500 });
   }
 }
@@ -460,7 +464,7 @@ export async function POST(request: Request) {
     // 배치 업로드 모드 확인
     if (businessData.isBatchUpload && Array.isArray(businessData.businesses)) {
       const uploadMode = businessData.uploadMode || 'overwrite';
-      console.log('📦 [BUSINESS-INFO-DIRECT] 배치 업로드 시작 - 총', businessData.businesses.length, '개 / 모드:', uploadMode);
+      log('📦 [BUSINESS-INFO-DIRECT] 배치 업로드 시작 - 총', businessData.businesses.length, '개 / 모드:', uploadMode);
 
       let created = 0;
       let updated = 0;
@@ -487,7 +491,7 @@ export async function POST(request: Request) {
             .maybeSingle();
 
           if (searchError && searchError.code !== 'PGRST116') {
-            console.error('❌ [BATCH] 검색 오류:', normalizedName, searchError);
+            logError('❌ [BATCH] 검색 오류:', normalizedName, searchError);
             errors++;
             errorDetails.push({ business_name: normalizedName, error: searchError.message });
             continue;
@@ -588,12 +592,12 @@ export async function POST(request: Request) {
                   .eq('id', existing.id);
 
                 if (overwriteError) {
-                  console.error('❌ [BATCH] 덮어쓰기 실패:', normalizedName, overwriteError);
+                  logError('❌ [BATCH] 덮어쓰기 실패:', normalizedName, overwriteError);
                   errors++;
                   errorDetails.push({ business_name: normalizedName, error: overwriteError.message });
                 } else {
                   updated++;
-                  console.log('✅ [BATCH] 덮어쓰기:', normalizedName);
+                  log('✅ [BATCH] 덮어쓰기:', normalizedName);
                 }
                 break;
 
@@ -616,19 +620,19 @@ export async function POST(request: Request) {
                   .eq('id', existing.id);
 
                 if (mergeError) {
-                  console.error('❌ [BATCH] 병합 실패:', normalizedName, mergeError);
+                  logError('❌ [BATCH] 병합 실패:', normalizedName, mergeError);
                   errors++;
                   errorDetails.push({ business_name: normalizedName, error: mergeError.message });
                 } else {
                   updated++;
-                  console.log('✅ [BATCH] 병합:', normalizedName);
+                  log('✅ [BATCH] 병합:', normalizedName);
                 }
                 break;
 
               case 'skip':
                 // 건너뛰기: 아무것도 안 함
                 skipped++;
-                console.log('⏭️ [BATCH] 건너뛰기:', normalizedName);
+                log('⏭️ [BATCH] 건너뛰기:', normalizedName);
                 break;
             }
           } else {
@@ -645,12 +649,12 @@ export async function POST(request: Request) {
               .insert([insertData]);
 
             if (insertError) {
-              console.error('❌ [BATCH] 삽입 실패:', normalizedName, insertError);
+              logError('❌ [BATCH] 삽입 실패:', normalizedName, insertError);
               errors++;
               errorDetails.push({ business_name: normalizedName, error: insertError.message });
             } else {
               created++;
-              console.log('✅ [BATCH] 생성:', normalizedName);
+              log('✅ [BATCH] 생성:', normalizedName);
             }
           }
         } catch (itemError: any) {
@@ -662,7 +666,7 @@ export async function POST(request: Request) {
         }
       }
 
-      console.log('📦 [BATCH] 완료 - 생성:', created, '/ 업데이트:', updated, '/ 건너뛰기:', skipped, '/ 오류:', errors);
+      log('📦 [BATCH] 완료 - 생성:', created, '/ 업데이트:', updated, '/ 건너뛰기:', skipped, '/ 오류:', errors);
 
       return NextResponse.json({
         success: true,
@@ -681,7 +685,7 @@ export async function POST(request: Request) {
     }
 
     // 단일 사업장 생성
-    console.log('📝 [BUSINESS-INFO-DIRECT] POST 시작 - 새 사업장 생성');
+    log('📝 [BUSINESS-INFO-DIRECT] POST 시작 - 새 사업장 생성');
 
     // Normalize and structure all fields properly
     const normalizedData = {
@@ -804,14 +808,14 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error('❌ [BUSINESS-INFO-DIRECT] POST 실패:', error);
-      return NextResponse.json({ 
-        success: false, 
-        error: `생성 실패: ${error.message}` 
+      logError('❌ [BUSINESS-INFO-DIRECT] POST 실패:', error);
+      return NextResponse.json({
+        success: false,
+        error: `생성 실패: ${error.message}`
       }, { status: 500 });
     }
 
-    console.log('✅ [BUSINESS-INFO-DIRECT] POST 성공:', `사업장 ${newBusiness.business_name} 생성 완료`);
+    log('✅ [BUSINESS-INFO-DIRECT] POST 성공:', `사업장 ${newBusiness.business_name} 생성 완료`);
 
     return NextResponse.json({ 
       success: true, 
@@ -820,7 +824,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('❌ [BUSINESS-INFO-DIRECT] POST 실패:', error);
+    logError('❌ [BUSINESS-INFO-DIRECT] POST 실패:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : '알 수 없는 오류'
@@ -839,7 +843,7 @@ export async function DELETE(request: Request) {
       }, { status: 400 });
     }
 
-    console.log('🗑️ [BUSINESS-INFO-DIRECT] 삭제 요청 - ID:', id);
+    log('🗑️ [BUSINESS-INFO-DIRECT] 삭제 요청 - ID:', id);
 
     // 사업장 존재 여부 확인
     const { data: existing, error: fetchError } = await supabaseAdmin
@@ -849,7 +853,7 @@ export async function DELETE(request: Request) {
       .single();
 
     if (fetchError || !existing) {
-      console.error('❌ [BUSINESS-INFO-DIRECT] 사업장을 찾을 수 없음:', fetchError);
+      logError('❌ [BUSINESS-INFO-DIRECT] 사업장을 찾을 수 없음:', fetchError);
       return NextResponse.json({
         success: false,
         error: `사업장을 찾을 수 없습니다: ${fetchError?.message || 'Not found'}`
@@ -875,14 +879,14 @@ export async function DELETE(request: Request) {
       .single();
 
     if (deleteError) {
-      console.error('❌ [BUSINESS-INFO-DIRECT] 삭제 실패:', deleteError);
+      logError('❌ [BUSINESS-INFO-DIRECT] 삭제 실패:', deleteError);
       return NextResponse.json({
         success: false,
         error: `삭제에 실패했습니다: ${deleteError.message}`
       }, { status: 500 });
     }
 
-    console.log('✅ [BUSINESS-INFO-DIRECT] 삭제 성공:', existing.business_name, '(ID:', id, ')');
+    log('✅ [BUSINESS-INFO-DIRECT] 삭제 성공:', existing.business_name, '(ID:', id, ')');
 
     return NextResponse.json({
       success: true,
@@ -891,7 +895,7 @@ export async function DELETE(request: Request) {
     });
 
   } catch (error) {
-    console.error('❌ [BUSINESS-INFO-DIRECT] DELETE 실패:', error);
+    logError('❌ [BUSINESS-INFO-DIRECT] DELETE 실패:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : '알 수 없는 오류'
