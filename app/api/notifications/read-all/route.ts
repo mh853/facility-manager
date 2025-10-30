@@ -1,50 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import jwt from 'jsonwebtoken';
+import { supabaseAdmin } from '@/lib/supabase';
+import { verifyTokenHybrid } from '@/lib/secure-jwt';
 
-// Supabase 클라이언트 설정
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+// 사용자 권한 확인 헬퍼 함수 (Authorization 헤더 + httpOnly 쿠키 지원)
+async function checkUserPermission(request: NextRequest) {
+  // Authorization 헤더에서 토큰 확인
+  const authHeader = request.headers.get('authorization');
+  let token: string | null = null;
 
-// JWT 토큰에서 사용자 정보 추출하는 헬퍼 함수 (facility-tasks와 동일한 로직)
-async function getUserFromToken(request: NextRequest) {
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.replace('Bearer ', '');
+  } else {
+    // httpOnly 쿠키에서 토큰 확인
+    const cookieToken = request.cookies.get('auth_token')?.value;
+    if (cookieToken) {
+      token = cookieToken;
+    }
+  }
+
+  if (!token) {
+    console.log('⚠️ [READ-ALL] 토큰 없음 (헤더/쿠키 모두 없음)');
+    return { authorized: false, user: null };
+  }
+
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return null;
+    const result = await verifyTokenHybrid(token);
+
+    if (!result.user) {
+      console.log('⚠️ [READ-ALL] 사용자 정보 없음:', result.error);
+      return { authorized: false, user: null };
     }
 
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    console.log('✅ [READ-ALL] 사용자 인증 성공:', {
+      userId: result.user.id,
+      userName: result.user.name
+    });
 
-    // 사용자 정보 조회
-    const { data: user, error } = await supabase
-      .from('employees')
-      .select('id, name, email, permission_level, department')
-      .eq('id', decoded.userId || decoded.id)
-      .eq('is_active', true)
-      .single();
-
-    if (error || !user) {
-      console.warn('⚠️ [AUTH] 사용자 조회 실패:', error?.message);
-      return null;
-    }
-
-    return user;
+    return {
+      authorized: true,
+      user: result.user
+    };
   } catch (error) {
-    console.warn('⚠️ [AUTH] JWT 토큰 검증 실패:', error);
-    return null;
+    console.error('❌ [READ-ALL] 권한 확인 오류:', error);
+    return { authorized: false, user: null };
   }
 }
 
 // POST: 모든 알림 읽음 처리
 export async function POST(request: NextRequest) {
   try {
-    const user = await getUserFromToken(request);
-    if (!user) {
+    const { authorized, user } = await checkUserPermission(request);
+    if (!authorized || !user) {
       return NextResponse.json(
         { success: false, error: { message: '인증이 필요합니다.' } },
         { status: 401 }
@@ -59,7 +69,7 @@ export async function POST(request: NextRequest) {
     let totalProcessed = 0;
 
     // 1. 업무 알림 처리 (task_notifications 테이블의 안읽은 알림만)
-    const { data: unreadTaskNotifications, error: taskFetchError } = await supabase
+    const { data: unreadTaskNotifications, error: taskFetchError } = await supabaseAdmin
       .from('task_notifications')
       .select('id, message, business_name')
       .eq('user_id', user.id)
@@ -73,7 +83,7 @@ export async function POST(request: NextRequest) {
 
       console.log('🔄 [READ-ALL] 업무 알림 읽음 처리:', taskNotificationIds.length, '개');
 
-      const { data: updatedTaskNotifications, error: taskUpdateError } = await supabase
+      const { data: updatedTaskNotifications, error: taskUpdateError } = await supabaseAdmin
         .from('task_notifications')
         .update({
           is_read: true,
@@ -93,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     // 2. 일반 알림 처리 (notifications 테이블의 읽지 않은 알림만)
     // 읽지 않은 일반 알림 조회 (user_notification_reads에 없는 것들)
-    const { data: unreadGeneralNotifications, error: generalFetchError } = await supabase
+    const { data: unreadGeneralNotifications, error: generalFetchError } = await supabaseAdmin
       .from('notifications')
       .select('id, title, message')
       .not('id', 'in', `(SELECT notification_id FROM user_notification_reads WHERE user_id = '${user.id}')`)
@@ -118,7 +128,7 @@ export async function POST(request: NextRequest) {
         read_at: new Date().toISOString()
       }));
 
-      const { data: insertedReads, error: generalUpdateError } = await supabase
+      const { data: insertedReads, error: generalUpdateError } = await supabaseAdmin
         .from('user_notification_reads')
         .insert(readRecords)
         .select();
