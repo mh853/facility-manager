@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, History } from 'lucide-react'
 import { Task, BusinessOption, TaskType, Priority, TaskStatus } from '../types'
 import { SelectedAssignee } from '@/components/ui/MultiAssigneeSelector'
 import MultiAssigneeSelector from '@/components/ui/MultiAssigneeSelector'
+import TaskHistoryTimeline from '@/components/TaskHistoryTimeline'
 
 interface TaskEditModalProps {
   isOpen: boolean
@@ -35,6 +36,7 @@ export default function TaskEditModal({
   const [businessSearchTerm, setBusinessSearchTerm] = useState(task?.businessName || '')
   const [showBusinessDropdown, setShowBusinessDropdown] = useState(false)
   const [selectedBusinessIndex, setSelectedBusinessIndex] = useState(-1)
+  const [showHistory, setShowHistory] = useState(false)
 
   // task가 변경될 때마다 editingTask 업데이트
   useEffect(() => {
@@ -289,6 +291,28 @@ export default function TaskEditModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={3}
             />
+          </div>
+
+          {/* 단계 이력 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <button
+              type="button"
+              onClick={() => setShowHistory(!showHistory)}
+              className="w-full flex items-center justify-between mb-3 group"
+            >
+              <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <History className="w-4 h-4 text-purple-600" />
+                단계 이력
+              </h3>
+              <span className="text-xs text-gray-500 group-hover:text-gray-700">
+                {showHistory ? '접기' : '펼치기'}
+              </span>
+            </button>
+            {showHistory && (
+              <div className="mt-4">
+                <TaskHistoryTimeline taskId={editingTask.id} />
+              </div>
+            )}
           </div>
 
           {/* 버튼 */}
