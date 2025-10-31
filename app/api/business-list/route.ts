@@ -11,9 +11,42 @@ export const runtime = 'nodejs';
 
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
-    console.log('🏢 [BUSINESS-LIST] business_info에서 전체 사업장 목록 조회 (대기필증 여부 무관)');
+    console.log('🏢 [BUSINESS-LIST] 대기필증이 등록된 사업장 목록 조회');
 
-    // business_info 테이블에서 모든 사업장 조회 (측정기기 정보 포함, 대기필증 여부 무관)
+    // 대기필증이 있는 business_id만 먼저 조회
+    const { data: businessIdsWithPermits, error: permitError } = await supabaseAdmin
+      .from('air_permit_info')
+      .select('business_id')
+      .not('business_id', 'is', null);
+
+    if (permitError) {
+      console.error('🔴 [BUSINESS-LIST] air_permit_info 조회 오류:', permitError);
+      throw permitError;
+    }
+
+    // 대기필증이 있는 business_id 목록 추출 (중복 제거)
+    const businessIdsSet = new Set(
+      (businessIdsWithPermits || []).map((p: any) => p.business_id).filter(Boolean)
+    );
+    const businessIds = Array.from(businessIdsSet);
+
+    console.log(`🏢 [BUSINESS-LIST] 대기필증 보유 사업장 수: ${businessIds.length}개`);
+
+    if (businessIds.length === 0) {
+      console.log('📋 [BUSINESS-LIST] 대기필증 보유 사업장이 없음');
+      return createSuccessResponse({
+        businesses: [],
+        count: 0,
+        metadata: {
+          message: '대기필증 정보가 등록된 사업장이 없습니다',
+          source: 'air_permit_info',
+          hasPhotoData: true,
+          criteriaUsed: 'air_permit_required'
+        }
+      });
+    }
+
+    // 대기필증이 있는 사업장만 business_info에서 조회
     const { data: businessWithPermits, error: businessError } = await supabaseAdmin
       .from('business_info')
       .select(`
@@ -45,17 +78,19 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         additional_cost,
         negotiation
       `)
+      .in('id', businessIds)
       .eq('is_active', true)
       .eq('is_deleted', false)
       .not('business_name', 'is', null)
       .order('business_name');
     
-    console.log(`🏢 [BUSINESS-LIST] 조회 결과:`, { 
-      businesses: businessWithPermits?.length || 0, 
+    console.log(`🏢 [BUSINESS-LIST] 조회 결과:`, {
+      permitBusinessesCount: businessIds.length,
+      retrievedBusinesses: businessWithPermits?.length || 0,
       error: businessError?.message,
-      sampleData: businessWithPermits?.slice(0, 3)?.map((b: any) => ({ 
-        name: b.business_name, 
-        permits: b.air_permit_info?.length || 0 
+      sampleData: businessWithPermits?.slice(0, 3)?.map((b: any) => ({
+        name: b.business_name,
+        id: b.id
       }))
     });
     
@@ -104,18 +139,20 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       });
     }
     
-    // 전체 BusinessInfo 객체 반환 (문자열 배열이 아닌 객체 배열)
-    console.log(`📋 [BUSINESS-LIST] 사업장 객체 반환: ${businessWithPermits.length}개`);
+    // 대기필증이 등록된 BusinessInfo 객체만 반환
+    console.log(`📋 [BUSINESS-LIST] 대기필증 보유 사업장 객체 반환: ${businessWithPermits.length}개`);
 
     return createSuccessResponse({
-      businesses: businessWithPermits, // 전체 객체 반환으로 변경
+      businesses: businessWithPermits,
       count: businessWithPermits.length,
       metadata: {
-        source: 'business_info_full_objects',
+        source: 'business_info_with_air_permits',
         totalCount: businessWithPermits.length,
+        airPermitBusinessCount: businessIds.length,
         hasPhotoData: true,
         includesFullData: true,
-        dataType: 'BusinessInfo[]', // 반환 타입 명시
+        dataType: 'BusinessInfo[]',
+        criteriaUsed: 'air_permit_required',
         additionalInfo: {
           avgDevicesPerBusiness: businessWithPermits.reduce((sum: number, b: any) =>
             sum + (b.ph_meter || 0) + (b.differential_pressure_meter || 0) +
