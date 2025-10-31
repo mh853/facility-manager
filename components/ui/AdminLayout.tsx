@@ -22,7 +22,8 @@ import {
   TrendingUp,
   Sliders,
   DollarSign,
-  Users
+  Users,
+  Package
 } from 'lucide-react'
 
 interface AdminLayoutProps {
@@ -74,6 +75,13 @@ const navigationItems: NavigationItem[] = [
     href: '/admin/tasks',
     icon: ClipboardList,
     description: '업무 흐름 및 진행 상황 관리',
+    requiredLevel: 1
+  },
+  {
+    name: '발주 관리',
+    href: '/admin/order-management',
+    icon: Package,
+    description: '제품 발주 진행 상황 및 단계 관리',
     requiredLevel: 1
   },
   {

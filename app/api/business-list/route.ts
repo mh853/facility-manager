@@ -1,7 +1,8 @@
 // app/api/business-list/route.ts - business_info 테이블 기반 대기필증 사업장 목록
 import { NextRequest } from 'next/server';
-import { withApiHandler, createSuccessResponse } from '@/lib/api-utils';
+import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
+import { verifyTokenHybrid } from '@/lib/secure-jwt'
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
@@ -142,3 +143,87 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     });
   }
 }, { logLevel: 'debug' });
+
+// POST: 신규 사업장 생성 (라우터 할당 시 사용)
+export const POST = withApiHandler(
+  async (request: NextRequest) => {
+    try {
+      // 인증 확인
+      const authHeader = request.headers.get('authorization')
+      let token: string | null = null
+
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.replace('Bearer ', '')
+      } else {
+        const cookieToken = request.cookies.get('auth_token')?.value
+        if (cookieToken) token = cookieToken
+      }
+
+      if (!token) {
+        return createErrorResponse('인증이 필요합니다', 401)
+      }
+
+      const result = await verifyTokenHybrid(token)
+      if (!result.user) {
+        return createErrorResponse('인증이 필요합니다', 401)
+      }
+
+      const body = await request.json()
+      const { business_name } = body
+
+      if (!business_name || !business_name.trim()) {
+        return createErrorResponse('사업장 이름은 필수입니다', 400)
+      }
+
+      console.log('[BUSINESS-LIST] 신규 사업장 생성:', {
+        user: result.user.name,
+        business_name
+      })
+
+      // 중복 확인
+      const { data: existing } = await supabaseAdmin
+        .from('business_info')
+        .select('id, business_name')
+        .eq('business_name', business_name.trim())
+        .eq('is_deleted', false)
+        .single()
+
+      if (existing) {
+        console.log('[BUSINESS-LIST] 이미 존재하는 사업장:', existing)
+        return createSuccessResponse({
+          id: existing.id,
+          business_name: existing.business_name,
+          message: '이미 존재하는 사업장입니다'
+        })
+      }
+
+      // 신규 생성
+      const { data: newBusiness, error } = await supabaseAdmin
+        .from('business_info')
+        .insert({
+          business_name: business_name.trim(),
+          is_deleted: false,
+          is_active: true
+        })
+        .select('id, business_name')
+        .single()
+
+      if (error) {
+        console.error('[BUSINESS-LIST] 생성 오류:', error)
+        return createErrorResponse('사업장 생성 중 오류가 발생했습니다', 500)
+      }
+
+      console.log('[BUSINESS-LIST] 신규 사업장 생성 완료:', newBusiness)
+
+      return createSuccessResponse({
+        id: newBusiness.id,
+        business_name: newBusiness.business_name,
+        message: '신규 사업장이 등록되었습니다'
+      })
+    } catch (error: any) {
+      console.error('[BUSINESS-LIST] POST 오류:', error)
+      return createErrorResponse('서버 내부 오류가 발생했습니다', 500)
+    }
+  },
+  { logLevel: 'debug' }
+)

@@ -101,7 +101,9 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/business-list',  // 사업장 목록 API (JWT 인증 사용)
     '/api/business-info',  // 사업장 정보 API (JWT 인증 사용)
     '/api/business-info-direct',  // 사업장 정보 직접 API (JWT 인증 사용)
-    '/api/business-management'  // 사업장 관리 API (JWT 인증 사용)
+    '/api/business-management',  // 사업장 관리 API (JWT 인증 사용)
+    '/api/router-inventory',  // 라우터 재고 관리 메인 API (JWT 인증 사용)
+    '/api/order-management'  // 발주 관리 메인 API (JWT 인증 사용)
   ];
   const excludePatterns = [
     '/api/auth/social/',
@@ -114,7 +116,9 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/revenue/recalculate',  // 매출 재계산 API (JWT 인증 + 권한 레벨 4)
     '/api/weekly-reports/*',  // 주간 리포트 API 전체 제외 (JWT 인증 사용)
     '/api/organization/*',  // 조직 관리 API 전체 제외 (JWT 인증 사용)
-    '/api/notifications/*'  // 알림 API 전체 제외 (JWT 인증 사용)
+    '/api/notifications/*',  // 알림 API 전체 제외 (JWT 인증 사용)
+    '/api/router-inventory/*',  // 라우터 재고 관리 API 전체 제외 (JWT 인증 사용)
+    '/api/order-management/*'  // 발주 관리 API 전체 제외 (JWT 인증 사용)
   ];
 
   if (excludePaths.includes(request.nextUrl.pathname)) {
