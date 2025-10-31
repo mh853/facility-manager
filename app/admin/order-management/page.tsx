@@ -55,6 +55,16 @@ export default function OrderManagementPage() {
     loadOrders()
   }, [searchTerm, manufacturerFilter, activeTab, sortBy, currentPage])
 
+  // 페이지 포커스 시 데이터 새로고침
+  useEffect(() => {
+    const handleFocus = () => {
+      loadOrders()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [activeTab])
+
   const loadOrders = async () => {
     // 라우터 관리 탭에서는 발주 목록을 로드하지 않음
     if (activeTab === 'router_management') {
@@ -71,14 +81,18 @@ export default function OrderManagementPage() {
         status: activeTab,
         sort: sortBy,
         page: currentPage.toString(),
-        limit: '20'
+        limit: '7'
       })
 
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
 
       const response = await fetch(`/api/order-management?${params}`, {
         credentials: 'include',
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'Cache-Control': 'no-cache'
+        },
+        cache: 'no-store'
       })
 
       if (!response.ok) {
@@ -87,10 +101,26 @@ export default function OrderManagementPage() {
 
       const result: OrderListResponse = await response.json()
 
+      console.log('[ORDER-MANAGEMENT-PAGE] API 응답:', {
+        success: result.success,
+        ordersCount: result.data?.orders?.length || 0,
+        orders: result.data?.orders?.map(o => ({
+          id: o.id,
+          business_name: o.business_name,
+          business_id: o.business_id
+        })) || [],
+        summary: result.data?.summary
+      })
+
       if (result.success && result.data) {
         setOrders(result.data.orders)
         setTotalPages(result.data.pagination.total_pages)
         setSummary(result.data.summary)
+
+        console.log('[ORDER-MANAGEMENT-PAGE] State 업데이트:', {
+          ordersLength: result.data.orders.length,
+          totalPages: result.data.pagination.total_pages
+        })
       }
     } catch (error) {
       console.error('발주 목록 로드 오류:', error)
@@ -402,8 +432,14 @@ export default function OrderManagementPage() {
                 orders.map((order) => (
                   <tr
                     key={order.id}
-                    onClick={() => handleOpenModal(order.business_id)}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => {
+                      if (order.business_id) {
+                        handleOpenModal(order.business_id)
+                      } else {
+                        alert('이 항목은 사업장 정보가 없어 상세보기를 할 수 없습니다.')
+                      }
+                    }}
+                    className={`hover:bg-gray-50 transition-colors ${order.business_id ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                   >
                     <td className="py-3 px-4 text-sm font-medium text-gray-900">
                       {order.business_name}
