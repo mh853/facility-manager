@@ -79,7 +79,7 @@ export const GET = withApiHandler(
       const status = searchParams.get('status') || 'all'
       const sort = searchParams.get('sort') || 'latest'
       const page = parseInt(searchParams.get('page') || '1')
-      const limit = parseInt(searchParams.get('limit') || '20')
+      const limit = parseInt(searchParams.get('limit') || '7')
 
       console.log('[ORDER-MANAGEMENT] 목록 조회:', {
         user: user.name,
@@ -105,34 +105,121 @@ export const GET = withApiHandler(
         if (taskErr) {
           orderError = taskErr
         } else if (tasks && tasks.length > 0) {
+          console.log('[ORDER-MANAGEMENT] facility_tasks 조회 결과:', {
+            totalTasks: tasks.length,
+            taskIds: tasks.map(t => t.id),
+            businessIds: tasks.map(t => ({ taskId: t.id, businessId: t.business_id }))
+          })
+
           // business_id로 business_info 조회 (null 값 필터링)
           const businessIds = tasks
             .map(t => t.business_id)
             .filter(id => id !== null && id !== undefined)
 
-          if (businessIds.length === 0) {
-            console.warn('[ORDER-MANAGEMENT] 모든 tasks의 business_id가 null입니다')
-            orders = []
-          } else {
-            const { data: businesses, error: bizErr } = await supabaseAdmin
+          console.log('[ORDER-MANAGEMENT] 필터링 후 business_ids:', businessIds)
+
+          // business_id가 없는 tasks도 business_name으로 조회 시도
+          const tasksWithoutId = tasks.filter(t => !t.business_id && t.business_name)
+          const businessNames = tasksWithoutId.map(t => t.business_name)
+
+          let businesses: any[] = []
+          let bizErr: any = null
+
+          // business_id로 조회
+          if (businessIds.length > 0) {
+            const { data: businessesById, error: byIdErr } = await supabaseAdmin
               .from('business_info')
               .select('*')
               .in('id', businessIds)
               .eq('is_deleted', false)
 
+            if (byIdErr) {
+              bizErr = byIdErr
+            } else {
+              businesses = businessesById || []
+            }
+          }
+
+          // business_name으로도 조회 (fallback)
+          if (!bizErr && businessNames.length > 0) {
+            const { data: businessesByName, error: byNameErr } = await supabaseAdmin
+              .from('business_info')
+              .select('*')
+              .in('business_name', businessNames)
+              .eq('is_deleted', false)
+
+            if (byNameErr) {
+              console.warn('[ORDER-MANAGEMENT] business_name 조회 오류:', byNameErr)
+            } else if (businessesByName && businessesByName.length > 0) {
+              console.log('[ORDER-MANAGEMENT] business_name으로 조회 성공:', {
+                requestedNames: businessNames.length,
+                foundCount: businessesByName.length,
+                foundNames: businessesByName.map(b => b.business_name)
+              })
+              // 중복 제거하며 병합
+              const existingIds = new Set(businesses.map(b => b.id))
+              businessesByName.forEach(b => {
+                if (!existingIds.has(b.id)) {
+                  businesses.push(b)
+                }
+              })
+            }
+          }
+
           if (bizErr) {
             orderError = bizErr
           } else {
-            // business_info를 Map으로 변환
+            console.log('[ORDER-MANAGEMENT] business_info 조회 결과:', {
+              requestedIds: businessIds.length,
+              requestedNames: businessNames.length,
+              foundBusinesses: businesses.length,
+              foundIds: businesses.map(b => b.id)
+            })
+
+            // business_info를 Map으로 변환 (id 기반, name 기반 모두 지원)
             const businessMap = new Map(
-              businesses?.map(b => [b.id, b]) || []
+              businesses.map(b => [b.id, b])
+            )
+            const businessNameMap = new Map(
+              businesses.map(b => [b.business_name, b])
             )
 
             // facility_tasks와 business_info 결합
             orders = tasks
               .map((task: any) => {
-                const bi = businessMap.get(task.business_id)
-                if (!bi) return null
+                // business_id로 먼저 조회, 없으면 business_name으로 조회
+                let bi = task.business_id ? businessMap.get(task.business_id) : null
+                if (!bi && task.business_name) {
+                  bi = businessNameMap.get(task.business_name)
+                  if (bi) {
+                    console.log('[ORDER-MANAGEMENT] business_name으로 매칭 성공:', {
+                      taskId: task.id,
+                      businessName: task.business_name,
+                      matchedBusinessId: bi.id
+                    })
+                  }
+                }
+
+                if (!bi) {
+                  console.warn('[ORDER-MANAGEMENT] business_info를 찾을 수 없음 - facility_tasks 데이터 사용:', {
+                    taskId: task.id,
+                    businessId: task.business_id,
+                    businessName: task.business_name
+                  })
+                  // business_info를 찾지 못해도 facility_tasks 데이터로 표시
+                  return {
+                    id: task.id,
+                    business_id: task.business_id,
+                    business_name: task.business_name || '(사업장명 없음)',
+                    address: null,
+                    manufacturer: null,
+                    status: 'in_progress',
+                    progress_percentage: 0,
+                    last_updated: task.updated_at,
+                    steps_completed: 0,
+                    steps_total: 5
+                  }
+                }
 
                 // 사업장명 검색 필터
                 if (search && !bi.business_name?.toLowerCase().includes(search.toLowerCase())) {
@@ -161,7 +248,11 @@ export const GET = withApiHandler(
                 }
               })
               .filter((o: any) => o !== null)
-          }
+
+            console.log('[ORDER-MANAGEMENT] 최종 필터링 결과:', {
+              totalOrders: orders.length,
+              orderBusinessNames: orders.map((o: any) => o.business_name)
+            })
           }
         }
       } else if (status === 'not_started') {
