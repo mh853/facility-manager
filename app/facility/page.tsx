@@ -122,17 +122,17 @@ export default memo(function FacilityPage() {
         actions={
           <button
             onClick={loadBusinessList}
-            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 py-1 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-[10px] sm:text-xs md:text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
           >
-            🔄 <span className="hidden sm:inline">새로고침</span><span className="sm:hidden">새로고침</span>
+            🔄 새로고침
           </button>
         }
       >
-        <div className="flex items-center justify-center min-h-60 sm:min-h-80 md:min-h-96">
+        <div className="flex items-center justify-center min-h-96">
           <div className="text-center text-gray-800">
-            <div className="w-8 h-8 sm:w-12 sm:h-12 md:w-16 md:h-16 border-2 sm:border-3 md:border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2 sm:mb-3 md:mb-4" />
-            <p className="text-sm sm:text-lg md:text-xl font-semibold">사업장 목록을 불러오는 중...</p>
-            <p className="text-[10px] sm:text-xs md:text-sm text-gray-600 mt-1 sm:mt-2">데이터베이스에서 시설 정보를 가져오고 있습니다</p>
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-lg font-semibold">사업장 목록을 불러오는 중...</p>
+            <p className="text-sm text-gray-600 mt-2">데이터베이스에서 시설 정보를 가져오고 있습니다</p>
           </div>
         </div>
       </AdminLayout>
@@ -146,51 +146,51 @@ export default memo(function FacilityPage() {
       actions={
         <button
           onClick={loadBusinessList}
-          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 py-1 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-[10px] sm:text-xs md:text-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
         >
-          🔄 <span className="hidden sm:inline">새로고침</span><span className="sm:hidden">새로고침</span>
+          🔄 새로고침
         </button>
       }
     >
       <div className="max-w-4xl mx-auto">
         {/* 안내 메시지 */}
-        <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-xl sm:rounded-2xl shadow-sm border border-blue-200 p-3 sm:p-4 md:p-6 lg:p-8 mb-4 sm:mb-6 md:mb-8">
-          <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mb-2 sm:mb-3 md:mb-4">
-            <div className="p-2 sm:p-2.5 md:p-3 bg-blue-100 rounded-lg sm:rounded-xl">
-              <Building2 className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 text-blue-600" />
+        <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-lg shadow-sm border border-blue-200 p-6 mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2.5 bg-blue-100 rounded-lg">
+              <Building2 className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900">사업장 선택</h2>
-              <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-600">실사를 진행할 사업장을 선택하여 시설 관리를 시작하세요</p>
+              <h2 className="text-lg font-bold text-gray-900">사업장 선택</h2>
+              <p className="text-sm text-gray-600">실사를 진행할 사업장을 선택하여 시설 관리를 시작하세요</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4 text-[9px] sm:text-[10px] md:text-xs lg:text-sm">
-            <div className="flex items-center gap-1 sm:gap-2 text-blue-700">
-              <span className="text-sm sm:text-base md:text-lg">📊</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div className="flex items-center gap-2 text-blue-700">
+              <span>📊</span>
               <span>실시간 데이터 연동</span>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2 text-blue-700">
-              <span className="text-sm sm:text-base md:text-lg">📷</span>
+            <div className="flex items-center gap-2 text-blue-700">
+              <span>📷</span>
               <span>시설 사진 업로드</span>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2 text-blue-700">
-              <span className="text-sm sm:text-base md:text-lg">🔧</span>
+            <div className="flex items-center gap-2 text-blue-700">
+              <span>🔧</span>
               <span>통합 시설 관리</span>
             </div>
           </div>
         </div>
 
         {/* 메인 카드 */}
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
           {/* 통계 */}
-          <div className="bg-gray-50 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 border-b border-gray-200">
+          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-600">
+              <p className="text-sm text-gray-600">
                 등록된 사업장: <strong className="text-blue-600">{businessList.length}개</strong>
               </p>
               {businessList.length > 0 && !businessList[0].includes('❌') && !businessList[0].includes('⚠️') && (
-                <span className="flex items-center gap-1 text-green-600 text-[9px] sm:text-[10px] md:text-xs lg:text-sm">
-                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full"></span>
+                <span className="flex items-center gap-1 text-green-600 text-sm">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                   실시간 연결됨
                 </span>
               )}
@@ -198,9 +198,9 @@ export default memo(function FacilityPage() {
           </div>
 
           {/* 검색 */}
-          <div className="p-3 sm:p-4 md:p-6 border-b border-gray-200">
+          <div className="p-6 border-b border-gray-200">
             <div className="relative">
-              <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
                 lang="ko"
@@ -208,52 +208,52 @@ export default memo(function FacilityPage() {
                 placeholder="사업장명 검색..."
                 value={searchTerm}
                 onChange={handleSearchChange}
-                className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 border-2 border-gray-200 rounded-lg sm:rounded-xl focus:border-blue-500 focus:ring-2 sm:focus:ring-4 focus:ring-blue-100 text-[10px] sm:text-xs md:text-sm lg:text-lg transition-all"
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm transition-all"
                 autoComplete="off"
               />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm sm:text-base"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   ✕
                 </button>
               )}
             </div>
             {filteredList.length !== businessList.length && (
-              <p className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-500 mt-1 sm:mt-2">
+              <p className="text-sm text-gray-500 mt-2">
                 {filteredList.length}개의 검색 결과 (전체 {businessList.length}개)
               </p>
             )}
           </div>
 
           {/* 사업장 리스트 */}
-          <div className="max-h-80 sm:max-h-96 overflow-y-auto">
+          <div className="max-h-96 overflow-y-auto">
             {filteredList.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {filteredList.map((business, index) => (
                   <button
                     key={index}
                     onClick={() => goToBusiness(business)}
-                    className={`w-full px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-left transition-all group flex items-center gap-2 sm:gap-3 md:gap-4 ${
+                    className={`w-full px-6 py-4 text-left transition-all group flex items-center gap-3 ${
                       business.includes('❌') || business.includes('⚠️') || business.includes('🔄')
                         ? 'hover:bg-red-50 cursor-help'
                         : 'hover:bg-blue-50 cursor-pointer hover:shadow-sm'
                     }`}
                   >
-                    <div className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+                    <div className={`p-2 rounded-lg transition-colors ${
                       business.includes('❌') || business.includes('⚠️') || business.includes('🔄')
                         ? 'bg-red-100 group-hover:bg-red-200'
                         : 'bg-gray-100 group-hover:bg-blue-100'
                     }`}>
-                      <Building2 className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                      <Building2 className={`w-5 h-5 ${
                         business.includes('❌') || business.includes('⚠️') || business.includes('🔄')
                           ? 'text-red-500'
                           : 'text-gray-500 group-hover:text-blue-600'
                       }`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className={`text-[10px] sm:text-xs md:text-sm lg:text-lg font-medium block truncate ${
+                      <span className={`text-sm font-medium block truncate ${
                         business.includes('❌') || business.includes('⚠️') || business.includes('🔄')
                           ? 'text-red-600'
                           : 'text-gray-900 group-hover:text-blue-600'
@@ -261,7 +261,7 @@ export default memo(function FacilityPage() {
                         {business}
                       </span>
                       {!isErrorMessage(business) && (
-                        <span className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-500">시설 실사 관리</span>
+                        <span className="text-xs text-gray-500">시설 실사 관리</span>
                       )}
                     </div>
                     {!isErrorMessage(business) && (
@@ -273,12 +273,12 @@ export default memo(function FacilityPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 sm:py-10 md:py-12">
-                <div className="p-3 sm:p-4 bg-gray-100 rounded-full w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
-                  <Search className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-gray-400" />
+              <div className="text-center py-12">
+                <div className="p-4 bg-gray-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <Search className="w-8 h-8 text-gray-400" />
                 </div>
-                <p className="text-gray-500 text-sm sm:text-base md:text-lg font-medium">검색 결과가 없습니다</p>
-                <p className="text-gray-400 text-[10px] sm:text-xs md:text-sm mt-1">다른 검색어를 시도해보세요</p>
+                <p className="text-gray-500 text-base font-medium">검색 결과가 없습니다</p>
+                <p className="text-gray-400 text-sm mt-1">다른 검색어를 시도해보세요</p>
               </div>
             )}
           </div>
