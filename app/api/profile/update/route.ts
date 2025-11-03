@@ -68,10 +68,10 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, email, department, position } = body;
+    const { name, email, department, position, phone, mobile } = body;
 
     console.log('🔍 [PROFILE-UPDATE] 수신된 데이터:', {
-      name, email, department, position
+      name, email, department, position, phone, mobile
     });
 
     // 입력 데이터 검증
@@ -114,7 +114,9 @@ export async function PUT(request: NextRequest) {
       name: name.trim(),
       email: email.trim().toLowerCase(),
       department: department?.trim() || null,
-      position: position?.trim() || null
+      position: position?.trim() || null,
+      phone: phone?.trim() || null,
+      mobile: mobile?.trim() || null
     };
 
     console.log('🔍 [PROFILE-UPDATE] 업데이트할 데이터:', updateData);
@@ -150,6 +152,8 @@ export async function PUT(request: NextRequest) {
           email: updatedEmployee.email,
           department: updatedEmployee.department,
           position: updatedEmployee.position,
+          phone: updatedEmployee.phone,
+          mobile: updatedEmployee.mobile,
           employee_id: updatedEmployee.employee_id,
           permission_level: updatedEmployee.permission_level,
           created_at: updatedEmployee.created_at,

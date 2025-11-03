@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { TokenManager } from '@/lib/api-client';
 import AdminLayout from '@/components/ui/AdminLayout';
+import { formatPhoneNumber } from '@/utils/phoneFormatter';
 import {
   User,
   Mail,
@@ -20,7 +21,9 @@ import {
   Calendar,
   Clock,
   LogOut,
-  RefreshCw
+  RefreshCw,
+  Phone,
+  Smartphone
 } from 'lucide-react';
 
 interface UserProfile {
@@ -30,6 +33,8 @@ interface UserProfile {
   employee_id: string;
   department?: string;
   position?: string;
+  phone?: string;
+  mobile?: string;
   permission_level: number;
   is_active: boolean;
   created_at: string;
@@ -52,7 +57,9 @@ export default function ProfilePage() {
     name: '',
     email: '',
     department: '',
-    position: ''
+    position: '',
+    phone: '',
+    mobile: ''
   });
 
   // 비밀번호 변경 폼
@@ -97,7 +104,9 @@ export default function ProfilePage() {
             name: userProfile.name || '',
             email: userProfile.email || '',
             department: userProfile.department || '',
-            position: userProfile.position || ''
+            position: userProfile.position || '',
+            phone: userProfile.phone || '',
+            mobile: userProfile.mobile || ''
           });
         }
       } else {
@@ -126,18 +135,52 @@ export default function ProfilePage() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(editForm)
+        body: JSON.stringify({
+          ...editForm,
+          permission_level: profile.permission_level  // 기존 권한 레벨 유지
+        })
       });
 
       if (response.ok) {
         const data = await response.json();
+
         if (data.success) {
-          setProfile({ ...profile, ...editForm });
-          setSuccessMessage('프로필이 성공적으로 업데이트되었습니다.');
-          setTimeout(() => setSuccessMessage(''), 3000);
+          // 원래 프로필 값을 먼저 저장 (비교용)
+          const originalProfile = { ...profile };
+
+          // 프로필 상태 업데이트
+          setProfile({ ...profile, ...editForm, permission_level: profile.permission_level });
+
+          // 저장된 정보를 구체적으로 안내 (원래 값과 비교)
+          // undefined/null을 빈 문자열로 정규화하여 비교
+          const savedItems = [];
+          if (editForm.name !== (originalProfile.name || '')) savedItems.push('이름');
+          if (editForm.email !== (originalProfile.email || '')) savedItems.push('이메일');
+          if (editForm.department !== (originalProfile.department || '')) savedItems.push('부서');
+          if (editForm.position !== (originalProfile.position || '')) savedItems.push('직급');
+          if (editForm.phone !== (originalProfile.phone || '')) savedItems.push('사무실 전화번호');
+          if (editForm.mobile !== (originalProfile.mobile || '')) savedItems.push('휴대전화');
+
+          const savedInfo = savedItems.length > 0
+            ? ` (${savedItems.join(', ')})`
+            : '';
+
+          const message = `✅ 프로필이 성공적으로 저장되었습니다!${savedInfo}`;
+
+          setSuccessMessage(message);
+
+          // 메시지를 사용자가 볼 수 있도록 페이지 상단으로 스크롤
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+
+          setTimeout(() => {
+            setSuccessMessage('');
+          }, 5000);
+        } else {
+          setErrorMessage('프로필 업데이트에 실패했습니다.');
         }
       } else {
-        setErrorMessage('프로필 업데이트에 실패했습니다.');
+        const data = await response.json();
+        setErrorMessage(data.message || '프로필 업데이트에 실패했습니다.');
       }
     } catch (error) {
       console.error('프로필 업데이트 오류:', error);
@@ -188,6 +231,10 @@ export default function ProfilePage() {
           setPasswordForm({ newPassword: '', confirmPassword: '' });
           setShowPasswordForm(false);
           setSuccessMessage('비밀번호가 성공적으로 변경되었습니다.');
+
+          // 메시지를 사용자가 볼 수 있도록 페이지 상단으로 스크롤
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+
           setTimeout(() => setSuccessMessage(''), 5000);
         }
       } else {
@@ -297,16 +344,22 @@ export default function ProfilePage() {
 
         {/* 성공/오류 메시지 */}
         {successMessage && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            <span className="text-green-800">{successMessage}</span>
+          <div className="bg-green-50 border-2 border-green-300 rounded-lg p-5 flex items-start gap-3 shadow-md animate-fade-in">
+            <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-green-900 font-medium text-base">{successMessage}</p>
+              <p className="text-green-700 text-sm mt-1">모든 변경사항이 데이터베이스에 안전하게 저장되었습니다.</p>
+            </div>
           </div>
         )}
 
         {errorMessage && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <span className="text-red-800">{errorMessage}</span>
+          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-5 flex items-start gap-3 shadow-md animate-fade-in">
+            <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-red-900 font-medium text-base">{errorMessage}</p>
+              <p className="text-red-700 text-sm mt-1">문제가 계속되면 관리자에게 문의해주세요.</p>
+            </div>
           </div>
         )}
 
@@ -362,6 +415,30 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* 연락처 정보 표시 */}
+          {(profile.phone || profile.mobile) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 mt-6 border-t border-gray-200">
+              {profile.phone && (
+                <div className="flex items-center gap-3">
+                  <Phone className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-500">사무실 전화</p>
+                    <p className="font-medium text-gray-900">{profile.phone}</p>
+                  </div>
+                </div>
+              )}
+              {profile.mobile && (
+                <div className="flex items-center gap-3">
+                  <Smartphone className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-500">휴대전화</p>
+                    <p className="font-medium text-gray-900">{profile.mobile}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 프로필 편집 */}
@@ -415,6 +492,50 @@ export default function ProfilePage() {
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="직급을 입력하세요"
                 />
+              </div>
+            </div>
+
+            {/* 연락처 정보 섹션 */}
+            <div className="pt-6 mt-6 border-t border-gray-200">
+              <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Phone className="w-4 h-4" />
+                연락처 정보
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    사무실 전화번호
+                  </label>
+                  <input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: formatPhoneNumber(e.target.value) })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="숫자만 입력하세요 (자동 포맷)"
+                    maxLength={13}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    예: 0212345678 → 02-1234-5678
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    휴대전화
+                  </label>
+                  <input
+                    type="tel"
+                    value={editForm.mobile}
+                    onChange={(e) => setEditForm({ ...editForm, mobile: formatPhoneNumber(e.target.value) })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="숫자만 입력하세요 (자동 포맷)"
+                    maxLength={13}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    예: 01012345678 → 010-1234-5678
+                  </p>
+                </div>
               </div>
             </div>
 

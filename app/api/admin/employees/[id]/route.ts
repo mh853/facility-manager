@@ -146,26 +146,25 @@ export async function PUT(
       );
     }
 
-    // 관리자 권한 확인 (레벨 3 이상: 관리자, 슈퍼 관리자)
-    if (decodedToken.permissionLevel < 3) {
-      return NextResponse.json(
-        { success: false, message: '관리자 권한이 필요합니다.' },
-        { status: 403 }
-      );
-    }
-
     const body = await request.json();
-    console.log('📥 [USER-UPDATE] 받은 데이터:', {
-      userId: params.id,
-      body,
-      requestorPermission: decodedToken.permissionLevel
-    });
+    const { name, email, department, position, permission_level, phone, mobile } = body;
 
-    const { name, email, department, position, permission_level } = body;
+    // 자신의 프로필 수정인지 확인
+    const isSelfUpdate = decodedToken.id === params.id;
+
+    // 권한 레벨 변경 시도 시 관리자 권한 확인
+    if (permission_level !== undefined && !isSelfUpdate) {
+      // 다른 사람의 권한을 변경하려면 관리자 권한 필요
+      if (decodedToken.permissionLevel < 3) {
+        return NextResponse.json(
+          { success: false, message: '관리자 권한이 필요합니다.' },
+          { status: 403 }
+        );
+      }
+    }
 
     // 입력 데이터 검증
     if (!name || !email) {
-      console.error('❌ [USER-UPDATE] 필수 필드 누락:', { name, email });
       return NextResponse.json(
         { success: false, message: '이름과 이메일은 필수 항목입니다.' },
         { status: 400 }
@@ -187,16 +186,31 @@ export async function PUT(
       );
     }
 
+    // 기존 사용자 정보 조회 (권한 레벨 보존용)
+    const { data: currentEmployee } = await supabaseAdmin
+      .from('employees')
+      .select('permission_level')
+      .eq('id', params.id)
+      .single();
+
     // 사용자 정보 업데이트
-    const updateData = {
+    const updateData: any = {
       name: name.trim(),
       email: email.trim().toLowerCase(),
       department: department?.trim() || null,
       position: position?.trim() || null,
-      permission_level: permission_level || 1
+      phone: phone?.trim() || null,
+      mobile: mobile?.trim() || null
     };
 
-    console.log('📝 [USER-UPDATE] 업데이트할 데이터:', updateData);
+    // 권한 레벨은 명시적으로 전달된 경우에만 업데이트 (관리자만 가능)
+    if (permission_level !== undefined && decodedToken.permissionLevel >= 3 && !isSelfUpdate) {
+      updateData.permission_level = permission_level;
+    }
+    // 자신의 프로필 업데이트 시 권한 레벨 유지
+    else if (currentEmployee) {
+      updateData.permission_level = currentEmployee.permission_level;
+    }
 
     const { data: updatedEmployee, error: updateError } = await supabaseAdmin
       .from('employees')
@@ -217,8 +231,6 @@ export async function PUT(
         { status: 500 }
       );
     }
-
-    console.log('✅ [USER-UPDATE] 업데이트 성공:', updatedEmployee);
 
     return NextResponse.json({
       success: true,
