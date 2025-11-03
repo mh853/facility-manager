@@ -217,7 +217,7 @@ export const GET = withApiHandler(
                     progress_percentage: 0,
                     last_updated: task.updated_at,
                     steps_completed: 0,
-                    steps_total: 5
+                    steps_total: 3
                   }
                 }
 
@@ -244,7 +244,7 @@ export const GET = withApiHandler(
                   progress_percentage: 0,
                   last_updated: task.updated_at,
                   steps_completed: 0,
-                  steps_total: manufacturerKey === 'ecosense' ? 2 : 5
+                  steps_total: manufacturerKey === 'ecosense' ? 2 : 3
                 }
               })
               .filter((o: any) => o !== null)
@@ -294,7 +294,7 @@ export const GET = withApiHandler(
               progress_percentage: 0,
               last_updated: bi.updated_at,
               steps_completed: 0,
-              steps_total: manufacturerKey === 'ecosense' ? 2 : 5
+              steps_total: manufacturerKey === 'ecosense' ? 2 : 3
             }
           })
         }
@@ -336,8 +336,8 @@ export const GET = withApiHandler(
               status: 'completed',
               progress_percentage: 100,
               last_updated: bi.updated_at,
-              steps_completed: manufacturerKey === 'ecosense' ? 2 : 5,
-              steps_total: manufacturerKey === 'ecosense' ? 2 : 5
+              steps_completed: manufacturerKey === 'ecosense' ? 2 : 3,
+              steps_total: manufacturerKey === 'ecosense' ? 2 : 3
             }
           })
         }
@@ -377,8 +377,8 @@ export const GET = withApiHandler(
               status: hasOrderDate ? 'completed' : 'in_progress',
               progress_percentage: hasOrderDate ? 100 : 0,
               last_updated: bi.updated_at,
-              steps_completed: hasOrderDate ? (manufacturerKey === 'ecosense' ? 2 : 5) : 0,
-              steps_total: manufacturerKey === 'ecosense' ? 2 : 5
+              steps_completed: hasOrderDate ? (manufacturerKey === 'ecosense' ? 2 : 3) : 0,
+              steps_total: manufacturerKey === 'ecosense' ? 2 : 3
             }
           })
         }

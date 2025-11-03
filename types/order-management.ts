@@ -282,7 +282,7 @@ export const MANUFACTURER_WORKFLOWS: Record<Manufacturer, ManufacturerWorkflow> 
     gaia_cns: {
       name: '가이아씨앤에스',
       manufacturer: 'gaia_cns',
-      total_steps: 5,
+      total_steps: 3,
       steps: [
         {
           key: 'layout',
@@ -290,19 +290,9 @@ export const MANUFACTURER_WORKFLOWS: Record<Manufacturer, ManufacturerWorkflow> 
           field: 'layout_date'
         },
         {
-          key: 'order_form',
-          label: '발주서 작성',
-          field: 'order_form_date'
-        },
-        {
           key: 'ip_request',
           label: 'IP 요청',
           field: 'ip_request_date'
-        },
-        {
-          key: 'greenlink_ip_setting',
-          label: '그린링크에 IP 세팅',
-          field: 'greenlink_ip_setting_date'
         },
         {
           key: 'router_request',
@@ -315,7 +305,7 @@ export const MANUFACTURER_WORKFLOWS: Record<Manufacturer, ManufacturerWorkflow> 
     cleanearth: {
       name: '크린어스',
       manufacturer: 'cleanearth',
-      total_steps: 5,
+      total_steps: 3,
       steps: [
         {
           key: 'layout',
@@ -323,19 +313,9 @@ export const MANUFACTURER_WORKFLOWS: Record<Manufacturer, ManufacturerWorkflow> 
           field: 'layout_date'
         },
         {
-          key: 'order_form',
-          label: '발주서 작성',
-          field: 'order_form_date'
-        },
-        {
           key: 'ip_request',
           label: 'IP 요청',
           field: 'ip_request_date'
-        },
-        {
-          key: 'greenlink_ip_setting',
-          label: '그린링크에 IP 세팅',
-          field: 'greenlink_ip_setting_date'
         },
         {
           key: 'router_request',
@@ -348,7 +328,7 @@ export const MANUFACTURER_WORKFLOWS: Record<Manufacturer, ManufacturerWorkflow> 
     evs: {
       name: 'EVS',
       manufacturer: 'evs',
-      total_steps: 5,
+      total_steps: 3,
       steps: [
         {
           key: 'layout',
@@ -356,19 +336,9 @@ export const MANUFACTURER_WORKFLOWS: Record<Manufacturer, ManufacturerWorkflow> 
           field: 'layout_date'
         },
         {
-          key: 'order_form',
-          label: '발주서 작성',
-          field: 'order_form_date'
-        },
-        {
           key: 'ip_request',
           label: 'IP 요청',
           field: 'ip_request_date'
-        },
-        {
-          key: 'greenlink_ip_setting',
-          label: '그린링크에 IP 세팅',
-          field: 'greenlink_ip_setting_date'
         },
         {
           key: 'router_request',
