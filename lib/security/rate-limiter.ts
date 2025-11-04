@@ -24,7 +24,7 @@ export class RateLimiter {
   private static apiConfigs: Record<string, RateLimitConfig> = {
     '/api/auth/login': {
       windowMs: 15 * 60 * 1000, // 15분
-      maxRequests: 5 // 로그인 시도 제한
+      maxRequests: process.env.NODE_ENV === 'development' ? 100 : 5 // 개발: 100, 프로덕션: 5
     },
     '/api/upload': {
       windowMs: 60 * 60 * 1000, // 1시간

@@ -140,23 +140,25 @@ export interface AirPermitInfo {
   updated_at: string
   business_type: string | null
   annual_emission_amount: number | null
-  facility_number?: string | null // PDF 출력용 시설번호
-  green_link_code?: string | null // PDF 출력용 그린링크코드
-  memo?: string | null // PDF 출력용 메모
+  first_report_date?: string | null // 최초신고일
+  operation_start_date?: string | null // 가동개시일
   additional_info: Record<string, any>
   is_active: boolean
   is_deleted: boolean
-  
+
   // UI에서 사용하는 추가 필드들 (optional)
   category?: string | null
   business_name?: string | null
   pollutants?: (string | { type: string; amount: number | null })[]
-  outlets?: (DischargeOutlet | { 
-    outlet_number: number; 
-    outlet_name: string; 
-    discharge_facilities: any[]; 
-    prevention_facilities: any[]; 
+  outlets?: (DischargeOutlet | {
+    outlet_number: number;
+    outlet_name: string;
+    discharge_facilities: any[];
+    prevention_facilities: any[];
   })[]
+  facility_number?: string | null // PDF 출력용 시설번호 (additional_info에 저장됨)
+  green_link_code?: string | null // PDF 출력용 그린링크코드 (additional_info에 저장됨)
+  memo?: string | null // PDF 출력용 메모 (additional_info에 저장됨)
 }
 
 export interface DischargeOutlet {
@@ -444,9 +446,14 @@ export class DatabaseService {
   /**
    * 대기필증 정보 조회 (배출구 및 시설 정보 포함)
    */
-  static async getAirPermitWithDetails(permitId: string): Promise<AirPermitWithOutlets | null> {
+  static async getAirPermitWithDetails(permitId: string, forcePrimary: boolean = false): Promise<AirPermitWithOutlets | null> {
+    // forcePrimary=true면 primary DB(supabaseAdmin) 사용하여 read-after-write consistency 보장
+    const client = forcePrimary ? supabaseAdmin : supabase
+
+    console.log(`🔍 [DB] getAirPermitWithDetails: permitId=${permitId}, forcePrimary=${forcePrimary}`)
+
     // 기본 허가 정보 조회 (사업장 정보 포함)
-    const { data: permit, error: permitError } = await supabase
+    const { data: permit, error: permitError } = await client
       .from('air_permit_info')
       .select(`
         *,
@@ -465,9 +472,11 @@ export class DatabaseService {
       throw new Error(`대기필증 조회 실패: ${permitError.message}`)
     }
 
-    // 배출구 및 시설 정보 조회
-    const outlets = await this.getDischargeOutlets(permitId)
-    
+    // 배출구 및 시설 정보 조회 (동일한 client 사용)
+    const outlets = await this.getDischargeOutlets(permitId, forcePrimary)
+
+    console.log(`✅ [DB] getAirPermitWithDetails 완료: ${outlets.length}개 배출구`)
+
     return {
       ...permit,
       outlets
@@ -691,8 +700,10 @@ export class DatabaseService {
   /**
    * 대기필증의 모든 배출구 조회 (시설 정보 포함)
    */
-  static async getDischargeOutlets(airPermitId: string): Promise<OutletWithFacilities[]> {
-    const { data: outlets, error: outletError } = await supabase
+  static async getDischargeOutlets(airPermitId: string, forcePrimary: boolean = false): Promise<OutletWithFacilities[]> {
+    const client = forcePrimary ? supabaseAdmin : supabase
+
+    const { data: outlets, error: outletError } = await client
       .from('discharge_outlets')
       .select('*')
       .eq('air_permit_id', airPermitId)
@@ -702,12 +713,12 @@ export class DatabaseService {
 
     if (!outlets || outlets.length === 0) return []
 
-    // 각 배출구의 시설 정보 조회
+    // 각 배출구의 시설 정보 조회 (동일한 forcePrimary 전달)
     const outletsWithFacilities = await Promise.all(
       outlets.map(async (outlet) => {
         const [dischargeFacilities, preventionFacilities] = await Promise.all([
-          this.getDischargeFacilities(outlet.id),
-          this.getPreventionFacilities(outlet.id)
+          this.getDischargeFacilities(outlet.id, forcePrimary),
+          this.getPreventionFacilities(outlet.id, forcePrimary)
         ])
 
         return {
@@ -756,28 +767,52 @@ export class DatabaseService {
   /**
    * 배출시설 정보 조회
    */
-  static async getDischargeFacilities(outletId: string): Promise<DischargeFacility[]> {
-    const { data, error } = await supabase
+  static async getDischargeFacilities(outletId: string, forcePrimary: boolean = false): Promise<DischargeFacility[]> {
+    const client = forcePrimary ? supabaseAdmin : supabase
+
+    console.log(`🔍 [DB] getDischargeFacilities: outletId=${outletId}, forcePrimary=${forcePrimary}`)
+
+    const { data, error } = await client
       .from('discharge_facilities')
       .select('*')
       .eq('outlet_id', outletId)
       .order('created_at')
 
     if (error) throw new Error(`배출시설 조회 실패: ${error.message}`)
+
+    console.log(`✅ [DB] getDischargeFacilities 결과: ${data?.length || 0}개`)
+    if (data && data.length > 0) {
+      data.forEach((facility: any) => {
+        console.log(`   - ${facility.facility_name}: green_link_code = "${facility.additional_info?.green_link_code}"`)
+      })
+    }
+
     return data || []
   }
 
   /**
    * 방지시설 정보 조회
    */
-  static async getPreventionFacilities(outletId: string): Promise<PreventionFacility[]> {
-    const { data, error } = await supabase
+  static async getPreventionFacilities(outletId: string, forcePrimary: boolean = false): Promise<PreventionFacility[]> {
+    const client = forcePrimary ? supabaseAdmin : supabase
+
+    console.log(`🔍 [DB] getPreventionFacilities: outletId=${outletId}, forcePrimary=${forcePrimary}`)
+
+    const { data, error } = await client
       .from('prevention_facilities')
       .select('*')
       .eq('outlet_id', outletId)
       .order('created_at')
 
     if (error) throw new Error(`방지시설 조회 실패: ${error.message}`)
+
+    console.log(`✅ [DB] getPreventionFacilities 결과: ${data?.length || 0}개`)
+    if (data && data.length > 0) {
+      data.forEach((facility: any) => {
+        console.log(`   - ${facility.facility_name}: green_link_code = "${facility.additional_info?.green_link_code}"`)
+      })
+    }
+
     return data || []
   }
 
@@ -929,9 +964,29 @@ export class DatabaseService {
    * 배출시설 정보 업데이트
    */
   static async updateDischargeFacility(id: string, facilityData: Partial<DischargeFacility>): Promise<DischargeFacility> {
+    // additional_info JSONB 필드가 있으면 기존 데이터를 조회 후 병합
+    let updateData = { ...facilityData, updated_at: new Date().toISOString() }
+
+    if (facilityData.additional_info) {
+      // 기존 데이터 조회
+      const { data: existing, error: fetchError } = await supabaseAdmin
+        .from('discharge_facilities')
+        .select('additional_info')
+        .eq('id', id)
+        .single()
+
+      if (fetchError) throw new Error(`배출시설 조회 실패: ${fetchError.message}`)
+
+      // 기존 additional_info와 새 데이터를 병합
+      updateData.additional_info = {
+        ...(existing?.additional_info || {}),
+        ...facilityData.additional_info
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from('discharge_facilities')
-      .update({ ...facilityData, updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
@@ -944,9 +999,29 @@ export class DatabaseService {
    * 방지시설 정보 업데이트
    */
   static async updatePreventionFacility(id: string, facilityData: Partial<PreventionFacility>): Promise<PreventionFacility> {
+    // additional_info JSONB 필드가 있으면 기존 데이터를 조회 후 병합
+    let updateData = { ...facilityData, updated_at: new Date().toISOString() }
+
+    if (facilityData.additional_info) {
+      // 기존 데이터 조회
+      const { data: existing, error: fetchError } = await supabaseAdmin
+        .from('prevention_facilities')
+        .select('additional_info')
+        .eq('id', id)
+        .single()
+
+      if (fetchError) throw new Error(`방지시설 조회 실패: ${fetchError.message}`)
+
+      // 기존 additional_info와 새 데이터를 병합
+      updateData.additional_info = {
+        ...(existing?.additional_info || {}),
+        ...facilityData.additional_info
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from('prevention_facilities')
-      .update({ ...facilityData, updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
