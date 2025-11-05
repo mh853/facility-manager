@@ -97,7 +97,9 @@ export default function BusinessProgressSection({
       if (notesResponse.ok) {
         const notesData = await notesResponse.json();
         if (notesData.success) {
-          setProgressNotes(notesData.data || []);
+          // 배열인지 확인 후 설정
+          const notes = Array.isArray(notesData.data) ? notesData.data : [];
+          setProgressNotes(notes);
         }
       }
 
@@ -354,13 +356,13 @@ export default function BusinessProgressSection({
               <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
               <span className="ml-2 text-gray-600">진행 현황을 불러오는 중...</span>
             </div>
-          ) : progressNotes.length === 0 ? (
+          ) : !progressNotes || progressNotes.length === 0 ? (
             <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
               <MessageSquare className="w-5 h-5 text-gray-400" />
               <p className="text-gray-500">아직 진행 현황 메모가 없습니다. 첫 번째 메모를 추가해보세요.</p>
             </div>
           ) : (
-            progressNotes.map((note) => (
+            (progressNotes || []).map((note) => (
               <div key={note.id} className="p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">

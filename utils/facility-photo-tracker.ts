@@ -295,7 +295,7 @@ export class FacilityPhotoTracker {
           outletNumber: parsed.outlet,
           displayName: `${parsed.type === 'discharge' ? '배' : '방'}${this.calculateSequentialNumber(parsed.type, parsed.outlet, parsed.number)}`,
           category: undefined
-        }
+        };
       }
     } catch (e) {
       // JSON 파싱 실패 시 facilityInfo 문자열 파싱 시도
@@ -307,15 +307,15 @@ export class FacilityPhotoTracker {
           const outlet = parseInt(outletStr)
           const number = parseInt(numberStr)
           const facilityTypeFromInfo = type as 'discharge' | 'prevention'
-          
+
           return {
             facilityId: `${type}-${outlet}-${number}`,
             facilityType: facilityTypeFromInfo,
-            facilityNumber: number, // Use actual facility number from facilityInfo
+            facilityNumber: number,
             outletNumber: outlet,
             displayName: `${type === 'discharge' ? '배' : '방'}${number}`,
             category: undefined
-          }
+          };
         }
       }
     }
@@ -329,7 +329,7 @@ export class FacilityPhotoTracker {
         facilityNumber: 0,
         displayName: this.getCategoryDisplayName(category),
         category
-      }
+      };
     }
 
     // 파일명에서 시설 번호 추출 시도
@@ -338,14 +338,14 @@ export class FacilityPhotoTracker {
       const prefix = match[1]
       const number = parseInt(match[2])
       const type = prefix === '배' ? 'discharge' : 'prevention'
-      
+
       return {
         facilityId: `${type}-${number}`,
         facilityType: type,
         facilityNumber: number,
         displayName: `${prefix}${number}`,
         category: undefined
-      }
+      };
     }
 
     return null

@@ -9,6 +9,7 @@ import { AirPermitWithOutlets, DischargeOutlet, DischargeFacility, PreventionFac
 export interface FacilityNumberInfo {
   facilityId: string
   facilityName: string
+  capacity?: string // ✅ capacity 추가 - 같은 이름의 시설 구분용
   facilityType: 'discharge' | 'prevention'
   outletNumber: number
   facilityNumber: number
@@ -140,6 +141,7 @@ export function generateFacilityNumbering(
             const numberInfo: FacilityNumberInfo = {
               facilityId: facility.id,
               facilityName: facility.facility_name,
+              capacity: facility.capacity || undefined, // ✅ capacity 추가
               facilityType: 'discharge',
               outletNumber: outlet.outlet_number,
               facilityNumber,
@@ -168,6 +170,7 @@ export function generateFacilityNumbering(
             const numberInfo: FacilityNumberInfo = {
               facilityId: facility.id,
               facilityName: facility.facility_name,
+              capacity: facility.capacity || undefined, // ✅ capacity 추가
               facilityType: 'prevention',
               outletNumber: outlet.outlet_number,
               facilityNumber,

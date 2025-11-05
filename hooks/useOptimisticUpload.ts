@@ -94,7 +94,7 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
     files: File[],
     additionalDataFactory: (file: File, index: number) => Record<string, string>
   ) => {
-    console.log(`⚡ [HYPER-OPTIMISTIC] ${files.length}개 파일 초고속 UI 추가`);
+    console.log(`📤 [UPLOAD-START] ${files.length}개 파일 업로드 시작`);
     
     const newPhotos: OptimisticPhoto[] = [];
     
@@ -319,15 +319,42 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
     if (queueRef.current.length > 0) {
       // 100ms에서 50ms로 단축하여 대기시간 최소화
       setTimeout(() => processQueue(additionalDataFactory), 50);
-      console.log(`⚡ [NEXT-BATCH] 다음 배치 50ms 후 처리 예약`);
     } else {
       setIsProcessing(false);
-      console.log(`🏁 [HYPER-COMPLETE] 모든 업로드 초고속 완료`);
-      
-      // 🚀 완료 후 최종 UI 상태 확인 및 정리
-      setTimeout(() => {
-        const completedCount = photos.filter(p => p.status === 'uploaded').length;
-        console.log(`✅ [FINAL-STATUS] 총 ${completedCount}개 파일 업로드 완료 확인`);
+      console.log(`✅ [UPLOAD-COMPLETE] 모든 업로드 완료`);
+
+      // ✅ FIX: 업로드 완료 후 검증 및 정리
+      setTimeout(async () => {
+        const uploadedCount = photos.filter(p => p.status === 'uploaded').length;
+        console.log(`🔍 [VERIFY] ${uploadedCount}개 파일 업로드 검증 시작`);
+
+        // 업로드 검증: 실제로 페이지를 새로고침해서 서버에서 파일을 조회
+        // 조회된 파일만 진짜 성공으로 간주
+        try {
+          // 부모 컴포넌트의 loadUploadedFiles를 호출하도록 이벤트 발생
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('verify-uploads'));
+          }
+        } catch (error) {
+          console.error('업로드 검증 실패:', error);
+        }
+
+        console.log(`🧹 [CLEANUP] 상태 정리 시작`);
+
+        // smartUploadQueue 초기화 (상태바 자동 숨김)
+        try {
+          const { smartUploadQueue } = require('@/utils/smart-upload-queue');
+          smartUploadQueue.clearQueue();
+          console.log(`✅ [QUEUE-CLEAR] 상태바 초기화 완료`);
+        } catch (error) {
+          console.error(`❌ [QUEUE-CLEAR-ERROR]`, error);
+        }
+
+        // 완료된 파일 정리 (2초 후)
+        setTimeout(() => {
+          setPhotos(prev => prev.filter(p => p.status !== 'uploaded'));
+          console.log(`✅ [CLEANUP-COMPLETE] 완료된 파일 UI에서 제거`);
+        }, 2000);
       }, 100);
     }
   }, [isProcessing, maxConcurrency, maxRetries, autoRetry]);

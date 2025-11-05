@@ -127,17 +127,19 @@ export default function SupabaseFacilitiesSection({
 
   return (
     <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border-2 border-gray-200/80 hover:shadow-2xl hover:border-gray-300/80 transition-all duration-300">
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="w-full flex items-center justify-between p-6 text-left hover:bg-green-50 transition-colors"
+      <div
+        className="w-full flex items-center justify-between p-6 cursor-pointer hover:bg-green-50 transition-colors"
       >
-        <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-3 flex-1"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
           <div className="p-2 bg-green-100 rounded-lg">
             <Building2 className="w-6 h-6 text-green-600" />
           </div>
           <h2 className="text-xl font-bold text-gray-800">시설 정보</h2>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => {
@@ -149,13 +151,18 @@ export default function SupabaseFacilitiesSection({
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          {isCollapsed ? (
-            <ChevronDown className="w-5 h-5 text-gray-500" />
-          ) : (
-            <ChevronUp className="w-5 h-5 text-gray-500" />
-          )}
+          <div
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="cursor-pointer p-1"
+          >
+            {isCollapsed ? (
+              <ChevronDown className="w-5 h-5 text-gray-500" />
+            ) : (
+              <ChevronUp className="w-5 h-5 text-gray-500" />
+            )}
+          </div>
         </div>
-      </button>
+      </div>
       
       {!isCollapsed && (
         <div className="px-6 pb-6">

@@ -487,8 +487,15 @@ export async function GET(request: NextRequest) {
       .eq('business_id', business.id);
 
     // Phase 필터링 추가 (phase에 따른 스토리지 경로 필터링)
-    const phasePrefix = phase === 'aftersales' ? 'aftersales' : (phase === 'postinstall' ? 'postinstall' : 'presurvey');
+    // ✅ FIX: postinstall과 aftersales는 모두 'completion' 폴더 사용
+    const phasePrefix = (phase === 'aftersales' || phase === 'postinstall') ? 'completion' : 'presurvey';
     query = query.like('file_path', `%/${phasePrefix}/%`);
+
+    console.log(`🔍 [PHASE-FILTER] Phase 필터 적용:`, {
+      원본phase: phase,
+      스토리지경로: phasePrefix,
+      쿼리패턴: `%/${phasePrefix}/%`
+    });
 
     // 필터 적용
     if (facilityType) {

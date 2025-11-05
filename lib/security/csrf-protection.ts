@@ -107,7 +107,12 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/delivery-addresses',  // 택배 주소 관리 API (JWT 인증 사용)
     '/api/air-permit-pdf',  // 대기필증 PDF 생성 API (JWT 인증 사용)
     '/api/air-permit',  // 대기필증 관리 API (JWT 인증 사용)
-    '/api/outlet-facility'  // 배출구/시설 관리 API (JWT 인증 사용)
+    '/api/outlet-facility',  // 배출구/시설 관리 API (JWT 인증 사용)
+    '/api/upload-supabase',  // 파일 업로드 API (공개 사용)
+    '/api/facility-photos',  // 시설별 사진 업로드 API (공개 사용)
+    '/api/uploaded-files-supabase',  // 업로드 파일 조회 API (공개 사용)
+    '/api/uploaded-files',  // 업로드 파일 관리 API (공개 사용)
+    '/api/facilities-supabase'  // 시설 정보 API (공개 사용)
   ];
   const excludePatterns = [
     '/api/auth/social/',

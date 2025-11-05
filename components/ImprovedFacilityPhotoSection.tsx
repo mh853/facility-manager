@@ -1,10 +1,10 @@
 'use client';
 
-// VERSION: 2025-09-11-08-27-CACHE-BUST-v4 🔥🔥🔥
-// 🚨 EMERGENCY CACHE INVALIDATION - FORCE BROWSER RELOAD
-// LAST MODIFIED: 2025-09-11T09:15:00Z - FORCE BROWSER RELOAD
+// VERSION: 2025-09-11-12-15-CLEAN-v9 🧹
+// 🧹 디버그 로그 정리 완료 - capacity 기반 시설번호 매칭 적용
+// LAST MODIFIED: 2025-09-11T12:15:00Z
 
-import React, { useState, useCallback, useEffect, useRef, forwardRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, forwardRef, startTransition, useMemo } from 'react';
 import { Camera, Upload, Factory, Shield, Building2, AlertCircle, Eye, Download, Trash2, RefreshCw, X, Zap, Router, Cpu, Plus, Grid, List, ChevronLeft, ChevronRight, Archive } from 'lucide-react';
 import { FacilitiesData, Facility, UploadedFile, SystemPhase } from '@/types';
 import { createFacilityPhotoTracker, FacilityPhotoInfo, FacilityPhoto } from '@/utils/facility-photo-tracker';
@@ -17,10 +17,12 @@ import { getPhaseConfig, mapPhaseToSystemType } from '@/lib/system-config';
 import { useOptimisticUpload } from '@/hooks/useOptimisticUpload';
 import UploadQueue from '@/components/ui/UploadQueue';
 import SmartFloatingProgress from '@/components/ui/SmartFloatingProgress';
+import { smartUploadQueue } from '@/utils/smart-upload-queue';
 
 interface ImprovedFacilityPhotoSectionProps {
   businessName: string;
   facilities: FacilitiesData | null;
+  facilityNumbering?: any; // 🎯 대기필증 관리 시설번호 매핑
   currentPhase: SystemPhase;
 }
 
@@ -115,11 +117,65 @@ const getCategoryDisplayName = (category: string): string => {
   }
 };
 
-export default function ImprovedFacilityPhotoSection({ 
-  businessName, 
+export default function ImprovedFacilityPhotoSection({
+  businessName,
   facilities,
-  currentPhase 
+  facilityNumbering,
+  currentPhase
 }: ImprovedFacilityPhotoSectionProps) {
+  console.log('🎯 [FACILITY-NUMBERING] 대기필증 관리 시설번호:', facilityNumbering);
+
+  if (facilityNumbering?.outlets) {
+    console.log('🎯 [OUTLETS] 배출구 정보:', facilityNumbering.outlets);
+    facilityNumbering.outlets.forEach((outlet: any, idx: number) => {
+      console.log(`  배출구 ${outlet.outletNumber}:`, {
+        배출시설: outlet.dischargeFacilities?.map((f: any) => `${f.displayNumber}(${f.facilityName})`),
+        방지시설: outlet.preventionFacilities?.map((f: any) => `${f.displayNumber}(${f.facilityName})`)
+      });
+    });
+  }
+
+  // 🎯 대기필증 관리 시설번호 조회 헬퍼 함수 (메모이제이션)
+  const facilityNumberMap = useMemo(() => {
+    if (!facilityNumbering?.outlets) {
+      return new Map<string, number>();
+    }
+
+    // ✅ capacity를 포함한 키로 매핑 (같은 이름의 시설 구분)
+    const map = new Map<string, number>();
+
+    for (const outlet of facilityNumbering.outlets) {
+      // 배출시설 매핑 (capacity 포함)
+      outlet.dischargeFacilities?.forEach((f: any) => {
+        const key = `discharge-${outlet.outletNumber}-${f.facilityName}-${f.capacity || 'any'}`;
+        map.set(key, f.facilityNumber);
+      });
+
+      // 방지시설 매핑 (capacity 포함)
+      outlet.preventionFacilities?.forEach((f: any) => {
+        const key = `prevention-${outlet.outletNumber}-${f.facilityName}-${f.capacity || 'any'}`;
+        map.set(key, f.facilityNumber);
+      });
+    }
+
+    return map;
+  }, [facilityNumbering]);
+
+  const getCorrectFacilityNumber = useCallback((
+    facilityType: 'discharge' | 'prevention',
+    facility: Facility
+  ): number => {
+    // ✅ capacity 포함 검색 (API에서 capacity를 포함하도록 수정됨)
+    const key = `${facilityType}-${facility.outlet}-${facility.name}-${facility.capacity || 'any'}`;
+
+    if (facilityNumberMap.has(key)) {
+      return facilityNumberMap.get(key)!;
+    }
+
+    // 매칭 실패 시 원래 번호 반환
+    return facility.number;
+  }, [facilityNumberMap]);
+
   const toast = useToast();
   const { addFiles } = useFileContext();
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
@@ -165,42 +221,12 @@ export default function ImprovedFacilityPhotoSection({
   const markPhotoAsUndeleted = useSetAtom(undeletePhotoAtom); // 롤백용
   const clearDeletedPhotos = useSetAtom(clearDeletedPhotosAtom);
   
-  console.log('🔧 [DEBUG-SCOPE] markPhotoAsDeleted 함수가 정의되었습니다:', !!markPhotoAsDeleted);
-
-  // 🚨🚨🚨 EMERGENCY CACHE INVALIDATION TEST
-  console.log(`🔥🔥🔥 [EMERGENCY-CACHE-TEST] 긴급 캐시 무효화 테스트 - 브라우저가 이 메시지를 보고 있다면 성공!`, {
-    timestamp: new Date().toISOString(),
-    version: 'EMERGENCY-v4-2025-09-11-08-27',
-    deletedPhotoIds: deletedPhotoIds.size,
-    location: window.location.href,
-    userAgent: navigator.userAgent.substring(0, 50)
-  });
-  
-  // 🚨 추가 브라우저 캐시 확인
-  if (typeof window !== 'undefined') {
-    console.log(`🌐 [BROWSER-INFO] 브라우저 환경 확인됨:`, {
-      url: window.location.href,
-      protocol: window.location.protocol,
-      port: window.location.port
-    });
-  }
-  
   // 📷 Jotai로 필터링된 사진 목록을 생성하는 함수
   const getFilteredPhotos = useCallback((originalPhotos: FacilityPhoto[]) => {
-    console.log(`🔍 [FILTER-DEBUG] 원본: ${originalPhotos.length}장, 삭제됨: ${deletedPhotoIds.size}장, 삭제ID들:`, Array.from(deletedPhotoIds));
-    const filtered = originalPhotos.filter(photo => !deletedPhotoIds.has(photo.id));
-    console.log(`✅ [FILTER-RESULT] ${originalPhotos.length}장 → ${filtered.length}장 필터링 완료`);
-    return filtered;
+    return originalPhotos.filter(photo => !deletedPhotoIds.has(photo.id));
   }, [deletedPhotoIds]);
 
-  // 🔧 실시간 Jotai 상태 변화 추적
-  useEffect(() => {
-    console.log(`🔧 [JOTAI-STATE-CHANGE] deletedPhotoIds 업데이트됨:`, {
-      count: deletedPhotoIds.size,
-      ids: Array.from(deletedPhotoIds),
-      timestamp: Date.now()
-    });
-  }, [deletedPhotoIds]);
+  // Jotai 상태 변화 추적 (로그 제거)
   
   // Sophisticated drag-and-drop state management
   const [dragStates, setDragStates] = useState<{
@@ -247,44 +273,52 @@ export default function ImprovedFacilityPhotoSection({
         if (result.success && result.data) {
           const newFiles = result.data.files || [];
           
-          // 새로 추가된 사진 감지 (하이라이트용)
-          if (highlightNew) {
-            const currentFacilities = photoTracker.getAllFacilities();
-            const currentPhotos = currentFacilities.flatMap(facility => facility.photos);
-            const currentPhotoIds = new Set(currentPhotos.map(p => p.id));
-            const newPhotoIds = new Set<string>();
-            
-            newFiles.forEach((file: any) => {
-              if (!currentPhotoIds.has(file.id)) {
-                newPhotoIds.add(file.id);
-              }
+          // ✅ PERFORMANCE FIX: 추적기 업데이트를 먼저 수행 (단일 패스)
+          console.log('🔍 [DEBUG] API 응답 파일들:', newFiles.length);
+
+          // 🔍 각 파일의 상세 정보 로그
+          newFiles.forEach((file: any, index: number) => {
+            console.log(`📄 [FILE-${index}]`, {
+              name: file.name,
+              filePath: file.filePath,
+              facilityInfo: file.facilityInfo,
+              category: file.category,
+              metadata: file.metadata
             });
-            
+          });
+
+          const startTime = performance.now();
+
+          photoTracker.buildFromUploadedFiles(newFiles);
+
+          const buildTime = performance.now() - startTime;
+          console.log(`⚡ [PERF] photoTracker 빌드 완료: ${buildTime.toFixed(2)}ms`);
+
+          // 🔍 빌드 후 각 카테고리별 사진 확인
+          const allFacilities = photoTracker.getAllFacilities();
+          console.log(`📊 [TRACKER-RESULT] 총 시설: ${allFacilities.length}`);
+          allFacilities.forEach(facility => {
+            console.log(`  - ${facility.type === 'discharge' ? '배출' : '방지'}시설: ${facility.name} (${facility.photos.length}장)`);
+          });
+
+          // 새로 추가된 사진 감지 (하이라이트용) - 최적화: 빌드 후 한 번만 조회
+          if (highlightNew && newFiles.length > 0) {
+            const currentPhotoIds = new Set(photoTracker.getAllFacilities().flatMap(f => f.photos).map(p => p.id));
+            const newPhotoIds = new Set(newFiles.filter((f: any) => !currentPhotoIds.has(f.id)).map((f: any) => f.id));
+
             if (newPhotoIds.size > 0) {
               setRecentPhotoIds(newPhotoIds);
-              console.log(`✨ [NEW-PHOTOS] ${newPhotoIds.size}장의 새 사진이 발견되어 하이라이트됩니다.`);
-              
-              // 5초 후 하이라이트 제거
-              setTimeout(() => {
-                setRecentPhotoIds(new Set());
-              }, 5000);
+              console.log(`✨ [NEW-PHOTOS] ${newPhotoIds.size}장 하이라이트`);
+
+              setTimeout(() => setRecentPhotoIds(new Set()), 5000);
             }
           }
-          
-          // 추적기 업데이트
-          console.log('🔍 [DEBUG] API 응답 파일들:', newFiles);
-          photoTracker.buildFromUploadedFiles(newFiles);
-          
-          // 모든 시설의 사진을 가져와서 합치기
-          const allFacilities = photoTracker.getAllFacilities();
-          const allPhotos = allFacilities.flatMap(facility => facility.photos);
-          console.log('🔍 [DEBUG] photoTracker 업데이트 후 전체 사진:', allPhotos);
-          
-          // 통계 업데이트 (성능 최적화된 애니메이션으로 업데이트)
+
+          // ✅ 통계 즉시 업데이트 - 실시간 반응성 우선
           setStatistics(photoTracker.getStatistics());
           setLastRefreshTime(new Date());
-          
-          console.log('📊 [PHOTO-TRACKER] 업데이트 완료:', photoTracker.getStatistics());
+
+          // 성능 로그 (제거)
         }
       }
     } catch (error) {
@@ -296,10 +330,7 @@ export default function ImprovedFacilityPhotoSection({
 
   useEffect(() => {
     if (businessName && businessName.length > 0) {
-      console.log(`🔄 [LOAD] businessName 설정됨, 파일 로딩 시작: ${businessName}`);
       loadUploadedFiles();
-    } else {
-      console.log(`⏳ [LOAD] businessName 대기 중:`, businessName);
     }
   }, [businessName, loadUploadedFiles]);
 
@@ -310,6 +341,17 @@ export default function ImprovedFacilityPhotoSection({
     }, 30000); // 30초로 단축하여 더 빈번한 업데이트
 
     return () => clearInterval(interval);
+  }, [loadUploadedFiles]);
+
+  // ✅ FIX: 업로드 검증 이벤트 리스너
+  useEffect(() => {
+    const handleVerifyUploads = () => {
+      console.log('🔍 [VERIFY-EVENT] 업로드 검증 요청 받음, 서버에서 재조회');
+      loadUploadedFiles(true, true);
+    };
+
+    window.addEventListener('verify-uploads', handleVerifyUploads);
+    return () => window.removeEventListener('verify-uploads', handleVerifyUploads);
   }, [loadUploadedFiles]);
 
   // Cleanup preview URLs on unmount
@@ -543,15 +585,26 @@ export default function ImprovedFacilityPhotoSection({
   ) => {
     if (!files.length) return;
 
-    console.log(`🚀 [PROGRESSIVE-FACILITY] ${facilityType} 업로드 시작: ${files.length}개 파일`);
-    
     const fileArray = Array.from(files);
     const additionalDataFactory = createAdditionalDataFactory(facilityType, facility, instanceIndex);
-    
+
     try {
       // Optimistic UI로 즉시 파일 추가 + 실제 업로드 백그라운드 시작
-      const uploadIds = await addOptimisticFiles(fileArray, additionalDataFactory);
-      
+      await addOptimisticFiles(fileArray, additionalDataFactory);
+
+      // ✅ 통계 즉시 업데이트 (optimistic)
+      setStatistics(prev => ({
+        ...prev,
+        totalPhotos: prev.totalPhotos + fileArray.length,
+        // 시설 유형에 따라 적절한 카운터 증가
+        ...(facilityType === 'discharge' ? {
+          dischargeFacilities: prev.dischargeFacilities + fileArray.length
+        } : facilityType === 'prevention' ? {
+          preventionFacilities: prev.preventionFacilities + fileArray.length
+        } : {})
+      }));
+      console.log(`📊 [STATS-OPTIMISTIC] 통계 즉시 업데이트: +${fileArray.length}장`);
+
       // 성공된 파일들을 FileContext에도 추가 (기존 시스템과 호환성)
       setTimeout(async () => {
         try {
@@ -560,15 +613,13 @@ export default function ImprovedFacilityPhotoSection({
           console.warn('파일 목록 새로고침 실패:', error);
         }
       }, 1000);
-      
+
       toast.success(
-        '업로드 시작', 
+        '업로드 시작',
         `${fileArray.length}장의 사진 업로드를 시작했습니다. 진행 상황을 확인하세요.`,
         { duration: 3000 }
       );
-      
-      console.log(`✅ [PROGRESSIVE-FACILITY] 업로드 ID: ${uploadIds.join(', ')}`);
-      
+
     } catch (error) {
       console.error('Progressive Upload 실패:', error);
       toast.error('업로드 시작 실패', error instanceof Error ? error.message : '알 수 없는 오류');
@@ -579,14 +630,20 @@ export default function ImprovedFacilityPhotoSection({
   const handleProgressiveBasicUpload = useCallback(async (files: FileList, category: string) => {
     if (!files.length) return;
 
-    console.log(`🚀 [PROGRESSIVE-BASIC] ${category} 업로드 시작: ${files.length}개 파일`);
-    
     const fileArray = Array.from(files);
     const additionalDataFactory = createAdditionalDataFactory('basic', undefined, undefined, category);
-    
+
     try {
-      const uploadIds = await addOptimisticFiles(fileArray, additionalDataFactory);
-      
+      await addOptimisticFiles(fileArray, additionalDataFactory);
+
+      // ✅ 통계 즉시 업데이트 (optimistic) - 기본사진
+      setStatistics(prev => ({
+        ...prev,
+        totalPhotos: prev.totalPhotos + fileArray.length,
+        basicCategories: prev.basicCategories + fileArray.length
+      }));
+      console.log(`📊 [STATS-OPTIMISTIC-BASIC] 통계 즉시 업데이트: +${fileArray.length}장 (기본사진)`);
+
       // 기존 시스템과 호환성을 위한 새로고침
       setTimeout(async () => {
         try {
@@ -595,15 +652,13 @@ export default function ImprovedFacilityPhotoSection({
           console.warn('파일 목록 새로고침 실패:', error);
         }
       }, 1000);
-      
+
       toast.success(
-        '업로드 시작', 
+        '업로드 시작',
         `${fileArray.length}장의 기본사진 업로드를 시작했습니다.`,
         { duration: 3000 }
       );
-      
-      console.log(`✅ [PROGRESSIVE-BASIC] 업로드 ID: ${uploadIds.join(', ')}`);
-      
+
     } catch (error) {
       console.error('Progressive Basic Upload 실패:', error);
       toast.error('업로드 시작 실패', error instanceof Error ? error.message : '알 수 없는 오류');
@@ -658,17 +713,7 @@ export default function ImprovedFacilityPhotoSection({
       // 🖼️ 각 파일별 고유 미리보기 URL 생성 - File 객체를 직접 사용하여 고유성 보장
       const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
       
-      // 🐛 디버깅: 미리보기 URL 추적 (각 파일별 고유성 확인)
-      console.log(`🖼️ [PREVIEW-DEBUG-${index}] 파일정보:`, {
-        fileName: file.name,
-        fileSize: file.size,
-        lastModified: file.lastModified,
-        fileId,
-        previewUrl: previewUrl?.substring(0, 50) + '...',
-        type: file.type,
-        timestamp,
-        performanceTime
-      });
+      // 미리보기 URL 추적 (로그 제거)
       
       // 새로운 상태를 미리 준비
       newFileStates[fileId] = {
@@ -681,146 +726,127 @@ export default function ImprovedFacilityPhotoSection({
     });
     
     // 🔧 모든 파일 상태를 한 번에 업데이트 (배치 처리로 상태 경쟁 조건 방지)
-    setFileUploadStates(prev => {
-      const updatedState = {
-        ...prev,
-        ...newFileStates
-      };
-      console.log(`🎯 [BATCH-STATE-UPDATE] ${fileIds.length}개 파일 상태 배치 업데이트 완료`, {
-        fileIds,
-        stateKeys: Object.keys(newFileStates)
-      });
-      return updatedState;
-    });
+    setFileUploadStates(prev => ({
+      ...prev,
+      ...newFileStates
+    }));
 
-    // Process files individually with cancellation support
-    // 🔧 배치 업로드로 변경 - 모든 파일을 하나의 요청으로 처리
-    console.log(`📦 [BATCH-UPLOAD-START] ${files.length}장의 파일을 배치 업로드 시작`);
+    console.log(`📤 [UPLOAD-START] ${files.length}장 업로드 시작 - ${facilityType}`);
     
-    // 모든 파일 상태를 업로드 중으로 설정
-    setFileUploadStates(prev => {
-      const newStates = { ...prev };
-      fileIds.forEach(fileId => {
-        if (newStates[fileId]) {
-          newStates[fileId].status = 'uploading';
-        }
-      });
-      return newStates;
-    });
-
+    // ✅ FIX: 파일을 개별적으로 순차 업로드 (완료 신호 정확히 수신)
     try {
-      const formData = new FormData();
-      
-      // 모든 파일을 하나의 FormData에 추가
-      Array.from(files).forEach(file => {
-        formData.append('files', file);
-      });
-      
-      formData.append('businessName', businessName);
-      formData.append('facilityType', facilityType);
-      formData.append('facilityNumber', facility.number?.toString() || '1');
-      formData.append('outletNumber', facility.outlet.toString());
+      let successCount = 0;
+      const uploadedFiles: any[] = [];
 
-      console.log(`📤 [BATCH-UPLOAD-REQUEST] 배치 업로드 요청 전송:`, {
-        filesCount: files.length,
-        facilityType,
-        facilityNumber: facility.number,
-        outletNumber: facility.outlet
-      });
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileId = fileIds[i];
 
-      const response = await fetch('/api/facility-photos', {
-        method: 'POST',
-        body: formData
-      });
+        // 파일 상태를 업로드 중으로 변경
+        setFileUploadStates(prev => ({
+          ...prev,
+          [fileId]: { ...prev[fileId], status: 'uploading', progress: 0 }
+        }));
 
-      let result: any;
-      
-      if (response.ok) {
-        result = await response.json();
-        
-        console.log(`📥 [BATCH-UPLOAD-RESPONSE] 서버 응답:`, result);
-        
-        if (result.success) {
-          console.log(`🎯 [INSTANT-UI-UPDATE] 업로드 성공, 즉시 UI 반영 시작`, result);
-          
-          // 모든 파일을 성공 상태로 업데이트
-          setFileUploadStates(prev => {
-            const newStates = { ...prev };
-            fileIds.forEach(fileId => {
-              if (newStates[fileId]) {
-                // 성공 시 미리보기 URL 정리
-                if (newStates[fileId].previewUrl) {
-                  URL.revokeObjectURL(newStates[fileId].previewUrl);
-                }
-                newStates[fileId] = {
-                  ...newStates[fileId],
-                  status: 'success',
-                  progress: 100,
-                  previewUrl: undefined
-                };
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('businessName', businessName);
+          formData.append('facilityType', facilityType);
+          formData.append('facilityNumber', facility.number?.toString() || '1');
+          formData.append('outletNumber', facility.outlet.toString());
+          formData.append('systemType', currentPhase === 'presurvey' ? 'presurvey' : 'completion');
+          formData.append('phase', currentPhase);
+
+          // ✅ FIX: /api/upload-supabase 사용하여 안정적인 업로드
+          const response = await new Promise<Response>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', (e) => {
+              if (e.lengthComputable) {
+                const percentComplete = Math.round((e.loaded / e.total) * 100);
+                setFileUploadStates(prev => ({
+                  ...prev,
+                  [fileId]: { ...prev[fileId], progress: percentComplete }
+                }));
+                setUploadProgress(prev => ({ ...prev, [uploadKey]: Math.round((i + percentComplete / 100) / files.length * 100) }));
               }
             });
-            return newStates;
-          });
-          
-          // 🚀 핵심 개선: 업로드 성공 시 FileContext에 즉시 파일 추가
-          if (result.uploadedFiles && result.uploadedFiles.length > 0) {
-            console.log(`➕ [INSTANT-ADD] ${result.uploadedFiles.length}개 파일을 즉시 UI에 추가`);
-            addFiles(result.uploadedFiles);
-            
-            // 실시간 성공 알림 (향상된 모바일 지원)
-            if (typeof window !== 'undefined') {
-              const instantToast = document.createElement('div');
-              instantToast.className = 'instant-upload-toast fixed top-16 right-4 bg-gradient-to-r from-green-400 to-blue-500 text-white px-4 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-500 scale-100';
-              instantToast.innerHTML = `
-                <div class="flex items-center space-x-3">
-                  <div class="animate-bounce">🎉</div>
-                  <div>
-                    <div class="font-bold text-sm">실시간 업로드!</div>
-                    <div class="text-xs opacity-90">${result.uploadedFiles.length}장 즉시 반영됨</div>
-                  </div>
-                </div>
-              `;
-              document.body.appendChild(instantToast);
-              
-              setTimeout(() => {
-                instantToast.style.transform = 'scale(0) translateY(-20px)';
-                setTimeout(() => instantToast.remove(), 200);
-              }, 2500);
-              
-              // 모바일 햅틱 피드백
-              if (navigator.vibrate) {
-                navigator.vibrate([100, 100, 200]);
+
+            xhr.addEventListener('load', () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(new Response(xhr.responseText, {
+                  status: xhr.status,
+                  statusText: xhr.statusText,
+                  headers: new Headers({ 'Content-Type': 'application/json' })
+                }));
+              } else {
+                reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
               }
+            });
+
+            xhr.addEventListener('error', () => reject(new Error('네트워크 오류')));
+            xhr.addEventListener('abort', () => reject(new Error('업로드 취소됨')));
+
+            xhr.open('POST', '/api/upload-supabase');
+            xhr.send(formData);
+          });
+
+          const result = await response.json();
+
+          if (result.success && result.files && result.files.length > 0) {
+            successCount++;
+            uploadedFiles.push(...result.files);
+
+            // 파일 상태를 성공으로 업데이트
+            setFileUploadStates(prev => ({
+              ...prev,
+              [fileId]: {
+                ...prev[fileId],
+                status: 'success',
+                progress: 100,
+                previewUrl: undefined
+              }
+            }));
+
+            // 미리보기 URL 정리
+            if (fileUploadStates[fileId]?.previewUrl) {
+              URL.revokeObjectURL(fileUploadStates[fileId].previewUrl!);
             }
           } else {
-            console.warn(`⚠️ [NO-FILES-RETURNED] 서버에서 uploadedFiles 반환되지 않음, 폴백 새로고침 사용`);
+            throw new Error(result.message || '업로드 실패');
           }
-          
-        } else {
-          throw new Error(result.message || '업로드 실패');
+
+        } catch (fileError: any) {
+          // 파일 상태를 오류로 업데이트
+          setFileUploadStates(prev => ({
+            ...prev,
+            [fileId]: {
+              ...prev[fileId],
+              status: 'error',
+              error: fileError.message || '업로드 실패',
+              previewUrl: undefined
+            }
+          }));
+
+          // 미리보기 URL 정리
+          if (fileUploadStates[fileId]?.previewUrl) {
+            URL.revokeObjectURL(fileUploadStates[fileId].previewUrl!);
+          }
         }
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
-      // 모든 파일이 성공적으로 업로드됨
-      const successCount = files.length;
-      console.log(`✅ [UPLOAD-COMPLETE] ${successCount}/${files.length}장 업로드 완료`);
-      
-      // 폴백 새로고침: result.uploadedFiles가 없는 경우에만 실행
-      if (!result.uploadedFiles || result.uploadedFiles.length === 0) {
-        console.log(`🔄 [FALLBACK-REFRESH] uploadedFiles 없음, 폴백 새로고침 실행`);
-        await new Promise(resolve => setTimeout(resolve, 200)); // 서버 업데이트 대기
+
+      console.log(`✅ [UPLOAD] ${successCount}/${files.length}장 완료`);
+
+      // ✅ FIX: 업로드 완료 후 즉시 새로고침하여 1분 지연 제거
+      if (successCount > 0) {
+        await new Promise(resolve => setTimeout(resolve, 100));
         await loadUploadedFiles(true, true);
-        console.log(`✅ [FALLBACK-COMPLETE] 폴백 새로고침 완료`);
-      } else {
-        console.log(`⚡ [SKIP-REFRESH] 즉시 UI 반영 완료, 새로고침 생략`);
       }
-      
-      // 업로드 진행률 업데이트
+
+      // 업로드 진행률 최종 업데이트
       setUploadProgress(prev => ({ ...prev, [uploadKey]: 100 }));
-      
+
       // 성공/실패 알림
       if (successCount === files.length) {
         toast.success(`업로드 완료`, `${successCount}장의 사진이 모두 업로드되었습니다.`);
@@ -831,13 +857,13 @@ export default function ImprovedFacilityPhotoSection({
       }
 
     } catch (error: any) {
-      console.error('🚨 [BATCH-UPLOAD-ERROR] 배치 업로드 오류:', error);
-      
+      console.error('❌ [UPLOAD-ERROR]', error.message);
+
       // 모든 파일을 오류 상태로 업데이트
       setFileUploadStates(prev => {
         const newStates = { ...prev };
         fileIds.forEach(fileId => {
-          if (newStates[fileId]) {
+          if (newStates[fileId] && newStates[fileId].status !== 'success') {
             // 오류 시 미리보기 URL 정리
             if (newStates[fileId].previewUrl) {
               URL.revokeObjectURL(newStates[fileId].previewUrl);
@@ -852,21 +878,40 @@ export default function ImprovedFacilityPhotoSection({
         });
         return newStates;
       });
-      
-      // 네트워크 오류에 대한 사용자 친화적 메시지와 재시도
-      toast.error(
-        '업로드 실패', 
-        `${files.length}장의 사진 업로드가 실패했습니다. 다시 시도해주세요.`, 
-        {
-          duration: 0,
-          onRetry: () => handleFacilityUpload(files, facilityType, facility, instanceIndex)
-        }
-      );
+
+      throw error;
     } finally {
+      console.log(`🏁 [FINALLY-BLOCK] 업로드 종료 - finally 블록 실행됨`);
+
       setUploading(prev => ({ ...prev, [uploadKey]: false }));
       setTimeout(() => {
         setUploadProgress(prev => ({ ...prev, [uploadKey]: 0 }));
       }, 2000);
+
+      // ✅ FIX: 업로드 완료 후 성공한 파일 상태 자동 정리 (상태바 자동 제거)
+      // finally 블록에서 실행하여 성공/실패 관계없이 정리
+      setTimeout(() => {
+        console.log(`🧹 [CLEANUP-START] 2초 경과, 파일 상태 정리 시작`);
+
+        // smartUploadQueue 초기화 (상태바 자동 숨김)
+        try {
+          smartUploadQueue.clearQueue();
+          console.log(`✅ [QUEUE-CLEAR] smartUploadQueue 초기화 완료`);
+        } catch (queueError) {
+          console.error(`❌ [QUEUE-CLEAR-ERROR]`, queueError);
+        }
+
+        setFileUploadStates(prev => {
+          const newStates = { ...prev };
+          fileIds.forEach(fileId => {
+            if (newStates[fileId]?.status === 'success') {
+              delete newStates[fileId];
+            }
+          });
+          console.log(`✅ [CLEANUP] 파일 상태 정리 완료`);
+          return newStates;
+        });
+      }, 2000); // 2초 후 자동 정리
     }
   }, [businessName, loadUploadedFiles]);
 
@@ -890,17 +935,24 @@ export default function ImprovedFacilityPhotoSection({
       // 1️⃣ 즉시 UI에서 사진 숨기기 (Jotai 사용)
       markPhotoAsDeleted(photo.id);
       console.log(`⚡ [INSTANT-DELETE] ${photo.fileName} - markPhotoAsDeleted 호출완료`);
-      
-      // 2️⃣ 상태 변경 확인을 위한 약간의 지연
+
+      // 2️⃣ photoTracker에서도 즉시 제거하여 통계 업데이트
+      photoTracker.removePhoto(photo.id);
+
+      // 3️⃣ 통계 즉시 업데이트 (optimistic update)
+      setStatistics(photoTracker.getStatistics());
+      console.log(`📊 [STATS-UPDATE] 통계 즉시 업데이트 완료`);
+
+      // 4️⃣ 상태 변경 확인을 위한 약간의 지연
       await new Promise(resolve => setTimeout(resolve, 100));
       console.log(`🔄 [UI-SYNC] Jotai 상태 업데이트 후 UI 리렌더링 대기`);
-      
+
       // ✅ 상세보기 창 유지 - 모달 닫지 않음 (사용자 경험 개선)
       console.log(`👁️ [MODAL-KEEP] 상세보기 창 유지 - 삭제 후에도 계속 사용 가능`);
       // setSelectedPhoto(null);   // 주석 처리 - 모달 닫지 않음
       // setModalPosition(null);   // 주석 처리 - 모달 닫지 않음
-      
-      // 3️⃣ 성공 메시지는 즉시 표시
+
+      // 5️⃣ 성공 메시지는 즉시 표시
       toast.success('삭제 완료', '사진이 성공적으로 삭제되었습니다.');
       
       // 🚨 삭제 작업 완료 - 외부 클릭 차단 해제
@@ -922,18 +974,24 @@ export default function ImprovedFacilityPhotoSection({
       if (!result.success) {
         // 🔄 API 삭제 실패 시 롤백
         console.error('❌ [DELETE-API-FAILED]', result.message);
-        
+
         // Jotai에서 삭제 상태 롤백
         markPhotoAsUndeleted(photo.id);
-        
+
         // photoTracker에서도 롤백 (전체 새로고침으로 처리)
         loadUploadedFiles(true, false).catch(error => {
           console.warn('롤백 새로고침 실패:', error);
         });
-        
+
         toast.error('삭제 실패', getUserFriendlyErrorMessage(result.message));
       } else {
         console.log(`✅ [DELETE-API-SUCCESS] ${photo.fileName} 서버에서도 삭제 완료`);
+
+        // ✅ FIX: 삭제 완료 후 즉시 새로고침하여 UI 즉시 반영
+        console.log(`🔄 [DELETE-INSTANT-REFRESH] 삭제 완료, 즉시 새로고침 실행`);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await loadUploadedFiles(true, true);
+        console.log(`✅ [DELETE-REFRESH-COMPLETE] 삭제 후 새로고침 완료`);
       }
       
     } catch (error) {
@@ -1044,28 +1102,45 @@ export default function ImprovedFacilityPhotoSection({
   const preventionFacilities = photoTracker.getPreventionFacilities();
   const basicFacilities = photoTracker.getBasicFacilities();
 
-  // 배출구별 시설 그룹화
+  // 배출구별 시설 그룹화 (중복 제거 포함)
   const facilitiesByOutlet = () => {
     const grouped: { [outlet: number]: { discharge: Facility[], prevention: Facility[] } } = {};
-    
+
     if (!facilities || !facilities.discharge || !facilities.prevention) {
       return grouped;
     }
-    
+
+    // ✅ FIX: 중복 제거 - 배출구+시설번호+용량 기준으로 고유한 시설만 그룹화 (용량이 다르면 다른 시설)
+    const seenDischarge = new Set<string>();
     facilities.discharge.forEach(facility => {
+      const uniqueKey = `${facility.outlet}-${facility.number}-${facility.capacity || 'unknown'}`;
+      if (seenDischarge.has(uniqueKey)) {
+        console.warn(`⚠️ [DUPLICATE] 중복 배출시설 제거: 배출구${facility.outlet}, 시설${facility.number}, 용량${facility.capacity}`);
+        return; // 중복 건너뛰기
+      }
+      seenDischarge.add(uniqueKey);
+
       if (!grouped[facility.outlet]) {
         grouped[facility.outlet] = { discharge: [], prevention: [] };
       }
       grouped[facility.outlet].discharge.push(facility);
     });
-    
+
+    const seenPrevention = new Set<string>();
     facilities.prevention.forEach(facility => {
+      const uniqueKey = `${facility.outlet}-${facility.number}-${facility.capacity || 'unknown'}`;
+      if (seenPrevention.has(uniqueKey)) {
+        console.warn(`⚠️ [DUPLICATE] 중복 방지시설 제거: 배출구${facility.outlet}, 시설${facility.number}, 용량${facility.capacity}`);
+        return; // 중복 건너뛰기
+      }
+      seenPrevention.add(uniqueKey);
+
       if (!grouped[facility.outlet]) {
         grouped[facility.outlet] = { discharge: [], prevention: [] };
       }
       grouped[facility.outlet].prevention.push(facility);
     });
-    
+
     return grouped;
   };
 
@@ -1164,7 +1239,7 @@ export default function ImprovedFacilityPhotoSection({
       {/* Smart Floating Progress - 스마트 호버 진행상황 표시 */}
       <SmartFloatingProgress
         {...getSmartProgressData()}
-        autoHideDelay={2000}
+        autoHideDelay={1000}
         onClose={() => {
           // 🚀 프로그래스 바 수동 닫기 핸들러
           console.log('🔥 [PROGRESS-CLOSE] 사용자가 수동으로 프로그래스 바 닫기');
@@ -1306,32 +1381,38 @@ export default function ImprovedFacilityPhotoSection({
                   
                   {/* 방지시설 인라인 진행률 표시기 - REMOVED: SmartFloatingProgress로 대체 */}
                   
-                  {outletPrevention.map((facility) => 
+                  {outletPrevention.map((facility, facilityIdx) =>
                     Array.from({ length: facility.quantity }, (_, quantityIndex) => {
                       const instanceIndex = quantityIndex + 1;
-                      const uploadKey = `prevention-${facility.outlet}-${facility.number}-${instanceIndex}`;
+
+                      // 🎯 대기필증 관리의 올바른 시설번호 적용 (먼저 계산)
+                      const correctNumber = getCorrectFacilityNumber('prevention', facility);
+                      const facilityWithCorrectNumber = { ...facility, number: correctNumber };
+
+                      // ✅ correctNumber를 사용하여 키 생성
+                      const uploadKey = `prevention-${facility.outlet}-${correctNumber}-${facility.capacity}-${instanceIndex}`;
                       const isUploading = uploading[uploadKey];
                       const progress = uploadProgress[uploadKey] || 0;
-                      
-                      // 해당 시설의 사진들 가져오기 (Jotai로 삭제된 사진 필터링)
-                      const facilityPhotos = getFilteredPhotos(photoTracker.getFacilityPhotos('prevention', facility.number, facility.outlet));
-                      console.log(`🔍 [DEBUG] Prevention 시설 ${facility.number} 사진:`, facilityPhotos);
+
+                      // ✅ correctNumber를 사용하여 사진 조회
+                      const rawPhotos = photoTracker.getFacilityPhotos('prevention', correctNumber, facility.outlet);
+                      const facilityPhotos = getFilteredPhotos(rawPhotos);
 
                       return (
                         <FacilityCard
-                          key={`prevention-${facility.outlet}-${facility.number}-${instanceIndex}`}
-                          facility={facility}
+                          key={`prevention-${facility.outlet}-${correctNumber}-${facility.capacity}-${facilityIdx}-${instanceIndex}`}
+                          facility={facilityWithCorrectNumber}
                           facilityType="prevention"
                           instanceIndex={instanceIndex}
                           isUploading={isUploading}
                           progress={progress}
                           photos={facilityPhotos}
-                          onUpload={(files) => handleFacilityUpload(files, 'prevention', facility, instanceIndex)}
+                          onUpload={(files) => handleFacilityUpload(files, 'prevention', facilityWithCorrectNumber, instanceIndex)}
                           onPhotoSelect={handlePhotoSelect}
                           viewMode={viewMode}
                           dragHandlers={createDragHandlers(
-                            `prevention-${facility.outlet}-${facility.number}-${instanceIndex}`,
-                            (files) => handleFacilityUpload(files, 'prevention', facility, instanceIndex)
+                            uploadKey,
+                            (files) => handleFacilityUpload(files, 'prevention', facilityWithCorrectNumber, instanceIndex)
                           )}
                           dragZoneStyles={getDragZoneStyles}
                           recentPhotoIds={recentPhotoIds}
@@ -1354,31 +1435,38 @@ export default function ImprovedFacilityPhotoSection({
                   
                   {/* 배출시설 인라인 진행률 표시기 - REMOVED: SmartFloatingProgress로 대체 */}
                   
-                  {outletDischarge.map((facility) => 
+                  {outletDischarge.map((facility, facilityIdx) =>
                     Array.from({ length: facility.quantity }, (_, quantityIndex) => {
                       const instanceIndex = quantityIndex + 1;
-                      const uploadKey = `discharge-${facility.outlet}-${facility.number}-${instanceIndex}`;
+
+                      // 🎯 대기필증 관리의 올바른 시설번호 적용 (먼저 계산)
+                      const correctNumber = getCorrectFacilityNumber('discharge', facility);
+                      const facilityWithCorrectNumber = { ...facility, number: correctNumber };
+
+                      // ✅ correctNumber를 사용하여 키 생성
+                      const uploadKey = `discharge-${facility.outlet}-${correctNumber}-${facility.capacity}-${instanceIndex}`;
                       const isUploading = uploading[uploadKey];
                       const progress = uploadProgress[uploadKey] || 0;
-                      
-                      // 해당 시설의 사진들 가져오기 (Jotai로 삭제된 사진 필터링)
-                      const facilityPhotos = getFilteredPhotos(photoTracker.getFacilityPhotos('discharge', facility.number, facility.outlet));
+
+                      // ✅ correctNumber를 사용하여 사진 조회
+                      const rawPhotos = photoTracker.getFacilityPhotos('discharge', correctNumber, facility.outlet);
+                      const facilityPhotos = getFilteredPhotos(rawPhotos);
 
                       return (
                         <FacilityCard
-                          key={`discharge-${facility.outlet}-${facility.number}-${instanceIndex}`}
-                          facility={facility}
+                          key={`discharge-${facility.outlet}-${correctNumber}-${facility.capacity}-${facilityIdx}-${instanceIndex}`}
+                          facility={facilityWithCorrectNumber}
                           facilityType="discharge"
                           instanceIndex={instanceIndex}
                           isUploading={isUploading}
                           progress={progress}
                           photos={facilityPhotos}
-                          onUpload={(files) => handleFacilityUpload(files, 'discharge', facility, instanceIndex)}
+                          onUpload={(files) => handleFacilityUpload(files, 'discharge', facilityWithCorrectNumber, instanceIndex)}
                           onPhotoSelect={handlePhotoSelect}
                           viewMode={viewMode}
                           dragHandlers={createDragHandlers(
-                            `discharge-${facility.outlet}-${facility.number}-${instanceIndex}`,
-                            (files) => handleFacilityUpload(files, 'discharge', facility, instanceIndex)
+                            uploadKey,
+                            (files) => handleFacilityUpload(files, 'discharge', facilityWithCorrectNumber, instanceIndex)
                           )}
                           dragZoneStyles={getDragZoneStyles}
                           recentPhotoIds={recentPhotoIds}

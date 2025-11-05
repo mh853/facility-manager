@@ -39,6 +39,7 @@ export default function BusinessDetailPage() {
   const isHydrated = useIsHydrated();
   
   const [facilities, setFacilities] = useState<FacilitiesData | null>(null);
+  const [facilityNumbering, setFacilityNumbering] = useState<any>(null); // 대기필증 관리 시설번호
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -250,7 +251,7 @@ export default function BusinessDetailPage() {
 
       if (facilitiesData?.success) {
         setFacilities(facilitiesData.data.facilities);
-        console.log('✅ [FRONTEND] 시설 데이터 설정 완료:', facilitiesData.data.facilities);
+        setFacilityNumbering(facilitiesData.data.facilityNumbering); // 🎯 대기필증 관리 시설번호 저장
         
         // API에서 받은 실제 사업장 정보 설정
         if (facilitiesData.data.businessInfo) {
@@ -587,9 +588,10 @@ export default function BusinessDetailPage() {
 
             {/* 시설별 사진 업로드 섹션 */}
             {systemType === 'presurvey' && (
-              <ImprovedFacilityPhotoSection 
+              <ImprovedFacilityPhotoSection
                 businessName={businessName}
                 facilities={facilities}
+                facilityNumbering={facilityNumbering}
                 currentPhase={currentPhase}
               />
             )}
@@ -615,9 +617,10 @@ export default function BusinessDetailPage() {
 
 
                 {/* 4. 시설별 사진 업로드 섹션 (completion mode) */}
-                <ImprovedFacilityPhotoSection 
+                <ImprovedFacilityPhotoSection
                   businessName={businessName}
                   facilities={facilities}
+                  facilityNumbering={facilityNumbering}
                   currentPhase={currentPhase}
                 />
 
@@ -702,9 +705,10 @@ export default function BusinessDetailPage() {
             )}
 
             {/* 7. 시설별 사진 업로드 */}
-            <ImprovedFacilityPhotoSection 
+            <ImprovedFacilityPhotoSection
               businessName={businessName}
               facilities={facilities}
+              facilityNumbering={facilityNumbering}
               currentPhase={currentPhase}
             />
 
