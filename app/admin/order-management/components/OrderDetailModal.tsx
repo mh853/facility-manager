@@ -17,26 +17,31 @@ import {
   CheckCircle,
   Circle,
   Loader2,
-  Clock
+  Clock,
+  FileText
 } from 'lucide-react'
 import type { OrderDetailResponse, OrderStepKey } from '@/types/order-management'
 import { MANUFACTURER_WORKFLOWS } from '@/types/order-management'
 import OrderTimeline from './OrderTimeline'
+import PurchaseOrderModal from '@/app/admin/document-automation/components/PurchaseOrderModal'
 
 interface OrderDetailModalProps {
   businessId: string
   onClose: (shouldRefresh?: boolean) => void
+  showPurchaseOrderButton?: boolean  // 발주 필요 탭에서만 표시
 }
 
 export default function OrderDetailModal({
   businessId,
-  onClose
+  onClose,
+  showPurchaseOrderButton = false
 }: OrderDetailModalProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [data, setData] = useState<OrderDetailResponse['data'] | null>(null)
   const [activeTab, setActiveTab] = useState<'info' | 'timeline'>('info')
+  const [showPurchaseOrderModal, setShowPurchaseOrderModal] = useState(false)
 
   // 단계별 날짜 상태
   const [stepDates, setStepDates] = useState<Record<string, string | null>>({
@@ -272,7 +277,7 @@ export default function OrderDetailModal({
         <div className="p-6 max-h-[60vh] overflow-y-auto">
           {activeTab === 'info' ? (
             <div>
-          {/* 사업장 정보 */}
+              {/* 사업장 정보 */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Building2 className="w-5 h-5 text-green-600" />
@@ -345,10 +350,21 @@ export default function OrderDetailModal({
 
           {/* 발주 진행 단계 */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-green-600" />
-              발주 진행 단계
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-green-600" />
+                발주 진행 단계
+              </h3>
+              {showPurchaseOrderButton && (
+                <button
+                  onClick={() => setShowPurchaseOrderModal(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                >
+                  <FileText className="w-4 h-4" />
+                  발주서 생성하기
+                </button>
+              )}
+            </div>
             <div className="space-y-4">
               {workflow.steps.map((step, index) => {
                 const isStepCompleted = !!stepDates[step.field]
@@ -402,6 +418,16 @@ export default function OrderDetailModal({
             <OrderTimeline businessId={businessId} />
           )}
         </div>
+
+        {/* 발주서 생성 모달 */}
+        {showPurchaseOrderModal && data && (
+          <PurchaseOrderModal
+            isOpen={showPurchaseOrderModal}
+            onClose={() => setShowPurchaseOrderModal(false)}
+            businessId={businessId}
+            businessName={data.business.business_name}
+          />
+        )}
 
         {/* 푸터 */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">

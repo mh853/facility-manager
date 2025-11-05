@@ -66,12 +66,36 @@ export default function DocumentAutomationPage() {
   const [selectedBusiness, setSelectedBusiness] = useState<{ id: string; name: string } | null>(null)
   const [loadingBusinesses, setLoadingBusinesses] = useState(false)
 
+  // 문서 이력 관련 상태
+  const [documentHistory, setDocumentHistory] = useState<any[]>([])
+  const [historyFilter, setHistoryFilter] = useState({
+    search: '',
+    document_type: '',
+    file_format: '',
+    start_date: '',
+    end_date: ''
+  })
+  const [historyPagination, setHistoryPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    total_pages: 0
+  })
+  const [historySummary, setHistorySummary] = useState({
+    total_documents: 0,
+    by_type: { purchase_order: 0, estimate: 0, contract: 0, other: 0 },
+    by_format: { excel: 0, pdf: 0 }
+  })
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
   // 발주 필요 사업장 목록 로드
   useEffect(() => {
     if (activeTab === 'purchase_order') {
       loadBusinessesForPurchaseOrder()
+    } else if (activeTab === 'history') {
+      loadDocumentHistory()
     }
-  }, [activeTab])
+  }, [activeTab, historyPagination.page, historyFilter])
 
   const loadBusinessesForPurchaseOrder = async () => {
     try {
@@ -113,6 +137,51 @@ export default function DocumentAutomationPage() {
       alert('사업장 목록을 불러오는 중 오류가 발생했습니다.')
     } finally {
       setLoadingBusinesses(false)
+    }
+  }
+
+  // 문서 이력 로드
+  const loadDocumentHistory = async () => {
+    try {
+      setLoadingHistory(true)
+
+      const token = localStorage.getItem('auth_token')
+      const params = new URLSearchParams({
+        page: historyPagination.page.toString(),
+        limit: historyPagination.limit.toString()
+      })
+
+      // 필터 추가
+      if (historyFilter.search) params.append('search', historyFilter.search)
+      if (historyFilter.document_type) params.append('document_type', historyFilter.document_type)
+      if (historyFilter.file_format) params.append('file_format', historyFilter.file_format)
+      if (historyFilter.start_date) params.append('start_date', historyFilter.start_date)
+      if (historyFilter.end_date) params.append('end_date', historyFilter.end_date)
+
+      const response = await fetch(`/api/document-automation/history?${params}`, {
+        credentials: 'include',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'Cache-Control': 'no-cache'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('문서 이력 조회 실패')
+      }
+
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        setDocumentHistory(result.data.documents || [])
+        setHistoryPagination(result.data.pagination || historyPagination)
+        setHistorySummary(result.data.summary || historySummary)
+      }
+    } catch (error) {
+      console.error('문서 이력 로드 오류:', error)
+      alert('문서 이력을 불러오는 중 오류가 발생했습니다.')
+    } finally {
+      setLoadingHistory(false)
     }
   }
 
@@ -558,10 +627,261 @@ export default function DocumentAutomationPage() {
             )}
 
             {activeTab === 'history' && (
-              <div className="text-center py-12">
-                <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">실행 이력</h3>
-                <p className="text-gray-500">자동화 규칙의 실행 이력이 여기에 표시됩니다.</p>
+              <div className="space-y-6">
+                {/* 통계 요약 */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-sm text-gray-500 mb-1">전체 문서</div>
+                    <div className="text-2xl font-bold text-gray-900">{historySummary.total_documents}</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-sm text-gray-500 mb-1">발주서</div>
+                    <div className="text-2xl font-bold text-blue-600">{historySummary.by_type.purchase_order}</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-sm text-gray-500 mb-1">Excel</div>
+                    <div className="text-2xl font-bold text-green-600">{historySummary.by_format.excel}</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-sm text-gray-500 mb-1">PDF</div>
+                    <div className="text-2xl font-bold text-red-600">{historySummary.by_format.pdf}</div>
+                  </div>
+                </div>
+
+                {/* 필터 */}
+                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="md:col-span-2">
+                      <input
+                        type="text"
+                        placeholder="사업장명 검색..."
+                        value={historyFilter.search}
+                        onChange={(e) => {
+                          setHistoryFilter({ ...historyFilter, search: e.target.value })
+                          setHistoryPagination({ ...historyPagination, page: 1 })
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <select
+                      value={historyFilter.document_type}
+                      onChange={(e) => {
+                        setHistoryFilter({ ...historyFilter, document_type: e.target.value })
+                        setHistoryPagination({ ...historyPagination, page: 1 })
+                      }}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">전체 문서</option>
+                      <option value="purchase_order">발주서</option>
+                      <option value="estimate">견적서</option>
+                      <option value="contract">계약서</option>
+                      <option value="other">기타</option>
+                    </select>
+                    <select
+                      value={historyFilter.file_format}
+                      onChange={(e) => {
+                        setHistoryFilter({ ...historyFilter, file_format: e.target.value })
+                        setHistoryPagination({ ...historyPagination, page: 1 })
+                      }}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">전체 형식</option>
+                      <option value="excel">Excel</option>
+                      <option value="pdf">PDF</option>
+                    </select>
+                    <button
+                      onClick={() => {
+                        setHistoryFilter({ search: '', document_type: '', file_format: '', start_date: '', end_date: '' })
+                        setHistoryPagination({ ...historyPagination, page: 1 })
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      초기화
+                    </button>
+                  </div>
+                </div>
+
+                {/* 이력 테이블 */}
+                {loadingHistory ? (
+                  <div className="text-center py-12">
+                    <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
+                    <p className="text-gray-500">문서 이력을 불러오는 중...</p>
+                  </div>
+                ) : documentHistory.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">문서 이력 없음</h3>
+                    <p className="text-gray-500">발주서 관리 탭에서 문서를 생성하면 이력이 표시됩니다.</p>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              사업장명
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              문서명
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              문서타입
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              형식
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              생성일
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              생성자
+                            </th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              작업
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {documentHistory.map((doc: any) => (
+                            <tr key={doc.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-medium text-gray-900">{doc.business_name}</div>
+                                {doc.address && (
+                                  <div className="text-sm text-gray-500">{doc.address}</div>
+                                )}
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-sm text-gray-900">{doc.document_name}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  doc.document_type === 'purchase_order' ? 'bg-blue-100 text-blue-800' :
+                                  doc.document_type === 'estimate' ? 'bg-green-100 text-green-800' :
+                                  doc.document_type === 'contract' ? 'bg-purple-100 text-purple-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {doc.document_type === 'purchase_order' ? '발주서' :
+                                   doc.document_type === 'estimate' ? '견적서' :
+                                   doc.document_type === 'contract' ? '계약서' : '기타'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  doc.file_format === 'excel' ? 'bg-green-100 text-green-800' :
+                                  doc.file_format === 'pdf' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {doc.file_format === 'excel' ? 'Excel' :
+                                   doc.file_format === 'pdf' ? 'PDF' : doc.file_format}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {new Date(doc.created_at).toLocaleString('ko-KR', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">{doc.created_by_name || '-'}</div>
+                                {doc.created_by_email && (
+                                  <div className="text-sm text-gray-500">{doc.created_by_email}</div>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button
+                                  onClick={() => {
+                                    if (doc.file_path) {
+                                      window.open(doc.file_path, '_blank')
+                                    } else {
+                                      alert('파일 경로가 없습니다.')
+                                    }
+                                  }}
+                                  className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1"
+                                >
+                                  <Download className="w-4 h-4" />
+                                  다운로드
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* 페이지네이션 */}
+                {!loadingHistory && documentHistory.length > 0 && (
+                  <div className="flex items-center justify-between bg-white px-4 py-3 border border-gray-200 rounded-lg">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                      <button
+                        onClick={() => setHistoryPagination({ ...historyPagination, page: Math.max(1, historyPagination.page - 1) })}
+                        disabled={historyPagination.page === 1}
+                        className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        이전
+                      </button>
+                      <button
+                        onClick={() => setHistoryPagination({ ...historyPagination, page: Math.min(historyPagination.total_pages, historyPagination.page + 1) })}
+                        disabled={historyPagination.page === historyPagination.total_pages}
+                        className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        다음
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm text-gray-700">
+                          전체 <span className="font-medium">{historyPagination.total}</span>개 중{' '}
+                          <span className="font-medium">{(historyPagination.page - 1) * historyPagination.limit + 1}</span>
+                          {' '}-{' '}
+                          <span className="font-medium">
+                            {Math.min(historyPagination.page * historyPagination.limit, historyPagination.total)}
+                          </span>
+                          {' '}표시
+                        </p>
+                      </div>
+                      <div>
+                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                          <button
+                            onClick={() => setHistoryPagination({ ...historyPagination, page: Math.max(1, historyPagination.page - 1) })}
+                            disabled={historyPagination.page === 1}
+                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            이전
+                          </button>
+                          {[...Array(Math.min(5, historyPagination.total_pages))].map((_, idx) => {
+                            const pageNum = idx + 1
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => setHistoryPagination({ ...historyPagination, page: pageNum })}
+                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                  historyPagination.page === pageNum
+                                    ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            )
+                          })}
+                          <button
+                            onClick={() => setHistoryPagination({ ...historyPagination, page: Math.min(historyPagination.total_pages, historyPagination.page + 1) })}
+                            disabled={historyPagination.page === historyPagination.total_pages}
+                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            다음
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

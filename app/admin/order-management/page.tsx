@@ -539,6 +539,7 @@ export default function OrderManagementPage() {
         <OrderDetailModal
           businessId={selectedBusinessId}
           onClose={handleCloseModal}
+          showPurchaseOrderButton={activeTab === 'in_progress'}
         />
       )}
       </>
