@@ -10,6 +10,7 @@ import { AuthLevel } from '@/lib/auth/AuthLevels';
 import StatsCard from '@/components/ui/StatsCard';
 import Modal, { ModalActions } from '@/components/ui/Modal';
 import { InvoiceDisplay } from '@/components/business/InvoiceDisplay';
+import { MANUFACTURER_NAMES_REVERSE, type ManufacturerName } from '@/constants/manufacturers';
 import {
   BarChart3,
   Calculator,
@@ -86,6 +87,10 @@ function RevenueDashboard() {
   const [surveyCostSettings, setSurveyCostSettings] = useState<Record<string, number>>({});
   const [baseInstallationCosts, setBaseInstallationCosts] = useState<Record<string, number>>({});
   const [costSettingsLoaded, setCostSettingsLoaded] = useState(false);
+
+  // 제조사별 수수료율 데이터 (영업점 → 제조사 → 수수료율)
+  const [commissionRates, setCommissionRates] = useState<Record<string, Record<string, number>>>({});
+  const [commissionRatesLoaded, setCommissionRatesLoaded] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(''); // 카테고리(진행구분) 필터
   const [selectedProjectYear, setSelectedProjectYear] = useState(''); // 사업 진행 연도 필터
@@ -217,6 +222,28 @@ function RevenueDashboard() {
         console.log('✅ [COST-SETTINGS] 기본 설치비 로드:', Object.keys(installCosts).length, '개 기기');
       }
 
+      // 제조사별 수수료율 로드
+      const commissionResponse = await fetch('/api/revenue/commission-rates', {
+        headers: getAuthHeaders()
+      });
+      const commissionData = await commissionResponse.json();
+
+      if (commissionData.success && commissionData.data.offices) {
+        const rates: Record<string, Record<string, number>> = {};
+        commissionData.data.offices.forEach((office: any) => {
+          rates[office.sales_office] = {};
+          office.rates.forEach((rate: any) => {
+            rates[office.sales_office][rate.manufacturer] = rate.commission_rate;
+          });
+        });
+        setCommissionRates(rates);
+        setCommissionRatesLoaded(true);
+        console.log('✅ [COMMISSION] 제조사별 수수료율 로드:', Object.keys(rates).length, '개 영업점');
+        console.log('📊 [COMMISSION] 로드된 수수료율 상세:', rates);
+      } else {
+        console.warn('⚠️ [COMMISSION] 수수료율 로드 실패:', { success: commissionData.success, hasOffices: !!commissionData.data?.offices });
+      }
+
       setPricesLoaded(true);
       setCostSettingsLoaded(true);
     } catch (error) {
@@ -303,8 +330,9 @@ function RevenueDashboard() {
     let totalBaseInstallationCost = 0; // 기본 설치비 (비용)
     let totalAdditionalInstallationRevenue = 0; // 추가 설치비 (매출)
 
-    // 사업장의 제조사 정보
-    const businessManufacturer = business.manufacturer || 'ecosense'; // 기본값 ecosense
+    // 사업장의 제조사 정보 (한글 → 영문 코드 변환)
+    const rawManufacturer = business.manufacturer || 'ecosense';
+    const businessManufacturer = MANUFACTURER_NAMES_REVERSE[rawManufacturer as ManufacturerName] || rawManufacturer;
 
     // 일신산업 디버깅을 위한 상세 로그
     const equipmentDetails: any[] = [];
@@ -383,11 +411,35 @@ function RevenueDashboard() {
     // 최종 매출 = 기본 매출 + 추가공사비 + 추가설치비 - 협의사항
     const adjustedRevenue = totalRevenue + additionalCost + additionalInstallationRevenue - negotiation;
 
-    // 영업비용 계산 (DB 설정 사용, 실패 시 기본값 10%)
+    // 영업비용 계산 (제조사별 수수료율 우선, 없으면 영업점 설정, 최종 기본값 10%)
     let salesCommission = 0;
     const salesOffice = business.sales_office || '';
 
-    if (costSettingsLoaded && salesOffice && salesOfficeSettings[salesOffice]) {
+    // 디버깅: 수수료 계산 조건 확인
+    console.log(`🔍 [${business.business_name}] 수수료 계산 조건:`, {
+      commissionRatesLoaded,
+      salesOffice,
+      rawManufacturer,
+      businessManufacturer,
+      hasOfficeInRates: !!commissionRates[salesOffice],
+      hasManufacturerRate: commissionRates[salesOffice] ? commissionRates[salesOffice][businessManufacturer] : 'N/A',
+      availableOffices: Object.keys(commissionRates),
+      availableManufacturers: commissionRates[salesOffice] ? Object.keys(commissionRates[salesOffice]) : []
+    });
+
+    // 1순위: 제조사별 수수료율
+    if (commissionRatesLoaded && salesOffice && commissionRates[salesOffice] && commissionRates[salesOffice][businessManufacturer] !== undefined) {
+      const commissionRate = commissionRates[salesOffice][businessManufacturer];
+      salesCommission = adjustedRevenue * (commissionRate / 100);
+      console.log(`💰 [${business.business_name}] 제조사별 수수료율 적용:`, {
+        영업점: salesOffice,
+        제조사: businessManufacturer,
+        수수료율: `${commissionRate}%`,
+        계산결과: salesCommission
+      });
+    }
+    // 2순위: 영업점별 기본 설정
+    else if (costSettingsLoaded && salesOffice && salesOfficeSettings[salesOffice]) {
       const setting = salesOfficeSettings[salesOffice];
       if (setting.commission_type === 'percentage' && setting.commission_percentage !== undefined) {
         // 퍼센트 방식
@@ -400,17 +452,18 @@ function RevenueDashboard() {
         // 설정이 있지만 값이 없으면 기본값 사용
         salesCommission = adjustedRevenue * 0.10;
       }
-      console.log(`💰 [${business.business_name}] 영업비용 계산:`, {
+      console.log(`💰 [${business.business_name}] 영업점 기본 설정 적용:`, {
         영업점: salesOffice,
         방식: setting.commission_type,
         설정값: setting.commission_type === 'percentage' ? `${setting.commission_percentage}%` : `${setting.commission_per_unit}원/대`,
         계산결과: salesCommission
       });
-    } else {
-      // DB 로드 실패 또는 영업점 설정 없음 → 기본값 10%
+    }
+    // 3순위: 기본값 10%
+    else {
       salesCommission = adjustedRevenue * 0.10;
       if (salesOffice) {
-        console.log(`⚠️ [${business.business_name}] 영업점 설정 없음, 기본값 10% 사용:`, salesOffice);
+        console.log(`⚠️ [${business.business_name}] 수수료 설정 없음, 기본값 10% 사용:`, { salesOffice, manufacturer: businessManufacturer });
       }
     }
 
@@ -1784,7 +1837,17 @@ function RevenueDashboard() {
                           <div className="bg-orange-50 rounded-lg p-3 md:p-4">
                             <p className="text-xs font-medium text-orange-600 mb-1">
                               영업비용 ({(() => {
-                                const salesOffice = businesses.find(b => b.id === selectedEquipmentBusiness.id)?.sales_office || '';
+                                const business = businesses.find(b => b.id === selectedEquipmentBusiness.id);
+                                const salesOffice = business?.sales_office || '';
+                                const rawManufacturer = business?.manufacturer || 'ecosense';
+                                const businessManufacturer = MANUFACTURER_NAMES_REVERSE[rawManufacturer as ManufacturerName] || rawManufacturer;
+
+                                // 1순위: 제조사별 수수료율
+                                if (commissionRatesLoaded && salesOffice && commissionRates[salesOffice] && commissionRates[salesOffice][businessManufacturer] !== undefined) {
+                                  return `${commissionRates[salesOffice][businessManufacturer]}%`;
+                                }
+
+                                // 2순위: 영업점 기본 설정
                                 if (costSettingsLoaded && salesOffice && salesOfficeSettings[salesOffice]) {
                                   const setting = salesOfficeSettings[salesOffice];
                                   if (setting.commission_type === 'percentage') {
@@ -1793,6 +1856,8 @@ function RevenueDashboard() {
                                     return `${setting.commission_per_unit?.toLocaleString()}원/대`;
                                   }
                                 }
+
+                                // 3순위: 기본값
                                 return '10%';
                               })()})
                             </p>

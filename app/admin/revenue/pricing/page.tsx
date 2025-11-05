@@ -7,6 +7,7 @@ import { TokenManager } from '@/lib/api-client';
 import AdminLayout from '@/components/ui/AdminLayout';
 import StatsCard from '@/components/ui/StatsCard';
 import Modal, { ModalActions, ConfirmModal } from '@/components/ui/Modal';
+import { CommissionRateManager } from '@/components/CommissionRateManager';
 import {
   DollarSign,
   Edit,
@@ -19,7 +20,8 @@ import {
   Calculator,
   FileText,
   Trash2,
-  Loader2
+  Loader2,
+  Percent
 } from 'lucide-react';
 
 interface GovernmentPricing {
@@ -425,6 +427,7 @@ function PricingManagement() {
     { id: 'installation', label: '기본 설치비', icon: DollarSign },
     { id: 'dealer', label: '대리점 가격', icon: Building2 },
     { id: 'sales', label: '영업점 설정', icon: Building2 },
+    { id: 'commission', label: '제조사별 수수료율', icon: Percent },
     { id: 'survey', label: '실사비용', icon: Calculator }
   ];
 
@@ -901,6 +904,11 @@ function PricingManagement() {
                       </table>
                     </div>
                   </div>
+                )}
+
+                {/* 제조사별 수수료율 탭 */}
+                {activeTab === 'commission' && (
+                  <CommissionRateManager />
                 )}
 
                 {/* 제조사별 원가 탭 */}
