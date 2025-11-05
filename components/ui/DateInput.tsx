@@ -50,30 +50,45 @@ export default function DateInput({ value, onChange, className = '', placeholder
     const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 4)
     setYear(value)
 
-    // 4자리 입력되면 월로 자동 이동
+    // 4자리 입력되면 월로 자동 이동 (지연 시간 추가)
     if (value.length === 4) {
-      monthRef.current?.focus()
+      setTimeout(() => monthRef.current?.focus(), 10)
     }
 
     updateDate(value, month, day)
   }
 
   const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 2)
-    setMonth(value)
+    const rawValue = e.target.value.replace(/[^0-9]/g, '').slice(0, 2)
+    setMonth(rawValue)
 
-    // 2자리 입력되면 일로 자동 이동
-    if (value.length === 2) {
-      dayRef.current?.focus()
+    // 유효한 2자리 월이 입력되면 일로 자동 이동 (01-12만 허용)
+    if (rawValue.length === 2) {
+      const monthNum = parseInt(rawValue, 10)
+      if (monthNum >= 1 && monthNum <= 12) {
+        // 입력이 완전히 처리된 후 포커스 이동 (지연 시간 증가)
+        setTimeout(() => dayRef.current?.focus(), 10)
+      }
     }
 
-    updateDate(year, value, day)
+    updateDate(year, rawValue, day)
   }
 
   const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 2)
-    setDay(value)
-    updateDate(year, month, value)
+    const rawValue = e.target.value.replace(/[^0-9]/g, '').slice(0, 2)
+    setDay(rawValue)
+
+    // 유효한 2자리 일 검증 (01-31 허용)
+    // 일 필드는 마지막 필드이므로 auto-focus는 없지만, 검증은 수행
+    if (rawValue.length === 2) {
+      const dayNum = parseInt(rawValue, 10)
+      if (dayNum < 1 || dayNum > 31) {
+        // 유효하지 않은 일자는 무시 (선택적 - 필요시 추가)
+        console.warn(`Invalid day value: ${rawValue}`)
+      }
+    }
+
+    updateDate(year, month, rawValue)
   }
 
   const handleYearKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

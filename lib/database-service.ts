@@ -409,9 +409,14 @@ export class DatabaseService {
   /**
    * 사업장별 대기필증 목록 조회 (배출구 및 시설 정보 포함)
    */
-  static async getAirPermitsByBusinessIdWithDetails(businessId: string): Promise<AirPermitWithOutlets[]> {
+  static async getAirPermitsByBusinessIdWithDetails(businessId: string, forcePrimary: boolean = false): Promise<AirPermitWithOutlets[]> {
+    const startTime = performance.now()
+    const client = forcePrimary ? supabaseAdmin : supabase
+
+    console.log(`🔍 [DB-OPTIMIZED] getAirPermitsByBusinessIdWithDetails: businessId=${businessId}, forcePrimary=${forcePrimary}`)
+
     // 기본 허가 정보 조회 (사업장 정보 포함)
-    const { data: permits, error: permitError } = await supabase
+    const { data: permits, error: permitError } = await client
       .from('air_permit_info')
       .select(`
         *,
@@ -427,19 +432,25 @@ export class DatabaseService {
 
     if (permitError) throw new Error(`대기필증 목록 조회 실패: ${permitError.message}`)
 
-    if (!permits || permits.length === 0) return []
+    if (!permits || permits.length === 0) {
+      console.log(`✅ [DB-OPTIMIZED] 대기필증 없음 (${(performance.now() - startTime).toFixed(0)}ms)`)
+      return []
+    }
 
-    // 각 대기필증의 배출구 및 시설 정보 조회
+    // ✅ 각 대기필증의 배출구 및 시설 정보 조회 (forcePrimary 전달)
     const permitsWithOutlets = await Promise.all(
       permits.map(async (permit) => {
-        const outlets = await this.getDischargeOutlets(permit.id)
+        const outlets = await this.getDischargeOutlets(permit.id, forcePrimary)  // ✅ forcePrimary 전달
         return {
           ...permit,
           outlets
         }
       })
     )
-    
+
+    const totalTime = performance.now() - startTime
+    console.log(`✅ [DB-OPTIMIZED] ${permits.length}개 대기필증 조회 완료 (${totalTime.toFixed(0)}ms)`)
+
     return permitsWithOutlets
   }
 
@@ -587,7 +598,7 @@ export class DatabaseService {
           air_permit_id: permitId,
           outlet_number: outlet.outlet_number || 1,
           outlet_name: outlet.outlet_name || null,
-          additional_info: {}
+          additional_info: outlet.additional_info || {}
         }
         
         const createdOutlet = await this.createDischargeOutlet(outletData)
@@ -699,37 +710,54 @@ export class DatabaseService {
 
   /**
    * 대기필증의 모든 배출구 조회 (시설 정보 포함)
+   * ✅ JOIN 기반 단일 쿼리로 최적화 (N+1 문제 해결)
    */
   static async getDischargeOutlets(airPermitId: string, forcePrimary: boolean = false): Promise<OutletWithFacilities[]> {
+    const startTime = performance.now()
     const client = forcePrimary ? supabaseAdmin : supabase
 
+    console.log(`🔍 [DB-OPTIMIZED] getDischargeOutlets 시작: airPermitId=${airPermitId}, forcePrimary=${forcePrimary}`)
+
+    // ✅ 단일 JOIN 쿼리로 배출구 + 배출시설 + 방지시설 모두 조회 (N+1 해결!)
     const { data: outlets, error: outletError } = await client
       .from('discharge_outlets')
-      .select('*')
+      .select(`
+        *,
+        discharge_facilities (*),
+        prevention_facilities (*)
+      `)
       .eq('air_permit_id', airPermitId)
       .order('outlet_number')
 
-    if (outletError) throw new Error(`배출구 조회 실패: ${outletError.message}`)
+    const queryTime = performance.now() - startTime
+    console.log(`⏱️ [DB-OPTIMIZED] 쿼리 완료: ${queryTime.toFixed(0)}ms`)
 
-    if (!outlets || outlets.length === 0) return []
+    if (outletError) {
+      console.error('❌ [DB-OPTIMIZED] 배출구 조회 실패:', outletError)
+      throw new Error(`배출구 조회 실패: ${outletError.message}`)
+    }
 
-    // 각 배출구의 시설 정보 조회 (동일한 forcePrimary 전달)
-    const outletsWithFacilities = await Promise.all(
-      outlets.map(async (outlet) => {
-        const [dischargeFacilities, preventionFacilities] = await Promise.all([
-          this.getDischargeFacilities(outlet.id, forcePrimary),
-          this.getPreventionFacilities(outlet.id, forcePrimary)
-        ])
+    if (!outlets || outlets.length === 0) {
+      console.log('✅ [DB-OPTIMIZED] 배출구 없음')
+      return []
+    }
 
-        return {
-          ...outlet,
-          discharge_facilities: dischargeFacilities,
-          prevention_facilities: preventionFacilities
-        }
-      })
-    )
+    console.log(`✅ [DB-OPTIMIZED] ${outlets.length}개 배출구 조회 완료 (단일 쿼리, ${queryTime.toFixed(0)}ms)`)
 
-    return outletsWithFacilities
+    // 그린링크 코드 디버깅 로그
+    outlets.forEach((outlet: any) => {
+      const preventionCount = outlet.prevention_facilities?.length || 0
+      const dischargeCount = outlet.discharge_facilities?.length || 0
+      console.log(`   📍 배출구 ${outlet.outlet_number}: 방지시설 ${preventionCount}개, 배출시설 ${dischargeCount}개`)
+
+      if (outlet.prevention_facilities && outlet.prevention_facilities.length > 0) {
+        outlet.prevention_facilities.forEach((facility: any) => {
+          console.log(`      - ${facility.facility_name}: green_link_code = "${facility.additional_info?.green_link_code || ''}"`)
+        })
+      }
+    })
+
+    return outlets as OutletWithFacilities[]
   }
 
   /**

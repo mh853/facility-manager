@@ -267,4 +267,13 @@ if (typeof window === 'undefined') {
     hasServiceKey: !!supabaseServiceKey,
     charset: 'UTF-8'
   });
+
+  // ⚠️ forcePrimary=true 사용 시 중요: SERVICE_ROLE_KEY가 있어야 Primary DB 사용 가능
+  if (!supabaseServiceKey) {
+    console.warn('⚠️ [SUPABASE] SUPABASE_SERVICE_ROLE_KEY 없음 - forcePrimary=true 사용 시에도 Replica DB 사용됨!')
+    console.warn('⚠️ [SUPABASE] 대기필증 저장 후 UI 업데이트 딜레이가 발생할 수 있습니다.')
+    console.warn('⚠️ [SUPABASE] .env.local에 SUPABASE_SERVICE_ROLE_KEY 설정 필요!')
+  } else {
+    console.log('✅ [SUPABASE] supabaseAdmin이 Primary DB에 연결됩니다 (read-after-write consistency 보장)')
+  }
 }

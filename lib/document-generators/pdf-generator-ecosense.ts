@@ -382,9 +382,16 @@ function generateAirPermitHtml(data: PurchaseOrderDataEcosense): string {
         <h2 style="font-size: 14px; font-weight: bold; color: #2563eb; margin-bottom: 9px; border-left: 3px solid #2563eb; padding-left: 7px;">배출구 및 시설 정보</h2>
         ${data.air_permit.outlets.map((outlet, outletIndex) => `
           <div style="margin-bottom: 20px; ${outletIndex > 0 ? 'margin-top: 25px;' : ''}">
-            <h3 style="font-size: 13px; font-weight: bold; color: #1a1a1a; margin-bottom: 12px; background-color: #f8f9fa; padding: 8px; border-left: 3px solid #2563eb;">
-              ${escapeHtml(outlet.outlet_name)} (배출구 #${outlet.outlet_number})
-            </h3>
+            <div style="display: flex; align-items: center; justify-content: space-between; background-color: #f8f9fa; padding: 8px; border-left: 3px solid #2563eb; margin-bottom: 12px;">
+              <h3 style="font-size: 13px; font-weight: bold; color: #1a1a1a; margin: 0;">
+                ${escapeHtml(outlet.outlet_name)} (배출구 #${outlet.outlet_number})
+              </h3>
+              ${outlet.additional_info?.gateway ? `
+                <span style="font-size: 11px; font-weight: 600; color: #0c4a6e; background-color: #e0f2fe; padding: 4px 10px; border-radius: 4px; border: 1px solid #7dd3fc; white-space: nowrap;">
+                  게이트웨이: ${escapeHtml(outlet.additional_info.gateway)}
+                </span>
+              ` : ''}
+            </div>
 
             ${outlet.discharge_facilities && outlet.discharge_facilities.length > 0 ? `
             <!-- 배출시설 -->

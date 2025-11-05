@@ -53,7 +53,9 @@
       "Bash(ls:*)",
       "Bash(timeout 180 npm run build:*)",
       "Bash(timeout 30 npm run dev:*)",
-      "Bash(timeout 5 bash:*)"
+      "Bash(timeout 5 bash:*)",
+      "Bash(dir \"C:\\Users\\user1\\Documents\\claude\\facility-manager\\양식\" /b)",
+      "Bash(timeout 15 bash:*)"
     ],
     "deny": [],
     "ask": [],

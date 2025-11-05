@@ -282,6 +282,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
             return {
               outlet_number: outlet.outlet_number,
               outlet_name: outlet.outlet_name || `배출구 ${outlet.outlet_number}`,
+              additional_info: outlet.additional_info || {}, // ✅ 게이트웨이 정보 포함
               discharge_facilities: dischargeFacilities?.map(f => ({
                 name: f.facility_name,
                 capacity: f.capacity || '',

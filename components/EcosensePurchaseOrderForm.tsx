@@ -392,9 +392,17 @@ export default function EcosensePurchaseOrderForm({
                 <div className="permit-outlets">
                   {data.air_permit.outlets.map((outlet, outletIndex) => (
                     <div key={outletIndex} className="outlet-item">
-                      <h3 className="outlet-title">
-                        {outlet.outlet_name} (배출구 #{outlet.outlet_number})
-                      </h3>
+                      <div className="outlet-header">
+                        <h3 className="outlet-title">
+                          {outlet.outlet_name} (배출구 #{outlet.outlet_number})
+                        </h3>
+                        {/* 게이트웨이 정보 - 배출구 제목 옆에 표시 */}
+                        {outlet.additional_info?.gateway && (
+                          <span className="gateway-badge">
+                            게이트웨이: {outlet.additional_info.gateway}
+                          </span>
+                        )}
+                      </div>
 
                       {/* 배출시설 */}
                       {outlet.discharge_facilities && outlet.discharge_facilities.length > 0 && (
@@ -738,14 +746,35 @@ export default function EcosensePurchaseOrderForm({
           border-radius: 4px;
         }
 
-        .outlet-title {
-          font-size: 15px;
-          font-weight: bold;
-          color: #374151;
+        .outlet-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
           margin-bottom: 15px;
           padding: 10px;
           background-color: #f3f4f6;
           border-left: 4px solid #2563eb;
+        }
+
+        .outlet-title {
+          font-size: 15px;
+          font-weight: bold;
+          color: #374151;
+          margin: 0;
+        }
+
+        .gateway-badge {
+          display: inline-flex;
+          align-items: center;
+          font-size: 13px;
+          font-weight: 600;
+          color: #0c4a6e;
+          background-color: #e0f2fe;
+          padding: 6px 12px;
+          border-radius: 4px;
+          border: 1px solid #7dd3fc;
+          white-space: nowrap;
         }
 
         .facility-group {

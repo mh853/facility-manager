@@ -243,7 +243,11 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { type, id, ...updateData } = body
 
+    console.log('🔄 [OUTLET-FACILITY] PUT 요청 시작:', { type, id })
+    console.log('📊 [OUTLET-FACILITY] 업데이트 데이터:', updateData)
+
     if (!id) {
+      console.error('❌ [OUTLET-FACILITY] ID가 없습니다')
       return NextResponse.json(
         { error: 'ID는 필수입니다' },
         { status: 400 }
@@ -255,7 +259,9 @@ export async function PUT(request: NextRequest) {
     switch (type) {
       case 'outlet':
         // 배출구 업데이트
+        console.log('🏭 [OUTLET-FACILITY] 배출구 업데이트 시작')
         result = await DatabaseService.updateDischargeOutlet(id, updateData)
+        console.log('✅ [OUTLET-FACILITY] 배출구 업데이트 완료:', result)
         return NextResponse.json({
           message: '배출구가 성공적으로 업데이트되었습니다',
           data: result
@@ -267,7 +273,9 @@ export async function PUT(request: NextRequest) {
 
       case 'discharge_facility':
         // 배출시설 업데이트
+        console.log('🏭 [OUTLET-FACILITY] 배출시설 업데이트 시작')
         result = await DatabaseService.updateDischargeFacility(id, updateData)
+        console.log('✅ [OUTLET-FACILITY] 배출시설 업데이트 완료:', result)
         return NextResponse.json({
           message: '배출시설이 성공적으로 업데이트되었습니다',
           data: result
@@ -279,7 +287,9 @@ export async function PUT(request: NextRequest) {
 
       case 'prevention_facility':
         // 방지시설 업데이트
+        console.log('🏭 [OUTLET-FACILITY] 방지시설 업데이트 시작')
         result = await DatabaseService.updatePreventionFacility(id, updateData)
+        console.log('✅ [OUTLET-FACILITY] 방지시설 업데이트 완료:', result)
         return NextResponse.json({
           message: '방지시설이 성공적으로 업데이트되었습니다',
           data: result

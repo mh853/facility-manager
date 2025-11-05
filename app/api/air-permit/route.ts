@@ -14,16 +14,19 @@ export async function GET(request: NextRequest) {
     const businessId = searchParams.get('businessId')
     const permitId = searchParams.get('id')
     const includeDetails = searchParams.get('details') === 'true'
+    const forcePrimary = searchParams.get('forcePrimary') === 'true' // Read-after-write consistency
 
     // 특정 대기필증 상세 조회
     if (permitId && includeDetails) {
-      const permit = await DatabaseService.getAirPermitWithDetails(permitId)
+      console.log(`🔍 [AIR-PERMIT] GET 요청: permitId=${permitId}, forcePrimary=${forcePrimary}`)
+      const permit = await DatabaseService.getAirPermitWithDetails(permitId, forcePrimary)
       if (!permit) {
         return NextResponse.json(
           { error: '대기필증을 찾을 수 없습니다' },
           { status: 404 }
         )
       }
+      console.log(`✅ [AIR-PERMIT] GET 완료: ${permit.outlets?.length || 0}개 배출구`)
       return NextResponse.json({ data: permit }, {
       headers: {
         'Content-Type': 'application/json; charset=utf-8'
@@ -52,8 +55,8 @@ export async function GET(request: NextRequest) {
       
       let permits
       if (includeDetails) {
-        // 상세 정보 포함하여 조회
-        permits = await DatabaseService.getAirPermitsByBusinessIdWithDetails(actualBusinessId)
+        // 상세 정보 포함하여 조회 (forcePrimary 전달)
+        permits = await DatabaseService.getAirPermitsByBusinessIdWithDetails(actualBusinessId, forcePrimary)
       } else {
         // 기본 정보만 조회
         permits = await DatabaseService.getAirPermitsByBusinessId(actualBusinessId)
@@ -97,8 +100,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 사업장 존재 확인 (사업장명으로 조회)
-    const business = await DatabaseService.getBusinessByName(body.business_id)
+    // 사업장 존재 확인 (UUID로 조회)
+    const business = await DatabaseService.getBusinessById(body.business_id)
     if (!business) {
       return NextResponse.json(
         { error: '존재하지 않는 사업장입니다' },
@@ -106,12 +109,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 날짜 필드 검증 함수
+    const validateDate = (dateStr: string, fieldName: string): string | null => {
+      try {
+        if (!dateStr || dateStr === '' || dateStr === '--' || dateStr.length < 8) {
+          console.log(`📅 [POST] ${fieldName}: 빈 값 또는 유효하지 않은 길이 - null 반환`)
+          return null
+        }
+        // YYYY-MM-DD 형식 검증
+        if (!/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
+          console.log(`📅 [POST] ${fieldName}: 형식 불일치 (${dateStr}) - null 반환`)
+          return null
+        }
+        console.log(`📅 [POST] ${fieldName}: 검증 통과 (${dateStr})`)
+        return dateStr
+      } catch (dateError) {
+        console.error(`🔴 [POST] 날짜 검증 오류 (${fieldName}):`, dateError)
+        return null
+      }
+    }
+
+    // 날짜 검증
+    const validatedFirstReportDate = validateDate(body.first_report_date, 'first_report_date')
+    const validatedOperationStartDate = validateDate(body.operation_start_date, 'operation_start_date')
+
     // 대기필증 생성 데이터 준비 - 배출구별 시설 관계 유지
     const permitData: Omit<AirPermitInfo, 'id' | 'created_at' | 'updated_at'> = {
       business_id: business.id, // 실제 사업장 ID 사용
       business_type: body.business_type || null,
+      first_report_date: validatedFirstReportDate,
+      operation_start_date: validatedOperationStartDate,
       annual_emission_amount: null,
-      // 직접 테이블 컬럼에 날짜 데이터 저장 (removed - 사업장 정보에서 분리)
       additional_info: {
         ...body.additional_info || {},
         category: body.category || null,
@@ -121,6 +149,12 @@ export async function POST(request: NextRequest) {
       is_active: true,
       is_deleted: false
     }
+
+    console.log('✅ [POST] 대기필증 생성 데이터:', {
+      business_id: permitData.business_id,
+      first_report_date: permitData.first_report_date,
+      operation_start_date: permitData.operation_start_date
+    })
 
     // 배출구별 시설을 포함한 완전한 대기필증 생성
     const outlets = body.outlets || []
@@ -174,16 +208,13 @@ export async function PUT(request: NextRequest) {
     }
     console.log('✅ ID 검증 통과:', id)
 
-    // Step 3: 편집 모드 감지 - 기존 대기필증 여부 확인
-    const isEditMode = id && !id.startsWith('new-') && id !== 'new'
-    console.log('🔍 편집 모드 감지:', { id, isEditMode })
-
-    // Step 4: 배출구 정보 추출 (편집 모드가 아닐 때만)
+    // Step 3: 편집 모드 감지 - outlets 데이터 포함 여부로 판단
     const outlets = rawUpdateData.outlets || []
+    const hasOutletsData = outlets && Array.isArray(outlets) && outlets.length > 0
+
     console.log('✅ 배출구 정보 추출 완료:', {
       outletCount: outlets.length,
-      isEditMode,
-      willUpdateOutlets: !isEditMode,
+      hasOutletsData,
       outletsData: outlets.map((o: any) => ({
         number: o.outlet_number,
         discharge: o.discharge_facilities?.length || 0,
@@ -240,7 +271,10 @@ export async function PUT(request: NextRequest) {
           ...rawUpdateData.additional_info || {},
           category: rawUpdateData.additional_info?.category || rawUpdateData.category || null,
           business_name: rawUpdateData.additional_info?.business_name || rawUpdateData.business_name || null,
-          pollutants: rawUpdateData.additional_info?.pollutants || (Array.isArray(rawUpdateData.pollutants) ? rawUpdateData.pollutants : [])
+          pollutants: rawUpdateData.additional_info?.pollutants || (Array.isArray(rawUpdateData.pollutants) ? rawUpdateData.pollutants : []),
+          // PDF 출력용 필드는 additional_info에 저장
+          facility_number: rawUpdateData.facility_number || null,
+          green_link_code: rawUpdateData.green_link_code || null
         }
       }
       console.log('✅ 업데이트 데이터 구성 완료')
@@ -255,22 +289,22 @@ export async function PUT(request: NextRequest) {
 
     // Step 7: 데이터베이스 업데이트
     let updatedPermit: any = null
-    
+
     try {
       console.log('🔄 데이터베이스 업데이트 시작...')
-      
-      if (isEditMode) {
-        // 편집 모드: 기본 정보만 업데이트, 배출구 데이터는 건드리지 않음
-        console.log('✏️ 편집 모드 - 기본 정보만 업데이트 (배출구 데이터 보존)')
-        const basicUpdate = await DatabaseService.updateAirPermit(id, updateData)
-        // 기본 정보 업데이트 후, 기존 배출구 정보를 포함한 전체 데이터를 조회하여 반환
-        updatedPermit = await DatabaseService.getAirPermitWithDetails(id)
-      } else {
-        // 새 대기필증 또는 전체 업데이트: 배출구 정보도 함께 업데이트
-        console.log('🆕 새 대기필증 모드 - 전체 정보 업데이트 (배출구 포함)')
+
+      if (hasOutletsData) {
+        // 배출구 데이터가 포함된 경우: 전체 업데이트 (배출구 포함)
+        console.log('💾 전체 정보 업데이트 (기본 정보 + 배출구 포함)')
         updatedPermit = await DatabaseService.updateAirPermitWithOutlets(id, updateData, outlets)
+      } else {
+        // 배출구 데이터가 없는 경우: 기본 정보만 업데이트 (배출구 데이터 보존)
+        console.log('✏️ 기본 정보만 업데이트 (배출구 데이터 보존)')
+        const basicUpdate = await DatabaseService.updateAirPermit(id, updateData)
+        // 기본 정보 업데이트 후, Primary DB에서 최신 데이터 조회 (read-after-write consistency)
+        updatedPermit = await DatabaseService.getAirPermitWithDetails(id, true)
       }
-      
+
       console.log('✅ 데이터베이스 업데이트 완료:', updatedPermit)
     } catch (dbError) {
       console.error('🔴 데이터베이스 업데이트 오류:', dbError)

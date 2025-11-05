@@ -11,6 +11,93 @@ export const runtime = 'nodejs';
 
 export const GET = withApiHandler(async (request: NextRequest) => {
   try {
+    // URL 파라미터 확인 - includeAll=true면 모든 사업장 반환
+    const { searchParams } = new URL(request.url);
+    const includeAll = searchParams.get('includeAll') === 'true';
+
+    if (includeAll) {
+      // 모든 사업장 조회 (대기필증 추가 모달용)
+      console.log('🏢 [BUSINESS-LIST] 전체 사업장 목록 조회 (includeAll=true)');
+
+      // Supabase 기본 제한(1000개)을 우회하기 위해 페이지네이션 사용
+      let allBusinesses: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data: businessPage, error: businessError } = await supabaseAdmin
+          .from('business_info')
+          .select(`
+            id,
+            business_name,
+            local_government,
+            business_type,
+            business_registration_number,
+            address,
+            manager_name,
+            manager_contact,
+            sales_office,
+            manufacturer,
+            business_category,
+            progress_status,
+            ph_meter,
+            differential_pressure_meter,
+            temperature_meter,
+            discharge_current_meter,
+            fan_current_meter,
+            pump_current_meter,
+            gateway,
+            vpn_wired,
+            vpn_wireless,
+            explosion_proof_differential_pressure_meter_domestic,
+            explosion_proof_temperature_meter_domestic,
+            expansion_device,
+            relay_8ch,
+            relay_16ch,
+            main_board_replacement,
+            multiple_stack,
+            additional_cost,
+            negotiation
+          `)
+          .eq('is_active', true)
+          .eq('is_deleted', false)
+          .not('business_name', 'is', null)
+          .order('business_name')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (businessError) {
+          console.error('🔴 [BUSINESS-LIST] 전체 사업장 조회 오류:', businessError);
+          throw businessError;
+        }
+
+        if (businessPage && businessPage.length > 0) {
+          allBusinesses = [...allBusinesses, ...businessPage];
+          hasMore = businessPage.length === pageSize; // 1000개 미만이면 마지막 페이지
+          page++;
+          console.log(`📄 [BUSINESS-LIST] 페이지 ${page} 조회 완료: ${businessPage.length}개 (누적: ${allBusinesses.length}개)`);
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`✅ [BUSINESS-LIST] 전체 사업장 조회 완료: ${allBusinesses.length}개 (${page}페이지)`);
+
+      return createSuccessResponse({
+        businesses: allBusinesses || [],
+        count: allBusinesses?.length || 0,
+        metadata: {
+          source: 'business_info_all',
+          totalCount: allBusinesses?.length || 0,
+          hasPhotoData: true,
+          includesFullData: true,
+          dataType: 'BusinessInfo[]',
+          criteriaUsed: 'all_businesses'
+        }
+      });
+    }
+
+    // 기존 로직: 대기필증이 등록된 사업장만 조회
     console.log('🏢 [BUSINESS-LIST] 대기필증이 등록된 사업장 목록 조회');
 
     // 대기필증이 있는 business_id만 먼저 조회
@@ -52,6 +139,9 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       .select(`
         id,
         business_name,
+        local_government,
+        business_type,
+        business_registration_number,
         address,
         manager_name,
         manager_contact,
