@@ -12,16 +12,6 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   // 대기필증 DB가 포함된 스프레드시트 사용 (UPLOAD_SPREADSHEET_ID 우선)
   const uploadSpreadsheetId = process.env.UPLOAD_SPREADSHEET_ID || process.env.DATA_COLLECTION_SPREADSHEET_ID || process.env.MAIN_SPREADSHEET_ID;
 
-  console.log('🔍 [DEBUG] 환경변수 확인:', {
-    hasMainId: !!process.env.MAIN_SPREADSHEET_ID,
-    hasUploadId: !!process.env.UPLOAD_SPREADSHEET_ID,
-    hasDataCollectionId: !!process.env.DATA_COLLECTION_SPREADSHEET_ID,
-    finalId: uploadSpreadsheetId?.slice(0, 10) + '...',
-    hasGoogleEmail: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    hasGoogleKey: !!process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
-    keyStartsWithBegin: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.includes('-----BEGIN'),
-    keyLength: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.length || 0
-  });
 
   if (!uploadSpreadsheetId) {
     console.error('🔴 [BUSINESS-LIST] 환경변수 누락 - 샘플 데이터 반환');

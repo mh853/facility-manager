@@ -38,24 +38,8 @@ export async function POST(request: NextRequest) {
     // JWT 토큰 검증
     let decoded: any;
     try {
-      console.log('🔍 [AUTH] JWT 토큰 검증 시도:', {
-        tokenLength: token.length,
-        tokenStart: token.substring(0, 20) + '...',
-        secretAvailable: !!JWT_SECRET,
-        secretLength: JWT_SECRET?.length
-      });
       decoded = jwt.verify(token, JWT_SECRET);
-      console.log('✅ [AUTH] JWT 검증 성공:', {
-        userId: decoded.id || decoded.userId,
-        email: decoded.email
-      });
     } catch (jwtError) {
-      console.log('❌ [AUTH] JWT 검증 실패:', {
-        error: jwtError,
-        tokenLength: token.length,
-        tokenSample: token.substring(0, 50) + '...',
-        secretLength: JWT_SECRET?.length
-      });
       return NextResponse.json(
         { success: false, error: { code: 'INVALID_TOKEN', message: '유효하지 않은 토큰입니다.' } },
         { status: 401 }
@@ -64,7 +48,6 @@ export async function POST(request: NextRequest) {
 
     // 사용자 존재 여부 재확인 (토큰은 유효하지만 사용자가 비활성화된 경우)
     const userId = decoded.id || decoded.userId;
-    console.log('🔍 [AUTH] Supabase에서 사용자 조회:', { userId });
 
     const { data: employee, error: fetchError } = await supabaseAdmin
       .from('employees')

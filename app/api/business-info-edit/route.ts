@@ -20,7 +20,6 @@ export async function PUT(request: NextRequest) {
     }
     
     console.log(`🔄 [BUSINESS-INFO-EDIT] 사업장 정보 수정 시작 - ID: ${id}`);
-    console.log('📝 [BUSINESS-INFO-EDIT] 받은 업데이트 데이터:', JSON.stringify(updateData, null, 2));
     
     const { supabaseAdmin } = await import('@/lib/supabase');
     
