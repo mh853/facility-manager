@@ -30,9 +30,10 @@ export async function GET(request: NextRequest) {
     // 1. 모든 사업장 조회 (설치 날짜 여부와 관계없이)
     let businessQuery = supabase
       .from('business_info')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('is_active', true)
-      .eq('is_deleted', false);
+      .eq('is_deleted', false)
+      .limit(10000); // 최대 10,000개까지 조회
 
     // 날짜 범위 필터 (기간 지정 모드에서만 적용)
     // 설치 현황은 installation_date가 있는 것만 필터링
