@@ -41,8 +41,10 @@ function AnimatedCounter({ value, duration = 1000, className = "" }: {
   const startValueRef = useRef<number>(0);
 
   useEffect(() => {
+    console.log(`🎬 [ANIMATED-COUNTER] value 변경 감지:`, { value, displayValue, isEqual: value === displayValue });
     if (value === displayValue) return;
 
+    console.log(`🎬 [ANIMATED-COUNTER] 애니메이션 시작:`, { from: displayValue, to: value });
     setIsAnimating(true);
     startValueRef.current = displayValue;
     startTimeRef.current = performance.now();
@@ -334,14 +336,14 @@ export default function ImprovedFacilityPhotoSection({
     }
   }, [businessName, loadUploadedFiles]);
 
-  // 백그라운드 새로고침 (새 사진 하이라이트 포함)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadUploadedFiles(true, true); // 백그라운드 새로고침 시 새 사진 하이라이트
-    }, 30000); // 30초로 단축하여 더 빈번한 업데이트
-
-    return () => clearInterval(interval);
-  }, [loadUploadedFiles]);
+  // 🚫 자동 새로고침 제거: Optimistic update로 모든 변경사항이 즉시 반영되므로 불필요
+  // 필요시 수동 새로고침 버튼 또는 verify-uploads 이벤트 사용
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     loadUploadedFiles(true, true);
+  //   }, 30000);
+  //   return () => clearInterval(interval);
+  // }, [loadUploadedFiles]);
 
   // ✅ FIX: 업로드 검증 이벤트 리스너
   useEffect(() => {
@@ -937,11 +939,20 @@ export default function ImprovedFacilityPhotoSection({
       console.log(`⚡ [INSTANT-DELETE] ${photo.fileName} - markPhotoAsDeleted 호출완료`);
 
       // 2️⃣ photoTracker에서도 즉시 제거하여 통계 업데이트
-      photoTracker.removePhoto(photo.id);
+      console.log(`🔍 [BEFORE-REMOVE] 삭제 전 통계:`, photoTracker.getStatistics());
+      const removed = photoTracker.removePhoto(photo.id);
+      console.log(`🗑️ [TRACKER-REMOVE] photoTracker.removePhoto 결과: ${removed}`);
+      console.log(`🔍 [AFTER-REMOVE] 삭제 후 통계:`, photoTracker.getStatistics());
 
-      // 3️⃣ 통계 즉시 업데이트 (optimistic update)
-      setStatistics(photoTracker.getStatistics());
-      console.log(`📊 [STATS-UPDATE] 통계 즉시 업데이트 완료`);
+      // 3️⃣ 통계 즉시 업데이트 (optimistic update) - photoTracker에서 최신 통계 가져오기
+      if (removed) {
+        const updatedStats = photoTracker.getStatistics();
+        console.log(`📊 [STATS-UPDATE-START] setStatistics 호출 직전:`, updatedStats);
+        setStatistics(updatedStats);
+        console.log(`📊 [STATS-UPDATE-COMPLETE] setStatistics 호출 완료`);
+      } else {
+        console.warn(`⚠️ [STATS-SKIP] photoTracker에서 사진을 찾을 수 없어 통계 업데이트 생략`);
+      }
 
       // 4️⃣ 상태 변경 확인을 위한 약간의 지연
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -987,11 +998,9 @@ export default function ImprovedFacilityPhotoSection({
       } else {
         console.log(`✅ [DELETE-API-SUCCESS] ${photo.fileName} 서버에서도 삭제 완료`);
 
-        // ✅ FIX: 삭제 완료 후 즉시 새로고침하여 UI 즉시 반영
-        console.log(`🔄 [DELETE-INSTANT-REFRESH] 삭제 완료, 즉시 새로고침 실행`);
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await loadUploadedFiles(true, true);
-        console.log(`✅ [DELETE-REFRESH-COMPLETE] 삭제 후 새로고침 완료`);
+        // ✅ 삭제 성공 - 통계는 이미 Line 943에서 업데이트됨
+        // 백그라운드 새로고침은 필요 없음 (optimistic update 완료)
+        console.log(`✅ [DELETE-COMPLETE] 삭제 완료, 통계 이미 업데이트됨`);
       }
       
     } catch (error) {
@@ -1418,6 +1427,8 @@ export default function ImprovedFacilityPhotoSection({
                           recentPhotoIds={recentPhotoIds}
                           businessName={businessName}
                           loadUploadedFiles={loadUploadedFiles}
+                          photoTracker={photoTracker}
+                          setStatistics={setStatistics}
                         />
                       );
                     })
@@ -1472,6 +1483,8 @@ export default function ImprovedFacilityPhotoSection({
                           recentPhotoIds={recentPhotoIds}
                           businessName={businessName}
                           loadUploadedFiles={loadUploadedFiles}
+                          photoTracker={photoTracker}
+                          setStatistics={setStatistics}
                         />
                       );
                     })
@@ -1512,6 +1525,8 @@ export default function ImprovedFacilityPhotoSection({
               recentPhotoIds={recentPhotoIds}
               businessName={businessName}
               loadUploadedFiles={loadUploadedFiles}
+              photoTracker={photoTracker}
+              setStatistics={setStatistics}
             />
 
             {/* 송풍팬 */}
@@ -1534,6 +1549,8 @@ export default function ImprovedFacilityPhotoSection({
               recentPhotoIds={recentPhotoIds}
               businessName={businessName}
               loadUploadedFiles={loadUploadedFiles}
+              photoTracker={photoTracker}
+              setStatistics={setStatistics}
             />
 
             {/* 기타 */}
@@ -1556,6 +1573,8 @@ export default function ImprovedFacilityPhotoSection({
               recentPhotoIds={recentPhotoIds}
               businessName={businessName}
               loadUploadedFiles={loadUploadedFiles}
+              photoTracker={photoTracker}
+              setStatistics={setStatistics}
             />
           </div>
         </div>
@@ -1599,14 +1618,23 @@ interface FacilityCardProps {
   recentPhotoIds?: Set<string>;
   businessName: string;
   loadUploadedFiles: (forceRefresh?: boolean, highlightNew?: boolean) => Promise<void>;
+  // 통계 업데이트를 위한 props 추가
+  photoTracker: ReturnType<typeof createFacilityPhotoTracker>;
+  setStatistics: React.Dispatch<React.SetStateAction<{
+    totalFacilities: number;
+    totalPhotos: number;
+    dischargeFacilities: number;
+    preventionFacilities: number;
+    basicCategories: number;
+  }>>;
 }
 
-function FacilityCard({ 
-  facility, 
-  facilityType, 
-  instanceIndex, 
-  isUploading, 
-  progress, 
+function FacilityCard({
+  facility,
+  facilityType,
+  instanceIndex,
+  isUploading,
+  progress,
   photos,
   onUpload,
   onPhotoSelect,
@@ -1615,7 +1643,9 @@ function FacilityCard({
   dragZoneStyles,
   recentPhotoIds,
   businessName,
-  loadUploadedFiles
+  loadUploadedFiles,
+  photoTracker,
+  setStatistics
 }: FacilityCardProps) {
   const displayNumber = `${facilityType === 'discharge' ? '배' : '방'}${facility.number}${facility.quantity > 1 ? `-${instanceIndex}` : ''}`;
   const colorScheme = facilityType === 'discharge' ? 'orange' : 'green';
@@ -1705,9 +1735,9 @@ function FacilityCard({
 
       {/* 업로드된 사진들 */}
       {photos.length > 0 && (
-        <InlinePhotoViewer 
-          photos={photos} 
-          onPhotoSelect={onPhotoSelect} 
+        <InlinePhotoViewer
+          photos={photos}
+          onPhotoSelect={onPhotoSelect}
           viewMode={viewMode}
           colorScheme={colorScheme}
           recentPhotoIds={recentPhotoIds}
@@ -1717,6 +1747,8 @@ function FacilityCard({
           outletNumber={facility.outlet}
           category={undefined}
           loadUploadedFiles={loadUploadedFiles}
+          photoTracker={photoTracker}
+          setStatistics={setStatistics}
         />
       )}
     </div>
@@ -1745,6 +1777,15 @@ interface BasicPhotoCategoryProps {
   recentPhotoIds?: Set<string>;
   businessName: string;
   loadUploadedFiles: (forceRefresh?: boolean, highlightNew?: boolean) => Promise<void>;
+  // 통계 업데이트를 위한 props 추가
+  photoTracker: ReturnType<typeof createFacilityPhotoTracker>;
+  setStatistics: React.Dispatch<React.SetStateAction<{
+    totalFacilities: number;
+    totalPhotos: number;
+    dischargeFacilities: number;
+    preventionFacilities: number;
+    basicCategories: number;
+  }>>;
 }
 
 function BasicPhotoCategory({
@@ -1762,7 +1803,9 @@ function BasicPhotoCategory({
   dragZoneStyles,
   recentPhotoIds,
   businessName,
-  loadUploadedFiles
+  loadUploadedFiles,
+  photoTracker,
+  setStatistics
 }: BasicPhotoCategoryProps) {
   return (
     <div className={`bg-${color}-50 border border-${color}-200 rounded-lg p-4`}>
@@ -1822,9 +1865,9 @@ function BasicPhotoCategory({
 
       {/* 업로드된 사진들 */}
       {photos.length > 0 && (
-        <InlinePhotoViewer 
-          photos={photos} 
-          onPhotoSelect={onPhotoSelect} 
+        <InlinePhotoViewer
+          photos={photos}
+          onPhotoSelect={onPhotoSelect}
           viewMode={viewMode}
           colorScheme={color}
           recentPhotoIds={recentPhotoIds}
@@ -1834,6 +1877,8 @@ function BasicPhotoCategory({
           outletNumber={undefined}
           category={category}
           loadUploadedFiles={loadUploadedFiles}
+          photoTracker={photoTracker}
+          setStatistics={setStatistics}
         />
       )}
     </div>
@@ -1854,9 +1899,18 @@ interface InlinePhotoViewerProps {
   outletNumber?: number;
   category?: string;
   loadUploadedFiles: (forceRefresh?: boolean, highlightNew?: boolean) => Promise<void>;
+  // 통계 업데이트를 위한 props 추가
+  photoTracker: ReturnType<typeof createFacilityPhotoTracker>;
+  setStatistics: React.Dispatch<React.SetStateAction<{
+    totalFacilities: number;
+    totalPhotos: number;
+    dischargeFacilities: number;
+    preventionFacilities: number;
+    basicCategories: number;
+  }>>;
 }
 
-function InlinePhotoViewer({ photos, onPhotoSelect, viewMode, colorScheme, recentPhotoIds, businessName, facilityType, facilityNumber, outletNumber, category, loadUploadedFiles }: InlinePhotoViewerProps) {
+function InlinePhotoViewer({ photos, onPhotoSelect, viewMode, colorScheme, recentPhotoIds, businessName, facilityType, facilityNumber, outletNumber, category, loadUploadedFiles, photoTracker, setStatistics }: InlinePhotoViewerProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const expandedRef = useRef<HTMLDivElement>(null);
@@ -1981,8 +2035,8 @@ function InlinePhotoViewer({ photos, onPhotoSelect, viewMode, colorScheme, recen
                     }`}
                   >
                     <div ref={expandedContentRef}>
-                      <ExpandedPhotoSection 
-                        photo={photo} 
+                      <ExpandedPhotoSection
+                        photo={photo}
                         photos={photos}
                         currentIndex={index}
                         colorScheme={colorScheme}
@@ -1994,6 +2048,8 @@ function InlinePhotoViewer({ photos, onPhotoSelect, viewMode, colorScheme, recen
                         facilityNumber={facilityNumber}
                         outletNumber={outletNumber}
                         category={category}
+                        photoTracker={photoTracker}
+                        setStatistics={setStatistics}
                       />
                     </div>
                   </div>
@@ -2063,8 +2119,8 @@ function InlinePhotoViewer({ photos, onPhotoSelect, viewMode, colorScheme, recen
             }`}
           >
             <div ref={expandedContentRef}>
-              <ExpandedPhotoSection 
-                photo={photos[expandedIndex]} 
+              <ExpandedPhotoSection
+                photo={photos[expandedIndex]}
                 photos={photos}
                 currentIndex={expandedIndex}
                 colorScheme={colorScheme}
@@ -2076,6 +2132,8 @@ function InlinePhotoViewer({ photos, onPhotoSelect, viewMode, colorScheme, recen
                 facilityNumber={facilityNumber}
                 outletNumber={outletNumber}
                 category={category}
+                photoTracker={photoTracker}
+                setStatistics={setStatistics}
               />
             </div>
           </div>
@@ -2103,21 +2161,32 @@ interface ExpandedPhotoSectionProps {
   // Jotai 삭제 함수들은 컴포넌트 내부에서 직접 사용
   outletNumber?: number;
   category?: string;
+  // 통계 업데이트를 위한 props 추가
+  photoTracker: ReturnType<typeof createFacilityPhotoTracker>;
+  setStatistics: React.Dispatch<React.SetStateAction<{
+    totalFacilities: number;
+    totalPhotos: number;
+    dischargeFacilities: number;
+    preventionFacilities: number;
+    basicCategories: number;
+  }>>;
 }
 
-function ExpandedPhotoSection({ 
-  photo, 
-  photos, 
-  currentIndex, 
-  colorScheme, 
-  onNavigate, 
+function ExpandedPhotoSection({
+  photo,
+  photos,
+  currentIndex,
+  colorScheme,
+  onNavigate,
   onClose,
   onRefresh,
   businessName,
   facilityType,
   facilityNumber,
   outletNumber,
-  category
+  category,
+  photoTracker,
+  setStatistics
 }: ExpandedPhotoSectionProps) {
   const toast = useToast();
   
@@ -2365,31 +2434,47 @@ function ExpandedPhotoSection({
             console.log('🔥🔥 [EXPANDED-VIEWER-DELETE] 확장 뷰어의 삭제 버튼 클릭됨!');
             if (confirm(`"${photo.originalFileName}" 파일을 삭제하시겠습니까?`)) {
               console.log('🚀 [EXPANDED-DELETE-START] 확장 뷰어에서 삭제 진행');
-              
+
               // 🎯 Jotai를 사용한 즉시 UI 업데이트
               markPhotoAsDeleted(photo.id);
               console.log('⚡ [EXPANDED-INSTANT-DELETE] markPhotoAsDeleted 호출완료');
-              
+
+              // 📊 photoTracker에서도 즉시 제거하여 통계 업데이트
+              console.log(`🔍 [EXPANDED-BEFORE-REMOVE] 삭제 전 통계:`, photoTracker.getStatistics());
+              const removed = photoTracker.removePhoto(photo.id);
+              console.log(`🗑️ [EXPANDED-TRACKER-REMOVE] photoTracker.removePhoto 결과: ${removed}`);
+              console.log(`🔍 [EXPANDED-AFTER-REMOVE] 삭제 후 통계:`, photoTracker.getStatistics());
+
+              // 📊 통계 즉시 업데이트 (optimistic update)
+              if (removed) {
+                const updatedStats = photoTracker.getStatistics();
+                console.log(`📊 [EXPANDED-STATS-UPDATE] setStatistics 호출 직전:`, updatedStats);
+                setStatistics(updatedStats);
+                console.log(`📊 [EXPANDED-STATS-COMPLETE] setStatistics 호출 완료 - 통계카드 즉시 반영!`);
+              } else {
+                console.warn(`⚠️ [EXPANDED-STATS-SKIP] photoTracker에서 사진을 찾을 수 없어 통계 업데이트 생략`);
+              }
+
               // ✅ 모달 닫지 않음 - 사용자가 계속 다른 사진들을 볼 수 있도록
               // onClose(); // 주석 처리 - 모달 닫지 않음
               console.log('👁️ [EXPANDED-MODAL-KEEP] 확장 뷰어 유지 - 모달 닫지 않음');
-              
+
               // 성공 메시지 즉시 표시
               toast.success('삭제 완료', '사진이 성공적으로 삭제되었습니다.');
-              
+
               try {
                 // 백그라운드에서 실제 API 삭제
                 const response = await fetch('/api/facility-photos', {
                   method: 'DELETE',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                    photoId: photo.id, 
+                  body: JSON.stringify({
+                    photoId: photo.id,
                     businessName: businessName
                   })
                 });
 
                 const result = await response.json();
-                
+
                 if (!result.success) {
                   // API 실패 시 롤백
                   console.error('❌ [EXPANDED-DELETE-API-FAILED]', result.message);
