@@ -35,35 +35,54 @@ export async function GET(request: NextRequest) {
     const supabase = supabaseAdmin;
     const calcDate = new Date().toISOString().split('T')[0];
 
-    // 1. 사업장 조회 (설치 완료된 사업장만)
-    let businessQuery = supabase
+    // 1. 사업장 조회 (설치 완료된 사업장만) - Supabase 1000개 제한 우회
+    let baseQuery = supabase
       .from('business_info')
       .select('*', { count: 'exact' })
       .eq('is_active', true)
       .eq('is_deleted', false)
-      .not('installation_date', 'is', null)
-      .limit(10000); // 최대 10,000개까지 조회
+      .not('installation_date', 'is', null);
 
     // 날짜 범위 필터 (기간 지정 모드에서만 적용)
     if (startDate && endDate) {
-      businessQuery = businessQuery
+      baseQuery = baseQuery
         .gte('installation_date', startDate)
         .lte('installation_date', endDate);
     }
 
     // 필터 적용
-    if (manufacturer) businessQuery = businessQuery.eq('manufacturer', manufacturer);
-    if (salesOffice) businessQuery = businessQuery.eq('sales_office', salesOffice);
-    if (progressStatus) businessQuery = businessQuery.eq('progress_status', progressStatus);
+    if (manufacturer) baseQuery = baseQuery.eq('manufacturer', manufacturer);
+    if (salesOffice) baseQuery = baseQuery.eq('sales_office', salesOffice);
+    if (progressStatus) baseQuery = baseQuery.eq('progress_status', progressStatus);
 
-    const { data: businesses, error: businessError } = await businessQuery;
+    // 페이지네이션으로 모든 데이터 가져오기
+    let businesses: any[] = [];
+    const pageSize = 1000;
+    let page = 0;
+    let hasMore = true;
 
-    if (businessError) {
-      console.error('❌ [Dashboard Revenue API] Business query error:', businessError);
-      throw businessError;
+    while (hasMore) {
+      const rangeStart = page * pageSize;
+      const rangeEnd = rangeStart + pageSize - 1;
+
+      const { data, error: businessError } = await baseQuery
+        .range(rangeStart, rangeEnd);
+
+      if (businessError) {
+        console.error('❌ [Dashboard Revenue API] Business query error (page', page, '):', businessError);
+        throw businessError;
+      }
+
+      if (data && data.length > 0) {
+        businesses = businesses.concat(data);
+        console.log(`📊 [Dashboard Revenue API] 페이지 ${page} 로드: ${data.length}개 (누적: ${businesses.length}개)`);
+      }
+
+      hasMore = data && data.length === pageSize;
+      page++;
     }
 
-    console.log('📊 [Dashboard Revenue API] Total businesses (before region filter):', businesses?.length || 0);
+    console.log('📊 [Dashboard Revenue API] Total businesses (before region filter):', businesses.length);
 
     // 지역 필터링 (주소에서 지역 추출 - 사업장 관리와 동일)
     let filteredBusinesses = businesses || [];
