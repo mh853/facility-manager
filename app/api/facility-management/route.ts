@@ -152,25 +152,29 @@ export async function PUT(request: NextRequest) {
     if (surveyor_name !== undefined) updateData.surveyor_name = surveyor_name;
     if (surveyor_contact !== undefined) updateData.surveyor_contact = surveyor_contact;
     if (surveyor_company !== undefined) updateData.surveyor_company = surveyor_company;
-    if (survey_date !== undefined) updateData.survey_date = survey_date;
-    if (installation_date !== undefined) updateData.installation_date = installation_date;
-    if (completion_date !== undefined) updateData.completion_date = completion_date;
+    // 날짜 필드: 빈 문자열("")을 null로 변환하여 PostgreSQL DATE 타입 오류 방지
+    if (survey_date !== undefined) updateData.survey_date = survey_date === '' ? null : survey_date;
+    if (installation_date !== undefined) updateData.installation_date = installation_date === '' ? null : installation_date;
+    if (completion_date !== undefined) updateData.completion_date = completion_date === '' ? null : completion_date;
     if (special_notes !== undefined) updateData.special_notes = special_notes;
 
     // Phase별 담당자 정보 업데이트
     if (presurvey_inspector_name !== undefined) updateData.presurvey_inspector_name = presurvey_inspector_name;
     if (presurvey_inspector_contact !== undefined) updateData.presurvey_inspector_contact = presurvey_inspector_contact;
-    if (presurvey_inspector_date !== undefined) updateData.presurvey_inspector_date = presurvey_inspector_date;
+    // 날짜 필드: 빈 문자열("")을 null로 변환
+    if (presurvey_inspector_date !== undefined) updateData.presurvey_inspector_date = presurvey_inspector_date === '' ? null : presurvey_inspector_date;
     if (presurvey_special_notes !== undefined) updateData.presurvey_special_notes = presurvey_special_notes;
 
     if (postinstall_installer_name !== undefined) updateData.postinstall_installer_name = postinstall_installer_name;
     if (postinstall_installer_contact !== undefined) updateData.postinstall_installer_contact = postinstall_installer_contact;
-    if (postinstall_installer_date !== undefined) updateData.postinstall_installer_date = postinstall_installer_date;
+    // 날짜 필드: 빈 문자열("")을 null로 변환
+    if (postinstall_installer_date !== undefined) updateData.postinstall_installer_date = postinstall_installer_date === '' ? null : postinstall_installer_date;
     if (postinstall_special_notes !== undefined) updateData.postinstall_special_notes = postinstall_special_notes;
 
     if (aftersales_technician_name !== undefined) updateData.aftersales_technician_name = aftersales_technician_name;
     if (aftersales_technician_contact !== undefined) updateData.aftersales_technician_contact = aftersales_technician_contact;
-    if (aftersales_technician_date !== undefined) updateData.aftersales_technician_date = aftersales_technician_date;
+    // 날짜 필드: 빈 문자열("")을 null로 변환
+    if (aftersales_technician_date !== undefined) updateData.aftersales_technician_date = aftersales_technician_date === '' ? null : aftersales_technician_date;
     if (aftersales_special_notes !== undefined) updateData.aftersales_special_notes = aftersales_special_notes;
 
     let updateQuery = supabaseAdmin.from('business_info').update(updateData);

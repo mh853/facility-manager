@@ -2,26 +2,153 @@
 
 import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Building2 } from 'lucide-react';
 import AdminLayout from '@/components/ui/AdminLayout';
+import FilterPanel from '@/components/FilterPanel';
+import BusinessCard, { BusinessInfo } from '@/components/BusinessCard';
+import Pagination from '@/components/Pagination';
 
 export default memo(function FacilityPage() {
-  const [businessList, setBusinessList] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [businessList, setBusinessList] = useState<BusinessInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // 메모이제이션된 필터링
-  const filteredList = useMemo(() => {
-    if (!searchTerm.trim()) return businessList;
-    const searchLower = searchTerm.toLowerCase();
-    return businessList.filter(business =>
-      business.toLowerCase().includes(searchLower)
-    );
-  }, [searchTerm, businessList]);
+  // 필터 상태
+  const [searchTerm, setSearchTerm] = useState('');
+  const [inspectorName, setInspectorName] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [photoStatus, setPhotoStatus] = useState<'all' | 'with_photos' | 'without_photos'>('all');
+  const [phases, setPhases] = useState({
+    presurvey: true,
+    postinstall: true,
+    aftersales: true
+  });
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
 
-  // 사업장 목록 로드 최적화
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // 페이지당 10개 표시
+
+  // 실사자명 옵션 추출
+  const inspectorOptions = useMemo(() => {
+    const names = new Set<string>();
+    businessList.forEach(business => {
+      if (business.presurvey_inspector_name) names.add(business.presurvey_inspector_name);
+      if (business.postinstall_installer_name) names.add(business.postinstall_installer_name);
+      if (business.aftersales_technician_name) names.add(business.aftersales_technician_name);
+    });
+    return Array.from(names).sort();
+  }, [businessList]);
+
+  // 필터링 로직
+  const filteredList = useMemo(() => {
+    return businessList.filter(business => {
+      // 1. 사업장명, 주소, 실사자명 통합 검색
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+
+        // 사업장명 검색
+        const matchesBusinessName = business.business_name.toLowerCase().includes(searchLower);
+
+        // 주소 검색
+        const matchesAddress = business.address?.toLowerCase().includes(searchLower) || false;
+
+        // 실사자명 검색 (설치 전 실사자, 설치자, AS 담당자)
+        const matchesInspector =
+          business.presurvey_inspector_name?.toLowerCase().includes(searchLower) ||
+          business.postinstall_installer_name?.toLowerCase().includes(searchLower) ||
+          business.aftersales_technician_name?.toLowerCase().includes(searchLower) ||
+          false;
+
+        // 하나라도 매칭되면 표시
+        if (!matchesBusinessName && !matchesAddress && !matchesInspector) {
+          return false;
+        }
+      }
+
+      // 2. 실사자명 필터
+      if (inspectorName && inspectorName !== 'all') {
+        const hasInspector =
+          business.presurvey_inspector_name === inspectorName ||
+          business.postinstall_installer_name === inspectorName ||
+          business.aftersales_technician_name === inspectorName;
+        if (!hasInspector) return false;
+      }
+
+      // 3. 날짜 범위 필터
+      if (dateFrom || dateTo) {
+        const dates = [
+          business.presurvey_inspector_date,
+          business.postinstall_installer_date,
+          business.aftersales_technician_date
+        ].filter(Boolean);
+
+        if (dates.length === 0) return false;
+
+        const inRange = dates.some(date => {
+          if (!date) return false;
+          if (dateFrom && date < dateFrom) return false;
+          if (dateTo && date > dateTo) return false;
+          return true;
+        });
+
+        if (!inRange) return false;
+      }
+
+      // 4. 사진 등록 여부 필터
+      if (photoStatus === 'with_photos') {
+        if (!business.has_photos) return false;
+      } else if (photoStatus === 'without_photos') {
+        if (business.has_photos) return false;
+      }
+
+      // 5. Phase 필터 (진행 단계)
+      const allPhasesSelected = phases.presurvey && phases.postinstall && phases.aftersales;
+      if (!allPhasesSelected && business.phases) {
+        // 하나라도 선택되어 있으면 해당 phase 진행된 사업장만 표시
+        const hasSelectedPhase =
+          (phases.presurvey && business.phases.presurvey) ||
+          (phases.postinstall && business.phases.postinstall) ||
+          (phases.aftersales && business.phases.aftersales);
+
+        if (!hasSelectedPhase) return false;
+      }
+
+      return true;
+    });
+  }, [businessList, searchTerm, inspectorName, dateFrom, dateTo, photoStatus, phases]);
+
+  // 페이지네이션 적용된 리스트
+  const paginatedList = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredList.slice(startIndex, endIndex);
+  }, [filteredList, currentPage, itemsPerPage]);
+
+  // Phase 변경 핸들러
+  const handlePhaseChange = useCallback((phase: 'presurvey' | 'postinstall' | 'aftersales', checked: boolean) => {
+    setPhases(prev => ({
+      ...prev,
+      [phase]: checked
+    }));
+  }, []);
+
+  // 필터 초기화
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm('');
+    setInspectorName('all');
+    setDateFrom('');
+    setDateTo('');
+    setPhotoStatus('all');
+    setPhases({
+      presurvey: true,
+      postinstall: true,
+      aftersales: true
+    });
+  }, []);
+
+  // 사업장 목록 로드
   const loadBusinessList = useCallback(async () => {
     try {
       setLoading(true);
@@ -34,14 +161,8 @@ export default memo(function FacilityPage() {
       const response = await fetch('/api/business-list', {
         signal: controller.signal,
         headers: {
-          'Cache-Control': 'max-age=300' // 5분 캐시
+          'Cache-Control': 'max-age=300'
         }
-      });
-
-      console.log('🔍 [FRONTEND] API 응답:', {
-        status: response.status,
-        ok: response.ok,
-        url: response.url
       });
 
       clearTimeout(timeoutId);
@@ -58,18 +179,8 @@ export default memo(function FacilityPage() {
       });
 
       if (data.success && data.data && Array.isArray(data.data.businesses)) {
-        // business-list API 응답 구조에 맞춤
         const businesses = data.data.businesses;
-
-        if (businesses.length > 0) {
-          // 객체 배열에서 사업장명만 추출 (문자열 배열로 변환)
-          const businessNames = businesses.map((b: any) =>
-            typeof b === 'string' ? b : b.business_name || b.사업장명 || '알 수 없음'
-          );
-          setBusinessList(businessNames);
-        } else {
-          throw new Error('유효한 사업장 데이터가 없습니다');
-        }
+        setBusinessList(businesses);
       } else {
         throw new Error(data.message || '올바르지 않은 응답 형식');
       }
@@ -77,13 +188,7 @@ export default memo(function FacilityPage() {
       console.error('🔴 [FRONTEND] 사업장 목록 로드 실패:', err);
       const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류';
       setError(`데이터 로드 실패: ${errorMessage}`);
-
-      // 디버깅 정보 표시
-      setBusinessList([
-        '❌ 데이터 로드 실패',
-        `⚠️ 오류: ${errorMessage}`,
-        '🔄 다시 시도하려면 새로고침하세요'
-      ]);
+      setBusinessList([]);
     } finally {
       setLoading(false);
     }
@@ -93,26 +198,15 @@ export default memo(function FacilityPage() {
     loadBusinessList();
   }, [loadBusinessList]);
 
-  // 사업장 선택 핸들러 최적화
-  const goToBusiness = useCallback((businessName: string) => {
-    // 오류 메시지인 경우 페이지 이동 방지
-    if (businessName.includes('❌') || businessName.includes('⚠️') || businessName.includes('🔄')) {
-      alert('실제 사업장을 선택해주세요. 현재 표시된 항목은 오류 메시지입니다.');
-      return;
-    }
+  // 필터 변경 시 첫 페이지로 리셋
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, inspectorName, dateFrom, dateTo, photoStatus, phases]);
 
+  // 사업장 선택 핸들러
+  const goToBusiness = useCallback((businessName: string) => {
     router.push(`/business/${encodeURIComponent(businessName)}`);
   }, [router]);
-
-  // 검색 입력 핸들러 최적화
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-  }, []);
-
-  // 에러 여부 체크 최적화
-  const isErrorMessage = useCallback((business: string) => {
-    return business.includes('❌') || business.includes('⚠️') || business.includes('🔄');
-  }, []);
 
   if (loading) {
     return (
@@ -152,151 +246,67 @@ export default memo(function FacilityPage() {
         </button>
       }
     >
-      <div className="max-w-4xl mx-auto">
-        {/* 안내 메시지 */}
-        <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-lg shadow-sm border border-blue-200 p-6 mb-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2.5 bg-blue-100 rounded-lg">
-              <Building2 className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">사업장 선택</h2>
-              <p className="text-sm text-gray-600">실사를 진행할 사업장을 선택하여 시설 관리를 시작하세요</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-            <div className="flex items-center gap-2 text-blue-700">
-              <span>📊</span>
-              <span>실시간 데이터 연동</span>
-            </div>
-            <div className="flex items-center gap-2 text-blue-700">
-              <span>📷</span>
-              <span>시설 사진 업로드</span>
-            </div>
-            <div className="flex items-center gap-2 text-blue-700">
-              <span>🔧</span>
-              <span>통합 시설 관리</span>
-            </div>
-          </div>
-        </div>
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* 필터 패널 */}
+        <FilterPanel
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          inspectorName={inspectorName}
+          onInspectorChange={setInspectorName}
+          inspectorOptions={inspectorOptions}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+          photoStatus={photoStatus}
+          onPhotoStatusChange={setPhotoStatus}
+          phases={phases}
+          onPhaseChange={handlePhaseChange}
+          filteredCount={filteredList.length}
+          totalCount={businessList.length}
+          isExpanded={isFilterExpanded}
+          onToggleExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
+          onReset={handleResetFilters}
+        />
 
-        {/* 메인 카드 */}
-        <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-          {/* 통계 */}
-          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                등록된 사업장: <strong className="text-blue-600">{businessList.length}개</strong>
-              </p>
-              {businessList.length > 0 && !businessList[0].includes('❌') && !businessList[0].includes('⚠️') && (
-                <span className="flex items-center gap-1 text-green-600 text-sm">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  실시간 연결됨
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* 검색 */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                lang="ko"
-                inputMode="text"
-                placeholder="사업장명 검색..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm transition-all"
-                autoComplete="off"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            {filteredList.length !== businessList.length && (
-              <p className="text-sm text-gray-500 mt-2">
-                {filteredList.length}개의 검색 결과 (전체 {businessList.length}개)
-              </p>
-            )}
-          </div>
-
-          {/* 사업장 리스트 */}
-          <div className="max-h-96 overflow-y-auto">
-            {filteredList.length > 0 ? (
+        {/* 사업장 리스트 */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          {filteredList.length > 0 ? (
+            <>
+              {/* 사업장 카드 리스트 */}
               <div className="divide-y divide-gray-100">
-                {filteredList.map((business, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToBusiness(business)}
-                    className={`w-full px-6 py-4 text-left transition-all group flex items-center gap-3 ${
-                      business.includes('❌') || business.includes('⚠️') || business.includes('🔄')
-                        ? 'hover:bg-red-50 cursor-help'
-                        : 'hover:bg-blue-50 cursor-pointer hover:shadow-sm'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-lg transition-colors ${
-                      business.includes('❌') || business.includes('⚠️') || business.includes('🔄')
-                        ? 'bg-red-100 group-hover:bg-red-200'
-                        : 'bg-gray-100 group-hover:bg-blue-100'
-                    }`}>
-                      <Building2 className={`w-5 h-5 ${
-                        business.includes('❌') || business.includes('⚠️') || business.includes('🔄')
-                          ? 'text-red-500'
-                          : 'text-gray-500 group-hover:text-blue-600'
-                      }`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className={`text-sm font-medium block truncate ${
-                        business.includes('❌') || business.includes('⚠️') || business.includes('🔄')
-                          ? 'text-red-600'
-                          : 'text-gray-900 group-hover:text-blue-600'
-                      }`}>
-                        {business}
-                      </span>
-                      {!isErrorMessage(business) && (
-                        <span className="text-xs text-gray-500">시설 실사 관리</span>
-                      )}
-                    </div>
-                    {!isErrorMessage(business) && (
-                      <div className="text-gray-400 group-hover:text-blue-600 transition-colors">
-                        →
-                      </div>
-                    )}
-                  </button>
+                {paginatedList.map((business) => (
+                  <BusinessCard
+                    key={business.id}
+                    business={business}
+                    onClick={goToBusiness}
+                  />
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="p-4 bg-gray-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <Search className="w-8 h-8 text-gray-400" />
-                </div>
-                <p className="text-gray-500 text-base font-medium">검색 결과가 없습니다</p>
-                <p className="text-gray-400 text-sm mt-1">다른 검색어를 시도해보세요</p>
-              </div>
-            )}
-          </div>
 
-          {/* 푸터 */}
-          <div className="bg-gray-50 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-500">
-                마지막 업데이트: {new Date().toLocaleString('ko-KR')}
+              {/* 페이지네이션 */}
+              <Pagination
+                currentPage={currentPage}
+                totalItems={filteredList.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
+            </>
+          ) : (
+            <div className="text-center py-16">
+              <div className="p-4 bg-gray-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <span className="text-3xl">🔍</span>
               </div>
+              <p className="text-gray-500 text-base font-medium">검색 결과가 없습니다</p>
+              <p className="text-gray-400 text-sm mt-1">다른 검색어나 필터를 시도해보세요</p>
               <button
-                onClick={loadBusinessList}
-                className="text-blue-600 hover:text-blue-800 text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-medium flex items-center gap-1 transition-colors"
+                onClick={handleResetFilters}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
               >
-                🔄 데이터 새로고침
+                필터 초기화
               </button>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </AdminLayout>

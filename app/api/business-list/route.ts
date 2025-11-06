@@ -26,7 +26,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       let hasMore = true;
 
       while (hasMore) {
-        const { data: businessPage, error: businessError } = await supabaseAdmin
+        const { data: businessPage, error: businessError} = await supabaseAdmin
           .from('business_info')
           .select(`
             id,
@@ -58,7 +58,16 @@ export const GET = withApiHandler(async (request: NextRequest) => {
             main_board_replacement,
             multiple_stack,
             additional_cost,
-            negotiation
+            negotiation,
+            presurvey_inspector_name,
+            presurvey_inspector_contact,
+            presurvey_inspector_date,
+            postinstall_installer_name,
+            postinstall_installer_contact,
+            postinstall_installer_date,
+            aftersales_technician_name,
+            aftersales_technician_contact,
+            aftersales_technician_date
           `)
           .eq('is_active', true)
           .eq('is_deleted', false)
@@ -83,16 +92,46 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
       console.log(`✅ [BUSINESS-LIST] 전체 사업장 조회 완료: ${allBusinesses.length}개 (${page}페이지)`);
 
+      // 📷 사진 통계 추가
+      const businessIdsForPhotos = allBusinesses.map((b: any) => b.id);
+      const { data: photoStatsAll, error: photoErrorAll } = await supabaseAdmin
+        .from('uploaded_files')
+        .select('business_id')
+        .in('business_id', businessIdsForPhotos);
+
+      const photoCountMapAll = new Map<string, number>();
+      if (photoStatsAll && !photoErrorAll) {
+        photoStatsAll.forEach((photo: any) => {
+          const count = photoCountMapAll.get(photo.business_id) || 0;
+          photoCountMapAll.set(photo.business_id, count + 1);
+        });
+      }
+
+      const allBusinessesWithPhotoStats = allBusinesses.map((business: any) => ({
+        ...business,
+        photo_count: photoCountMapAll.get(business.id) || 0,
+        has_photos: (photoCountMapAll.get(business.id) || 0) > 0,
+        phases: {
+          presurvey: !!business.presurvey_inspector_name,
+          postinstall: !!business.postinstall_installer_name,
+          aftersales: !!business.aftersales_technician_name
+        }
+      }));
+
       return createSuccessResponse({
-        businesses: allBusinesses || [],
-        count: allBusinesses?.length || 0,
+        businesses: allBusinessesWithPhotoStats || [],
+        count: allBusinessesWithPhotoStats?.length || 0,
         metadata: {
           source: 'business_info_all',
-          totalCount: allBusinesses?.length || 0,
+          totalCount: allBusinessesWithPhotoStats?.length || 0,
           hasPhotoData: true,
           includesFullData: true,
           dataType: 'BusinessInfo[]',
-          criteriaUsed: 'all_businesses'
+          criteriaUsed: 'all_businesses',
+          additionalInfo: {
+            totalPhotos: Array.from(photoCountMapAll.values()).reduce((sum, count) => sum + count, 0),
+            businessesWithPhotos: Array.from(photoCountMapAll.values()).filter(count => count > 0).length
+          }
         }
       });
     }
@@ -133,7 +172,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       });
     }
 
-    // 대기필증이 있는 사업장만 business_info에서 조회
+    // 대기필증이 있는 사업장만 business_info에서 조회 (실사자 정보 포함)
     const { data: businessWithPermits, error: businessError } = await supabaseAdmin
       .from('business_info')
       .select(`
@@ -166,7 +205,16 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         main_board_replacement,
         multiple_stack,
         additional_cost,
-        negotiation
+        negotiation,
+        presurvey_inspector_name,
+        presurvey_inspector_contact,
+        presurvey_inspector_date,
+        postinstall_installer_name,
+        postinstall_installer_contact,
+        postinstall_installer_date,
+        aftersales_technician_name,
+        aftersales_technician_contact,
+        aftersales_technician_date
       `)
       .in('id', businessIds)
       .eq('is_active', true)
@@ -228,27 +276,55 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         }
       });
     }
-    
-    // 대기필증이 등록된 BusinessInfo 객체만 반환
-    console.log(`📋 [BUSINESS-LIST] 대기필증 보유 사업장 객체 반환: ${businessWithPermits.length}개`);
+
+    // 📷 각 사업장의 사진 개수 조회
+    const { data: photoStats, error: photoError } = await supabaseAdmin
+      .from('uploaded_files')
+      .select('business_id')
+      .in('business_id', businessIds);
+
+    // 사업장별 사진 개수 계산
+    const photoCountMap = new Map<string, number>();
+    if (photoStats && !photoError) {
+      photoStats.forEach((photo: any) => {
+        const count = photoCountMap.get(photo.business_id) || 0;
+        photoCountMap.set(photo.business_id, count + 1);
+      });
+    }
+
+    // 사진 통계 및 phase 진행 상태를 각 사업장 객체에 추가
+    const businessesWithPhotoStats = businessWithPermits.map((business: any) => ({
+      ...business,
+      photo_count: photoCountMap.get(business.id) || 0,
+      has_photos: (photoCountMap.get(business.id) || 0) > 0,
+      phases: {
+        presurvey: !!business.presurvey_inspector_name,
+        postinstall: !!business.postinstall_installer_name,
+        aftersales: !!business.aftersales_technician_name
+      }
+    }));
+
+    console.log(`📋 [BUSINESS-LIST] 대기필증 보유 사업장 객체 반환: ${businessesWithPhotoStats.length}개 (사진 통계 포함)`);
 
     return createSuccessResponse({
-      businesses: businessWithPermits,
-      count: businessWithPermits.length,
+      businesses: businessesWithPhotoStats,
+      count: businessesWithPhotoStats.length,
       metadata: {
         source: 'business_info_with_air_permits',
-        totalCount: businessWithPermits.length,
+        totalCount: businessesWithPhotoStats.length,
         airPermitBusinessCount: businessIds.length,
         hasPhotoData: true,
         includesFullData: true,
         dataType: 'BusinessInfo[]',
         criteriaUsed: 'air_permit_required',
         additionalInfo: {
-          avgDevicesPerBusiness: businessWithPermits.reduce((sum: number, b: any) =>
+          avgDevicesPerBusiness: businessesWithPhotoStats.reduce((sum: number, b: any) =>
             sum + (b.ph_meter || 0) + (b.differential_pressure_meter || 0) +
             (b.temperature_meter || 0) + (b.discharge_current_meter || 0) +
             (b.fan_current_meter || 0) + (b.pump_current_meter || 0) +
-            (b.gateway || 0), 0) / businessWithPermits.length
+            (b.gateway || 0), 0) / businessesWithPhotoStats.length,
+          totalPhotos: Array.from(photoCountMap.values()).reduce((sum, count) => sum + count, 0),
+          businessesWithPhotos: Array.from(photoCountMap.values()).filter(count => count > 0).length
         }
       }
     });
