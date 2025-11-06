@@ -225,8 +225,31 @@ export async function POST(request: NextRequest) {
       console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name}: 제조사 '${manufacturer}'의 원가 데이터가 없습니다. 매출 계산이 0이 될 수 있습니다.`);
     }
 
-    // 3. 영업점 비용 설정 조회
+    // 3. 영업비용 설정 조회: 영업점별 + 제조사별 수수료율 우선
     const salesOffice = businessInfo.sales_office || '기본';
+
+    // 제조사명을 DB 코드로 변환 (한글 → 영문 코드)
+    const manufacturerCodeMap: Record<string, string> = {
+      '에코센스': 'ecosense',
+      '크린어스': 'cleanearth',
+      '가이아씨앤에스': 'gaia_cns',
+      '이브이에스': 'evs'
+    };
+    const manufacturerCode = manufacturerCodeMap[manufacturer] || manufacturer.toLowerCase();
+
+    // 3-1. 영업점별 + 제조사별 수수료율 조회 (최우선)
+    const { data: commissionRate } = await supabaseAdmin
+      .from('sales_office_commission_rates')
+      .select('*')
+      .eq('sales_office', salesOffice)
+      .eq('manufacturer', manufacturerCode)
+      .lte('effective_from', calcDate)
+      .or(`effective_to.is.null,effective_to.gte.${calcDate}`)
+      .order('effective_from', { ascending: false })
+      .limit(1)
+      .single();
+
+    // 3-2. 영업점별 기본 설정 조회 (제조사별 수수료율 없을 경우 폴백)
     const { data: salesSettings } = await supabaseAdmin
       .from('sales_office_cost_settings')
       .select('*')
@@ -237,14 +260,29 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .single();
 
-    // 기본 영업비용 설정 (10%)
+    // 기본 영업비용 설정 (최종 폴백, 10%)
     const defaultCommission = {
       commission_type: 'percentage',
       commission_percentage: 10.0,
       commission_per_unit: null
     };
 
-    const commissionSettings = salesSettings || defaultCommission;
+    // 우선순위: 제조사별 수수료율 > 영업점별 설정 > 기본값
+    let commissionSettings;
+    if (commissionRate) {
+      commissionSettings = {
+        commission_type: 'percentage',
+        commission_percentage: commissionRate.commission_rate,
+        commission_per_unit: null
+      };
+      console.log(`✅ [COMMISSION] 제조사별 수수료율 적용: ${salesOffice} - ${manufacturer} → ${commissionRate.commission_rate}%`);
+    } else if (salesSettings) {
+      commissionSettings = salesSettings;
+      console.log(`✅ [COMMISSION] 영업점별 기본 설정 적용: ${salesOffice} → ${salesSettings.commission_percentage || salesSettings.commission_per_unit}${salesSettings.commission_type === 'percentage' ? '%' : '원/대'}`);
+    } else {
+      commissionSettings = defaultCommission;
+      console.log(`⚠️ [COMMISSION] 기본 설정 적용: 10%`);
+    }
 
     // 4. 실사비용 설정 조회
     const { data: surveyCosts } = await supabaseAdmin

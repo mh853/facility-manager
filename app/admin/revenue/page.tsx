@@ -106,19 +106,6 @@ function RevenueDashboard() {
   const { user } = useAuth();
   const userPermission = user?.permission_level || 0;
 
-  // 🔍 권한 디버깅 - 상세한 권한 정보 로깅
-  useEffect(() => {
-    console.log('🔍 [REVENUE-PAGE] 사용자 권한 디버깅:', {
-      user: user,
-      userPermission: userPermission,
-      permission_level: user?.permission_level,
-      hasLevel3Access: userPermission >= 3,
-      hasLevel4Access: userPermission >= 4,
-      buttonShouldBeEnabled: userPermission >= 3,
-      buttonDisabledCheck: userPermission < 3,
-      rawUser: JSON.stringify(user, null, 2)
-    });
-  }, [user, userPermission]);
 
   useEffect(() => {
     // 가격 데이터 먼저 로드
@@ -156,7 +143,6 @@ function RevenueDashboard() {
           govPrices[item.equipment_type] = item.official_price;
         });
         setOfficialPrices(govPrices);
-        console.log('✅ [PRICING] 환경부 고시가 로드:', Object.keys(govPrices).length, '개');
       }
 
       // 제조사별 원가 로드 (모든 제조사)
@@ -174,7 +160,6 @@ function RevenueDashboard() {
           manuPrices[item.manufacturer][item.equipment_type] = item.cost_price;
         });
         setManufacturerPrices(manuPrices);
-        console.log('✅ [PRICING] 제조사별 원가 로드:', Object.keys(manuPrices).length, '개 제조사');
       }
 
       // 영업점별 비용 설정 로드
@@ -189,7 +174,6 @@ function RevenueDashboard() {
           salesSettings[item.sales_office] = item;
         });
         setSalesOfficeSettings(salesSettings);
-        console.log('✅ [COST-SETTINGS] 영업점 비용 설정 로드:', Object.keys(salesSettings).length, '개 영업점');
       }
 
       // 실사비용 설정 로드
@@ -204,7 +188,6 @@ function RevenueDashboard() {
           surveyCosts[item.survey_type] = item.base_cost;
         });
         setSurveyCostSettings(surveyCosts);
-        console.log('✅ [COST-SETTINGS] 실사비용 설정 로드:', Object.keys(surveyCosts).length, '개 유형');
       }
 
       // 기본 설치비 로드
@@ -219,7 +202,6 @@ function RevenueDashboard() {
           installCosts[item.equipment_type] = item.base_installation_cost;
         });
         setBaseInstallationCosts(installCosts);
-        console.log('✅ [COST-SETTINGS] 기본 설치비 로드:', Object.keys(installCosts).length, '개 기기');
       }
 
       // 제조사별 수수료율 로드
@@ -238,8 +220,6 @@ function RevenueDashboard() {
         });
         setCommissionRates(rates);
         setCommissionRatesLoaded(true);
-        console.log('✅ [COMMISSION] 제조사별 수수료율 로드:', Object.keys(rates).length, '개 영업점');
-        console.log('📊 [COMMISSION] 로드된 수수료율 상세:', rates);
       } else {
         console.warn('⚠️ [COMMISSION] 수수료율 로드 실패:', { success: commissionData.success, hasOffices: !!commissionData.data?.offices });
       }
@@ -377,17 +357,6 @@ function RevenueDashboard() {
     });
 
     // 일신산업 상세 로그 출력
-    if (business.business_name && business.business_name.includes('일신산업')) {
-      console.log('🔍 [(주)일신산업] 매입금액 계산 상세:', {
-        사업장명: business.business_name,
-        제조사: businessManufacturer,
-        기기목록: equipmentDetails,
-        총매출: totalRevenue,
-        총매입: totalCost,
-        기본설치비: totalBaseInstallationCost,
-        가격로드상태: pricesLoaded ? '완료' : '미완료'
-      });
-    }
 
     // 추가공사비 및 협의사항 반영 (문자열을 숫자로 변환)
     const additionalCost = business.additional_cost
@@ -418,29 +387,10 @@ function RevenueDashboard() {
     let salesCommission = 0;
     const salesOffice = business.sales_office || '';
 
-    // 디버깅: 수수료 계산 조건 확인
-    console.log(`🔍 [${business.business_name}] 수수료 계산 조건:`, {
-      commissionRatesLoaded,
-      salesOffice,
-      rawManufacturer,
-      businessManufacturer,
-      hasOfficeInRates: !!commissionRates[salesOffice],
-      hasManufacturerRate: commissionRates[salesOffice] ? commissionRates[salesOffice][businessManufacturer] : 'N/A',
-      availableOffices: Object.keys(commissionRates),
-      availableManufacturers: commissionRates[salesOffice] ? Object.keys(commissionRates[salesOffice]) : []
-    });
-
     // 1순위: 제조사별 수수료율
     if (commissionRatesLoaded && salesOffice && commissionRates[salesOffice] && commissionRates[salesOffice][businessManufacturer] !== undefined) {
       const commissionRate = commissionRates[salesOffice][businessManufacturer];
       salesCommission = commissionBaseRevenue * (commissionRate / 100);
-      console.log(`💰 [${business.business_name}] 제조사별 수수료율 적용:`, {
-        영업점: salesOffice,
-        제조사: businessManufacturer,
-        수수료율: `${commissionRate}%`,
-        계산기준: commissionBaseRevenue,
-        계산결과: salesCommission
-      });
     }
     // 2순위: 영업점별 기본 설정
     else if (costSettingsLoaded && salesOffice && salesOfficeSettings[salesOffice]) {
@@ -456,24 +406,10 @@ function RevenueDashboard() {
         // 설정이 있지만 값이 없으면 기본값 사용
         salesCommission = commissionBaseRevenue * 0.10;
       }
-      console.log(`💰 [${business.business_name}] 영업점 기본 설정 적용:`, {
-        영업점: salesOffice,
-        방식: setting.commission_type,
-        설정값: setting.commission_type === 'percentage' ? `${setting.commission_percentage}%` : `${setting.commission_per_unit}원/대`,
-        계산기준: setting.commission_type === 'percentage' ? commissionBaseRevenue : '기기수량',
-        계산결과: salesCommission
-      });
     }
     // 3순위: 기본값 10%
     else {
       salesCommission = commissionBaseRevenue * 0.10;
-      if (salesOffice) {
-        console.log(`⚠️ [${business.business_name}] 수수료 설정 없음, 기본값 10% 사용:`, {
-          salesOffice,
-          manufacturer: businessManufacturer,
-          계산기준: commissionBaseRevenue
-        });
-      }
     }
 
     // 실사비용 계산 (실사일이 있는 경우에만 비용 추가)
@@ -483,26 +419,20 @@ function RevenueDashboard() {
       // 견적실사 비용 (견적실사일이 있고 빈 문자열이 아닌 경우에만)
       if (business.estimate_survey_date && business.estimate_survey_date.trim() !== '') {
         surveyCosts += surveyCostSettings['estimate'] || 0;
-        console.log(`✅ [${business.business_name}] 견적실사 비용 추가: ${surveyCostSettings['estimate']} (실사일: ${business.estimate_survey_date})`);
       }
 
       // 착공전실사 비용 (착공전실사일이 있고 빈 문자열이 아닌 경우에만)
       if (business.pre_construction_survey_date && business.pre_construction_survey_date.trim() !== '') {
         surveyCosts += surveyCostSettings['pre_construction'] || 0;
-        console.log(`✅ [${business.business_name}] 착공전실사 비용 추가: ${surveyCostSettings['pre_construction']} (실사일: ${business.pre_construction_survey_date})`);
       }
 
       // 준공실사 비용 (준공실사일이 있고 빈 문자열이 아닌 경우에만)
       if (business.completion_survey_date && business.completion_survey_date.trim() !== '') {
         surveyCosts += surveyCostSettings['completion'] || 0;
-        console.log(`✅ [${business.business_name}] 준공실사 비용 추가: ${surveyCostSettings['completion']} (실사일: ${business.completion_survey_date})`);
       }
-
-      console.log(`💰 [${business.business_name}] 총 실사비용: ${surveyCosts}`);
     } else {
       // DB 로드 실패 → 실사비용 0으로 설정
       surveyCosts = 0;
-      console.log(`⚠️ [${business.business_name}] 실사비용 설정 없음, 비용 0원`);
     }
 
     // 총 이익 = 매출 - 매입
@@ -545,10 +475,6 @@ function RevenueDashboard() {
 
       if (data.success) {
         const businessData = data.data || [];
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🏢 [REVENUE] 사업장 데이터 로드:', businessData.length, '개');
-          console.log('📊 [REVENUE] API 응답 count:', data.count, '개');
-        }
 
         // 각 사업장에 대해 자동 매출 계산 적용
         const businessesWithCalculation = businessData.map((business: any) => {
@@ -559,9 +485,6 @@ function RevenueDashboard() {
           };
         });
 
-        if (process.env.NODE_ENV === 'development') {
-          console.log('💰 [REVENUE] 자동 계산 완료:', businessesWithCalculation.length, '개');
-        }
         setBusinesses(businessesWithCalculation);
       } else {
         console.error('🔴 [REVENUE] 사업장 로드 실패:', data.message);
@@ -614,8 +537,6 @@ function RevenueDashboard() {
         // 데이터 다시 로드
         await loadBusinesses();
         await loadCalculations();
-
-        console.log('✅ [RECALCULATE] 재계산 완료 및 데이터 갱신');
       } else {
         alert(`❌ 재계산 실패: ${data.message}`);
         console.error('❌ [RECALCULATE] 실패:', data.message);
@@ -633,8 +554,6 @@ function RevenueDashboard() {
         return;
       }
 
-      console.log('🔄 [RECALCULATE-ALL] 전체 재계산 시작');
-
       const response = await fetch('/api/revenue/recalculate', {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -649,8 +568,6 @@ function RevenueDashboard() {
         // 데이터 다시 로드
         await loadBusinesses();
         await loadCalculations();
-
-        console.log('✅ [RECALCULATE-ALL] 전체 재계산 완료 및 데이터 갱신');
       } else {
         alert(`❌ 전체 재계산 실패: ${data.message}`);
         console.error('❌ [RECALCULATE-ALL] 실패:', data.message);
@@ -767,7 +684,6 @@ function RevenueDashboard() {
         const hasCalculation = calculations.some(c => c.business_id === b.id);
         if (hasCalculation) {
           skippedCount++;
-          console.log(`⏭️ [BULK-CALCULATE] ${b.business_name} - 이미 계산됨, 건너뜀`);
         }
         return !hasCalculation;
       });
@@ -777,8 +693,6 @@ function RevenueDashboard() {
         setIsCalculating(false);
         return;
       }
-
-      console.log(`🚀 [BULK-CALCULATE] 시작: ${businessesToCalculate.length}개 사업장 계산 (${skippedCount}개 건너뜀)`);
 
       for (const business of businessesToCalculate) {
         try {
@@ -795,7 +709,6 @@ function RevenueDashboard() {
           const data = await response.json();
           if (data.success) {
             successCount++;
-            console.log(`✅ [BULK-CALCULATE] ${business.business_name} 계산 완료`);
           } else {
             errorCount++;
             console.error(`❌ [BULK-CALCULATE] ${business.business_name} 계산 실패:`, data.message);
@@ -1632,15 +1545,6 @@ function RevenueDashboard() {
                             <td className="border border-gray-300 px-4 py-2">
                               <button
                                 onClick={() => {
-                                  console.log('🔍 [MODAL-DEBUG] 선택된 사업장 데이터:', {
-                                    name: business.business_name,
-                                    additional_cost: business.additional_cost,
-                                    negotiation: business.negotiation,
-                                    total_revenue: business.total_revenue,
-                                    multiple_stack: business.multiple_stack,
-                                    vpn_wireless: business.vpn_wireless,
-                                    gateway: business.gateway
-                                  });
                                   setSelectedEquipmentBusiness(business);
                                   setShowEquipmentModal(true);
                                 }}
@@ -1769,9 +1673,7 @@ function RevenueDashboard() {
                   onClick={async () => {
                     setShowEquipmentModal(false);
                     // 모달 닫을 때 매출 데이터 자동 새로고침
-                    console.log('🔄 [MODAL-CLOSE] 모달 닫힘, 매출 데이터 새로고침 시작');
                     await loadCalculations();
-                    console.log('✅ [MODAL-CLOSE] 매출 데이터 새로고침 완료');
                   }}
                   className="text-gray-400 hover:text-gray-600 flex-shrink-0"
                 >
@@ -2283,9 +2185,7 @@ function RevenueDashboard() {
                   onClick={async () => {
                     setShowEquipmentModal(false);
                     // 모달 닫을 때 매출 데이터 자동 새로고침
-                    console.log('🔄 [MODAL-CLOSE] 모달 닫힘, 매출 데이터 새로고침 시작');
                     await loadCalculations();
-                    console.log('✅ [MODAL-CLOSE] 매출 데이터 새로고침 완료');
                   }}
                   className="w-full px-4 py-2 md:py-3 text-sm md:text-base bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
                 >

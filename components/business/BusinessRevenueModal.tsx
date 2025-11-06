@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { InvoiceDisplay } from './InvoiceDisplay';
+import { TokenManager } from '@/lib/api-client';
 
 interface BusinessRevenueModalProps {
   business: any;
@@ -10,28 +11,136 @@ interface BusinessRevenueModalProps {
   userPermission: number;
 }
 
+interface EquipmentBreakdownItem {
+  equipment_type: string;
+  equipment_name: string;
+  quantity: number;
+  unit_official_price: number;
+  unit_manufacturer_price: number;
+  unit_installation_cost: number;
+  total_revenue: number;
+  total_cost: number;
+  total_installation: number;
+  profit: number;
+}
+
+interface CalculatedData {
+  total_revenue: number;
+  total_cost: number;
+  gross_profit: number;
+  sales_commission: number;
+  survey_costs: number;
+  installation_costs: number;
+  additional_installation_revenue: number;
+  net_profit: number;
+  has_calculation: boolean;
+  equipment_breakdown?: EquipmentBreakdownItem[];
+}
+
 export default function BusinessRevenueModal({
   business,
   isOpen,
   onClose,
   userPermission
 }: BusinessRevenueModalProps) {
-  if (!isOpen || !business) return null;
+  const [calculatedData, setCalculatedData] = useState<CalculatedData | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const formatCurrency = (amount: number | string) => {
-    const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+  // API에서 최신 계산 결과 가져오기 (Hook은 항상 최상위에서 호출)
+  useEffect(() => {
+    // 조건 체크는 Hook 내부에서 수행
+    if (!isOpen || !business || !business.id) {
+      return;
+    }
+
+    const fetchLatestCalculation = async () => {
+      setIsRefreshing(true);
+      setError(null);
+
+      try {
+        const token = TokenManager.getToken();
+        const response = await fetch('/api/revenue/calculate', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            business_id: business.id,
+            save_result: false // 조회만 하고 저장하지 않음
+          })
+        });
+
+        const data = await response.json();
+        console.log('🔍 [BusinessRevenueModal] API 응답:', data);
+
+        if (data.success && data.data && data.data.calculation) {
+          console.log('✅ [BusinessRevenueModal] calculatedData 설정:', data.data.calculation);
+          setCalculatedData(data.data.calculation);
+        } else {
+          console.error('❌ [BusinessRevenueModal] 응답 실패:', data.message);
+          setError(data.message || '계산 결과를 가져올 수 없습니다.');
+        }
+      } catch (err) {
+        console.error('매출 계산 오류:', err);
+        setError('계산 중 오류가 발생했습니다.');
+      } finally {
+        setIsRefreshing(false);
+      }
+    };
+
+    fetchLatestCalculation();
+  }, [isOpen, business?.id]);
+
+  const formatCurrency = (amount: number | string | undefined) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : (amount || 0);
     return `₩${numAmount.toLocaleString()}`;
   };
 
   const isReadOnly = userPermission < 2;
 
+  // 모달이 닫혀있거나 business 데이터가 없으면 null 반환 (JSX 조건부 렌더링)
+  if (!isOpen || !business) {
+    return null;
+  }
+
+  // 표시할 데이터: API 계산 결과 우선, 없으면 기존 business 객체 사용
+  const displayData = calculatedData || {
+    total_revenue: business.total_revenue || 0,
+    total_cost: business.total_cost || 0,
+    gross_profit: business.gross_profit || 0,
+    sales_commission: business.sales_commission || 0,
+    survey_costs: business.survey_costs || 0,
+    installation_costs: business.installation_costs || 0,
+    additional_installation_revenue: business.additional_installation_revenue || 0,
+    net_profit: business.net_profit || 0,
+    has_calculation: false
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-900">
-            {business.business_name || business.사업장명} - 기기 상세 정보
-          </h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-bold text-gray-900">
+              {business.business_name || business.사업장명} - 기기 상세 정보
+            </h3>
+            {isRefreshing && (
+              <div className="flex items-center gap-2 text-sm text-blue-600">
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>계산 중...</span>
+              </div>
+            )}
+            {calculatedData && (
+              <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                최신 계산 완료
+              </span>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
@@ -43,6 +152,16 @@ export default function BusinessRevenueModal({
         </div>
 
         <div className="p-6 space-y-6">
+          {/* 에러 메시지 */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800">
+                ⚠️ {error}
+                <br />
+                <span className="text-xs text-red-600 mt-1">기존 저장된 데이터를 표시합니다.</span>
+              </p>
+            </div>
+          )}
           {/* 사업장 기본 정보 */}
           <div className="bg-gray-50 rounded-lg p-4 space-y-2">
             <div className="grid grid-cols-2 gap-4">
@@ -81,39 +200,39 @@ export default function BusinessRevenueModal({
               <div className="bg-green-50 rounded-lg p-4">
                 <p className="text-xs font-medium text-green-600 mb-1">매출금액</p>
                 <p className="text-lg font-bold text-green-700">
-                  {formatCurrency(business.total_revenue || 0)}
+                  {formatCurrency(displayData.total_revenue)}
                 </p>
               </div>
               <div className="bg-red-50 rounded-lg p-4">
                 <p className="text-xs font-medium text-red-600 mb-1">매입금액</p>
                 <p className="text-lg font-bold text-red-700">
-                  {formatCurrency(business.total_cost || 0)}
+                  {formatCurrency(displayData.total_cost)}
                 </p>
               </div>
-              <div className={`rounded-lg p-4 ${(business.net_profit || 0) >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
-                <p className={`text-xs font-medium mb-1 ${(business.net_profit || 0) >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>이익금액</p>
-                <p className={`text-lg font-bold ${(business.net_profit || 0) >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
-                  {formatCurrency(business.net_profit || 0)}
+              <div className={`rounded-lg p-4 ${displayData.net_profit >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
+                <p className={`text-xs font-medium mb-1 ${displayData.net_profit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>순이익</p>
+                <p className={`text-lg font-bold ${displayData.net_profit >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+                  {formatCurrency(displayData.net_profit)}
                 </p>
               </div>
               <div className="bg-purple-50 rounded-lg p-4">
                 <p className="text-xs font-medium text-purple-600 mb-1">이익률</p>
                 <p className="text-lg font-bold text-purple-700">
-                  {business.total_revenue > 0
-                    ? (((business.net_profit || 0) / business.total_revenue) * 100).toFixed(1)
+                  {displayData.total_revenue > 0
+                    ? ((displayData.net_profit / displayData.total_revenue) * 100).toFixed(1)
                     : '0'}%
                 </p>
               </div>
             </div>
 
-            {/* 추가설치비 (설치팀 요청 추가 비용) */}
-            {(business.installation_extra_cost || 0) > 0 && (
-              <div className="bg-orange-50 rounded-lg p-4">
-                <p className="text-xs font-medium text-orange-600 mb-1">추가설치비</p>
-                <p className="text-lg font-bold text-orange-700">
-                  {formatCurrency(business.installation_extra_cost || 0)}
+            {/* 추가설치비 (매출에 포함) */}
+            {displayData.additional_installation_revenue > 0 && (
+              <div className="bg-cyan-50 rounded-lg p-4">
+                <p className="text-xs font-medium text-cyan-600 mb-1">추가설치비 (매출 포함)</p>
+                <p className="text-lg font-bold text-cyan-700">
+                  {formatCurrency(displayData.additional_installation_revenue)}
                 </p>
-                <p className="text-xs text-orange-600 mt-1">설치팀 추가 비용 (순이익에서 차감)</p>
+                <p className="text-xs text-cyan-600 mt-1">설치팀 추가 수입 (매출에 반영됨)</p>
               </div>
             )}
 
@@ -149,15 +268,22 @@ export default function BusinessRevenueModal({
                 <div className="flex items-center justify-between border-b border-blue-200 pb-2">
                   <span>기본 매출 (기기 합계)</span>
                   <span className="font-mono">{formatCurrency(
-                    Number(business.total_revenue || 0) -
-                    Number(business.additional_cost || 0) +
-                    Number(business.negotiation || 0)
+                    displayData.total_revenue -
+                    (business.additional_cost || 0) -
+                    (displayData.additional_installation_revenue || 0) +
+                    (business.negotiation || 0)
                   )}</span>
                 </div>
                 {business.additional_cost > 0 && (
                   <div className="flex items-center justify-between text-green-700">
                     <span>+ 추가공사비</span>
                     <span className="font-mono">+{formatCurrency(business.additional_cost)}</span>
+                  </div>
+                )}
+                {displayData.additional_installation_revenue > 0 && (
+                  <div className="flex items-center justify-between text-cyan-700">
+                    <span>+ 추가설치비</span>
+                    <span className="font-mono">+{formatCurrency(displayData.additional_installation_revenue)}</span>
                   </div>
                 )}
                 {business.negotiation > 0 && (
@@ -168,7 +294,7 @@ export default function BusinessRevenueModal({
                 )}
                 <div className="flex items-center justify-between border-t-2 border-blue-300 pt-2 font-bold text-blue-900">
                   <span>= 최종 매출금액</span>
-                  <span className="font-mono text-lg">{formatCurrency(business.total_revenue || 0)}</span>
+                  <span className="font-mono text-lg">{formatCurrency(displayData.total_revenue)}</span>
                 </div>
               </div>
             </div>
@@ -183,118 +309,57 @@ export default function BusinessRevenueModal({
                   <tr className="bg-gray-50">
                     <th className="border border-gray-300 px-4 py-2 text-left">기기명</th>
                     <th className="border border-gray-300 px-4 py-2 text-center">수량</th>
-                    <th className="border border-gray-300 px-4 py-2 text-right">단가 (원)</th>
-                    <th className="border border-gray-300 px-4 py-2 text-right">합계 (원)</th>
+                    <th className="border border-gray-300 px-4 py-2 text-right">매출단가</th>
+                    <th className="border border-gray-300 px-4 py-2 text-right">매입단가</th>
+                    <th className="border border-gray-300 px-4 py-2 text-right">매출합계</th>
+                    <th className="border border-gray-300 px-4 py-2 text-right">매입합계</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(() => {
-                    const equipmentFields = [
-                      { key: 'ph_meter', name: 'PH센서' },
-                      { key: 'differential_pressure_meter', name: '차압계' },
-                      { key: 'temperature_meter', name: '온도계' },
-                      { key: 'discharge_current_meter', name: '배출전류계' },
-                      { key: 'fan_current_meter', name: '송풍전류계' },
-                      { key: 'pump_current_meter', name: '펌프전류계' },
-                      { key: 'gateway', name: '게이트웨이' },
-                      { key: 'vpn_wired', name: 'VPN(유선)' },
-                      { key: 'vpn_wireless', name: 'VPN(무선)' },
-                      { key: 'explosion_proof_differential_pressure_meter_domestic', name: '방폭차압계(국산)' },
-                      { key: 'explosion_proof_temperature_meter_domestic', name: '방폭온도계(국산)' },
-                      { key: 'expansion_device', name: '확장디바이스' },
-                      { key: 'relay_8ch', name: '중계기(8채널)' },
-                      { key: 'relay_16ch', name: '중계기(16채널)' },
-                      { key: 'main_board_replacement', name: '메인보드교체' },
-                      { key: 'multiple_stack', name: '복수굴뚝' }
-                    ];
+                    // API에서 받은 equipment_breakdown 사용
+                    const equipmentBreakdown = displayData.equipment_breakdown || [];
 
-                    const equipmentList = equipmentFields
-                      .filter(field => {
-                        const quantity = business[field.key];
-                        return quantity && quantity > 0;
-                      })
-                      .map(field => {
-                        const quantity = business[field.key];
-                        const estimatedPrices: Record<string, number> = {
-                          'ph_meter': 1000000,
-                          'differential_pressure_meter': 400000,
-                          'temperature_meter': 500000,
-                          'discharge_current_meter': 300000,
-                          'fan_current_meter': 300000,
-                          'pump_current_meter': 300000,
-                          'gateway': 1600000,
-                          'vpn_wired': 400000,
-                          'vpn_wireless': 400000,
-                          'explosion_proof_differential_pressure_meter_domestic': 800000,
-                          'explosion_proof_temperature_meter_domestic': 1500000,
-                          'expansion_device': 800000,
-                          'relay_8ch': 300000,
-                          'relay_16ch': 1600000,
-                          'main_board_replacement': 350000,
-                          'multiple_stack': 480000
-                        };
-                        const unitPrice = estimatedPrices[field.key] || 0;
-                        const total = unitPrice * quantity;
-
-                        return (
-                          <tr key={field.key} className="hover:bg-gray-50">
-                            <td className="border border-gray-300 px-4 py-2">{field.name}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center font-medium">{quantity}대</td>
-                            <td className="border border-gray-300 px-4 py-2 text-right font-mono">
-                              {unitPrice.toLocaleString()}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-right font-mono font-medium">
-                              {total.toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      });
-
-                    if (equipmentList.length === 0) {
+                    if (equipmentBreakdown.length === 0) {
                       return (
                         <tr>
-                          <td colSpan={4} className="border border-gray-300 px-4 py-6 text-center text-gray-500">
+                          <td colSpan={6} className="border border-gray-300 px-4 py-6 text-center text-gray-500">
                             등록된 기기 정보가 없습니다.
                           </td>
                         </tr>
                       );
                     }
 
-                    const totalEquipment = equipmentFields.reduce((sum, field) => {
-                      return sum + (business[field.key] || 0);
-                    }, 0);
-
-                    const totalAmount = equipmentFields.reduce((sum, field) => {
-                      const quantity = business[field.key] || 0;
-                      const estimatedPrices: Record<string, number> = {
-                        'ph_meter': 1000000,
-                        'differential_pressure_meter': 400000,
-                        'temperature_meter': 500000,
-                        'discharge_current_meter': 300000,
-                        'fan_current_meter': 300000,
-                        'pump_current_meter': 300000,
-                        'gateway': 1600000,
-                        'vpn_wired': 400000,
-                        'vpn_wireless': 400000,
-                        'explosion_proof_differential_pressure_meter_domestic': 800000,
-                        'explosion_proof_temperature_meter_domestic': 1500000,
-                        'expansion_device': 800000,
-                        'relay_8ch': 300000,
-                        'relay_16ch': 1600000,
-                        'main_board_replacement': 350000,
-                        'multiple_stack': 480000
-                      };
-                      const unitPrice = estimatedPrices[field.key] || 0;
-                      return sum + (unitPrice * quantity);
-                    }, 0);
+                    const totalRevenue = equipmentBreakdown.reduce((sum, item) => sum + (item.total_revenue || 0), 0);
+                    const totalCost = equipmentBreakdown.reduce((sum, item) => sum + (item.total_cost || 0), 0);
 
                     return (
                       <>
-                        {equipmentList}
+                        {equipmentBreakdown.map((item: any) => (
+                          <tr key={item.equipment_type} className="hover:bg-gray-50">
+                            <td className="border border-gray-300 px-4 py-2">{item.equipment_name}</td>
+                            <td className="border border-gray-300 px-4 py-2 text-center font-medium">{item.quantity}대</td>
+                            <td className="border border-gray-300 px-4 py-2 text-right font-mono">
+                              {item.unit_official_price.toLocaleString()}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-2 text-right font-mono text-red-600">
+                              {item.unit_manufacturer_price.toLocaleString()}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-2 text-right font-mono font-medium">
+                              {item.total_revenue.toLocaleString()}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-2 text-right font-mono font-medium text-red-600">
+                              {item.total_cost.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
                         <tr className="bg-blue-50 font-bold">
-                          <td className="border border-gray-300 px-4 py-2" colSpan={3}>합계</td>
+                          <td className="border border-gray-300 px-4 py-2" colSpan={4}>합계</td>
                           <td className="border border-gray-300 px-4 py-2 text-right font-mono text-blue-600">
-                            {totalAmount.toLocaleString()}원
+                            {totalRevenue.toLocaleString()}원
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2 text-right font-mono text-red-600">
+                            {totalCost.toLocaleString()}원
                           </td>
                         </tr>
                       </>
@@ -304,7 +369,7 @@ export default function BusinessRevenueModal({
               </table>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              * 단가는 환경부 고시가 기준 추정 금액이며, 실제 매출 계산 시 최신 고시가가 적용됩니다.
+              * 매출단가는 환경부 고시가, 매입단가는 제조사별 원가가 적용됩니다. {calculatedData ? '최신 DB 가격이 적용되었습니다.' : '저장된 계산 결과입니다.'}
             </p>
           </div>
 
@@ -345,15 +410,11 @@ export default function BusinessRevenueModal({
                     </span>
                   </div>
                   <p className="text-xl font-bold text-orange-700">
-                    {formatCurrency(business.sales_commission || 0)}
+                    {formatCurrency(displayData.sales_commission)}
                   </p>
-                  {business.cost_breakdown?.sales_commission_type && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {business.cost_breakdown.sales_commission_type === 'percentage'
-                        ? `수수료율 ${business.cost_breakdown.sales_commission_rate}%`
-                        : `대당 ${formatCurrency(business.cost_breakdown.sales_commission_rate)}`}
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {calculatedData ? '최신 계산 적용' : '저장된 값'}
+                  </p>
                 </div>
 
                 {/* 실사비용 */}
@@ -362,38 +423,24 @@ export default function BusinessRevenueModal({
                     <span className="text-sm font-medium text-gray-600">📋 실사비용</span>
                   </div>
                   <p className="text-xl font-bold text-purple-700">
-                    {formatCurrency(business.survey_costs || 0)}
+                    {formatCurrency(displayData.survey_costs)}
                   </p>
-                  {business.cost_breakdown?.survey_costs && (
-                    <div className="text-xs text-gray-500 mt-2 space-y-0.5">
-                      <div>• 견적 실사: {formatCurrency(business.cost_breakdown.survey_costs.estimate)}</div>
-                      <div>• 착공 실사: {formatCurrency(business.cost_breakdown.survey_costs.pre_construction)}</div>
-                      <div>• 준공 실사: {formatCurrency(business.cost_breakdown.survey_costs.completion)}</div>
-                      {business.cost_breakdown.survey_costs.adjustments !== 0 && (
-                        <div className="text-red-600">• 조정: {formatCurrency(business.cost_breakdown.survey_costs.adjustments)}</div>
-                      )}
-                    </div>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    실사일 기반 동적 계산
+                  </p>
                 </div>
 
                 {/* 설치비 */}
                 <div className="bg-white rounded-lg p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-600">🔧 설치비용</span>
+                    <span className="text-sm font-medium text-gray-600">🔧 기본 설치비</span>
                   </div>
                   <p className="text-xl font-bold text-cyan-700">
-                    {formatCurrency((business.installation_costs || 0) + (business.installation_extra_cost || 0))}
+                    {formatCurrency(displayData.installation_costs)}
                   </p>
-                  {business.installation_extra_cost > 0 ? (
-                    <div className="text-xs text-gray-500 mt-2 space-y-0.5">
-                      <div>• 기본 설치비: {formatCurrency(business.installation_costs || 0)}</div>
-                      <div>• 추가 설치비: {formatCurrency(business.installation_extra_cost || 0)}</div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-1">
-                      기본 설치비
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    기기별 기본 설치비 합계
+                  </p>
                 </div>
 
                 {/* 총 비용 */}
@@ -403,14 +450,13 @@ export default function BusinessRevenueModal({
                   </div>
                   <p className="text-xl font-bold">
                     {formatCurrency(
-                      (business.sales_commission || 0) +
-                      (business.survey_costs || 0) +
-                      (business.installation_costs || 0) +
-                      (business.installation_extra_cost || 0)
+                      displayData.sales_commission +
+                      displayData.survey_costs +
+                      displayData.installation_costs
                     )}
                   </p>
                   <p className="text-xs opacity-80 mt-1">
-                    영업비용 + 실사비용 + 기본설치비 + 추가설치비
+                    영업비용 + 실사비용 + 기본설치비
                   </p>
                 </div>
               </div>
@@ -421,37 +467,38 @@ export default function BusinessRevenueModal({
                 <div className="text-sm text-gray-700 space-y-2 font-mono">
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>매출금액</span>
-                    <span className="font-bold text-green-700">{formatCurrency(business.total_revenue || 0)}</span>
+                    <span className="font-bold text-green-700">{formatCurrency(displayData.total_revenue)}</span>
                   </div>
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 매입금액</span>
-                    <span className="font-bold text-red-700">-{formatCurrency(business.total_cost || 0)}</span>
+                    <span className="font-bold text-red-700">-{formatCurrency(displayData.total_cost)}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-gray-200 pb-2">
+                    <span>= 총 이익</span>
+                    <span className="font-bold text-gray-700">{formatCurrency(displayData.gross_profit)}</span>
                   </div>
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 영업비용</span>
-                    <span className="font-bold text-orange-700">-{formatCurrency(business.sales_commission || 0)}</span>
+                    <span className="font-bold text-orange-700">-{formatCurrency(displayData.sales_commission)}</span>
                   </div>
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 실사비용</span>
-                    <span className="font-bold text-purple-700">-{formatCurrency(business.survey_costs || 0)}</span>
+                    <span className="font-bold text-purple-700">-{formatCurrency(displayData.survey_costs)}</span>
                   </div>
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 기본설치비</span>
-                    <span className="font-bold text-cyan-700">-{formatCurrency(business.installation_costs || 0)}</span>
+                    <span className="font-bold text-cyan-700">-{formatCurrency(displayData.installation_costs)}</span>
                   </div>
-                  {(business.installation_extra_cost || 0) > 0 && (
-                    <div className="flex justify-between border-b border-gray-200 pb-2">
-                      <span>- 추가설치비</span>
-                      <span className="font-bold text-orange-700">-{formatCurrency(business.installation_extra_cost || 0)}</span>
-                    </div>
-                  )}
                   <div className="flex justify-between border-t-2 border-blue-400 pt-3">
                     <span className="font-bold text-lg">= 순이익</span>
-                    <span className={`font-bold text-lg ${business.net_profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                      {formatCurrency(business.net_profit || 0)}
+                    <span className={`font-bold text-lg ${displayData.net_profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                      {formatCurrency(displayData.net_profit)}
                     </span>
                   </div>
                 </div>
+                <p className="text-xs text-gray-500 mt-3">
+                  ℹ️ 매출관리 페이지와 동일한 계산 방식 적용
+                </p>
               </div>
             </div>
           </div>
