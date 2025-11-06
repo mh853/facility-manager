@@ -6,6 +6,7 @@ import AdminLayout from '@/components/ui/AdminLayout'
 import StatsCard from '@/components/ui/StatsCard'
 import { ConfirmModal } from '@/components/ui/Modal'
 import PurchaseOrderModal from './components/PurchaseOrderModal'
+import EcosensePurchaseOrderForm from '@/components/EcosensePurchaseOrderForm'
 import {
   FileText,
   Download,
@@ -24,7 +25,8 @@ import {
   Clock,
   AlertTriangle,
   Zap,
-  ShoppingCart
+  ShoppingCart,
+  X
 } from 'lucide-react'
 
 interface DocumentTemplate {
@@ -87,6 +89,7 @@ export default function DocumentAutomationPage() {
     by_format: { excel: 0, pdf: 0 }
   })
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [previewDocument, setPreviewDocument] = useState<any | null>(null)
 
   // 발주 필요 사업장 목록 로드
   useEffect(() => {
@@ -792,19 +795,57 @@ export default function DocumentAutomationPage() {
                                 )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button
-                                  onClick={() => {
-                                    if (doc.file_path) {
-                                      window.open(doc.file_path, '_blank')
-                                    } else {
-                                      alert('파일 경로가 없습니다.')
-                                    }
-                                  }}
-                                  className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1"
-                                >
-                                  <Download className="w-4 h-4" />
-                                  다운로드
-                                </button>
+                                <div className="flex items-center justify-end gap-2">
+                                  {/* 보기 버튼 (발주서만) */}
+                                  {doc.document_type === 'purchase_order' && doc.document_data && (
+                                    <button
+                                      onClick={() => setPreviewDocument(doc)}
+                                      className="text-green-600 hover:text-green-900 inline-flex items-center gap-1"
+                                      title="발주서 보기"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                      보기
+                                    </button>
+                                  )}
+
+                                  {/* 다운로드 버튼 */}
+                                  {doc.file_path ? (
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          // Supabase Storage에서 공개 URL 가져오기
+                                          const { createClient } = await import('@supabase/supabase-js')
+                                          const supabase = createClient(
+                                            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                                            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                                          )
+
+                                          const { data: urlData } = supabase.storage
+                                            .from('facility-files')
+                                            .getPublicUrl(doc.file_path)
+
+                                          if (urlData?.publicUrl) {
+                                            // 새 탭에서 파일 열기
+                                            window.open(urlData.publicUrl, '_blank')
+                                          } else {
+                                            alert('파일 URL을 가져올 수 없습니다.')
+                                          }
+                                        } catch (error) {
+                                          console.error('다운로드 오류:', error)
+                                          alert('파일 다운로드 중 오류가 발생했습니다.')
+                                        }
+                                      }}
+                                      className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                      다운로드
+                                    </button>
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">
+                                      -
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -899,6 +940,49 @@ export default function DocumentAutomationPage() {
           businessId={selectedBusiness.id}
           businessName={selectedBusiness.name}
         />
+      )}
+
+      {/* 발주서 미리보기 모달 */}
+      {previewDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            {/* 헤더 */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">발주서 미리보기</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {previewDocument.business_name} - {previewDocument.document_name}
+                </p>
+              </div>
+              <button
+                onClick={() => setPreviewDocument(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 내용 */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="bg-white border-2 border-blue-200 rounded-lg p-4">
+                <EcosensePurchaseOrderForm
+                  data={previewDocument.document_data}
+                  showPrintButton={false}
+                />
+              </div>
+            </div>
+
+            {/* 푸터 */}
+            <div className="flex items-center justify-end p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setPreviewDocument(null)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </AdminLayout>
   )

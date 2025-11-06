@@ -157,3 +157,70 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     return createErrorResponse('서버 내부 오류가 발생했습니다', 500)
   }
 }, { logLevel: 'debug' })
+
+// POST: 문서 이력 수동 저장 (클라이언트 측 생성 파일용)
+export const POST = withApiHandler(async (request: NextRequest) => {
+  try {
+    const { authorized, user } = await checkUserPermission(request)
+    if (!authorized || !user) {
+      return createErrorResponse('인증이 필요합니다', 401)
+    }
+
+    const body = await request.json()
+    const {
+      business_id,
+      document_type,
+      document_name,
+      document_data,
+      file_format,
+      file_size,
+      file_path
+    } = body
+
+    if (!business_id || !document_type || !document_name) {
+      return createErrorResponse('필수 정보가 누락되었습니다', 400)
+    }
+
+    console.log('[DOCUMENT-HISTORY] 이력 저장 요청:', {
+      user: user.name,
+      business_id,
+      document_type,
+      document_name
+    })
+
+    // 문서 이력 저장
+    const { data: historyData, error: historyError } = await supabaseAdmin
+      .from('document_history')
+      .insert({
+        business_id,
+        document_type,
+        document_name,
+        document_data,
+        file_path: file_path || null,
+        file_format,
+        file_size: file_size || 0,
+        created_by: user.id
+      })
+      .select()
+      .single()
+
+    if (historyError) {
+      console.error('[DOCUMENT-HISTORY] 이력 저장 오류:', historyError)
+      return createErrorResponse('문서 이력 저장 중 오류가 발생했습니다', 500)
+    }
+
+    console.log('[DOCUMENT-HISTORY] 이력 저장 완료:', {
+      historyId: historyData.id,
+      fileName: document_name
+    })
+
+    return createSuccessResponse({
+      history_id: historyData.id,
+      document_name,
+      created_at: historyData.created_at
+    })
+  } catch (error) {
+    console.error('[DOCUMENT-HISTORY] API 오류:', error)
+    return createErrorResponse('서버 내부 오류가 발생했습니다', 500)
+  }
+}, { logLevel: 'debug' })

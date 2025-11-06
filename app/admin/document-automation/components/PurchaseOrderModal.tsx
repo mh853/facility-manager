@@ -196,11 +196,36 @@ export default function PurchaseOrderModal({
         const url = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
-        link.download = `발주서_${editedData.business_name}_${new Date().toISOString().split('T')[0]}.pdf`
+        const fileName = `발주서_${editedData.business_name}_${new Date().toISOString().split('T')[0]}.pdf`
+        link.download = fileName
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
         window.URL.revokeObjectURL(url)
+
+        // 이력 저장을 위한 API 호출 (파일은 클라이언트에서 다운로드, 이력만 서버에 기록)
+        try {
+          const token = localStorage.getItem('auth_token')
+          await fetch('/api/document-automation/history', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+              business_id: businessId,
+              document_type: 'purchase_order',
+              document_name: fileName,
+              document_data: editedData,
+              file_format: 'pdf',
+              file_size: pdfBuffer.length,
+              file_path: null // 클라이언트 생성이므로 저장소 경로 없음
+            })
+          })
+        } catch (historyError) {
+          console.error('이력 저장 오류 (다운로드는 성공):', historyError)
+        }
 
         alert(`발주서 PDF가 생성되었습니다.`)
       }
