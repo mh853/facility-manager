@@ -117,14 +117,52 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ [RECALCULATE] 재계산 준비 완료:', business.business_name);
-    console.log('   - revenue_calculations 기록 삭제 (있었다면)');
-    console.log('   - 클라이언트가 다음 로드 시 자동 재계산됨');
+    console.log('🔄 [RECALCULATE] 즉시 계산 실행 시작...');
 
-    return NextResponse.json({
-      success: true,
-      message: `${business.business_name}의 매출 정보가 재계산되었습니다.`,
-      data: { businessName: business.business_name }
-    });
+    // 3. 즉시 계산 실행 (내부 호출)
+    try {
+      const calculateResponse = await fetch(`${request.nextUrl.origin}/api/revenue/calculate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          business_id: businessId,
+          save_result: true
+        })
+      });
+
+      const calculateResult = await calculateResponse.json();
+
+      if (!calculateResult.success) {
+        console.error('❌ [RECALCULATE] 계산 실패:', calculateResult.message);
+        return NextResponse.json({
+          success: false,
+          message: `계산 중 오류 발생: ${calculateResult.message}`
+        }, { status: 500 });
+      }
+
+      const resultData = calculateResult.data || calculateResult;
+      console.log('✅ [RECALCULATE] 계산 완료:', business.business_name);
+      console.log('   - 영업비용:', resultData.sales_commission || 0);
+      console.log('   - 최종 매출:', resultData.total_revenue || 0);
+
+      return NextResponse.json({
+        success: true,
+        message: `${business.business_name}의 매출 정보가 재계산되었습니다.`,
+        data: {
+          businessName: business.business_name,
+          calculation: calculateResult.data
+        }
+      });
+    } catch (calculateError) {
+      console.error('❌ [RECALCULATE] 계산 실행 오류:', calculateError);
+      return NextResponse.json({
+        success: false,
+        message: '계산 실행 중 오류가 발생했습니다.'
+      }, { status: 500 });
+    }
 
   } catch (error) {
     console.error('❌ [RECALCULATE] API 오류:', error);

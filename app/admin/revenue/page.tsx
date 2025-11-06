@@ -408,6 +408,9 @@ function RevenueDashboard() {
           : business.installation_costs || 0)
       : 0;
 
+    // 영업비용 계산 기준: 기본 매출 - 협의사항 (추가공사비, 추가설치비 제외)
+    const commissionBaseRevenue = totalRevenue - negotiation;
+
     // 최종 매출 = 기본 매출 + 추가공사비 + 추가설치비 - 협의사항
     const adjustedRevenue = totalRevenue + additionalCost + additionalInstallationRevenue - negotiation;
 
@@ -430,11 +433,12 @@ function RevenueDashboard() {
     // 1순위: 제조사별 수수료율
     if (commissionRatesLoaded && salesOffice && commissionRates[salesOffice] && commissionRates[salesOffice][businessManufacturer] !== undefined) {
       const commissionRate = commissionRates[salesOffice][businessManufacturer];
-      salesCommission = adjustedRevenue * (commissionRate / 100);
+      salesCommission = commissionBaseRevenue * (commissionRate / 100);
       console.log(`💰 [${business.business_name}] 제조사별 수수료율 적용:`, {
         영업점: salesOffice,
         제조사: businessManufacturer,
         수수료율: `${commissionRate}%`,
+        계산기준: commissionBaseRevenue,
         계산결과: salesCommission
       });
     }
@@ -442,28 +446,33 @@ function RevenueDashboard() {
     else if (costSettingsLoaded && salesOffice && salesOfficeSettings[salesOffice]) {
       const setting = salesOfficeSettings[salesOffice];
       if (setting.commission_type === 'percentage' && setting.commission_percentage !== undefined) {
-        // 퍼센트 방식
-        salesCommission = adjustedRevenue * (setting.commission_percentage / 100);
+        // 퍼센트 방식 (추가공사비 제외)
+        salesCommission = commissionBaseRevenue * (setting.commission_percentage / 100);
       } else if (setting.commission_type === 'per_unit' && setting.commission_per_unit !== undefined) {
         // 단가 방식 (전체 기기 수량 계산)
         const totalQuantity = EQUIPMENT_FIELDS.reduce((sum, field) => sum + (business[field] || 0), 0);
         salesCommission = totalQuantity * setting.commission_per_unit;
       } else {
         // 설정이 있지만 값이 없으면 기본값 사용
-        salesCommission = adjustedRevenue * 0.10;
+        salesCommission = commissionBaseRevenue * 0.10;
       }
       console.log(`💰 [${business.business_name}] 영업점 기본 설정 적용:`, {
         영업점: salesOffice,
         방식: setting.commission_type,
         설정값: setting.commission_type === 'percentage' ? `${setting.commission_percentage}%` : `${setting.commission_per_unit}원/대`,
+        계산기준: setting.commission_type === 'percentage' ? commissionBaseRevenue : '기기수량',
         계산결과: salesCommission
       });
     }
     // 3순위: 기본값 10%
     else {
-      salesCommission = adjustedRevenue * 0.10;
+      salesCommission = commissionBaseRevenue * 0.10;
       if (salesOffice) {
-        console.log(`⚠️ [${business.business_name}] 수수료 설정 없음, 기본값 10% 사용:`, { salesOffice, manufacturer: businessManufacturer });
+        console.log(`⚠️ [${business.business_name}] 수수료 설정 없음, 기본값 10% 사용:`, {
+          salesOffice,
+          manufacturer: businessManufacturer,
+          계산기준: commissionBaseRevenue
+        });
       }
     }
 

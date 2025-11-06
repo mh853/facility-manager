@@ -440,6 +440,9 @@ export async function POST(request: NextRequest) {
     const additionalCost = businessInfo.additional_cost || 0; // 추가공사비 (매출에 더하기)
     const negotiationDiscount = businessInfo.negotiation ? parseFloat(businessInfo.negotiation) || 0 : 0; // 협의사항 (매출에서 빼기)
 
+    // 영업비용 계산 기준: 기본 매출 - 협의사항 (추가공사비 제외)
+    const commissionBaseRevenue = totalRevenue - negotiationDiscount;
+
     // 최종 매출 = 기본 매출 + 추가공사비 - 협의사항
     const adjustedRevenue = totalRevenue + additionalCost - negotiationDiscount;
 
@@ -447,13 +450,14 @@ export async function POST(request: NextRequest) {
     const installationExtraCost = businessInfo.installation_extra_cost || 0;
 
     console.log(`💰 [REVENUE-CALCULATE] 매출 조정: 기본 ${totalRevenue} + 추가공사비 ${additionalCost} - 협의사항 ${negotiationDiscount} = ${adjustedRevenue}`);
+    console.log(`💰 [REVENUE-CALCULATE] 영업비용 계산 기준: 기본 ${totalRevenue} - 협의사항 ${negotiationDiscount} = ${commissionBaseRevenue} (추가공사비 제외)`);
     console.log(`💰 [REVENUE-CALCULATE] 추가설치비: ${installationExtraCost}`);
 
-    // 9. 영업비용 계산 (최종 매출 기준)
+    // 9. 영업비용 계산 (추가공사비 제외, 협의사항 반영된 금액 기준)
     let salesCommission = 0;
     if (commissionSettings.commission_type === 'percentage') {
-      salesCommission = adjustedRevenue * (commissionSettings.commission_percentage / 100);
-      console.log(`💰 [COMMISSION] 퍼센트 방식: ${adjustedRevenue} × ${commissionSettings.commission_percentage}% = ${salesCommission}`);
+      salesCommission = commissionBaseRevenue * (commissionSettings.commission_percentage / 100);
+      console.log(`💰 [COMMISSION] 퍼센트 방식: ${commissionBaseRevenue} × ${commissionSettings.commission_percentage}% = ${salesCommission}`);
     } else {
       salesCommission = totalEquipmentCount * (commissionSettings.commission_per_unit || 0);
       console.log(`💰 [COMMISSION] 대당 방식: ${totalEquipmentCount}대 × ${commissionSettings.commission_per_unit} = ${salesCommission}`);
