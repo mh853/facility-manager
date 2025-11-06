@@ -72,31 +72,56 @@ export default function BusinessDetailPage() {
   // 업데이트 타이머 참조
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Inspector info state with proper formatting
-  const [inspectorInfo, setInspectorInfo] = useState(() => ({
-    name: '',
-    contact: '',
-    date: ''
-  }));
+  // Phase별 독립적인 상태 관리
+  const [phaseData, setPhaseData] = useState({
+    presurvey: {
+      inspectorInfo: { name: '', contact: '', date: '' },
+      specialNotes: ''
+    },
+    postinstall: {
+      inspectorInfo: { name: '', contact: '', date: '' },
+      specialNotes: ''
+    },
+    aftersales: {
+      inspectorInfo: { name: '', contact: '', date: '' },
+      specialNotes: ''
+    }
+  });
 
-  // Special notes state
-  const [specialNotes, setSpecialNotes] = useState('');
+  // 현재 phase의 데이터를 반환하는 헬퍼 함수
+  const getCurrentPhaseData = useCallback(() => {
+    return phaseData[currentPhase];
+  }, [phaseData, currentPhase]);
+
+  // 현재 phase의 inspectorInfo와 specialNotes (호환성용)
+  const inspectorInfo = getCurrentPhaseData().inspectorInfo;
+  const specialNotes = getCurrentPhaseData().specialNotes;
 
   // Set default date after hydration with Korean formatting
   useEffect(() => {
     if (isHydrated && typeof window !== 'undefined') {
-      setInspectorInfo(prev => {
-        if (!prev.date) {
-          const defaultDate = new Date().toLocaleDateString('ko-KR', {
-            timeZone: 'Asia/Seoul',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1);
-          
-          return { ...prev, date: defaultDate };
-        }
-        return prev;
+      setPhaseData(prev => {
+        const defaultDate = new Date().toLocaleDateString('ko-KR', {
+          timeZone: 'Asia/Seoul',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).replace(/\./g, '-').replace(/ /g, '').slice(0, -1);
+
+        // 각 phase의 date가 비어있으면 기본값 설정
+        const updated = { ...prev };
+        (['presurvey', 'postinstall', 'aftersales'] as const).forEach(phase => {
+          if (!updated[phase].inspectorInfo.date) {
+            updated[phase] = {
+              ...updated[phase],
+              inspectorInfo: {
+                ...updated[phase].inspectorInfo,
+                date: defaultDate
+              }
+            };
+          }
+        });
+        return updated;
       });
     }
   }, [isHydrated]);
@@ -218,11 +243,10 @@ export default function BusinessDetailPage() {
       setLoading(true);
       setError(null);
       
-      console.log('데이터 로드 시작:', businessName);
-      
       const [facilitiesRes] = await Promise.allSettled([
         fetch(`/api/facilities-supabase/${encodeURIComponent(businessName)}`, {
-          headers: { 'Cache-Control': 'max-age=300' },
+          cache: 'no-store', // 🔄 브라우저 캐시 비활성화 - 측정기기 수정 즉시 반영
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
           signal: abortController.signal
         })
       ]);
@@ -230,10 +254,28 @@ export default function BusinessDetailPage() {
       clearTimeout(timeoutId);
 
       const processResponse = async (result: PromiseSettledResult<Response>, type: string) => {
-        if (result.status === 'fulfilled' && result.value.ok) {
-          return await result.value.json();
+        if (result.status === 'fulfilled') {
+          if (result.value.ok) {
+            return await result.value.json();
+          }
+          // 상세한 에러 로깅
+          const status = result.value.status;
+          const statusText = result.value.statusText;
+          let errorBody = '';
+          try {
+            errorBody = await result.value.text();
+          } catch (e) {
+            errorBody = 'Unable to read response body';
+          }
+          console.error(`❌ ${type} API 실패:`, {
+            status,
+            statusText,
+            url: result.value.url,
+            errorBody
+          });
+        } else {
+          console.error(`❌ ${type} API 요청 실패:`, result.reason);
         }
-        console.warn(`${type} API 실패:`, result);
         return null;
       };
 
@@ -241,25 +283,64 @@ export default function BusinessDetailPage() {
         processResponse(facilitiesRes, '시설')
       ]);
 
-      console.log('🔍 [FRONTEND] 시설 데이터 처리:', { 
-        success: facilitiesData?.success,
-        hasData: !!facilitiesData?.data,
-        facilities: facilitiesData?.data?.facilities,
-        discharge: facilitiesData?.data?.facilities?.discharge?.length || 0,
-        prevention: facilitiesData?.data?.facilities?.prevention?.length || 0
-      });
 
       if (facilitiesData?.success) {
         setFacilities(facilitiesData.data.facilities);
         setFacilityNumbering(facilitiesData.data.facilityNumbering); // 🎯 대기필증 관리 시설번호 저장
-        
+
         // API에서 받은 실제 사업장 정보 설정
         if (facilitiesData.data.businessInfo) {
           setBusinessInfo({
             ...facilitiesData.data.businessInfo,
             found: true
           });
-          console.log('✅ [FRONTEND] 사업장 정보 설정 완료:', facilitiesData.data.businessInfo);
+
+          // 실사자 정보 및 특이사항 로드
+          const businessId = facilitiesData.data.businessInfo?.id;
+
+          // businessId가 없으면 businessName으로 조회
+          const queryParam = businessId
+            ? `businessId=${businessId}`
+            : `businessName=${encodeURIComponent(businessName)}`;
+
+          try {
+            const mgmtResponse = await fetch(`/api/facility-management?${queryParam}`);
+            const mgmtData = await mgmtResponse.json();
+
+            if (mgmtData.success && mgmtData.data.business) {
+              const business = mgmtData.data.business;
+
+                // Phase별 데이터 로드
+                setPhaseData({
+                  presurvey: {
+                    inspectorInfo: {
+                      name: business.presurvey_inspector_name || '',
+                      contact: business.presurvey_inspector_contact || '',
+                      date: business.presurvey_inspector_date || new Date().toISOString().split('T')[0]
+                    },
+                    specialNotes: business.presurvey_special_notes || ''
+                  },
+                  postinstall: {
+                    inspectorInfo: {
+                      name: business.postinstall_installer_name || '',
+                      contact: business.postinstall_installer_contact || '',
+                      date: business.postinstall_installer_date || new Date().toISOString().split('T')[0]
+                    },
+                    specialNotes: business.postinstall_special_notes || ''
+                  },
+                  aftersales: {
+                    inspectorInfo: {
+                      name: business.aftersales_technician_name || '',
+                      contact: business.aftersales_technician_contact || '',
+                      date: business.aftersales_technician_date || new Date().toISOString().split('T')[0]
+                    },
+                    specialNotes: business.aftersales_special_notes || ''
+                  }
+                });
+              }
+            } catch (error) {
+              console.error('❌ [FRONTEND] 시설 관리 정보 로드 실패:', error);
+            }
         } else {
           // 기본 사업장 정보 설정 (fallback)
           setBusinessInfo({
@@ -320,94 +401,191 @@ export default function BusinessDetailPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showSystemTypeDropdown]);
 
-  // Input handlers with formatting
+  // Phase별 업데이트 핸들러
+  const handleInspectorUpdate = useCallback((info: typeof inspectorInfo) => {
+    setPhaseData(prev => ({
+      ...prev,
+      [currentPhase]: {
+        ...prev[currentPhase],
+        inspectorInfo: info
+      }
+    }));
+  }, [currentPhase]);
+
+  const handleNotesUpdate = useCallback((notes: string) => {
+    setPhaseData(prev => ({
+      ...prev,
+      [currentPhase]: {
+        ...prev[currentPhase],
+        specialNotes: notes
+      }
+    }));
+  }, [currentPhase]);
+
+  // 기존 호환성 핸들러 (deprecated)
   const handleInspectorInfoChange = useCallback((field: string, value: string) => {
     let processedValue = value;
-    
+
     if (field === 'contact') {
       processedValue = formatPhoneNumber(value);
     }
-    
-    setInspectorInfo(prev => ({
+
+    setPhaseData(prev => ({
       ...prev,
-      [field]: processedValue
+      [currentPhase]: {
+        ...prev[currentPhase],
+        inspectorInfo: {
+          ...prev[currentPhase].inspectorInfo,
+          [field]: processedValue
+        }
+      }
     }));
-  }, [formatPhoneNumber]);
+  }, [formatPhoneNumber, currentPhase]);
 
   const handleSpecialNotesChange = useCallback((value: string) => {
-    setSpecialNotes(value);
-  }, []);
+    setPhaseData(prev => ({
+      ...prev,
+      [currentPhase]: {
+        ...prev[currentPhase],
+        specialNotes: value
+      }
+    }));
+  }, [currentPhase]);
 
-  // Save handlers with proper API calls
-  const createSaveHandler = useCallback((endpoint: string, data: any, stateKey: 'inspector' | 'notes') => {
-    return async () => {
-      if (saveStates[stateKey]) return;
-      
-      try {
-        console.log(`저장 시작: ${endpoint}`, data);
-        setSaveStates(prev => ({ ...prev, [stateKey]: true }));
-        
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
+  // Save inspector info using facility-management API (phase별 저장)
+  const saveInspectorInfo = useCallback(async (infoToSave?: typeof inspectorInfo) => {
+    if (saveStates.inspector || !businessInfo?.id) return;
 
-        const result = await response.json();
-        console.log(`저장 응답: ${endpoint}`, result);
+    const info = infoToSave || inspectorInfo;
 
-        if (response.ok && result.success) {
-          const successMessage = stateKey === 'inspector' ? '실사자 정보가 저장되었습니다.' : '특이사항이 저장되었습니다.';
-          
-          // 저장 완료
-          
-          const toast = document.createElement('div');
-          toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
-          toast.textContent = successMessage;
-          document.body.appendChild(toast);
-          
-          setTimeout(() => {
-            toast.remove();
-          }, 3000);
-        } else {
-          throw new Error(result.message || '저장 실패');
+    try {
+      setSaveStates(prev => ({ ...prev, inspector: true }));
+
+      // Phase별 필드명 매핑
+      const fieldMap = {
+        presurvey: {
+          name: 'presurvey_inspector_name',
+          contact: 'presurvey_inspector_contact',
+          date: 'presurvey_inspector_date'
+        },
+        postinstall: {
+          name: 'postinstall_installer_name',
+          contact: 'postinstall_installer_contact',
+          date: 'postinstall_installer_date'
+        },
+        aftersales: {
+          name: 'aftersales_technician_name',
+          contact: 'aftersales_technician_contact',
+          date: 'aftersales_technician_date'
         }
-      } catch (error) {
-        console.error(`저장 오류: ${endpoint}`, error);
-        const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
-        
+      };
+
+      const fields = fieldMap[currentPhase];
+
+      const response = await fetch('/api/facility-management', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId: businessInfo.id,
+          phase: currentPhase,
+          [fields.name]: info.name,
+          [fields.contact]: info.contact,
+          [fields.date]: info.date
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        const phaseNames = {
+          presurvey: '실사자',
+          postinstall: '설치자',
+          aftersales: 'AS 담당자'
+        };
         const toast = document.createElement('div');
-        toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
-        toast.textContent = errorMessage;
+        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
+        toast.textContent = `${phaseNames[currentPhase]} 정보가 저장되었습니다.`;
         document.body.appendChild(toast);
-        
+
         setTimeout(() => {
           toast.remove();
         }, 3000);
-      } finally {
-        setSaveStates(prev => ({ ...prev, [stateKey]: false }));
+      } else {
+        throw new Error(result.message || '저장 실패');
       }
-    };
-  }, [saveStates]);
+    } catch (error) {
+      console.error(`${currentPhase} 담당자 정보 저장 오류:`, error);
+      const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
 
-  const saveInspectorInfo = useMemo(() => 
-    createSaveHandler('/api/inspector-info', { businessName, inspectorInfo, systemType }, 'inspector'),
-    [createSaveHandler, businessName, inspectorInfo, systemType]
-  );
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
+      toast.textContent = errorMessage;
+      document.body.appendChild(toast);
 
-  const saveSpecialNotes = useMemo(() =>
-    createSaveHandler('/api/special-notes', { businessName, specialNotes, systemType }, 'notes'),
-    [createSaveHandler, businessName, specialNotes, systemType]
-  );
+      setTimeout(() => {
+        toast.remove();
+      }, 3000);
+    } finally {
+      setSaveStates(prev => ({ ...prev, inspector: false }));
+    }
+  }, [saveStates.inspector, businessInfo?.id, inspectorInfo, currentPhase]);
 
-  // Update handlers for new section components
-  const handleInspectorUpdate = useCallback((info: typeof inspectorInfo) => {
-    setInspectorInfo(info);
-  }, []);
+  // Save special notes using facility-management API (phase별 저장)
+  const saveSpecialNotes = useCallback(async (notesToSave?: string) => {
+    if (saveStates.notes || !businessInfo?.id) return;
 
-  const handleNotesUpdate = useCallback((notes: string) => {
-    setSpecialNotes(notes);
-  }, []);
+    const notes = notesToSave !== undefined ? notesToSave : specialNotes;
+
+    try {
+      setSaveStates(prev => ({ ...prev, notes: true }));
+
+      // Phase별 필드명 매핑
+      const fieldMap = {
+        presurvey: 'presurvey_special_notes',
+        postinstall: 'postinstall_special_notes',
+        aftersales: 'aftersales_special_notes'
+      };
+
+      const response = await fetch('/api/facility-management', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId: businessInfo.id,
+          phase: currentPhase,
+          [fieldMap[currentPhase]]: notes
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
+        toast.textContent = '특이사항이 저장되었습니다.';
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.remove();
+        }, 3000);
+      } else {
+        throw new Error(result.message || '저장 실패');
+      }
+    } catch (error) {
+      console.error('특이사항 저장 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
+
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
+      toast.textContent = errorMessage;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.remove();
+      }, 3000);
+    } finally {
+      setSaveStates(prev => ({ ...prev, notes: false }));
+    }
+  }, [saveStates.notes, businessInfo?.id, specialNotes, currentPhase]);
 
   // Memoized facility stats
   const facilityStats = useMemo(() => {
@@ -573,15 +751,19 @@ export default function BusinessDetailPage() {
 
 
                 {/* 6. 실사자 정보 */}
-                <InspectorInfoSection 
+                <InspectorInfoSection
                   inspectorInfo={inspectorInfo}
                   onUpdate={handleInspectorUpdate}
+                  onSave={saveInspectorInfo}
+                  isSaving={saveStates.inspector}
                 />
 
                 {/* 7. 특이사항 */}
-                <SpecialNotesSection 
+                <SpecialNotesSection
                   notes={specialNotes}
                   onUpdate={handleNotesUpdate}
+                  onSave={saveSpecialNotes}
+                  isSaving={saveStates.notes}
                 />
               </>
             )}
@@ -616,110 +798,33 @@ export default function BusinessDetailPage() {
                 )}
 
 
-                {/* 4. 시설별 사진 업로드 섹션 (completion mode) */}
+                {/* 3. 담당자 정보 (Phase별) */}
+                <InspectorInfoSection
+                  inspectorInfo={inspectorInfo}
+                  onUpdate={handleInspectorUpdate}
+                  onSave={saveInspectorInfo}
+                  isSaving={saveStates.inspector}
+                  title={
+                    currentPhase === 'postinstall' ? '설치자 정보' :
+                    currentPhase === 'aftersales' ? 'AS 담당자 정보' :
+                    '실사자 정보'
+                  }
+                />
+
+                {/* 4. 특이사항 */}
+                <SpecialNotesSection
+                  notes={specialNotes}
+                  onUpdate={handleNotesUpdate}
+                  onSave={saveSpecialNotes}
+                  isSaving={saveStates.notes}
+                />
+
+                {/* 5. 시설별 사진 업로드 섹션 (completion mode) */}
                 <ImprovedFacilityPhotoSection
                   businessName={businessName}
                   facilities={facilities}
                   facilityNumbering={facilityNumbering}
                   currentPhase={currentPhase}
-                />
-
-
-
-            {/* 6. 실사자 정보 - Inspector Information */}
-            {systemType === 'completion' ? (
-              <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
-                <div className="flex items-center gap-2 mb-4 md:mb-6">
-                  <User className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
-                  <h3 className="text-lg md:text-xl font-bold text-gray-900">
-                    {systemType === 'completion' ? '설치자 정보' : '실사자 정보'}
-                  </h3>
-                </div>
-                
-                <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {systemType === 'completion' ? '설치자 성명' : '실사자 성명'}
-                    </label>
-                    <input
-                      type="text"
-                      lang="ko"
-                      inputMode="text"
-                      value={inspectorInfo.name}
-                      onChange={(e) => handleInspectorInfoChange('name', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                      placeholder={systemType === 'completion' ? '설치자 이름을 입력하세요' : '실사자 이름을 입력하세요'}
-                      autoComplete="name"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">연락처</label>
-                    <input
-                      type="tel"
-                      value={inspectorInfo.contact}
-                      onChange={(e) => handleInspectorInfoChange('contact', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                      placeholder="010-0000-0000"
-                      autoComplete="tel"
-                      maxLength={13}
-                    />
-                  </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {systemType === 'completion' ? '설치 일자' : '실사 일자'}
-                    </label>
-                    <input
-                      type="date"
-                      value={inspectorInfo.date}
-                      onChange={(e) => handleInspectorInfoChange('date', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                    />
-                  </div>
-                </div>
-                
-                <button
-                  onClick={saveInspectorInfo}
-                  disabled={saveStates.inspector}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                >
-                  {saveStates.inspector ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      저장 중...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      {systemType === 'completion' ? '설치자 정보 저장' : '실사자 정보 저장'}
-                    </>
-                  )}
-                </button>
-              </div>
-            ) : (
-              <InspectorInfoSection 
-                inspectorInfo={inspectorInfo}
-                onUpdate={handleInspectorUpdate}
-              />
-            )}
-
-            {/* 7. 시설별 사진 업로드 */}
-            <ImprovedFacilityPhotoSection
-              businessName={businessName}
-              facilities={facilities}
-              facilityNumbering={facilityNumbering}
-              currentPhase={currentPhase}
-            />
-
-                {/* 8. 특이사항 & 업무 진행 현황 - Business Progress Section */}
-                <BusinessProgressSection
-                  businessName={businessName}
-                  specialNotes={specialNotes}
-                  onSpecialNotesUpdate={(notes) => {
-                    setSpecialNotes(notes);
-                    handleSpecialNotesChange(notes);
-                  }}
                 />
               </>
             )}

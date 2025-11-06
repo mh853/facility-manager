@@ -101,12 +101,13 @@ export async function GET(
       return NextResponse.json({ success: true, data: emptyResult }, { headers: CACHE_HEADERS });
     }
 
-    // 2. 대기필증 정보 조회 (가장 최근 것)
+    // 2. 대기필증 정보 조회 (삭제되지 않은 가장 최근 것)
     console.log(`🔍 [FACILITIES-SUPABASE] 대기필증 조회: business_id="${business.id}"`);
     const { data: airPermit, error: permitError } = await supabaseAdmin
       .from('air_permit_info')
       .select('id')
       .eq('business_id', business.id)
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -127,29 +128,13 @@ export async function GET(
       return NextResponse.json({ success: true, data: emptyResult }, { headers: CACHE_HEADERS });
     }
 
-    // 3. 배출구 및 시설 정보 조회 (대기필증 관리 구조 사용)
+    // 3. 배출구 정보 조회
     const { data: outlets, error: outletsError } = await supabaseAdmin
       .from('discharge_outlets')
       .select(`
         id,
         outlet_number,
-        outlet_name,
-        discharge_facilities (
-          id,
-          facility_name,
-          capacity,
-          quantity,
-          facility_number,
-          notes
-        ),
-        prevention_facilities (
-          id,
-          facility_name,
-          capacity,
-          quantity,
-          facility_number,
-          notes
-        )
+        outlet_name
       `)
       .eq('air_permit_id', airPermit.id)
       .order('outlet_number');
@@ -159,32 +144,156 @@ export async function GET(
       throw new Error('배출구 정보 조회 실패');
     }
 
+    const outletIds = outlets?.map(o => o.id) || [];
+    console.log(`🔍 [FACILITIES-SUPABASE] 배출구 조회 완료:`, {
+      outletIds,
+      outletsCount: outlets?.length
+    });
+
+    // 3-1. 배출시설 정보 별도 조회
+    console.log(`🔍 [FACILITIES-SUPABASE] 배출시설 별도 조회 시작`);
+    const { data: dischargeFacilities, error: dischargeError } = await supabaseAdmin
+      .from('discharge_facilities')
+      .select(`
+        id,
+        outlet_id,
+        facility_name,
+        capacity,
+        quantity,
+        facility_number,
+        notes,
+        discharge_ct,
+        exemption_reason,
+        remarks,
+        last_updated_at,
+        last_updated_by
+      `)
+      .in('outlet_id', outletIds);
+
+    if (dischargeError) {
+      console.error('🏭 [FACILITIES-SUPABASE] 배출시설 조회 실패:', dischargeError);
+    }
+
+    console.log(`🔍 [FACILITIES-SUPABASE] 배출시설 조회 완료:`, {
+      count: dischargeFacilities?.length || 0,
+      facilities: dischargeFacilities
+    });
+
+    // 4. 방지시설 정보 별도 조회 (조인 문제 해결)
+    console.log(`🔍 [FACILITIES-SUPABASE] 방지시설 별도 조회 시작:`, {
+      outletIds,
+      outletsCount: outlets?.length
+    });
+
+    const { data: preventionFacilities, error: preventionError } = await supabaseAdmin
+      .from('prevention_facilities')
+      .select(`
+        id,
+        outlet_id,
+        facility_name,
+        capacity,
+        quantity,
+        facility_number,
+        notes,
+        ph,
+        pressure,
+        temperature,
+        pump,
+        fan,
+        remarks,
+        last_updated_at,
+        last_updated_by
+      `)
+      .in('outlet_id', outletIds);
+
+    if (preventionError) {
+      console.error('🏭 [FACILITIES-SUPABASE] 방지시설 조회 실패:', preventionError);
+    }
+
+    console.log(`🔍 [FACILITIES-SUPABASE] 방지시설 조회 완료:`, {
+      count: preventionFacilities?.length || 0,
+      facilities: preventionFacilities
+    });
+
     const dischargeData: any[] = [];
     const preventionData: any[] = [];
 
-    // 배출구별 시설 데이터 변환
+    // 배출구 ID to outlet_number 매핑 생성
+    const outletIdToNumber: { [key: string]: number } = {};
     outlets?.forEach((outlet: any) => {
-      outlet.discharge_facilities?.forEach((facility: any) => {
-        dischargeData.push({
-          outlet_number: outlet.outlet_number,
-          facility_number: facility.facility_number,
-          facility_name: facility.facility_name,
-          capacity: facility.capacity,
-          quantity: facility.quantity,
-          notes: facility.notes
-        });
+      outletIdToNumber[outlet.id] = outlet.outlet_number;
+    });
+
+    // 배출시설 데이터 변환 (별도 조회 결과 사용)
+    dischargeFacilities?.forEach((facility: any) => {
+      const outletNumber = outletIdToNumber[facility.outlet_id];
+
+      // 🔍 각 배출시설 레코드의 ID와 측정기기 정보 로깅
+      console.log(`📋 [FACILITIES-SUPABASE] 배출시설 레코드 발견:`, {
+        id: facility.id,
+        outlet_id: facility.outlet_id,
+        outlet_number: outletNumber,
+        number: facility.facility_number,
+        name: facility.facility_name,
+        dischargeCT: facility.discharge_ct,
+        exemptionReason: facility.exemption_reason
       });
 
-      outlet.prevention_facilities?.forEach((facility: any) => {
-        preventionData.push({
-          outlet_number: outlet.outlet_number,
+      if (outletNumber) {
+        dischargeData.push({
+          outlet_number: outletNumber,
           facility_number: facility.facility_number,
           facility_name: facility.facility_name,
           capacity: facility.capacity,
           quantity: facility.quantity,
-          notes: facility.notes
+          notes: facility.notes,
+          // 측정기기 필드 추가
+          dischargeCT: facility.discharge_ct,
+          exemptionReason: facility.exemption_reason,
+          remarks: facility.remarks,
+          last_updated_at: facility.last_updated_at,
+          last_updated_by: facility.last_updated_by
         });
+      }
+    });
+
+    // 방지시설 데이터 변환 (별도 조회 결과 사용)
+    preventionFacilities?.forEach((facility: any) => {
+      const outletNumber = outletIdToNumber[facility.outlet_id];
+
+      // 🔍 각 방지시설 레코드의 ID와 측정기기 정보 로깅
+      console.log(`📋 [FACILITIES-SUPABASE] 방지시설 레코드 발견:`, {
+        id: facility.id,
+        outlet_id: facility.outlet_id,
+        outlet_number: outletNumber,
+        number: facility.facility_number,
+        name: facility.facility_name,
+        ph: facility.ph,
+        pressure: facility.pressure,
+        temperature: facility.temperature,
+        pump: facility.pump,
+        fan: facility.fan
       });
+
+      if (outletNumber) {
+        preventionData.push({
+          outlet_number: outletNumber,
+          facility_number: facility.facility_number,
+          facility_name: facility.facility_name,
+          capacity: facility.capacity,
+          quantity: facility.quantity,
+          notes: facility.notes,
+          // 측정기기 필드 추가
+          ph: facility.ph,
+          pressure: facility.pressure,
+          temperature: facility.temperature,
+          pump: facility.pump,
+          fan: facility.fan,
+          remarks: facility.remarks,
+          last_updated_at: facility.last_updated_at,
+          last_updated_by: facility.last_updated_by
+        });
+      }
     });
 
     console.log('🏭 [FACILITIES-SUPABASE] 대기필증 관리에서 조회 완료:', {
@@ -202,17 +311,43 @@ export async function GET(
         capacity: facility.capacity,
         quantity: facility.quantity,
         displayName: `배출구${facility.outlet_number}-배출시설${facility.facility_number}`,
-        notes: facility.notes
+        notes: facility.notes,
+        // 측정기기 필드 추가
+        dischargeCT: facility.dischargeCT,
+        exemptionReason: facility.exemptionReason,
+        remarks: facility.remarks,
+        last_updated_at: facility.last_updated_at,
+        last_updated_by: facility.last_updated_by
       })),
-      prevention: preventionData.map(facility => ({
-        outlet: facility.outlet_number,
-        number: facility.facility_number, // 🔧 어드민과 동일한 데이터베이스 값 사용
-        name: facility.facility_name,
-        capacity: facility.capacity,
-        quantity: facility.quantity,
-        displayName: `배출구${facility.outlet_number}-방지시설${facility.facility_number}`,
-        notes: facility.notes
-      }))
+      prevention: preventionData.map(facility => {
+        // 🔍 방지시설 측정기기 데이터 디버깅
+        console.log(`📊 [FACILITIES-SUPABASE] 방지시설 ${facility.outlet_number}-${facility.facility_number} 측정기기:`, {
+          ph: facility.ph,
+          pressure: facility.pressure,
+          temperature: facility.temperature,
+          pump: facility.pump,
+          fan: facility.fan
+        });
+
+        return {
+          outlet: facility.outlet_number,
+          number: facility.facility_number, // 🔧 어드민과 동일한 데이터베이스 값 사용
+          name: facility.facility_name,
+          capacity: facility.capacity,
+          quantity: facility.quantity,
+          displayName: `배출구${facility.outlet_number}-방지시설${facility.facility_number}`,
+          notes: facility.notes,
+          // 측정기기 필드 추가
+          ph: facility.ph,
+          pressure: facility.pressure,
+          temperature: facility.temperature,
+          pump: facility.pump,
+          fan: facility.fan,
+          remarks: facility.remarks,
+          last_updated_at: facility.last_updated_at,
+          last_updated_by: facility.last_updated_by
+        };
+      })
     };
 
     // 🎯 어드민 시스템과 동일한 시설번호 생성 (AirPermitWithOutlets 구조 변환)
@@ -325,6 +460,7 @@ export async function GET(
     
     // 사업장 정보 구성
     const businessInfo = {
+      id: business.id, // 🔑 사업장 ID 추가 (facility-management API 호출에 필요)
       businessName: business.business_name,
       사업장명: business.business_name,
       주소: business.address || '정보 없음',

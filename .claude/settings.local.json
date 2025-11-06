@@ -55,7 +55,12 @@
       "Bash(timeout 30 npm run dev:*)",
       "Bash(timeout 5 bash:*)",
       "Bash(dir \"C:\\Users\\user1\\Documents\\claude\\facility-manager\\양식\" /b)",
-      "Bash(timeout 15 bash:*)"
+      "Bash(timeout 15 bash:*)",
+      "Bash(timeout 10 bash:*)",
+      "Bash(timeout 10 npm run type-check)",
+      "Bash(timeout 15 npm run lint:*)",
+      "Bash(npx eslint:*)",
+      "Bash(timeout 3 bash:*)"
     ],
     "deny": [],
     "ask": [],

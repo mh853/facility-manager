@@ -8,11 +8,20 @@ export interface Facility {
   quantity: number;
   displayName: string;
   notes?: string;
-  
+
   // 배출시설 추가 데이터
   dischargeCT?: string;
   exemptionReason?: 'none' | '무동력' | '통합전원' | '연속공정' | '연간 30일 미만 가동' | '물리적으로 부착 불가능';
   remarks?: string; // 비고
+
+  // 측정기기 관리 정보
+  measurement_device_count?: number; // 측정기기 수량
+  exemption_reason?: string; // 측정기기 면제사유 (텍스트)
+  last_updated_at?: string; // 최종 수정 시각
+  last_updated_by?: string; // 최종 수정자
+
+  // DB 식별자 (API 연동용)
+  id?: string; // Supabase facility ID
   
   // 방지시설 추가 데이터
   ph?: string;
@@ -109,6 +118,31 @@ export interface BusinessInfo {
   // 비용 정보
   additional_cost?: number;              // 추가공사비 (계산서 발행 항목)
   installation_extra_cost?: number;      // 추가설치비 (설치팀 요청 추가 비용)
+
+  // Phase별 담당자 정보 및 특이사항 (독립 저장)
+  // 설치 전 실사 (Presurvey)
+  presurvey_inspector_name?: string;
+  presurvey_inspector_contact?: string;
+  presurvey_inspector_date?: string;
+  presurvey_special_notes?: string;
+
+  // 설치 후 (Post-Installation)
+  postinstall_installer_name?: string;
+  postinstall_installer_contact?: string;
+  postinstall_installer_date?: string;
+  postinstall_special_notes?: string;
+
+  // AS (After Sales)
+  aftersales_technician_name?: string;
+  aftersales_technician_contact?: string;
+  aftersales_technician_date?: string;
+  aftersales_special_notes?: string;
+
+  // 기존 필드 (하위 호환성 유지)
+  inspector_name?: string;
+  inspector_contact?: string;
+  inspector_date?: string;
+  special_notes?: string;
 }
 
 export interface FileInfo {

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Factory, Shield, Router, Thermometer, Droplets, Zap, Gauge, AlertTriangle, Save, Edit3, Plus, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Factory, Shield, Router, Thermometer, Droplets, Zap, Gauge, AlertTriangle, Save, Plus, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Facility, FacilitiesData } from '@/types';
+import FacilityEditModal from '@/components/modals/FacilityEditModal';
 
 interface EnhancedFacilityInfoSectionProps {
   businessName: string;
@@ -42,6 +43,8 @@ export default function EnhancedFacilityInfoSection({
   const [facilityType, setFacilityType] = useState<'discharge' | 'prevention'>('discharge');
   const [showAddForm, setShowAddForm] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [equipmentCounts, setEquipmentCounts] = useState({
     phSensor: 0,
     differentialPressureMeter: 0,
@@ -121,9 +124,39 @@ export default function EnhancedFacilityInfoSection({
   };
 
   const handleEditFacility = (facility: Facility, type: 'discharge' | 'prevention') => {
-    setEditingFacility(facility);
+    // 모달 방식 사용
+    setSelectedFacility(facility);
     setFacilityType(type);
-    setShowAddForm(true);
+    setIsModalOpen(true);
+  };
+
+  // 모달 닫기
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedFacility(null);
+  };
+
+  // 시설 정보 저장 후 처리
+  const handleFacilitySave = (updatedFacility: Facility) => {
+    const updatedFacilities: FacilitiesData = {
+      // facilityType에 따라 해당 배열만 업데이트
+      discharge: facilityType === 'discharge'
+        ? facilities.discharge.map(f =>
+            (f.outlet === updatedFacility.outlet && f.number === updatedFacility.number)
+              ? updatedFacility
+              : f
+          )
+        : facilities.discharge, // 방지시설 수정 시 배출시설은 그대로 유지
+      prevention: facilityType === 'prevention'
+        ? facilities.prevention.map(f =>
+            (f.outlet === updatedFacility.outlet && f.number === updatedFacility.number)
+              ? updatedFacility
+              : f
+          )
+        : facilities.prevention // 배출시설 수정 시 방지시설은 그대로 유지
+    };
+
+    onFacilitiesUpdate(updatedFacilities);
   };
 
   const handleSaveFacility = async () => {
@@ -155,7 +188,10 @@ export default function EnhancedFacilityInfoSection({
 
   // 측정기기 수량을 Supabase에 저장
   const saveEquipmentCounts = async (counts: typeof equipmentCounts) => {
-    if (!businessId) return;
+    if (!businessId) {
+      console.log('⏭️ businessId가 없어 측정기기 수량 저장을 건너뜁니다.');
+      return;
+    }
 
     try {
       const response = await fetch('/api/business-equipment-counts', {
@@ -168,18 +204,24 @@ export default function EnhancedFacilityInfoSection({
       });
 
       if (!response.ok) {
-        throw new Error('측정기기 수량 저장 실패');
+        console.warn('⚠️ 측정기기 수량 저장 실패 (계속 진행):', await response.text());
+        return; // 오류를 throw하지 않고 조용히 실패
       }
 
       console.log('✅ 측정기기 수량 저장 완료:', counts);
     } catch (error) {
-      console.error('❌ 측정기기 수량 저장 실패:', error);
+      console.warn('⚠️ 측정기기 수량 저장 오류 (계속 진행):', error);
+      // 오류를 throw하지 않고 조용히 실패
     }
   };
 
   const renderFacilityCard = (facility: Facility, type: 'discharge' | 'prevention') => {
     return (
-      <div key={`${facility.outlet}-${facility.number}`} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+      <div
+        key={`${facility.outlet}-${facility.number}`}
+        onClick={() => handleEditFacility(facility, type)}
+        className="bg-white rounded-lg border border-gray-200 p-4 cursor-pointer hover:shadow-lg hover:border-blue-300 hover:bg-blue-50/30 transition-all duration-200"
+      >
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             {type === 'discharge' ? (
@@ -193,33 +235,26 @@ export default function EnhancedFacilityInfoSection({
               <p className="text-xs text-gray-500">용량: {facility.capacity}</p>
             </div>
           </div>
-          
-          <button
-            onClick={() => handleEditFacility(facility, type)}
-            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-          >
-            <Edit3 className="w-4 h-4" />
-          </button>
         </div>
 
         {/* 배출시설 정보 */}
         {type === 'discharge' && (
           <div className="space-y-2 text-sm">
-            {facility.dischargeCT && (
+            {facility.dischargeCT && String(facility.dischargeCT) !== '0' && (
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-orange-500" />
-                <span>배출CT: {facility.dischargeCT}개</span>
+                <span>배출CT: {String(facility.dischargeCT)}개</span>
               </div>
             )}
-            {facility.exemptionReason && facility.exemptionReason !== 'none' && (
+            {facility.exemptionReason && String(facility.exemptionReason) !== 'none' && (
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                <span>면제사유: {facility.exemptionReason}</span>
+                <span>면제사유: {String(facility.exemptionReason)}</span>
               </div>
             )}
             {facility.remarks && (
               <div className="text-gray-600">
-                <span className="font-medium">비고:</span> {facility.remarks}
+                <span className="font-medium">비고:</span> {String(facility.remarks)}
               </div>
             )}
           </div>
@@ -228,39 +263,39 @@ export default function EnhancedFacilityInfoSection({
         {/* 방지시설 정보 */}
         {type === 'prevention' && (
           <div className="grid grid-cols-2 gap-2 text-sm">
-            {facility.ph && facility.ph !== '0' && (
+            {facility.ph && String(facility.ph) !== '0' && (
               <div className="flex items-center gap-1">
                 <Droplets className="w-3 h-3 text-cyan-500" />
-                <span>pH계: {facility.ph}</span>
+                <span>pH계: {String(facility.ph)}</span>
               </div>
             )}
-            {facility.pressure && facility.pressure !== '0' && (
+            {facility.pressure && String(facility.pressure) !== '0' && (
               <div className="flex items-center gap-1">
                 <Gauge className="w-3 h-3 text-purple-500" />
-                <span>차압계: {facility.pressure}</span>
+                <span>차압계: {String(facility.pressure)}</span>
               </div>
             )}
-            {facility.temperature && facility.temperature !== '0' && (
+            {facility.temperature && String(facility.temperature) !== '0' && (
               <div className="flex items-center gap-1">
                 <Thermometer className="w-3 h-3 text-red-500" />
-                <span>온도계: {facility.temperature}</span>
+                <span>온도계: {String(facility.temperature)}</span>
               </div>
             )}
-            {facility.fan && facility.fan !== '0' && (
+            {facility.fan && String(facility.fan) !== '0' && (
               <div className="flex items-center gap-1">
                 <Zap className="w-3 h-3 text-green-500" />
-                <span>송풍CT: {facility.fan}</span>
+                <span>송풍CT: {String(facility.fan)}</span>
               </div>
             )}
-            {facility.pump && facility.pump !== '0' && (
+            {facility.pump && String(facility.pump) !== '0' && (
               <div className="flex items-center gap-1">
                 <Zap className="w-3 h-3 text-blue-500" />
-                <span>펌프CT: {facility.pump}</span>
+                <span>펌프CT: {String(facility.pump)}</span>
               </div>
             )}
             {facility.remarks && (
               <div className="col-span-2 text-gray-600">
-                <span className="font-medium">비고:</span> {facility.remarks}
+                <span className="font-medium">비고:</span> {String(facility.remarks)}
               </div>
             )}
           </div>
@@ -660,6 +695,18 @@ export default function EnhancedFacilityInfoSection({
       </div>
 
       {showAddForm && renderEditForm()}
+
+      {/* 시설 편집 모달 */}
+      {selectedFacility && (
+        <FacilityEditModal
+          facility={selectedFacility}
+          facilityType={facilityType}
+          businessName={businessName}
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onSave={handleFacilitySave}
+        />
+      )}
     </div>
   );
 }

@@ -155,10 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = TokenManager.getToken();
 
       if (!token) {
-        console.log('🔒 [AUTH-CONTEXT] 토큰 없음 - 로그인 필요');
+        console.log('🔒 [AUTH-CONTEXT] 토큰 없음 - 공개 페이지 접근');
         setUser(null);
         setPermissions(null);
         setSocialAccounts(null);
+        setLoading(false); // 즉시 로딩 완료
         return;
       }
 
@@ -178,8 +179,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPermissions(null);
         setSocialAccounts(null);
       }
-    } catch (error) {
-      console.error('❌ [AUTH-CONTEXT] 인증 확인 오류:', error);
+    } catch (error: any) {
+      // Rate limit 오류인 경우 로그만 남기고 계속 진행
+      if (error?.message?.includes('429')) {
+        console.warn('⚠️ [AUTH-CONTEXT] 인증 API Rate Limit - 공개 페이지는 정상 작동');
+      } else {
+        console.error('❌ [AUTH-CONTEXT] 인증 확인 오류:', error);
+      }
 
       // 인증 실패 시 토큰 제거 및 로그아웃 상태로 설정
       TokenManager.removeToken();

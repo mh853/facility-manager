@@ -21,23 +21,8 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log(`📋 [FACILITY-MGMT] 시설 관리 정보 조회: ${businessName || businessId}`);
-
-    // 1. 사업장 기본 정보 조회
-    let businessQuery = supabaseAdmin.from('business_info').select(`
-      id,
-      business_name,
-      installation_phase,
-      surveyor_name,
-      surveyor_contact,
-      surveyor_company,
-      survey_date,
-      installation_date,
-      completion_date,
-      special_notes,
-      created_at,
-      updated_at
-    `);
+    // 1. 사업장 기본 정보 조회 (모든 컬럼 선택)
+    let businessQuery = supabaseAdmin.from('business_info').select('*');
 
     if (businessId) {
       businessQuery = businessQuery.eq('id', businessId);
@@ -48,7 +33,6 @@ export async function GET(request: NextRequest) {
     const { data: business, error: businessError } = await businessQuery.single();
 
     if (businessError || !business) {
-      console.log(`❌ [FACILITY-MGMT] 사업장을 찾을 수 없음: ${businessName || businessId}`);
       return NextResponse.json({
         success: true,
         data: {
@@ -74,9 +58,7 @@ export async function GET(request: NextRequest) {
       .eq('business_id', foundBusinessId)
       .order('created_at', { ascending: true });
 
-    if (phasesError) {
-      console.warn('⚠️ [FACILITY-MGMT] 프로젝트 단계 조회 실패:', phasesError);
-    }
+    // Silently handle phase query errors
 
     // 3. 측정기기 정보 조회
     const { data: devices, error: devicesError } = await supabaseAdmin
@@ -85,9 +67,7 @@ export async function GET(request: NextRequest) {
       .eq('business_id', foundBusinessId)
       .order('created_at', { ascending: true });
 
-    if (devicesError) {
-      console.warn('⚠️ [FACILITY-MGMT] 측정기기 조회 실패:', devicesError);
-    }
+    // Silently handle device query errors
 
     // 4. 업로드 파일 통계 조회
     const { data: fileStats, error: fileStatsError } = await supabaseAdmin
@@ -104,14 +84,6 @@ export async function GET(request: NextRequest) {
         return acc;
       }, fileCounts);
     }
-
-    console.log(`✅ [FACILITY-MGMT] 시설 관리 정보 조회 완료:`, {
-      business: business.business_name,
-      phase: business.installation_phase,
-      phases: phases?.length || 0,
-      devices: devices?.length || 0,
-      files: fileCounts
-    });
 
     return NextResponse.json({
       success: true,
@@ -136,8 +108,8 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
-      businessId, 
+    const {
+      businessId,
       businessName,
       installation_phase,
       surveyor_name,
@@ -146,7 +118,21 @@ export async function PUT(request: NextRequest) {
       survey_date,
       installation_date,
       completion_date,
-      special_notes
+      special_notes,
+      // Phase별 담당자 정보 (새로운 필드)
+      phase,
+      presurvey_inspector_name,
+      presurvey_inspector_contact,
+      presurvey_inspector_date,
+      presurvey_special_notes,
+      postinstall_installer_name,
+      postinstall_installer_contact,
+      postinstall_installer_date,
+      postinstall_special_notes,
+      aftersales_technician_name,
+      aftersales_technician_contact,
+      aftersales_technician_date,
+      aftersales_special_notes
     } = body;
 
     if (!businessId && !businessName) {
@@ -156,25 +142,38 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log(`📝 [FACILITY-MGMT] 시설 관리 정보 업데이트:`, {
-      businessId,
-      businessName,
-      installation_phase,
-      surveyor_name
-    });
-
-    // 1. 사업장 기본 정보 업데이트
-    let updateQuery = supabaseAdmin.from('business_info').update({
-      installation_phase,
-      surveyor_name,
-      surveyor_contact,
-      surveyor_company,
-      survey_date,
-      installation_date,
-      completion_date,
-      special_notes,
+    // 1. 사업장 기본 정보 업데이트 - 제공된 필드만 업데이트
+    const updateData: any = {
       updated_at: new Date().toISOString()
-    });
+    };
+
+    // 제공된 필드만 업데이트 객체에 추가
+    if (installation_phase !== undefined) updateData.installation_phase = installation_phase;
+    if (surveyor_name !== undefined) updateData.surveyor_name = surveyor_name;
+    if (surveyor_contact !== undefined) updateData.surveyor_contact = surveyor_contact;
+    if (surveyor_company !== undefined) updateData.surveyor_company = surveyor_company;
+    if (survey_date !== undefined) updateData.survey_date = survey_date;
+    if (installation_date !== undefined) updateData.installation_date = installation_date;
+    if (completion_date !== undefined) updateData.completion_date = completion_date;
+    if (special_notes !== undefined) updateData.special_notes = special_notes;
+
+    // Phase별 담당자 정보 업데이트
+    if (presurvey_inspector_name !== undefined) updateData.presurvey_inspector_name = presurvey_inspector_name;
+    if (presurvey_inspector_contact !== undefined) updateData.presurvey_inspector_contact = presurvey_inspector_contact;
+    if (presurvey_inspector_date !== undefined) updateData.presurvey_inspector_date = presurvey_inspector_date;
+    if (presurvey_special_notes !== undefined) updateData.presurvey_special_notes = presurvey_special_notes;
+
+    if (postinstall_installer_name !== undefined) updateData.postinstall_installer_name = postinstall_installer_name;
+    if (postinstall_installer_contact !== undefined) updateData.postinstall_installer_contact = postinstall_installer_contact;
+    if (postinstall_installer_date !== undefined) updateData.postinstall_installer_date = postinstall_installer_date;
+    if (postinstall_special_notes !== undefined) updateData.postinstall_special_notes = postinstall_special_notes;
+
+    if (aftersales_technician_name !== undefined) updateData.aftersales_technician_name = aftersales_technician_name;
+    if (aftersales_technician_contact !== undefined) updateData.aftersales_technician_contact = aftersales_technician_contact;
+    if (aftersales_technician_date !== undefined) updateData.aftersales_technician_date = aftersales_technician_date;
+    if (aftersales_special_notes !== undefined) updateData.aftersales_special_notes = aftersales_special_notes;
+
+    let updateQuery = supabaseAdmin.from('business_info').update(updateData);
 
     if (businessId) {
       updateQuery = updateQuery.eq('id', businessId);
@@ -185,6 +184,7 @@ export async function PUT(request: NextRequest) {
     const { data: updatedBusiness, error: updateError } = await updateQuery.select().single();
 
     if (updateError) {
+      console.error(`❌ [FACILITY-MGMT] 업데이트 에러:`, updateError);
       throw updateError;
     }
 
@@ -211,8 +211,6 @@ export async function PUT(request: NextRequest) {
         });
     }
 
-    console.log(`✅ [FACILITY-MGMT] 시설 관리 정보 업데이트 완료: ${updatedBusiness.business_name}`);
-
     return NextResponse.json({
       success: true,
       data: updatedBusiness,
@@ -223,6 +221,7 @@ export async function PUT(request: NextRequest) {
     console.error('❌ [FACILITY-MGMT] 시설 관리 정보 업데이트 실패:', error);
     return NextResponse.json({
       success: false,
+      error: error,
       message: '시설 관리 정보 업데이트 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류')
     }, { status: 500 });
   }

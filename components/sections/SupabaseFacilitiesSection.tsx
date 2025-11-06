@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Building2, Factory, Shield, AlertCircle, RefreshCw, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { FacilitiesData, Facility } from '@/types';
+import FacilityEditModal from '@/components/modals/FacilityEditModal';
 
 interface SupabaseFacilitiesSectionProps {
   businessName: string;
@@ -18,6 +19,8 @@ export default function SupabaseFacilitiesSection({
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>('');
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // 시설 정보 로드
   const loadFacilities = async (forceRefresh = false) => {
@@ -54,6 +57,40 @@ export default function SupabaseFacilitiesSection({
       loadFacilities();
     }
   }, [businessName]);
+
+  // 시설 카드 클릭 핸들러
+  const handleFacilityClick = (facility: Facility) => {
+    setSelectedFacility(facility);
+    setIsModalOpen(true);
+  };
+
+  // 모달 닫기
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedFacility(null);
+  };
+
+  // 시설 정보 저장 후 처리
+  const handleFacilitySave = (updatedFacility: Facility) => {
+    if (!facilities) return;
+
+    // 업데이트된 시설로 로컬 상태 갱신
+    const updatedFacilities: FacilitiesData = {
+      discharge: facilities.discharge.map(f =>
+        f.id === updatedFacility.id ? updatedFacility : f
+      ),
+      prevention: facilities.prevention.map(f =>
+        f.id === updatedFacility.id ? updatedFacility : f
+      )
+    };
+
+    setFacilities(updatedFacilities);
+
+    // 부모 컴포넌트에 업데이트 전달
+    if (onDataUpdate) {
+      onDataUpdate(updatedFacilities);
+    }
+  };
 
   if (loading) {
     return (
@@ -232,7 +269,11 @@ export default function SupabaseFacilitiesSection({
                           </h4>
                           <div className="space-y-2">
                             {outletDischarge.map((facility, index) => (
-                              <div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                              <div
+                                key={index}
+                                onClick={() => handleFacilityClick(facility)}
+                                className="bg-orange-50 border border-orange-200 rounded-lg p-3 cursor-pointer hover:bg-orange-100 hover:border-orange-300 hover:shadow-md transition-all duration-200"
+                              >
                                 <div className="flex justify-between items-start">
                                   <div>
                                     <p className="font-medium text-gray-800">{facility.name}</p>
@@ -263,7 +304,11 @@ export default function SupabaseFacilitiesSection({
                           </h4>
                           <div className="space-y-2">
                             {outletPrevention.map((facility, index) => (
-                              <div key={index} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                              <div
+                                key={index}
+                                onClick={() => handleFacilityClick(facility)}
+                                className="bg-blue-50 border border-blue-200 rounded-lg p-3 cursor-pointer hover:bg-blue-100 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                              >
                                 <div className="flex justify-between items-start">
                                   <div>
                                     <p className="font-medium text-gray-800">{facility.name}</p>
@@ -298,6 +343,16 @@ export default function SupabaseFacilitiesSection({
             </span>
           </div>
         </div>
+      )}
+
+      {/* 시설 편집 모달 */}
+      {selectedFacility && (
+        <FacilityEditModal
+          facility={selectedFacility}
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onSave={handleFacilitySave}
+        />
       )}
     </div>
   );
