@@ -60,7 +60,9 @@
       "Bash(timeout 10 npm run type-check)",
       "Bash(timeout 15 npm run lint:*)",
       "Bash(npx eslint:*)",
-      "Bash(timeout 3 bash:*)"
+      "Bash(timeout 3 bash:*)",
+      "Bash(nul)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": [],
