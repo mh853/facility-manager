@@ -176,7 +176,7 @@ function generateEstimateHtml(data: EstimateData): string {
     <div style="font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif; padding: 30px; line-height: 1.5; background-color: #ffffff; color: #000000;">
       <!-- 헤더 -->
       <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #2563eb; padding-bottom: 15px;">
-        <h1 style="font-size: 32px; font-weight: bold; margin: 0; color: #1a1a1a;">IoT 견적서</h1>
+        <h1 style="font-size: 32px; font-weight: bold; margin: 0; color: #1a1a1a;">IoT 설치 견적서</h1>
       </div>
 
       <!-- 견적 기본 정보 -->
@@ -229,23 +229,27 @@ function generateEstimateHtml(data: EstimateData): string {
               </tr>
               <tr>
                 <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold; width: 35%;">상호(법인명)</td>
-                <td style="border: 1px solid #d1d5db; padding: 10px;">주식회사 블루온</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.supplier_info.company_name}</td>
               </tr>
               <tr>
                 <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">사업자등록번호</td>
-                <td style="border: 1px solid #d1d5db; padding: 10px;">679-86-02827</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.supplier_info.registration_number}</td>
               </tr>
               <tr>
                 <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">대표자</td>
-                <td style="border: 1px solid #d1d5db; padding: 10px;">김경수</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.supplier_info.representative}</td>
               </tr>
               <tr>
                 <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">업태 / 업종</td>
-                <td style="border: 1px solid #d1d5db; padding: 10px;">제조업 / 전동기및발전기</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.supplier_info.business_type || '-'} / ${data.supplier_info.business_category || '-'}</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">사업장주소</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.supplier_info.address || '-'}</td>
               </tr>
               <tr>
                 <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">전화 / 팩스</td>
-                <td style="border: 1px solid #d1d5db; padding: 10px;">1661-5543 / 031-8077-2054</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.supplier_info.phone || '-'} / ${data.supplier_info.fax || '-'}</td>
               </tr>
             </tbody>
           </table>

@@ -1,7 +1,6 @@
--- sql/integrate_estimate_to_document_history.sql
--- 견적서 이력을 실행 이력에 통합
+-- sql/update_estimate_document_name.sql
+-- Update document name format to match estimate history display
 
--- document_history_detail 뷰 재생성 (견적서 포함)
 DROP VIEW IF EXISTS document_history_detail;
 
 CREATE OR REPLACE VIEW document_history_detail AS
@@ -28,14 +27,14 @@ LEFT JOIN users u ON dh.created_by::text = u.id::text
 
 UNION ALL
 
--- 견적서 이력 추가
+-- 견적서 이력 추가 (파일명 형식 변경: YYYYMMDD_사업장명_IoT설치견적서)
 SELECT
   eh.id,
   eh.business_id,
   eh.business_name,
   bi.address,
   'estimate' as document_type,
-  '견적서_' || eh.estimate_number as document_name,
+  TO_CHAR(eh.created_at, 'YYYYMMDD') || '_' || eh.business_name || '_IoT설치견적서' as document_name,
   NULL::jsonb as document_data,
   'pdf' as file_format,
   eh.pdf_file_path as file_path,
@@ -49,7 +48,17 @@ SELECT
     'estimate_date', eh.estimate_date,
     'total_amount', eh.total_amount,
     'subtotal', eh.subtotal,
-    'vat_amount', eh.vat_amount
+    'vat_amount', eh.vat_amount,
+    'business_name', eh.business_name,
+    'customer_address', eh.customer_address,
+    'customer_phone', eh.customer_phone,
+    'customer_manager', eh.customer_manager,
+    'customer_manager_contact', eh.customer_manager_contact,
+    'supplier_info', eh.supplier_info,
+    'estimate_items', eh.estimate_items,
+    'reference_notes', eh.reference_notes,
+    'terms_and_conditions', eh.terms_and_conditions,
+    'air_permit', eh.air_permit
   ) as metadata
 FROM estimate_history eh
 LEFT JOIN business_info bi ON eh.business_id = bi.id
@@ -57,7 +66,12 @@ LEFT JOIN users u ON eh.created_by::text = u.id::text
 
 ORDER BY created_at DESC;
 
--- 인덱스 확인 (estimate_history)
-CREATE INDEX IF NOT EXISTS idx_estimate_history_business_id ON estimate_history(business_id);
-CREATE INDEX IF NOT EXISTS idx_estimate_history_created_at ON estimate_history(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_estimate_history_created_by ON estimate_history(created_by);
+-- Verify the view
+SELECT
+  document_name,
+  document_type,
+  created_at
+FROM document_history_detail
+WHERE document_type = 'estimate'
+ORDER BY created_at DESC
+LIMIT 5;

@@ -853,10 +853,113 @@ export default function EstimateManagement() {
                         </div>
                       </div>
                     )}
+
+                    {/* 대기배출시설 허가증 */}
+                    {(selectedEstimate as any).air_permit && (
+                      <div className="mt-6 border-t-2 border-blue-600 pt-6">
+                        <div className="text-center mb-6 border-b-2 border-blue-600 pb-3">
+                          <h2 className="text-xl font-bold mb-1">대기배출시설 허가증</h2>
+                          <p className="text-sm text-gray-600">{selectedEstimate.business_name}</p>
+                        </div>
+
+                        {/* 기본 정보 */}
+                        <div className="mb-6">
+                          <h3 className="text-sm font-bold text-blue-600 mb-3 border-l-3 border-blue-600 pl-2">기본 정보</h3>
+                          <div className="grid grid-cols-4 gap-2 text-xs">
+                            <div className="col-span-1 bg-gray-100 p-2 border font-semibold">업종</div>
+                            <div className="col-span-1 p-2 border">{(selectedEstimate as any).air_permit.business_type || '-'}</div>
+                            <div className="col-span-1 bg-gray-100 p-2 border font-semibold">종별</div>
+                            <div className="col-span-1 p-2 border">{(selectedEstimate as any).air_permit.category || '-'}</div>
+                            <div className="col-span-1 bg-gray-100 p-2 border font-semibold">최초신고일</div>
+                            <div className="col-span-1 p-2 border">{(selectedEstimate as any).air_permit.first_report_date || '-'}</div>
+                            <div className="col-span-1 bg-gray-100 p-2 border font-semibold">가동개시일</div>
+                            <div className="col-span-1 p-2 border">{(selectedEstimate as any).air_permit.operation_start_date || '-'}</div>
+                          </div>
+                        </div>
+
+                        {/* 배출시설 */}
+                        <div className="mb-6">
+                          <h3 className="text-sm font-bold text-red-600 mb-3 bg-red-50 p-2 border-l-3 border-red-600">🏭 배출시설</h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-xs">
+                              <thead className="bg-red-100">
+                                <tr>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '8%'}}>시설<br/>번호</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '30%'}}>시설명</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '18%'}}>용량</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '10%'}}>수량</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '34%'}}>측정기기</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(selectedEstimate as any).air_permit.emission_facilities?.map((facility: any, idx: number) => (
+                                  <tr key={idx}>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.facility_number || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2">{facility.name || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.capacity || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.quantity || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2">
+                                      {facility.measuring_devices?.map((device: any) => `${device.device_name}(${device.quantity}개)`).join(', ') || '-'}
+                                    </td>
+                                  </tr>
+                                ))}
+                                {!(selectedEstimate as any).air_permit.emission_facilities?.length && (
+                                  <tr>
+                                    <td colSpan={5} className="border border-gray-300 px-2 py-3 text-center text-gray-500">데이터 없음</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* 방지시설 */}
+                        <div>
+                          <h3 className="text-sm font-bold text-green-600 mb-3 bg-green-50 p-2 border-l-3 border-green-600">🛡️ 방지시설</h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-xs">
+                              <thead className="bg-green-100">
+                                <tr>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '8%'}}>시설<br/>번호</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '30%'}}>시설명</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '18%'}}>용량</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '10%'}}>수량</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '34%'}}>측정기기</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(selectedEstimate as any).air_permit.prevention_facilities?.map((facility: any, idx: number) => (
+                                  <tr key={idx}>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.facility_number || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2">{facility.name || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.capacity || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.quantity || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2">
+                                      {facility.measuring_devices?.map((device: any) => `${device.device_name}(${device.quantity}개)`).join(', ') || '-'}
+                                    </td>
+                                  </tr>
+                                ))}
+                                {!(selectedEstimate as any).air_permit.prevention_facilities?.length && (
+                                  <tr>
+                                    <td colSpan={5} className="border border-gray-300 px-2 py-3 text-center text-gray-500">데이터 없음</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={() => setSelectedEstimate(null)}
+                    className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    닫기
+                  </button>
                   <button
                     onClick={() => downloadPDF(selectedEstimate.id, selectedEstimate.estimate_number)}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

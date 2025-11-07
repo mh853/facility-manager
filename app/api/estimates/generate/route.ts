@@ -33,7 +33,7 @@ interface EstimateItem {
 
 export async function POST(request: NextRequest) {
   try {
-    const { business_id, created_by } = await request.json();
+    const { business_id, created_by, reference_notes } = await request.json();
 
     // 1. 사업장 정보 조회
     const { data: business, error: businessError } = await supabase
@@ -134,9 +134,91 @@ export async function POST(request: NextRequest) {
     const vatTotal = estimateItems.reduce((sum, item) => sum + item.vat_amount, 0);
     const total = subtotal + vatTotal;
 
-    // 7. 견적서 이력 저장
+    // 7. 대기필증 정보 조회
+    const { data: airPermitData } = await supabase
+      .from('air_permit_info')
+      .select('*')
+      .eq('business_id', business_id)
+      .eq('is_deleted', false)
+      .maybeSingle();
+
+    let air_permit = null;
+
+    if (airPermitData) {
+      // 배출구 정보 조회
+      const { data: outletsData } = await supabase
+        .from('discharge_outlets')
+        .select('*')
+        .eq('air_permit_id', airPermitData.id)
+        .order('outlet_number', { ascending: true });
+
+      // 배출시설과 방지시설 정보 수집
+      const emission_facilities = [];
+      const prevention_facilities = [];
+
+      if (outletsData && outletsData.length > 0) {
+        for (const outlet of outletsData) {
+          // 배출시설 조회
+          const { data: dischargeFacilities } = await supabase
+            .from('discharge_facilities')
+            .select('*')
+            .eq('outlet_id', outlet.id)
+            .order('facility_number', { ascending: true });
+
+          // 방지시설 조회
+          const { data: preventionFacilities } = await supabase
+            .from('prevention_facilities')
+            .select('*')
+            .eq('outlet_id', outlet.id)
+            .order('facility_number', { ascending: true });
+
+          // 배출시설 추가
+          if (dischargeFacilities && dischargeFacilities.length > 0) {
+            dischargeFacilities.forEach((f) => {
+              emission_facilities.push({
+                facility_number: f.facility_number || 0,
+                name: f.facility_name || '',
+                capacity: f.capacity || '',
+                quantity: f.quantity || 1,
+                green_link_code: f.green_link_code || '',
+                measuring_devices: f.additional_info?.measuring_devices || []
+              });
+            });
+          }
+
+          // 방지시설 추가
+          if (preventionFacilities && preventionFacilities.length > 0) {
+            preventionFacilities.forEach((f) => {
+              prevention_facilities.push({
+                facility_number: f.facility_number || 0,
+                name: f.facility_name || '',
+                capacity: f.capacity || '',
+                quantity: f.quantity || 1,
+                green_link_code: f.green_link_code || '',
+                measuring_devices: f.additional_info?.measuring_devices || []
+              });
+            });
+          }
+        }
+      }
+
+      air_permit = {
+        business_type: airPermitData.business_type || '',
+        category: airPermitData.additional_info?.category || '',
+        first_report_date: airPermitData.first_report_date || '',
+        operation_start_date: airPermitData.operation_start_date || '',
+        emission_facilities,
+        prevention_facilities
+      };
+    }
+
+    // 8. 견적서 이력 저장
     const now = new Date();
     const estimateNumber = `EST-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-6)}`;
+
+    // 견적서 파일명 생성: YYYYMMDD_사업장명_IoT설치견적서
+    const dateStr = now.toISOString().split('T')[0].replace(/-/g, '')
+    const documentName = `${dateStr}_${business.business_name}_IoT설치견적서`
 
     const { data: estimate, error: estimateError } = await supabase
       .from('estimate_history')
@@ -151,11 +233,14 @@ export async function POST(request: NextRequest) {
         customer_business_type: business.business_type,
         customer_business_category: business.business_category,
         customer_phone: business.business_contact,
+        customer_manager: business.manager_name,
+        customer_manager_contact: business.manager_contact,
         estimate_items: estimateItems,
         subtotal,
         vat_amount: vatTotal,
         total_amount: total,
         terms_and_conditions: template.terms_and_conditions,
+        reference_notes: reference_notes || '',
         supplier_info: {
           company_name: template.supplier_company_name,
           address: template.supplier_address,
@@ -168,7 +253,8 @@ export async function POST(request: NextRequest) {
         },
         estimate_date: now.toISOString().split('T')[0],
         estimate_number: estimateNumber,
-        created_by
+        created_by,
+        air_permit
       })
       .select()
       .single();

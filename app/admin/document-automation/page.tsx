@@ -3,11 +3,11 @@
 
 import { useState, useEffect } from 'react'
 import AdminLayout from '@/components/ui/AdminLayout'
-import StatsCard from '@/components/ui/StatsCard'
 import { ConfirmModal } from '@/components/ui/Modal'
 import PurchaseOrderModal from './components/PurchaseOrderModal'
 import EcosensePurchaseOrderForm from '@/components/EcosensePurchaseOrderForm'
 import EstimateManagement from './components/EstimateManagement'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   FileText,
   Download,
@@ -91,6 +91,10 @@ export default function DocumentAutomationPage() {
   })
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [previewDocument, setPreviewDocument] = useState<any | null>(null)
+
+  // AuthContext에서 사용자 정보 및 권한 가져오기
+  const { user } = useAuth()
+  const userPermissionLevel = user?.permission_level || 0
 
   // 발주 필요 사업장 목록 로드
   useEffect(() => {
@@ -186,6 +190,48 @@ export default function DocumentAutomationPage() {
       alert('문서 이력을 불러오는 중 오류가 발생했습니다.')
     } finally {
       setLoadingHistory(false)
+    }
+  }
+
+  const deleteDocumentHistory = async (documentId: string, documentType: string) => {
+    if (!confirm('이 문서를 삭제하시겠습니까?')) return
+
+    try {
+      const token = localStorage.getItem('auth_token')
+
+      // 문서 타입에 따라 다른 API 호출
+      const endpoint = documentType === 'estimate'
+        ? `/api/estimates/${documentId}`
+        : `/api/document-automation/history/${documentId}`
+
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        alert('문서가 삭제되었습니다.')
+
+        // 현재 페이지에 1개만 남아있고 첫 페이지가 아니면 이전 페이지로 이동
+        if (documentHistory.length === 1 && historyPagination.page > 1) {
+          setHistoryPagination({
+            ...historyPagination,
+            page: historyPagination.page - 1
+          })
+        } else {
+          await loadDocumentHistory()
+        }
+      } else {
+        alert(result.error || '삭제에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('문서 삭제 오류:', error)
+      alert('문서 삭제 중 오류가 발생했습니다.')
     }
   }
 
@@ -342,45 +388,6 @@ export default function DocumentAutomationPage() {
       }
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
-          <StatsCard
-            title="전체 템플릿"
-            value={stats.totalTemplates.toString()}
-            icon={FileText}
-            color="blue"
-            description="등록된 문서 템플릿 수"
-          />
-          <StatsCard
-            title="활성 템플릿"
-            value={stats.activeTemplates.toString()}
-            icon={CheckCircle}
-            color="green"
-            description="사용 중인 템플릿 수"
-          />
-          <StatsCard
-            title="자동화 규칙"
-            value={stats.totalRules.toString()}
-            icon={Settings}
-            color="purple"
-            description="설정된 자동화 규칙 수"
-          />
-          <StatsCard
-            title="활성 규칙"
-            value={stats.activeRules.toString()}
-            icon={Zap}
-            color="orange"
-            description="실행 중인 규칙 수"
-          />
-          <StatsCard
-            title="총 사용량"
-            value={stats.totalUsage.toString()}
-            icon={Database}
-            color="indigo"
-            description="템플릿 총 사용 횟수"
-          />
-        </div>
-
         {/* Tab Navigation */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="border-b border-gray-200">
@@ -652,12 +659,12 @@ export default function DocumentAutomationPage() {
                     <div className="text-xl sm:text-2xl font-bold text-blue-600">{historySummary.by_type.purchase_order}</div>
                   </div>
                   <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-                    <div className="text-xs sm:text-sm text-gray-500 mb-1">Excel</div>
-                    <div className="text-xl sm:text-2xl font-bold text-green-600">{historySummary.by_format.excel}</div>
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1">견적서</div>
+                    <div className="text-xl sm:text-2xl font-bold text-green-600">{historySummary.by_type.estimate}</div>
                   </div>
                   <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-                    <div className="text-xs sm:text-sm text-gray-500 mb-1">PDF</div>
-                    <div className="text-xl sm:text-2xl font-bold text-red-600">{historySummary.by_format.pdf}</div>
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1">계약서</div>
+                    <div className="text-xl sm:text-2xl font-bold text-red-600">{historySummary.by_type.contract}</div>
                   </div>
                 </div>
 
@@ -916,12 +923,22 @@ export default function DocumentAutomationPage() {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div className="flex items-center justify-end gap-2">
-                                  {/* 보기 버튼 (발주서만) */}
+                                  {/* 보기 버튼 (발주서 & 견적서) */}
                                   {doc.document_type === 'purchase_order' && doc.document_data && (
                                     <button
                                       onClick={() => setPreviewDocument(doc)}
                                       className="text-green-600 hover:text-green-900 inline-flex items-center gap-1"
                                       title="발주서 보기"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                      보기
+                                    </button>
+                                  )}
+                                  {doc.document_type === 'estimate' && doc.metadata && (
+                                    <button
+                                      onClick={() => setPreviewDocument(doc)}
+                                      className="text-green-600 hover:text-green-900 inline-flex items-center gap-1"
+                                      title="견적서 보기"
                                     >
                                       <Eye className="w-4 h-4" />
                                       보기
@@ -964,6 +981,18 @@ export default function DocumentAutomationPage() {
                                     <span className="text-gray-400 text-xs">
                                       -
                                     </span>
+                                  )}
+
+                                  {/* 삭제 버튼 (슈퍼관리자만) */}
+                                  {userPermissionLevel >= 4 && (
+                                    <button
+                                      onClick={() => deleteDocumentHistory(doc.id, doc.document_type)}
+                                      className="text-red-600 hover:text-red-900 inline-flex items-center gap-1"
+                                      title="삭제"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      삭제
+                                    </button>
                                   )}
                                 </div>
                               </td>
@@ -1073,7 +1102,9 @@ export default function DocumentAutomationPage() {
             {/* 헤더 */}
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0">
               <div className="flex-1 min-w-0 mr-2">
-                <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 truncate">발주서 미리보기</h2>
+                <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 truncate">
+                  {previewDocument.document_type === 'estimate' ? '견적서 미리보기' : '발주서 미리보기'}
+                </h2>
                 <p className="text-[10px] sm:text-xs md:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">
                   {previewDocument.business_name} - {previewDocument.document_name}
                 </p>
@@ -1089,10 +1120,254 @@ export default function DocumentAutomationPage() {
             {/* 내용 */}
             <div className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 lg:p-6 min-h-0">
               <div className="max-w-5xl mx-auto text-sm">
-                <EcosensePurchaseOrderForm
-                  data={previewDocument.document_data}
-                  showPrintButton={false}
-                />
+                {previewDocument.document_type === 'purchase_order' ? (
+                  <EcosensePurchaseOrderForm
+                    data={previewDocument.document_data}
+                    showPrintButton={false}
+                  />
+                ) : previewDocument.document_type === 'estimate' && previewDocument.metadata ? (
+                  <div className="bg-white p-6 rounded-lg shadow">
+                    <h1 className="text-2xl font-bold text-center mb-6">IoT 설치 견적서</h1>
+
+                    {/* 공급받는자 / 공급자 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                      {/* 공급받는자 */}
+                      <div className="border border-gray-300 rounded">
+                        <div className="bg-blue-50 px-3 py-2 border-b border-gray-300">
+                          <h3 className="font-bold text-sm">공급받는자</h3>
+                        </div>
+                        <div className="p-3 space-y-1 text-xs">
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-600">상호:</span>
+                            <span className="col-span-2 font-medium">{previewDocument.metadata.business_name}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-600">사업장주소:</span>
+                            <span className="col-span-2">{previewDocument.metadata.customer_address}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-600">전화:</span>
+                            <span className="col-span-2">{previewDocument.metadata.customer_phone}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-600">담당자:</span>
+                            <span className="col-span-2">{previewDocument.metadata.customer_manager}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-600">담당자연락처:</span>
+                            <span className="col-span-2">{previewDocument.metadata.customer_manager_contact}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 공급자 */}
+                      <div className="border border-gray-300 rounded">
+                        <div className="bg-green-50 px-3 py-2 border-b border-gray-300">
+                          <h3 className="font-bold text-sm">공급자</h3>
+                        </div>
+                        <div className="p-3 space-y-1 text-xs">
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-600">상호:</span>
+                            <span className="col-span-2 font-medium">{previewDocument.metadata.supplier_info?.company_name}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-600">사업자번호:</span>
+                            <span className="col-span-2">{previewDocument.metadata.supplier_info?.registration_number}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-600">대표자:</span>
+                            <span className="col-span-2">{previewDocument.metadata.supplier_info?.representative}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-600">주소:</span>
+                            <span className="col-span-2">{previewDocument.metadata.supplier_info?.address}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-600">전화:</span>
+                            <span className="col-span-2">{previewDocument.metadata.supplier_info?.phone}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 품목 테이블 */}
+                    <div className="overflow-x-auto mb-4">
+                      <table className="w-full border-collapse border border-gray-300 text-xs">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="border border-gray-300 px-2 py-2 w-12">No</th>
+                            <th className="border border-gray-300 px-2 py-2">품명</th>
+                            <th className="border border-gray-300 px-2 py-2 w-20">규격</th>
+                            <th className="border border-gray-300 px-2 py-2 w-16">수량</th>
+                            <th className="border border-gray-300 px-2 py-2 w-24">단가</th>
+                            <th className="border border-gray-300 px-2 py-2 w-24">공급가액</th>
+                            <th className="border border-gray-300 px-2 py-2 w-20">부가세</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewDocument.metadata.estimate_items?.map((item: any) => (
+                            <tr key={item.no}>
+                              <td className="border border-gray-300 px-2 py-1 text-center">{item.no}</td>
+                              <td className="border border-gray-300 px-2 py-1">{item.name}</td>
+                              <td className="border border-gray-300 px-2 py-1 text-center">{item.spec}</td>
+                              <td className="border border-gray-300 px-2 py-1 text-right">{item.quantity}</td>
+                              <td className="border border-gray-300 px-2 py-1 text-right">
+                                {item.unit_price.toLocaleString()}
+                              </td>
+                              <td className="border border-gray-300 px-2 py-1 text-right">
+                                {item.supply_amount.toLocaleString()}
+                              </td>
+                              <td className="border border-gray-300 px-2 py-1 text-right">
+                                {item.vat_amount.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* 참고사항 */}
+                    {previewDocument.metadata.reference_notes && (
+                      <div className="bg-gray-50 border border-gray-200 rounded p-4 mb-4">
+                        <h3 className="font-bold text-sm mb-2">참고사항</h3>
+                        <div className="text-xs text-gray-700 whitespace-pre-wrap">
+                          {previewDocument.metadata.reference_notes}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 합계 */}
+                    <div className="bg-yellow-50 border border-yellow-300 rounded p-4 mb-4">
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div className="text-center">
+                          <div className="text-gray-600 mb-1">공급가액</div>
+                          <div className="text-lg font-bold">
+                            ₩{previewDocument.metadata.subtotal.toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-gray-600 mb-1">부가세</div>
+                          <div className="text-lg font-bold">
+                            ₩{previewDocument.metadata.vat_amount.toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-gray-600 mb-1">합계금액</div>
+                          <div className="text-xl font-bold text-blue-600">
+                            ₩{previewDocument.metadata.total_amount.toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 안내사항 */}
+                    {previewDocument.metadata.terms_and_conditions && (
+                      <div className="bg-gray-50 border border-gray-200 rounded p-4">
+                        <h3 className="font-bold text-sm mb-2">안내사항</h3>
+                        <div className="text-xs text-gray-700 whitespace-pre-wrap">
+                          {previewDocument.metadata.terms_and_conditions}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 대기배출시설 허가증 */}
+                    {previewDocument.metadata.air_permit && (
+                      <div className="mt-6 border-t-2 border-blue-600 pt-6">
+                        <div className="text-center mb-6 border-b-2 border-blue-600 pb-3">
+                          <h2 className="text-xl font-bold mb-1">대기배출시설 허가증</h2>
+                          <p className="text-sm text-gray-600">{previewDocument.metadata.business_name}</p>
+                        </div>
+
+                        {/* 기본 정보 */}
+                        <div className="mb-6">
+                          <h3 className="text-sm font-bold text-blue-600 mb-3 border-l-3 border-blue-600 pl-2">기본 정보</h3>
+                          <div className="grid grid-cols-4 gap-2 text-xs">
+                            <div className="col-span-1 bg-gray-100 p-2 border font-semibold">업종</div>
+                            <div className="col-span-1 p-2 border">{previewDocument.metadata.air_permit.business_type || '-'}</div>
+                            <div className="col-span-1 bg-gray-100 p-2 border font-semibold">종별</div>
+                            <div className="col-span-1 p-2 border">{previewDocument.metadata.air_permit.category || '-'}</div>
+                            <div className="col-span-1 bg-gray-100 p-2 border font-semibold">최초신고일</div>
+                            <div className="col-span-1 p-2 border">{previewDocument.metadata.air_permit.first_report_date || '-'}</div>
+                            <div className="col-span-1 bg-gray-100 p-2 border font-semibold">가동개시일</div>
+                            <div className="col-span-1 p-2 border">{previewDocument.metadata.air_permit.operation_start_date || '-'}</div>
+                          </div>
+                        </div>
+
+                        {/* 배출시설 */}
+                        <div className="mb-6">
+                          <h3 className="text-sm font-bold text-red-600 mb-3 bg-red-50 p-2 border-l-3 border-red-600">🏭 배출시설</h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-xs">
+                              <thead className="bg-red-100">
+                                <tr>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '8%'}}>시설<br/>번호</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '30%'}}>시설명</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '18%'}}>용량</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '10%'}}>수량</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '34%'}}>측정기기</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {previewDocument.metadata.air_permit.emission_facilities?.map((facility: any, idx: number) => (
+                                  <tr key={idx}>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.facility_number || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2">{facility.name || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.capacity || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.quantity || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2">
+                                      {facility.measuring_devices?.map((device: any) => `${device.device_name}(${device.quantity}개)`).join(', ') || '-'}
+                                    </td>
+                                  </tr>
+                                ))}
+                                {!previewDocument.metadata.air_permit.emission_facilities?.length && (
+                                  <tr>
+                                    <td colSpan={5} className="border border-gray-300 px-2 py-3 text-center text-gray-500">데이터 없음</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* 방지시설 */}
+                        <div>
+                          <h3 className="text-sm font-bold text-green-600 mb-3 bg-green-50 p-2 border-l-3 border-green-600">🛡️ 방지시설</h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-xs">
+                              <thead className="bg-green-100">
+                                <tr>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '8%'}}>시설<br/>번호</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '30%'}}>시설명</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '18%'}}>용량</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '10%'}}>수량</th>
+                                  <th className="border border-gray-300 px-2 py-2 text-center" style={{width: '34%'}}>측정기기</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {previewDocument.metadata.air_permit.prevention_facilities?.map((facility: any, idx: number) => (
+                                  <tr key={idx}>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.facility_number || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2">{facility.name || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.capacity || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2 text-center">{facility.quantity || '-'}</td>
+                                    <td className="border border-gray-300 px-2 py-2">
+                                      {facility.measuring_devices?.map((device: any) => `${device.device_name}(${device.quantity}개)`).join(', ') || '-'}
+                                    </td>
+                                  </tr>
+                                ))}
+                                {!previewDocument.metadata.air_permit.prevention_facilities?.length && (
+                                  <tr>
+                                    <td colSpan={5} className="border border-gray-300 px-2 py-3 text-center text-gray-500">데이터 없음</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
 

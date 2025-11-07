@@ -114,9 +114,9 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('문서 이력 조회 중 오류가 발생했습니다', 500)
     }
 
-    // 통계 계산
+    // 통계 계산 (통합 뷰에서 가져오기)
     const { data: allDocs } = await supabaseAdmin
-      .from('document_history')
+      .from('document_history_detail')
       .select('document_type, file_format')
 
     const summary = {

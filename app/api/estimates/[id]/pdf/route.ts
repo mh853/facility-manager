@@ -34,6 +34,7 @@ export async function GET(
       data: {
         estimate_number: estimate.estimate_number,
         estimate_date: estimate.estimate_date,
+        business_name: estimate.business_name,
         customer_name: estimate.customer_name,
         customer_address: estimate.customer_address,
         customer_registration_number: estimate.customer_registration_number,
@@ -41,12 +42,16 @@ export async function GET(
         customer_business_type: estimate.customer_business_type,
         customer_business_category: estimate.customer_business_category,
         customer_phone: estimate.customer_phone,
+        customer_manager: estimate.customer_manager,
+        customer_manager_contact: estimate.customer_manager_contact,
         supplier_info: estimate.supplier_info,
         estimate_items: estimate.estimate_items,
         subtotal: parseFloat(estimate.subtotal),
         vat_amount: parseFloat(estimate.vat_amount),
         total_amount: parseFloat(estimate.total_amount),
-        terms_and_conditions: estimate.terms_and_conditions
+        terms_and_conditions: estimate.terms_and_conditions,
+        reference_notes: estimate.reference_notes,
+        air_permit: estimate.air_permit
       }
     });
 

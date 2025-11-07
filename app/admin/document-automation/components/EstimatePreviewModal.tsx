@@ -16,6 +16,29 @@ interface EstimateItem {
   note: string
 }
 
+interface MeasuringDevice {
+  device_name: string
+  quantity: number
+}
+
+interface Facility {
+  facility_number: number
+  name: string
+  capacity: string
+  quantity: number
+  green_link_code: string
+  measuring_devices: MeasuringDevice[]
+}
+
+interface AirPermit {
+  business_type: string
+  category: string
+  first_report_date: string
+  operation_start_date: string
+  emission_facilities: Facility[]
+  prevention_facilities: Facility[]
+}
+
 interface EstimatePreviewData {
   estimate_number: string
   estimate_date: string
@@ -44,6 +67,8 @@ interface EstimatePreviewData {
   vat_amount: number
   total_amount: number
   terms_and_conditions: string
+  air_permit?: AirPermit
+  reference_notes?: string
 }
 
 interface EstimatePreviewModalProps {
@@ -53,6 +78,19 @@ interface EstimatePreviewModalProps {
   businessName: string
   onEstimateCreated?: () => void
 }
+
+// 측정기기 선택 옵션
+const EMISSION_MEASURING_DEVICES = [
+  '전류계'
+]
+
+const PREVENTION_MEASURING_DEVICES = [
+  'PH계',
+  '차압계',
+  '온도계',
+  '전류계(송풍)',
+  '전류계(펌프)'
+]
 
 export default function EstimatePreviewModal({
   isOpen,
@@ -67,6 +105,8 @@ export default function EstimatePreviewModal({
   const [estimates, setEstimates] = useState<any[]>([])
   const [selectedEstimate, setSelectedEstimate] = useState<any | null>(null)
   const [referenceNotes, setReferenceNotes] = useState<string>('')
+  const [editingPermit, setEditingPermit] = useState(false)
+  const [editedAirPermit, setEditedAirPermit] = useState<AirPermit | null>(null)
 
   // AuthContext에서 사용자 정보 및 권한 가져오기
   const { user } = useAuth()
@@ -101,11 +141,142 @@ export default function EstimatePreviewModal({
 
       const result = await response.json()
       setData(result.data)
+      // 허가증 데이터가 있으면 편집 가능한 상태로 복사
+      if (result.data?.air_permit) {
+        setEditedAirPermit(JSON.parse(JSON.stringify(result.data.air_permit)))
+      }
     } catch (error) {
       console.error('데이터 로드 오류:', error)
       alert('데이터를 불러오는 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 편집 모드 시작
+  const startEditingPermit = () => {
+    if (data?.air_permit) {
+      setEditedAirPermit(JSON.parse(JSON.stringify(data.air_permit)))
+      setEditingPermit(true)
+    }
+  }
+
+  // 편집 취소
+  const cancelEditingPermit = () => {
+    setEditingPermit(false)
+    if (data?.air_permit) {
+      setEditedAirPermit(JSON.parse(JSON.stringify(data.air_permit)))
+    }
+  }
+
+  // 측정기기 추가
+  const addMeasuringDevice = (facilityType: 'emission' | 'prevention', facilityIndex: number) => {
+    if (!editedAirPermit) return
+
+    const newDevice: MeasuringDevice = {
+      device_name: facilityType === 'emission' ? EMISSION_MEASURING_DEVICES[0] : PREVENTION_MEASURING_DEVICES[0],
+      quantity: 1
+    }
+
+    const updated = { ...editedAirPermit }
+    if (facilityType === 'emission') {
+      updated.emission_facilities = [...updated.emission_facilities]
+      updated.emission_facilities[facilityIndex] = {
+        ...updated.emission_facilities[facilityIndex],
+        measuring_devices: [...(updated.emission_facilities[facilityIndex].measuring_devices || []), newDevice]
+      }
+    } else {
+      updated.prevention_facilities = [...updated.prevention_facilities]
+      updated.prevention_facilities[facilityIndex] = {
+        ...updated.prevention_facilities[facilityIndex],
+        measuring_devices: [...(updated.prevention_facilities[facilityIndex].measuring_devices || []), newDevice]
+      }
+    }
+    setEditedAirPermit(updated)
+  }
+
+  // 측정기기 삭제
+  const removeMeasuringDevice = (facilityType: 'emission' | 'prevention', facilityIndex: number, deviceIndex: number) => {
+    if (!editedAirPermit) return
+
+    const updated = { ...editedAirPermit }
+    if (facilityType === 'emission') {
+      updated.emission_facilities = [...updated.emission_facilities]
+      updated.emission_facilities[facilityIndex] = {
+        ...updated.emission_facilities[facilityIndex],
+        measuring_devices: updated.emission_facilities[facilityIndex].measuring_devices.filter((_, i) => i !== deviceIndex)
+      }
+    } else {
+      updated.prevention_facilities = [...updated.prevention_facilities]
+      updated.prevention_facilities[facilityIndex] = {
+        ...updated.prevention_facilities[facilityIndex],
+        measuring_devices: updated.prevention_facilities[facilityIndex].measuring_devices.filter((_, i) => i !== deviceIndex)
+      }
+    }
+    setEditedAirPermit(updated)
+  }
+
+  // 측정기기 값 변경
+  const updateMeasuringDevice = (
+    facilityType: 'emission' | 'prevention',
+    facilityIndex: number,
+    deviceIndex: number,
+    field: 'device_name' | 'quantity',
+    value: string | number
+  ) => {
+    if (!editedAirPermit) return
+
+    const updated = { ...editedAirPermit }
+    if (facilityType === 'emission') {
+      updated.emission_facilities = [...updated.emission_facilities]
+      const devices = [...updated.emission_facilities[facilityIndex].measuring_devices]
+      devices[deviceIndex] = { ...devices[deviceIndex], [field]: value }
+      updated.emission_facilities[facilityIndex] = {
+        ...updated.emission_facilities[facilityIndex],
+        measuring_devices: devices
+      }
+    } else {
+      updated.prevention_facilities = [...updated.prevention_facilities]
+      const devices = [...updated.prevention_facilities[facilityIndex].measuring_devices]
+      devices[deviceIndex] = { ...devices[deviceIndex], [field]: value }
+      updated.prevention_facilities[facilityIndex] = {
+        ...updated.prevention_facilities[facilityIndex],
+        measuring_devices: devices
+      }
+    }
+    setEditedAirPermit(updated)
+  }
+
+  // 허가증 저장
+  const saveAirPermit = async () => {
+    if (!editedAirPermit) return
+
+    try {
+      const token = localStorage.getItem('auth_token')
+      const response = await fetch('/api/air-permit/update', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          business_id: businessId,
+          air_permit: editedAirPermit
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('허가증 저장 실패')
+      }
+
+      // 데이터 새로고침
+      await loadData()
+      setEditingPermit(false)
+      alert('측정기기 정보가 저장되었습니다.')
+    } catch (error) {
+      console.error('허가증 저장 오류:', error)
+      alert('저장 중 오류가 발생했습니다.')
     }
   }
 
@@ -138,7 +309,14 @@ export default function EstimatePreviewModal({
       const jsPDF = (await import('jspdf')).default
       const html2canvas = (await import('html2canvas')).default
 
-      // PDF용 HTML 생성 (미리보기와 동일한 구조)
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      })
+
+      // 1. 견적서 페이지 생성
       const pdfContainer = document.createElement('div')
       pdfContainer.style.position = 'absolute'
       pdfContainer.style.left = '-9999px'
@@ -258,12 +436,6 @@ export default function EstimatePreviewModal({
 
       // Canvas를 PDF로 변환 (JPEG 압축 사용, 품질 0.85로 최적화)
       const imgData = canvas.toDataURL('image/jpeg', 0.85)
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      })
 
       const imgWidth = 210 // A4 width in mm
       const pageHeight = 297 // A4 height in mm
@@ -283,6 +455,11 @@ export default function EstimatePreviewModal({
 
       // 정리
       document.body.removeChild(pdfContainer)
+
+      // 2. 대기배출시설 허가증이 있으면 추가
+      if (estimateData.air_permit) {
+        await addAirPermitToPdf(pdf, estimateData, html2canvas)
+      }
 
       return pdf
     } catch (error) {
@@ -345,6 +522,116 @@ export default function EstimatePreviewModal({
     } finally {
       setGenerating(false)
     }
+  }
+
+  // 대기배출시설 허가증을 PDF에 추가하는 함수
+  const addAirPermitToPdf = async (pdf: any, estimateData: any, html2canvas: any) => {
+    const permitContainer = document.createElement('div')
+    permitContainer.style.position = 'absolute'
+    permitContainer.style.left = '-9999px'
+    permitContainer.style.width = '210mm'
+    permitContainer.style.padding = '20mm'
+    permitContainer.style.backgroundColor = 'white'
+    permitContainer.style.fontFamily = 'Arial, sans-serif'
+
+    const permit = estimateData.air_permit
+
+    permitContainer.innerHTML = `
+      <div style="max-width: 800px; margin: 0 auto;">
+        <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
+          <h1 style="font-size: 20px; font-weight: bold; margin: 0 0 6px 0;">대기배출시설 허가증</h1>
+          <p style="font-size: 12px; color: #6b7280; margin: 0;">${estimateData.business_name}</p>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <h2 style="font-size: 14px; font-weight: bold; color: #2563eb; margin-bottom: 9px; border-left: 3px solid #2563eb; padding-left: 7px;">기본 정보</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <tr>
+              <td style="border: 1px solid #ddd; padding: 7px; background: #f8f9fa; font-weight: bold; width: 20%;">업종</td>
+              <td style="border: 1px solid #ddd; padding: 7px; width: 30%;">${permit.business_type || '-'}</td>
+              <td style="border: 1px solid #ddd; padding: 7px; background: #f8f9fa; font-weight: bold; width: 20%;">종별</td>
+              <td style="border: 1px solid #ddd; padding: 7px; width: 30%;">${permit.category || '-'}</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #ddd; padding: 7px; background: #f8f9fa; font-weight: bold;">최초신고일</td>
+              <td style="border: 1px solid #ddd; padding: 7px;">${permit.first_report_date || '-'}</td>
+              <td style="border: 1px solid #ddd; padding: 7px; background: #f8f9fa; font-weight: bold;">가동개시일</td>
+              <td style="border: 1px solid #ddd; padding: 7px;">${permit.operation_start_date || '-'}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <h2 style="font-size: 14px; font-weight: bold; color: #dc2626; margin-bottom: 9px; background: #fef2f2; padding: 6px; border-left: 3px solid #dc2626;">🏭 배출시설</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+            <thead style="background: #fee2e2;">
+              <tr>
+                <th style="border: 1px solid #ddd; padding: 6px; text-align: center; width: 10%;">시설번호</th>
+                <th style="border: 1px solid #ddd; padding: 6px; text-align: center;">시설명</th>
+                <th style="border: 1px solid #ddd; padding: 6px; text-align: center; width: 15%;">용량</th>
+                <th style="border: 1px solid #ddd; padding: 6px; text-align: center; width: 10%;">수량</th>
+                <th style="border: 1px solid #ddd; padding: 6px; text-align: center; width: 25%;">측정기기</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${permit.emission_facilities?.map((f: any) => `
+                <tr>
+                  <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${f.facility_number || '-'}</td>
+                  <td style="border: 1px solid #ddd; padding: 6px;">${f.name || '-'}</td>
+                  <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${f.capacity || '-'}</td>
+                  <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${f.quantity || '-'}</td>
+                  <td style="border: 1px solid #ddd; padding: 6px; font-size: 9px;">${f.measuring_devices?.map((d: any) => `${d.device_name}(${d.quantity}개)`).join(', ') || '-'}</td>
+                </tr>
+              `).join('') || '<tr><td colspan="5" style="border: 1px solid #ddd; padding: 7px; text-align: center;">데이터 없음</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <h2 style="font-size: 14px; font-weight: bold; color: #16a34a; margin-bottom: 9px; background: #f0fdf4; padding: 6px; border-left: 3px solid #16a34a;">🛡️ 방지시설</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+            <thead style="background: #dcfce7;">
+              <tr>
+                <th style="border: 1px solid #ddd; padding: 6px; text-align: center; width: 10%;">시설번호</th>
+                <th style="border: 1px solid #ddd; padding: 6px; text-align: center;">시설명</th>
+                <th style="border: 1px solid #ddd; padding: 6px; text-align: center; width: 15%;">용량</th>
+                <th style="border: 1px solid #ddd; padding: 6px; text-align: center; width: 10%;">수량</th>
+                <th style="border: 1px solid #ddd; padding: 6px; text-align: center; width: 25%;">측정기기</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${permit.prevention_facilities?.map((f: any) => `
+                <tr>
+                  <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${f.facility_number || '-'}</td>
+                  <td style="border: 1px solid #ddd; padding: 6px;">${f.name || '-'}</td>
+                  <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${f.capacity || '-'}</td>
+                  <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${f.quantity || '-'}</td>
+                  <td style="border: 1px solid #ddd; padding: 6px; font-size: 9px;">${f.measuring_devices?.map((d: any) => `${d.device_name}(${d.quantity}개)`).join(', ') || '-'}</td>
+                </tr>
+              `).join('') || '<tr><td colspan="5" style="border: 1px solid #ddd; padding: 7px; text-align: center;">데이터 없음</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(permitContainer)
+
+    const permitCanvas = await html2canvas(permitContainer, {
+      scale: 1.5,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff'
+    })
+
+    const permitImgData = permitCanvas.toDataURL('image/jpeg', 0.85)
+    const imgWidth = 210
+    const imgHeight = (permitCanvas.height * imgWidth) / permitCanvas.width
+
+    pdf.addPage()
+    pdf.addImage(permitImgData, 'JPEG', 0, 0, imgWidth, imgHeight, undefined, 'FAST')
+
+    document.body.removeChild(permitContainer)
   }
 
   const downloadPDF = async (estimateId: string, estimateNumber: string, businessName: string, estimateDate: string) => {
@@ -589,6 +876,215 @@ export default function EstimatePreviewModal({
                       <div className="text-xs text-gray-700 whitespace-pre-wrap">
                         {data.terms_and_conditions}
                       </div>
+                    </div>
+                  )}
+
+                  {/* 대기배출시설 허가증 */}
+                  {(data.air_permit || editedAirPermit) && (
+                    <div className="mt-6 bg-white border border-gray-200 rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-6 border-b-2 border-blue-600 pb-3">
+                        <div className="flex-1 text-center">
+                          <h2 className="text-xl font-bold mb-1">대기배출시설 허가증</h2>
+                          <p className="text-sm text-gray-600">{data.business_name}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {editingPermit ? (
+                            <>
+                              <button
+                                onClick={saveAirPermit}
+                                className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                              >
+                                저장
+                              </button>
+                              <button
+                                onClick={cancelEditingPermit}
+                                className="px-3 py-1.5 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+                              >
+                                취소
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={startEditingPermit}
+                              className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                            >
+                              측정기기 편집
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 기본 정보 */}
+                      <div className="mb-6">
+                        <table className="w-full border border-gray-300">
+                          <tbody>
+                            <tr>
+                              <td className="border border-gray-300 bg-gray-100 px-3 py-2 font-semibold text-sm w-1/4">업종</td>
+                              <td className="border border-gray-300 px-3 py-2 text-sm">{data.air_permit.business_type || '-'}</td>
+                              <td className="border border-gray-300 bg-gray-100 px-3 py-2 font-semibold text-sm w-1/4">종별</td>
+                              <td className="border border-gray-300 px-3 py-2 text-sm">{data.air_permit.category || '-'}</td>
+                            </tr>
+                            <tr>
+                              <td className="border border-gray-300 bg-gray-100 px-3 py-2 font-semibold text-sm">최초신고일</td>
+                              <td className="border border-gray-300 px-3 py-2 text-sm">{data.air_permit.first_report_date || '-'}</td>
+                              <td className="border border-gray-300 bg-gray-100 px-3 py-2 font-semibold text-sm">가동개시일</td>
+                              <td className="border border-gray-300 px-3 py-2 text-sm">{data.air_permit.operation_start_date || '-'}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* 배출시설 */}
+                      {(editingPermit ? editedAirPermit?.emission_facilities : data.air_permit.emission_facilities)?.length > 0 && (
+                        <div className="mb-6">
+                          <h3 className="font-bold text-base mb-3 text-red-600 bg-red-50 px-3 py-2 border-l-4 border-red-600">🏭 배출시설</h3>
+                          <table className="w-full border border-gray-300 table-fixed">
+                            <thead>
+                              <tr className="bg-red-100">
+                                <th className="border border-gray-300 px-2 py-2 text-xs font-semibold" style={{width: '8%'}}>시설<br/>번호</th>
+                                <th className="border border-gray-300 px-2 py-2 text-xs font-semibold" style={{width: '30%'}}>시설명</th>
+                                <th className="border border-gray-300 px-2 py-2 text-xs font-semibold" style={{width: '18%'}}>용량</th>
+                                <th className="border border-gray-300 px-2 py-2 text-xs font-semibold" style={{width: '10%'}}>수량</th>
+                                <th className="border border-gray-300 px-2 py-2 text-xs font-semibold" style={{width: '34%'}}>측정기기</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(editingPermit ? editedAirPermit?.emission_facilities : data.air_permit.emission_facilities)?.map((facility: Facility, facilityIdx: number) => (
+                                <tr key={facilityIdx}>
+                                  <td className="border border-gray-300 px-2 py-2 text-center text-xs">{facility.facility_number}</td>
+                                  <td className="border border-gray-300 px-2 py-2 text-xs">{facility.name || '-'}</td>
+                                  <td className="border border-gray-300 px-2 py-2 text-center text-xs">{facility.capacity || '-'}</td>
+                                  <td className="border border-gray-300 px-2 py-2 text-center text-xs">{facility.quantity}</td>
+                                  <td className="border border-gray-300 px-2 py-1.5">
+                                    {editingPermit ? (
+                                      <div className="space-y-1.5">
+                                        {facility.measuring_devices?.map((device, deviceIdx) => (
+                                          <div key={deviceIdx} className="flex items-center gap-1">
+                                            <select
+                                              value={device.device_name}
+                                              onChange={(e) => updateMeasuringDevice('emission', facilityIdx, deviceIdx, 'device_name', e.target.value)}
+                                              className="flex-1 px-1.5 py-0.5 border border-gray-300 rounded text-xs"
+                                            >
+                                              {EMISSION_MEASURING_DEVICES.map(d => (
+                                                <option key={d} value={d}>{d}</option>
+                                              ))}
+                                            </select>
+                                            <input
+                                              type="number"
+                                              value={device.quantity}
+                                              onChange={(e) => updateMeasuringDevice('emission', facilityIdx, deviceIdx, 'quantity', parseInt(e.target.value) || 1)}
+                                              className="w-12 px-1.5 py-0.5 border border-gray-300 rounded text-xs text-center"
+                                              min="1"
+                                            />
+                                            <button
+                                              onClick={() => removeMeasuringDevice('emission', facilityIdx, deviceIdx)}
+                                              className="px-1.5 py-0.5 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                            >
+                                              ×
+                                            </button>
+                                          </div>
+                                        ))}
+                                        <button
+                                          onClick={() => addMeasuringDevice('emission', facilityIdx)}
+                                          className="w-full px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                                        >
+                                          + 측정기기 추가
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      facility.measuring_devices && facility.measuring_devices.length > 0 ? (
+                                        <div className="space-y-1">
+                                          {facility.measuring_devices.map((device, idx) => (
+                                            <div key={idx} className="text-xs">
+                                              {device.device_name} ({device.quantity}개)
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : <span className="text-xs text-gray-400">-</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* 방지시설 */}
+                      {(editingPermit ? editedAirPermit?.prevention_facilities : data.air_permit.prevention_facilities)?.length > 0 && (
+                        <div>
+                          <h3 className="font-bold text-base mb-3 text-green-600 bg-green-50 px-3 py-2 border-l-4 border-green-600">🛡️ 방지시설</h3>
+                          <table className="w-full border border-gray-300 table-fixed">
+                            <thead>
+                              <tr className="bg-green-100">
+                                <th className="border border-gray-300 px-2 py-2 text-xs font-semibold" style={{width: '8%'}}>시설<br/>번호</th>
+                                <th className="border border-gray-300 px-2 py-2 text-xs font-semibold" style={{width: '30%'}}>시설명</th>
+                                <th className="border border-gray-300 px-2 py-2 text-xs font-semibold" style={{width: '18%'}}>용량</th>
+                                <th className="border border-gray-300 px-2 py-2 text-xs font-semibold" style={{width: '10%'}}>수량</th>
+                                <th className="border border-gray-300 px-2 py-2 text-xs font-semibold" style={{width: '34%'}}>측정기기</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(editingPermit ? editedAirPermit?.prevention_facilities : data.air_permit.prevention_facilities)?.map((facility: Facility, facilityIdx: number) => (
+                                <tr key={facilityIdx}>
+                                  <td className="border border-gray-300 px-2 py-2 text-center text-xs">{facility.facility_number}</td>
+                                  <td className="border border-gray-300 px-2 py-2 text-xs">{facility.name || '-'}</td>
+                                  <td className="border border-gray-300 px-2 py-2 text-center text-xs">{facility.capacity || '-'}</td>
+                                  <td className="border border-gray-300 px-2 py-2 text-center text-xs">{facility.quantity}</td>
+                                  <td className="border border-gray-300 px-2 py-1.5">
+                                    {editingPermit ? (
+                                      <div className="space-y-1.5">
+                                        {facility.measuring_devices?.map((device, deviceIdx) => (
+                                          <div key={deviceIdx} className="flex items-center gap-1">
+                                            <select
+                                              value={device.device_name}
+                                              onChange={(e) => updateMeasuringDevice('prevention', facilityIdx, deviceIdx, 'device_name', e.target.value)}
+                                              className="flex-1 px-1.5 py-0.5 border border-gray-300 rounded text-xs"
+                                            >
+                                              {PREVENTION_MEASURING_DEVICES.map(d => (
+                                                <option key={d} value={d}>{d}</option>
+                                              ))}
+                                            </select>
+                                            <input
+                                              type="number"
+                                              value={device.quantity}
+                                              onChange={(e) => updateMeasuringDevice('prevention', facilityIdx, deviceIdx, 'quantity', parseInt(e.target.value) || 1)}
+                                              className="w-12 px-1.5 py-0.5 border border-gray-300 rounded text-xs text-center"
+                                              min="1"
+                                            />
+                                            <button
+                                              onClick={() => removeMeasuringDevice('prevention', facilityIdx, deviceIdx)}
+                                              className="px-1.5 py-0.5 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                            >
+                                              ×
+                                            </button>
+                                          </div>
+                                        ))}
+                                        <button
+                                          onClick={() => addMeasuringDevice('prevention', facilityIdx)}
+                                          className="w-full px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                                        >
+                                          + 측정기기 추가
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      facility.measuring_devices && facility.measuring_devices.length > 0 ? (
+                                        <div className="space-y-1">
+                                          {facility.measuring_devices.map((device, idx) => (
+                                            <div key={idx} className="text-xs">
+                                              {device.device_name} ({device.quantity}개)
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : <span className="text-xs text-gray-400">-</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
