@@ -3,7 +3,13 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import { TDocumentDefinitions, Content } from 'pdfmake/interfaces';
 
-pdfMake.vfs = pdfFonts.pdfMake.vfs;
+// vfs_fonts 구조 확인 후 올바르게 할당
+if (pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
+  pdfMake.vfs = pdfFonts.pdfMake.vfs;
+} else {
+  // 직접 vfs 접근 (일부 버전에서는 이 구조 사용)
+  pdfMake.vfs = pdfFonts as any;
+}
 
 interface EstimateItem {
   no: number;
@@ -58,7 +64,7 @@ export async function generateEstimatePDF(data: EstimateData): Promise<Buffer> {
     pageSize: 'A4',
     pageMargins: [40, 40, 40, 40],
     defaultStyle: {
-      font: 'NanumGothic',
+      font: 'Roboto',
       fontSize: 9
     },
     content: [
