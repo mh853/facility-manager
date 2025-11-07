@@ -1162,13 +1162,13 @@ function RevenueDashboard() {
             <div>
               <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">검색</label>
               <div className="relative">
-                <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 absolute left-2 sm:left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Search className="w-4 h-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="사업장명 또는 영업점..."
+                  placeholder="사업장명 또는 영업점"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-8 sm:pl-9 pr-2 sm:pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
