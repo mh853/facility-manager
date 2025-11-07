@@ -248,6 +248,9 @@ export async function PUT(request: Request) {
     if (updateData.project_year !== undefined) {
       updateObject.project_year = parseInt(updateData.project_year) || null;
     }
+    if (updateData.revenue_source !== undefined) {
+      updateObject.revenue_source = normalizeUTF8(updateData.revenue_source || '');
+    }
     if (updateData.contract_document !== undefined) {
       updateObject.contract_document = normalizeUTF8(updateData.contract_document || '');
     }

@@ -78,6 +78,7 @@ interface UnifiedBusinessInfo {
   department?: string | null;
   progress_status?: string | null;
   project_year?: number | null;
+  revenue_source?: string | null; // 매출처 (블루온이 계산서를 발행하는 사업체)
   contract_document?: string | null;
   order_request_date?: string | null;
   wireless_document?: string | null;
@@ -1472,6 +1473,8 @@ function BusinessManagementPage() {
           진행상태: business.progress_status || null,
           project_year: business.project_year || null,
           사업진행연도: business.project_year || null,
+          revenue_source: business.revenue_source || null,
+          매출처: business.revenue_source || null,
           installation_team: business.installation_team || null,
           설치팀: business.installation_team || null,
           order_manager: business.order_manager || null,
@@ -2098,6 +2101,7 @@ function BusinessManagementPage() {
           department: business.department,
           progress_status: business.progress_status,
           project_year: business.project_year,
+          revenue_source: business.revenue_source,
           contract_document: business.contract_document,
           order_request_date: business.order_request_date,
           wireless_document: business.wireless_document,
@@ -2985,6 +2989,8 @@ function BusinessManagementPage() {
               진행상태: serverData.progress_status || null,
               project_year: serverData.project_year || null,
               사업진행연도: serverData.project_year || null,
+              revenue_source: serverData.revenue_source || null,
+              매출처: serverData.revenue_source || null,
               installation_team: serverData.installation_team || null,
               설치팀: serverData.installation_team || null,
               order_manager: serverData.order_manager || null,
@@ -3732,20 +3738,6 @@ function BusinessManagementPage() {
                           </div>
                           <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{selectedBusiness.사업자등록번호 || '-'}</div>
                         </div>
-
-                        {selectedBusiness.project_year && (
-                          <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                            <div className="flex items-center text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1">
-                              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-indigo-500 flex-shrink-0" />
-                              사업 진행연도
-                            </div>
-                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
-                              <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
-                                {selectedBusiness.project_year}년
-                              </span>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -4284,14 +4276,14 @@ function BusinessManagementPage() {
                             <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.department}</div>
                           </div>
                         )}
-                        
-                        {selectedBusiness.progress_status && (
+
+                        {selectedBusiness.revenue_source && (
                           <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                            <div className="text-xs sm:text-sm text-gray-600 mb-1">진행구분</div>
-                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.progress_status}</div>
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1">매출처</div>
+                            <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{selectedBusiness.revenue_source}</div>
                           </div>
                         )}
-                        
+
                         {/* 업종 - 대기필증 데이터 우선 표시 */}
                         {(airPermitData?.business_type || selectedBusiness.업종) && (
                           <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
@@ -4983,6 +4975,19 @@ function BusinessManagementPage() {
                         onChange={(e) => setFormData({...formData, order_manager: e.target.value})}
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
                         placeholder="발주 담당자명"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1 sm:mb-2">매출처</label>
+                      <input
+                        type="text"
+                        lang="ko"
+                        inputMode="text"
+                        value={formData.revenue_source || ''}
+                        onChange={(e) => setFormData({...formData, revenue_source: e.target.value})}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-[10px] sm:text-xs md:text-sm"
+                        placeholder="계산서 발행 대상"
                       />
                     </div>
                     </div>
