@@ -57,7 +57,7 @@ export default function DocumentAutomationPage() {
   const [templates, setTemplates] = useState<DocumentTemplate[]>([])
   const [rules, setRules] = useState<AutomationRule[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'templates' | 'rules' | 'purchase_order' | 'estimate' | 'history'>('purchase_order')
+  const [activeTab, setActiveTab] = useState<'templates' | 'rules' | 'purchase_order' | 'estimate' | 'history'>('estimate')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalType, setModalType] = useState<'template' | 'rule'>('template')
   const [selectedItem, setSelectedItem] = useState<DocumentTemplate | AutomationRule | null>(null)
@@ -386,8 +386,8 @@ export default function DocumentAutomationPage() {
           <div className="border-b border-gray-200">
             <nav className="flex overflow-x-auto">
               {[
-                { id: 'purchase_order', name: '발주서 관리', icon: ShoppingCart },
                 { id: 'estimate', name: '견적서 관리', icon: FileText },
+                { id: 'purchase_order', name: '발주서 관리', icon: ShoppingCart },
                 { id: 'templates', name: '문서 템플릿', icon: FileText },
                 { id: 'rules', name: '자동화 규칙', icon: Settings },
                 { id: 'history', name: '실행 이력', icon: Clock }

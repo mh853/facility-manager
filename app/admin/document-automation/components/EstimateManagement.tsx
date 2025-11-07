@@ -13,7 +13,8 @@ import {
   Building2,
   Loader2,
   X,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react'
 
 interface Business {
@@ -53,11 +54,13 @@ export default function EstimateManagement() {
   const [selectedEstimate, setSelectedEstimate] = useState<EstimateHistory | null>(null)
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
   const [editingTerms, setEditingTerms] = useState('')
+  const [userPermissionLevel, setUserPermissionLevel] = useState<number>(0)
 
   // 사업장 목록 로드
   useEffect(() => {
     loadBusinesses()
     loadTemplate()
+    loadUserPermission()
   }, [])
 
   // 견적서 이력 로드
@@ -238,6 +241,40 @@ export default function EstimateManagement() {
     }
   }
 
+  const loadUserPermission = async () => {
+    try {
+      const permissionLevel = parseInt(localStorage.getItem('permission_level') || '0')
+      setUserPermissionLevel(permissionLevel)
+    } catch (error) {
+      console.error('권한 로드 오류:', error)
+    }
+  }
+
+  const deleteEstimate = async (estimateId: string) => {
+    if (!confirm('견적서를 삭제하시겠습니까?')) return
+
+    try {
+      const token = localStorage.getItem('auth_token')
+      const response = await fetch(`/api/estimates/${estimateId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert('견적서가 삭제되었습니다.')
+        loadEstimates(selectedBusiness?.id)
+      } else {
+        alert(`삭제 실패: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('견적서 삭제 오류:', error)
+      alert('견적서 삭제 중 오류가 발생했습니다.')
+    }
+  }
+
   const filteredBusinesses = businesses.filter(b =>
     b.business_name.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -277,12 +314,12 @@ export default function EstimateManagement() {
           {filteredBusinesses.map((business) => (
             <div
               key={business.id}
-              className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                selectedBusiness?.id === business.id
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-blue-300'
-              }`}
-              onClick={() => setSelectedBusiness(business)}
+              className="p-4 border rounded-lg cursor-pointer transition-all border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+              onClick={() => {
+                setSelectedBusiness(business)
+                // 해당 사업장의 최근 견적서 조회하여 미리보기 표시
+                loadEstimates(business.id)
+              }}
             >
               <div className="flex items-start gap-3">
                 <Building2 className="w-5 h-5 text-gray-400 flex-shrink-0 mt-1" />
@@ -293,28 +330,6 @@ export default function EstimateManagement() {
                   )}
                 </div>
               </div>
-              {selectedBusiness?.id === business.id && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    generateEstimate(business.id)
-                  }}
-                  disabled={generatingEstimate}
-                  className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {generatingEstimate ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      생성 중...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      견적서 생성
-                    </>
-                  )}
-                </button>
-              )}
             </div>
           ))}
         </div>
@@ -351,7 +366,11 @@ export default function EstimateManagement() {
               </thead>
               <tbody>
                 {estimates.map((estimate) => (
-                  <tr key={estimate.id} className="border-b hover:bg-gray-50">
+                  <tr
+                    key={estimate.id}
+                    className="border-b hover:bg-blue-50 cursor-pointer transition-colors"
+                    onClick={() => setSelectedEstimate(estimate)}
+                  >
                     <td className="py-3 px-4 text-sm">{estimate.estimate_number}</td>
                     <td className="py-3 px-4 text-sm">{estimate.business_name}</td>
                     <td className="py-3 px-4 text-sm">{estimate.estimate_date}</td>
@@ -364,15 +383,8 @@ export default function EstimateManagement() {
                     <td className="py-3 px-4 text-sm text-right font-semibold">
                       ₩{estimate.total_amount.toLocaleString()}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setSelectedEstimate(estimate)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded"
-                          title="상세보기"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
                         <button
                           onClick={() => downloadPDF(estimate.id, estimate.estimate_number)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded"
@@ -380,6 +392,15 @@ export default function EstimateManagement() {
                         >
                           <Download className="w-4 h-4" />
                         </button>
+                        {userPermissionLevel >= 4 && (
+                          <button
+                            onClick={() => deleteEstimate(estimate.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
