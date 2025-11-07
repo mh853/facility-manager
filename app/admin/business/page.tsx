@@ -2457,6 +2457,7 @@ function BusinessManagementPage() {
         is_active: freshData.is_active,
         progress_status: freshData.progress_status,
         project_year: freshData.project_year,
+        revenue_source: freshData.revenue_source,
         installation_team: freshData.installation_team,
         order_manager: freshData.order_manager || '',
 
@@ -4270,6 +4271,75 @@ function BusinessManagementPage() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+                        {/* 1. 사업 진행연도 */}
+                        {selectedBusiness.project_year && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">사업 진행연도</div>
+                            <div className="text-base font-medium text-gray-900">
+                              <span className="px-3 py-1.5 rounded-md text-sm font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                                {selectedBusiness.project_year}년
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 2. 진행구분 */}
+                        {selectedBusiness.progress_status && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">진행구분</div>
+                            <div className="text-base font-medium">
+                              <span className={`px-3 py-1.5 rounded-md text-sm font-medium border ${
+                                selectedBusiness.progress_status === '자비'
+                                  ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                  : selectedBusiness.progress_status === '보조금'
+                                  ? 'bg-green-100 text-green-800 border-green-200'
+                                  : selectedBusiness.progress_status === '보조금 동시진행'
+                                  ? 'bg-purple-100 text-purple-800 border-purple-200'
+                                  : selectedBusiness.progress_status === '대리점'
+                                  ? 'bg-cyan-100 text-cyan-800 border-cyan-200'
+                                  : selectedBusiness.progress_status === 'AS'
+                                  ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                  : 'bg-gray-100 text-gray-600 border-gray-200'
+                              }`}>
+                                {selectedBusiness.progress_status}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 3. 발주담당 */}
+                        {selectedBusiness.order_manager && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">발주담당</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.order_manager}</div>
+                          </div>
+                        )}
+
+                        {/* 4. 설치팀 */}
+                        {selectedBusiness.installation_team && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">설치팀</div>
+                            <div className="text-base font-medium text-gray-900">{selectedBusiness.installation_team}</div>
+                          </div>
+                        )}
+
+                        {/* 5. 상태 */}
+                        {selectedBusiness.상태 && (
+                          <div className="bg-white rounded-lg p-4 shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">상태</div>
+                            <div className="text-base font-medium text-gray-900">
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                selectedBusiness.상태 === '활성'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {selectedBusiness.상태}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 추가 정보들 */}
                         {selectedBusiness.department && (
                           <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                             <div className="text-xs sm:text-sm text-gray-600 mb-1">담당부서</div>
@@ -4306,7 +4376,7 @@ function BusinessManagementPage() {
                             )}
                           </div>
                         )}
-                        
+
                         {/* 종별 - 대기필증 데이터 우선 표시 */}
                         {(airPermitData?.category || selectedBusiness.business_category) && (
                           <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -4321,75 +4391,12 @@ function BusinessManagementPage() {
                             <div className="text-base font-medium text-gray-900">
                               {airPermitData?.category || selectedBusiness.business_category}
                             </div>
-                            {airPermitData?.category && selectedBusiness.business_category && 
+                            {airPermitData?.category && selectedBusiness.business_category &&
                              airPermitData.category !== selectedBusiness.business_category && (
                               <div className="text-xs text-amber-600 mt-1">
                                 사업장 정보와 다름: {selectedBusiness.business_category}
                               </div>
                             )}
-                          </div>
-                        )}
-                        
-                        {selectedBusiness.상태 && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">상태</div>
-                            <div className="text-base font-medium text-gray-900">
-                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                selectedBusiness.상태 === '활성' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {selectedBusiness.상태}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {selectedBusiness.order_manager && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">발주담당</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.order_manager}</div>
-                          </div>
-                        )}
-
-                        {selectedBusiness.progress_status && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">진행구분</div>
-                            <div className="text-base font-medium">
-                              <span className={`px-3 py-1.5 rounded-md text-sm font-medium border ${
-                                selectedBusiness.progress_status === '자비'
-                                  ? 'bg-blue-100 text-blue-800 border-blue-200'
-                                  : selectedBusiness.progress_status === '보조금'
-                                  ? 'bg-green-100 text-green-800 border-green-200'
-                                  : selectedBusiness.progress_status === '보조금 동시진행'
-                                  ? 'bg-purple-100 text-purple-800 border-purple-200'
-                                  : selectedBusiness.progress_status === '대리점'
-                                  ? 'bg-cyan-100 text-cyan-800 border-cyan-200'
-                                  : selectedBusiness.progress_status === 'AS'
-                                  ? 'bg-orange-100 text-orange-800 border-orange-200'
-                                  : 'bg-gray-100 text-gray-600 border-gray-200'
-                              }`}>
-                                {selectedBusiness.progress_status}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-
-                        {selectedBusiness.project_year && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">사업 진행연도</div>
-                            <div className="text-base font-medium text-gray-900">
-                              <span className="px-3 py-1.5 rounded-md text-sm font-medium bg-slate-100 text-slate-800 border border-slate-200">
-                                {selectedBusiness.project_year}년
-                              </span>
-                            </div>
-                          </div>
-                        )}
-
-                        {selectedBusiness.installation_team && (
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <div className="text-sm text-gray-600 mb-1">설치팀</div>
-                            <div className="text-base font-medium text-gray-900">{selectedBusiness.installation_team}</div>
                           </div>
                         )}
                       </div>
