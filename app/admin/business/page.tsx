@@ -1023,6 +1023,7 @@ function BusinessManagementPage() {
 
   // 메모와 업무를 통합해서 최신순으로 정렬하는 함수
   const getIntegratedItems = () => {
+    console.log('🔧 [FRONTEND] getIntegratedItems 호출됨 - businessMemos:', businessMemos.length, '개, businessTasks:', businessTasks.length, '개')
     const items: Array<{
       type: 'memo' | 'task',
       id: string,
@@ -1195,7 +1196,7 @@ function BusinessManagementPage() {
         business_id: selectedBusiness.id,
         title: memoForm.title.trim(),
         content: memoForm.content.trim(),
-        created_by: '관리자' // 향후 실제 계정 정보로 변경
+        created_by: user?.name || user?.email || '알 수 없음'
       }
 
       console.log('🔧 [FRONTEND] 메모 전송 데이터:', {
@@ -1211,20 +1212,29 @@ function BusinessManagementPage() {
       })
 
       const result = await response.json()
-      
+
       console.log('🔧 [FRONTEND] API 응답:', result)
 
-      if (result.success) {
-        console.log('🔧 [FRONTEND] 새 메모 추가 성공:', result.data)
+      if (result.success && result.data) {
+        // API 응답 구조: {success: true, data: {data: {...실제메모...}, message: ...}}
+        const newMemo = result.data.data || result.data
+        console.log('🔧 [FRONTEND] 새 메모 추가 성공:', newMemo)
+        console.log('🔧 [FRONTEND] 현재 businessMemos 개수:', businessMemos.length)
+
+        // 즉시 UI에 새 메모 추가 (낙관적 업데이트)
+        setBusinessMemos(prev => {
+          console.log('🔧 [FRONTEND] setBusinessMemos 콜백 실행 - 이전 개수:', prev.length)
+          const newMemos = [newMemo, ...prev]
+          console.log('🔧 [FRONTEND] setBusinessMemos 콜백 - 새 개수:', newMemos.length)
+          console.log('🔧 [FRONTEND] 추가된 메모:', newMemo)
+          return newMemos
+        })
+
+        console.log('🔧 [FRONTEND] UI 상태 업데이트 완료 - 새 메모 추가됨')
 
         // 메모 폼 초기화
         setMemoForm({ title: '', content: '' })
         setIsAddingMemo(false)
-
-        // 서버에서 전체 메모 목록 다시 로드
-        console.log('🔧 [FRONTEND] 전체 메모 목록 다시 로드 시작')
-        await loadBusinessMemos(selectedBusiness.id)
-        console.log('🔧 [FRONTEND] 메모 목록 다시 로드 완료')
       } else {
         console.error('🔧 [FRONTEND] 메모 추가 실패:', result.error)
         alert(`메모 추가 실패: ${result.error}`)
@@ -1245,7 +1255,7 @@ function BusinessManagementPage() {
       const updateData: UpdateBusinessMemoInput = {
         title: memoForm.title.trim(),
         content: memoForm.content.trim(),
-        updated_by: '관리자' // 향후 실제 계정 정보로 변경
+        updated_by: user?.name || user?.email || '알 수 없음'
       }
 
       const response = await fetch(`/api/business-memos?id=${editingMemo.id}`, {
@@ -1255,19 +1265,23 @@ function BusinessManagementPage() {
       })
 
       const result = await response.json()
-      
-      if (result.success) {
-        console.log('🔧 [FRONTEND] 메모 수정 성공:', result.data)
 
-        // 메모 폼 초기화
+      if (result.success && result.data) {
+        // API 응답 구조: {success: true, data: {data: {...실제메모...}, message: ...}}
+        const updatedMemo = result.data.data || result.data
+        console.log('🔧 [FRONTEND] 메모 수정 성공:', updatedMemo)
+
+        // 즉시 UI에서 메모 업데이트 (낙관적 업데이트)
+        setBusinessMemos(prev =>
+          prev.map(memo => memo.id === editingMemo.id ? updatedMemo : memo)
+        )
+
+        console.log('🔧 [FRONTEND] UI 상태 업데이트 완료 - 메모 수정됨')
+
+        // 메모 폼 초기화 및 입력창 닫기
         setMemoForm({ title: '', content: '' })
         setEditingMemo(null)
-
-        // 서버에서 전체 메모 목록 다시 로드
-        if (selectedBusiness) {
-          await loadBusinessMemos(selectedBusiness.id)
-        }
-        console.log('🔧 [FRONTEND] 메모 수정 후 목록 다시 로드 완료')
+        setIsAddingMemo(false)
       } else {
         alert(`메모 수정 실패: ${result.error}`)
       }
@@ -1298,10 +1312,24 @@ function BusinessManagementPage() {
       console.log('🔧 [FRONTEND] 메모 삭제 API 응답:', result)
 
       if (result.success) {
-        console.log('🔧 [FRONTEND] 메모 삭제 성공, 전체 메모 목록 다시 로드 시작')
+        console.log('🔧 [FRONTEND] 메모 삭제 성공')
+        console.log('🔧 [FRONTEND] 현재 businessMemos 개수:', businessMemos.length)
+        console.log('🔧 [FRONTEND] 삭제할 메모 ID:', memo.id)
+
+        // 즉시 UI에서 메모 제거 (낙관적 업데이트)
+        setBusinessMemos(prev => {
+          console.log('🔧 [FRONTEND] setBusinessMemos 콜백 실행 - 이전 개수:', prev.length)
+          const newMemos = prev.filter(m => m.id !== memo.id)
+          console.log('🔧 [FRONTEND] setBusinessMemos 콜백 - 새 개수:', newMemos.length)
+          console.log('🔧 [FRONTEND] 필터링된 메모들:', newMemos.map(m => m.id))
+          return newMemos
+        })
+
+        console.log('🔧 [FRONTEND] UI 상태 업데이트 완료 - 메모 삭제됨')
+
+        // 백그라운드에서 서버 데이터와 동기화
         if (selectedBusiness?.id) {
-          await loadBusinessMemos(selectedBusiness.id)
-          console.log('🔧 [FRONTEND] 메모 목록 다시 로드 완료')
+          loadBusinessMemos(selectedBusiness.id).catch(console.error)
         }
       } else {
         alert(`메모 삭제 실패: ${result.error}`)
