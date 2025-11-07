@@ -17,7 +17,7 @@ SELECT
   dh.created_by,
   u.name as created_by_name,
   dh.created_at,
-  dh.metadata
+  NULL::jsonb as metadata
 FROM document_history dh
 LEFT JOIN business_info bi ON dh.business_id = bi.id
 LEFT JOIN users u ON dh.created_by::text = u.id::text
@@ -32,7 +32,7 @@ SELECT
   'estimate' as document_type,
   'pdf' as file_format,
   eh.pdf_file_path as file_path,
-  NULL as file_size,
+  NULL::bigint as file_size,
   eh.created_by,
   u.name as created_by_name,
   eh.created_at,
