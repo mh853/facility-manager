@@ -73,6 +73,7 @@ export default function EstimateManagement() {
     try {
       const token = localStorage.getItem('auth_token')
       const response = await fetch('/api/business-info-direct', {
+        credentials: 'include',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       })
       const data = await response.json()
@@ -93,6 +94,7 @@ export default function EstimateManagement() {
         : '/api/estimates'
 
       const response = await fetch(url, {
+        credentials: 'include',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       })
       const data = await response.json()
@@ -111,6 +113,7 @@ export default function EstimateManagement() {
     try {
       const token = localStorage.getItem('auth_token')
       const response = await fetch('/api/estimates/template', {
+        credentials: 'include',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       })
       const data = await response.json()
@@ -132,6 +135,7 @@ export default function EstimateManagement() {
 
       const response = await fetch('/api/estimates/generate', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -162,6 +166,7 @@ export default function EstimateManagement() {
     try {
       const token = localStorage.getItem('auth_token')
       const response = await fetch(`/api/estimates/${estimateId}/pdf`, {
+        credentials: 'include',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       })
 
@@ -193,6 +198,7 @@ export default function EstimateManagement() {
 
       const response = await fetch('/api/estimates', {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
