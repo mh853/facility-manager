@@ -1,0 +1,196 @@
+// app/api/estimates/generate/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// 측정기기 필드 매핑
+const EQUIPMENT_FIELDS: Record<string, string> = {
+  ph_meter: 'pH미터',
+  differential_pressure_meter: '차압계',
+  temperature_meter: '온도계',
+  discharge_current_meter: '배출전류계',
+  fan_current_meter: '송풍전류계',
+  pump_current_meter: '펌프전류계',
+  gateway: 'G/W(1,2CH)',
+  vpn_wired: 'VPN(유선)',
+  vpn_wireless: 'VPN(무선)'
+};
+
+interface EstimateItem {
+  no: number;
+  name: string;
+  spec: string;
+  quantity: number;
+  unit_price: number;
+  supply_amount: number;
+  vat_amount: number;
+  note: string;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { business_id, created_by } = await request.json();
+
+    // 1. 사업장 정보 조회
+    const { data: business, error: businessError } = await supabase
+      .from('business_info')
+      .select('*')
+      .eq('id', business_id)
+      .single();
+
+    if (businessError || !business) {
+      return NextResponse.json(
+        { success: false, error: '사업장 정보를 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+
+    // 2. 활성 템플릿 조회
+    const { data: template, error: templateError } = await supabase
+      .from('estimate_templates')
+      .select('*')
+      .eq('is_active', true)
+      .single();
+
+    if (templateError || !template) {
+      return NextResponse.json(
+        { success: false, error: '활성 템플릿을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+
+    // 3. 측정기기 항목 추출 및 가격 조회
+    const estimateItems: EstimateItem[] = [];
+    let itemNo = 1;
+
+    for (const [fieldName, equipmentName] of Object.entries(EQUIPMENT_FIELDS)) {
+      const quantity = business[fieldName] || 0;
+
+      if (quantity > 0) {
+        // 환경부 고시가 조회
+        const { data: pricing } = await supabase
+          .from('government_pricing')
+          .select('official_price')
+          .eq('equipment_type', fieldName)
+          .eq('is_active', true)
+          .order('effective_from', { ascending: false })
+          .limit(1)
+          .single();
+
+        const unitPrice = pricing?.official_price || 0;
+        const supplyAmount = unitPrice * quantity;
+        const vatAmount = Math.round(supplyAmount * 0.1);
+
+        estimateItems.push({
+          no: itemNo++,
+          name: equipmentName,
+          spec: 'EA',
+          quantity,
+          unit_price: unitPrice,
+          supply_amount: supplyAmount,
+          vat_amount: vatAmount,
+          note: '보조금 사업'
+        });
+      }
+    }
+
+    // 4. 추가공사비 항목
+    if (business.additional_cost && business.additional_cost > 0) {
+      const supplyAmount = business.additional_cost;
+      const vatAmount = Math.round(supplyAmount * 0.1);
+
+      estimateItems.push({
+        no: itemNo++,
+        name: '추가공사비',
+        spec: 'EA',
+        quantity: 1,
+        unit_price: business.additional_cost,
+        supply_amount: supplyAmount,
+        vat_amount: vatAmount,
+        note: '자부담'
+      });
+    }
+
+    // 5. 협의사항 항목
+    if (business.negotiation) {
+      estimateItems.push({
+        no: itemNo++,
+        name: business.negotiation,
+        spec: 'EA',
+        quantity: 1,
+        unit_price: 0,
+        supply_amount: 0,
+        vat_amount: 0,
+        note: '협의'
+      });
+    }
+
+    // 6. 합계 계산
+    const subtotal = estimateItems.reduce((sum, item) => sum + item.supply_amount, 0);
+    const vatTotal = estimateItems.reduce((sum, item) => sum + item.vat_amount, 0);
+    const total = subtotal + vatTotal;
+
+    // 7. 견적서 이력 저장
+    const now = new Date();
+    const estimateNumber = `EST-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-6)}`;
+
+    const { data: estimate, error: estimateError } = await supabase
+      .from('estimate_history')
+      .insert({
+        business_id,
+        business_name: business.business_name,
+        template_id: template.id,
+        customer_name: business.business_name,
+        customer_address: business.address,
+        customer_registration_number: business.business_registration_number,
+        customer_representative: business.representative_name,
+        customer_business_type: business.business_type,
+        customer_business_category: business.business_category,
+        customer_phone: business.business_contact,
+        estimate_items: estimateItems,
+        subtotal,
+        vat_amount: vatTotal,
+        total_amount: total,
+        terms_and_conditions: template.terms_and_conditions,
+        supplier_info: {
+          company_name: template.supplier_company_name,
+          address: template.supplier_address,
+          registration_number: template.supplier_registration_number,
+          representative: template.supplier_representative,
+          business_type: template.supplier_business_type,
+          business_category: template.supplier_business_category,
+          phone: template.supplier_phone,
+          fax: template.supplier_fax
+        },
+        estimate_date: now.toISOString().split('T')[0],
+        estimate_number: estimateNumber,
+        created_by
+      })
+      .select()
+      .single();
+
+    if (estimateError) {
+      console.error('견적서 저장 오류:', estimateError);
+      return NextResponse.json(
+        { success: false, error: '견적서 저장에 실패했습니다.' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: estimate
+    });
+
+  } catch (error) {
+    console.error('견적서 생성 오류:', error);
+    return NextResponse.json(
+      { success: false, error: '서버 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
+}
