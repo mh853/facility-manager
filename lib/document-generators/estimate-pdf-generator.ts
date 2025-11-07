@@ -173,106 +173,126 @@ async function addCanvasToPdf(
  */
 function generateEstimateHtml(data: EstimateData): string {
   return `
-    <div style="font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif; padding: 20px; line-height: 1.4; background-color: #ffffff; color: #000000;">
+    <div style="font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif; padding: 30px; line-height: 1.5; background-color: #ffffff; color: #000000;">
       <!-- 헤더 -->
-      <div style="text-align: center; margin-bottom: 25px;">
-        <h1 style="font-size: 22px; font-weight: bold; margin: 0 0 15px 0; color: #000000;">IoT 견적서</h1>
+      <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #2563eb; padding-bottom: 15px;">
+        <h1 style="font-size: 32px; font-weight: bold; margin: 0; color: #1a1a1a;">IoT 견적서</h1>
       </div>
 
       <!-- 견적 기본 정보 -->
-      <div style="margin-bottom: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-          <div style="flex: 1;">
-            <div style="font-size: 11px; margin-bottom: 5px;">견적일자: ${data.estimate_date}</div>
-            <div style="font-size: 11px;">견적번호: ${data.estimate_number}</div>
-          </div>
-          <div style="border: 1px solid #000; padding: 8px;">
-            <div style="font-size: 10px;"><strong>공급자번호</strong></div>
-            <div style="font-size: 10px;">${data.supplier_info.registration_number}</div>
-          </div>
+      <div style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="flex: 1;">
+          <div style="font-size: 14px; margin-bottom: 8px; color: #374151;"><strong>견적일자:</strong> ${data.estimate_date}</div>
+          <div style="font-size: 14px; color: #374151;"><strong>견적번호:</strong> ${data.estimate_number}</div>
         </div>
       </div>
 
-      <!-- 공급자 및 공급받는자 정보 -->
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px;">
-        <tbody>
-          <!-- 공급자 -->
-          <tr>
-            <td rowspan="4" style="border: 1px solid #000; padding: 8px; background-color: #f5f5f5; font-weight: bold; text-align: center; width: 12%; vertical-align: middle;">공급자</td>
-            <td colspan="3" style="border: 1px solid #000; padding: 6px;">상호(법인명): ${data.supplier_info.company_name}</td>
-          </tr>
-          <tr>
-            <td colspan="3" style="border: 1px solid #000; padding: 6px;">사업자등록번호: ${data.supplier_info.registration_number}</td>
-          </tr>
-          <tr>
-            <td style="border: 1px solid #000; padding: 6px; width: 29%;">대표자: ${data.supplier_info.representative}</td>
-            <td colspan="2" style="border: 1px solid #000; padding: 6px;">업태: ${data.supplier_info.business_type || ''}</td>
-          </tr>
-          <tr>
-            <td style="border: 1px solid #000; padding: 6px;">전화: ${data.supplier_info.phone || ''}</td>
-            <td colspan="2" style="border: 1px solid #000; padding: 6px;">팩스: ${data.supplier_info.fax || ''}</td>
-          </tr>
+      <!-- 공급받는자(좌) 및 공급자(우) 정보 -->
+      <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+        <!-- 공급받는자 (왼쪽) -->
+        <div style="flex: 1;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px; border: 2px solid #2563eb;">
+            <tbody>
+              <tr>
+                <td colspan="2" style="border: 1px solid #d1d5db; padding: 12px; background-color: #2563eb; color: #ffffff; font-weight: bold; text-align: center; font-size: 15px;">공급받는자</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold; width: 35%;">상호(법인명)</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.customer_name}</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">사업자등록번호</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.customer_registration_number || '-'}</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">대표자</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.customer_representative || '-'}</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">업태 / 업종</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.customer_business_type || '-'} / ${data.customer_business_category || '-'}</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">주소</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">${data.customer_address || '-'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-          <!-- 공급받는자 -->
-          <tr>
-            <td rowspan="4" style="border: 1px solid #000; padding: 8px; background-color: #f5f5f5; font-weight: bold; text-align: center; vertical-align: middle;">공급받는자</td>
-            <td colspan="3" style="border: 1px solid #000; padding: 6px;">상호(법인명): ${data.customer_name}</td>
-          </tr>
-          <tr>
-            <td colspan="3" style="border: 1px solid #000; padding: 6px;">사업자등록번호: ${data.customer_registration_number || ''}</td>
-          </tr>
-          <tr>
-            <td style="border: 1px solid #000; padding: 6px;">대표자: ${data.customer_representative || ''}</td>
-            <td colspan="2" style="border: 1px solid #000; padding: 6px;">업태: ${data.customer_business_type || ''}</td>
-          </tr>
-          <tr>
-            <td colspan="3" style="border: 1px solid #000; padding: 6px;">주소: ${data.customer_address || ''}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- 공급가액 합계 -->
-      <div style="text-align: right; margin-bottom: 15px; font-size: 12px; font-weight: bold;">
-        공급가액 합계: ₩ ${formatCurrency(data.total_amount)}
+        <!-- 공급자 (오른쪽) -->
+        <div style="flex: 1;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px; border: 2px solid #059669;">
+            <tbody>
+              <tr>
+                <td colspan="2" style="border: 1px solid #d1d5db; padding: 12px; background-color: #059669; color: #ffffff; font-weight: bold; text-align: center; font-size: 15px;">공급자</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold; width: 35%;">상호(법인명)</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">주식회사 블루온</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">사업자등록번호</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">679-86-02827</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">대표자</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">김경수</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">업태 / 업종</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">제조업 / 전동기및발전기</td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #d1d5db; padding: 10px; background-color: #f3f4f6; font-weight: bold;">전화 / 팩스</td>
+                <td style="border: 1px solid #d1d5db; padding: 10px;">1661-5543 / 031-8077-2054</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- 견적 항목 테이블 -->
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 9px;">
+      <!-- 공급가액 합계 강조 -->
+      <div style="text-align: right; margin-bottom: 20px; padding: 15px; background-color: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px;">
+        <div style="font-size: 18px; font-weight: bold; color: #92400e;">
+          총 견적금액: <span style="font-size: 24px; color: #b45309;">₩ ${formatCurrency(data.total_amount)}</span>
+        </div>
+      </div>
+
+      <!-- 견적 항목 테이블 (비고란 제거) -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 13px; border: 2px solid #374151;">
         <thead>
-          <tr style="background-color: #f5f5f5;">
-            <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 6%;">no</th>
-            <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 22%;">품명</th>
-            <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 8%;">규격</th>
-            <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 6%;">수량</th>
-            <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 15%;">단가</th>
-            <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 15%;">공급가액</th>
-            <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 13%;">세액</th>
-            <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 15%;">비고</th>
+          <tr style="background-color: #374151; color: #ffffff;">
+            <th style="border: 1px solid #6b7280; padding: 12px; text-align: center; width: 8%;">No</th>
+            <th style="border: 1px solid #6b7280; padding: 12px; text-align: center; width: 32%;">품명</th>
+            <th style="border: 1px solid #6b7280; padding: 12px; text-align: center; width: 10%;">규격</th>
+            <th style="border: 1px solid #6b7280; padding: 12px; text-align: center; width: 10%;">수량</th>
+            <th style="border: 1px solid #6b7280; padding: 12px; text-align: center; width: 15%;">단가</th>
+            <th style="border: 1px solid #6b7280; padding: 12px; text-align: center; width: 15%;">공급가액</th>
+            <th style="border: 1px solid #6b7280; padding: 12px; text-align: center; width: 10%;">세액</th>
           </tr>
         </thead>
         <tbody>
-          ${data.estimate_items.map(item => `
-            <tr>
-              <td style="border: 1px solid #000; padding: 5px; text-align: center;">${item.no}</td>
-              <td style="border: 1px solid #000; padding: 5px;">${item.name}</td>
-              <td style="border: 1px solid #000; padding: 5px; text-align: center;">${item.spec}</td>
-              <td style="border: 1px solid #000; padding: 5px; text-align: center;">${item.quantity}</td>
-              <td style="border: 1px solid #000; padding: 5px; text-align: right;">${formatCurrency(item.unit_price)}</td>
-              <td style="border: 1px solid #000; padding: 5px; text-align: right;">${formatCurrency(item.supply_amount)}</td>
-              <td style="border: 1px solid #000; padding: 5px; text-align: right;">${formatCurrency(item.vat_amount)}</td>
-              <td style="border: 1px solid #000; padding: 5px; font-size: 8px;">${item.note}</td>
+          ${data.estimate_items.map((item, index) => `
+            <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+              <td style="border: 1px solid #d1d5db; padding: 10px; text-align: center; font-weight: bold;">${item.no}</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px;">${item.name}</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px; text-align: center;">${item.spec}</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px; text-align: center;">${item.quantity}</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px; text-align: right;">${formatCurrency(item.unit_price)}</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px; text-align: right; font-weight: bold;">${formatCurrency(item.supply_amount)}</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px; text-align: right;">${formatCurrency(item.vat_amount)}</td>
             </tr>
           `).join('')}
-          ${Array(Math.max(0, 10 - data.estimate_items.length)).fill(0).map(() => `
-            <tr>
-              <td style="border: 1px solid #000; padding: 5px; height: 20px;">&nbsp;</td>
-              <td style="border: 1px solid #000; padding: 5px;">&nbsp;</td>
-              <td style="border: 1px solid #000; padding: 5px;">&nbsp;</td>
-              <td style="border: 1px solid #000; padding: 5px;">&nbsp;</td>
-              <td style="border: 1px solid #000; padding: 5px;">&nbsp;</td>
-              <td style="border: 1px solid #000; padding: 5px;">&nbsp;</td>
-              <td style="border: 1px solid #000; padding: 5px;">&nbsp;</td>
-              <td style="border: 1px solid #000; padding: 5px;">&nbsp;</td>
+          ${Array(Math.max(0, 8 - data.estimate_items.length)).fill(0).map((_, index) => `
+            <tr style="background-color: ${(data.estimate_items.length + index) % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+              <td style="border: 1px solid #d1d5db; padding: 10px; height: 25px;">&nbsp;</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px;">&nbsp;</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px;">&nbsp;</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px;">&nbsp;</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px;">&nbsp;</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px;">&nbsp;</td>
+              <td style="border: 1px solid #d1d5db; padding: 10px;">&nbsp;</td>
             </tr>
           `).join('')}
         </tbody>
@@ -280,22 +300,27 @@ function generateEstimateHtml(data: EstimateData): string {
 
       <!-- 안내사항 -->
       ${data.terms_and_conditions ? `
-        <div style="margin-bottom: 15px; font-size: 9px; line-height: 1.5; white-space: pre-wrap; padding: 10px; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
+        <div style="margin-bottom: 25px; font-size: 12px; line-height: 1.6; white-space: pre-wrap; padding: 15px; background-color: #f0f9ff; border-left: 4px solid #2563eb; border-radius: 4px;">
+          <div style="font-weight: bold; margin-bottom: 8px; color: #1e40af; font-size: 14px;">▣ 안내사항</div>
 ${data.terms_and_conditions}
         </div>
       ` : ''}
 
       <!-- 합계 -->
       <div style="display: flex; justify-content: flex-end;">
-        <table style="width: 200px; border-collapse: collapse; font-size: 11px;">
+        <table style="width: 280px; border-collapse: collapse; font-size: 15px; border: 2px solid #374151;">
           <tbody>
             <tr>
-              <td style="border: 1px solid #000; padding: 8px; background-color: #f5f5f5; font-weight: bold; text-align: center; width: 40%;">합계</td>
-              <td style="border: 1px solid #000; padding: 8px; text-align: right; font-weight: bold;">${formatCurrency(data.subtotal)}</td>
+              <td style="border: 1px solid #6b7280; padding: 12px; background-color: #374151; color: #ffffff; font-weight: bold; text-align: center; width: 40%;">공급가액</td>
+              <td style="border: 1px solid #6b7280; padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">${formatCurrency(data.subtotal)}</td>
             </tr>
             <tr>
-              <td style="border: 1px solid #000; padding: 8px; background-color: #f5f5f5; font-weight: bold; text-align: center;">세액</td>
-              <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(data.vat_amount)}</td>
+              <td style="border: 1px solid #6b7280; padding: 12px; background-color: #374151; color: #ffffff; font-weight: bold; text-align: center;">부가세(10%)</td>
+              <td style="border: 1px solid #6b7280; padding: 12px; text-align: right; font-size: 16px;">${formatCurrency(data.vat_amount)}</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #6b7280; padding: 12px; background-color: #059669; color: #ffffff; font-weight: bold; text-align: center;">합계</td>
+              <td style="border: 1px solid #6b7280; padding: 12px; text-align: right; font-weight: bold; background-color: #d1fae5; font-size: 18px; color: #065f46;">${formatCurrency(data.total_amount)}</td>
             </tr>
           </tbody>
         </table>
