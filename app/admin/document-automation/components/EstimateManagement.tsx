@@ -164,28 +164,41 @@ export default function EstimateManagement() {
 
   const downloadPDF = async (estimateId: string, estimateNumber: string) => {
     try {
+      setLoading(true)
+
+      // 1. 견적서 데이터 조회
       const token = localStorage.getItem('auth_token')
       const response = await fetch(`/api/estimates/${estimateId}/pdf`, {
         credentials: 'include',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       })
 
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${estimateNumber}.pdf`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      } else {
-        alert('PDF 다운로드에 실패했습니다.')
+      if (!response.ok) {
+        alert('견적서 데이터 조회에 실패했습니다.')
+        return
       }
+
+      const { data } = await response.json()
+
+      // 2. 클라이언트에서 PDF 생성 (동적 import)
+      const { generateEstimatePDF } = await import('@/lib/document-generators/estimate-pdf-generator')
+      const pdfBuffer = await generateEstimatePDF(data)
+
+      // 3. PDF 다운로드
+      const blob = new Blob([pdfBuffer], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${estimateNumber}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
     } catch (error) {
       console.error('PDF 다운로드 오류:', error)
       alert('PDF 다운로드 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
     }
   }
 
