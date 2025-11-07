@@ -164,91 +164,91 @@ export default function OrderManagementPage() {
       title="발주 관리"
       description="제품 발주 단계의 사업장 진행 상황을 관리합니다"
     >
-      <div className="space-y-6">
+      <div className="space-y-3 sm:space-y-6">
       {/* 통계 카드 */}
       {activeTab === 'router_management' ? (
         // 라우터 관리 통계
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">전체 재고</span>
-              <Package className="w-4 h-4 text-gray-400" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-xs sm:text-sm text-gray-600">전체 재고</span>
+              <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
             </div>
-            <div className="text-2xl font-bold text-gray-900">{routerSummary.total}</div>
+            <div className="text-lg sm:text-2xl font-bold text-gray-900">{routerSummary.total}</div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">가용 재고</span>
-              <TrendingUp className="w-4 h-4 text-green-400" />
+          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-xs sm:text-sm text-gray-600">가용 재고</span>
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400" />
             </div>
-            <div className="text-2xl font-bold text-green-600">{routerSummary.in_stock}</div>
+            <div className="text-lg sm:text-2xl font-bold text-green-600">{routerSummary.in_stock}</div>
             {routerSummary.in_stock < 10 && (
               <div className="flex items-center gap-1 mt-1">
-                <AlertCircle className="w-3 h-3 text-orange-500" />
-                <span className="text-xs text-orange-500">재고 부족</span>
+                <AlertCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-orange-500" />
+                <span className="text-[10px] sm:text-xs text-orange-500">재고 부족</span>
               </div>
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">할당됨</span>
-              <Calendar className="w-4 h-4 text-blue-400" />
+          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-xs sm:text-sm text-gray-600">할당됨</span>
+              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
             </div>
-            <div className="text-2xl font-bold text-blue-600">{routerSummary.assigned}</div>
+            <div className="text-lg sm:text-2xl font-bold text-blue-600">{routerSummary.assigned}</div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">출고 대기</span>
-              <AlertCircle className="w-4 h-4 text-orange-400" />
+          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-xs sm:text-sm text-gray-600">출고 대기</span>
+              <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-400" />
             </div>
-            <div className="text-2xl font-bold text-orange-600">{routerSummary.shipped_pending}</div>
+            <div className="text-lg sm:text-2xl font-bold text-orange-600">{routerSummary.shipped_pending}</div>
           </div>
         </div>
       ) : (
         // 발주 관리 통계
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">전체</span>
-              <TrendingUp className="w-4 h-4 text-gray-400" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-xs sm:text-sm text-gray-600">전체</span>
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
             </div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-lg sm:text-2xl font-bold text-gray-900">
               {summary.total_orders}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">진행중</span>
-              <Calendar className="w-4 h-4 text-blue-400" />
+          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-xs sm:text-sm text-gray-600">진행중</span>
+              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
             </div>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-lg sm:text-2xl font-bold text-blue-600">
               {summary.in_progress}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">완료</span>
-              <Package className="w-4 h-4 text-green-400" />
+          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-xs sm:text-sm text-gray-600">완료</span>
+              <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400" />
             </div>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-lg sm:text-2xl font-bold text-green-600">
               {summary.completed}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600 mb-2">제조사별</div>
-            <div className="space-y-1">
+          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+            <div className="text-xs sm:text-sm text-gray-600 mb-1.5 sm:mb-2">제조사별</div>
+            <div className="space-y-0.5 sm:space-y-1">
               {Object.entries(summary.by_manufacturer).map(
                 ([key, value]) =>
                   value > 0 && (
                     <div
                       key={key}
-                      className="flex items-center justify-between text-xs"
+                      className="flex items-center justify-between text-[10px] sm:text-xs"
                     >
                       <span className="text-gray-600">
                         {MANUFACTURERS[key as Manufacturer].name}
@@ -264,57 +264,57 @@ export default function OrderManagementPage() {
 
       {/* 탭 메뉴 */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 overflow-x-auto">
           <button
             onClick={() => handleTabChange('in_progress')}
-            className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 min-w-[100px] px-2 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-sm font-medium transition-colors ${
               activeTab === 'in_progress'
                 ? 'text-green-600 border-b-2 border-green-600 bg-white'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            <div className="flex items-center justify-center gap-2">
-              <Calendar className="w-4 h-4" />
-              발주 필요 ({summary.in_progress})
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2">
+              <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="whitespace-nowrap">발주 필요 ({summary.in_progress})</span>
             </div>
           </button>
           <button
             onClick={() => handleTabChange('not_started')}
-            className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 min-w-[100px] px-2 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-sm font-medium transition-colors ${
               activeTab === 'not_started'
                 ? 'text-green-600 border-b-2 border-green-600 bg-white'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            <div className="flex items-center justify-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              발주 진행 전 ({summary.not_started})
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2">
+              <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="whitespace-nowrap">진행 전 ({summary.not_started})</span>
             </div>
           </button>
           <button
             onClick={() => handleTabChange('completed')}
-            className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 min-w-[100px] px-2 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-sm font-medium transition-colors ${
               activeTab === 'completed'
                 ? 'text-green-600 border-b-2 border-green-600 bg-white'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            <div className="flex items-center justify-center gap-2">
-              <Package className="w-4 h-4" />
-              발주 완료 ({summary.completed})
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2">
+              <Package className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="whitespace-nowrap">완료 ({summary.completed})</span>
             </div>
           </button>
           <button
             onClick={() => handleTabChange('router_management')}
-            className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 min-w-[100px] px-2 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-sm font-medium transition-colors ${
               activeTab === 'router_management'
                 ? 'text-green-600 border-b-2 border-green-600 bg-white'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            <div className="flex items-center justify-center gap-2">
-              <Package className="w-4 h-4" />
-              무선 라우터 관리
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2">
+              <Package className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="whitespace-nowrap">라우터 관리</span>
             </div>
           </button>
         </div>
@@ -326,12 +326,12 @@ export default function OrderManagementPage() {
       ) : (
         <>
       {/* 필터 및 검색 */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           {/* 검색 */}
           <div className="lg:col-span-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="사업장명 검색..."
@@ -340,7 +340,7 @@ export default function OrderManagementPage() {
                   setSearchTerm(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
               />
             </div>
           </div>
@@ -353,7 +353,7 @@ export default function OrderManagementPage() {
                 setManufacturerFilter(e.target.value as Manufacturer | 'all')
                 setCurrentPage(1)
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
             >
               <option value="all">전체 제조사</option>
               {Object.entries(MANUFACTURERS).map(([key, info]) => (
@@ -365,13 +365,13 @@ export default function OrderManagementPage() {
           </div>
 
           {/* 정렬 */}
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
             <select
               value={sortBy}
               onChange={(e) =>
                 setSortBy(e.target.value as 'latest' | 'name' | 'updated')
               }
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
             >
               <option value="latest">최신순</option>
               <option value="name">사업장명순</option>
@@ -380,143 +380,225 @@ export default function OrderManagementPage() {
 
             <button
               onClick={handleResetFilters}
-              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               title="필터 초기화"
             >
-              <Filter className="w-4 h-4 text-gray-600" />
+              <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* 발주 목록 테이블 */}
+      {/* 발주 목록 */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  사업장명
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  주소
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  제조사
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  진행률
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  상태
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  최종 업데이트
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-gray-500">
-                    로딩 중...
-                  </td>
-                </tr>
-              ) : orders.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-gray-500">
-                    발주 대상 사업장이 없습니다
-                  </td>
-                </tr>
-              ) : (
-                orders.map((order) => (
-                  <tr
-                    key={order.id}
-                    onClick={() => {
-                      if (order.business_id) {
-                        handleOpenModal(order.business_id)
-                      } else {
-                        alert('이 항목은 사업장 정보가 없어 상세보기를 할 수 없습니다.')
-                      }
-                    }}
-                    className={`hover:bg-gray-50 transition-colors ${order.business_id ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
-                  >
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                      {order.business_name}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {order.address || '-'}
-                    </td>
-                    <td className="py-3 px-4 text-sm">
-                      {order.manufacturer && MANUFACTURERS[order.manufacturer] ? (
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                          ${
-                            order.manufacturer === 'ecosense'
-                              ? 'bg-blue-100 text-blue-700'
-                              : order.manufacturer === 'gaia_cns'
-                                ? 'bg-green-100 text-green-700'
-                                : order.manufacturer === 'cleanearth'
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : 'bg-orange-100 text-orange-700'
-                          }`}
-                        >
-                          {MANUFACTURERS[order.manufacturer].name}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
-                          <div
-                            className="bg-green-500 h-2 rounded-full transition-all"
-                            style={{
-                              width: `${order.progress_percentage}%`
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs font-medium text-gray-700">
-                          {order.progress_percentage}%
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {order.steps_completed}/{order.steps_total} 단계
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-sm">
-                      {order.status === 'completed' ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                          완료
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                          진행중
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {new Date(order.last_updated).toLocaleDateString('ko-KR')}
-                    </td>
+        {loading ? (
+          <div className="py-12 text-center text-gray-500 text-sm">
+            로딩 중...
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="py-12 text-center text-gray-500 text-sm">
+            발주 대상 사업장이 없습니다
+          </div>
+        ) : (
+          <>
+            {/* 데스크톱: 테이블 뷰 */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      사업장명
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      주소
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      제조사
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      진행률
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      상태
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      최종 업데이트
+                    </th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {orders.map((order) => (
+                    <tr
+                      key={order.id}
+                      onClick={() => {
+                        if (order.business_id) {
+                          handleOpenModal(order.business_id)
+                        } else {
+                          alert('이 항목은 사업장 정보가 없어 상세보기를 할 수 없습니다.')
+                        }
+                      }}
+                      className={`hover:bg-gray-50 transition-colors ${order.business_id ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                    >
+                      <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                        {order.business_name}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {order.address || '-'}
+                      </td>
+                      <td className="py-3 px-4 text-sm">
+                        {order.manufacturer && MANUFACTURERS[order.manufacturer] ? (
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                            ${
+                              order.manufacturer === 'ecosense'
+                                ? 'bg-blue-100 text-blue-700'
+                                : order.manufacturer === 'gaia_cns'
+                                  ? 'bg-green-100 text-green-700'
+                                  : order.manufacturer === 'cleanearth'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : 'bg-orange-100 text-orange-700'
+                            }`}
+                          >
+                            {MANUFACTURERS[order.manufacturer].name}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
+                            <div
+                              className="bg-green-500 h-2 rounded-full transition-all"
+                              style={{
+                                width: `${order.progress_percentage}%`
+                              }}
+                            />
+                          </div>
+                          <span className="text-xs font-medium text-gray-700">
+                            {order.progress_percentage}%
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {order.steps_completed}/{order.steps_total} 단계
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm">
+                        {order.status === 'completed' ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            완료
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                            진행중
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {new Date(order.last_updated).toLocaleDateString('ko-KR')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 모바일: 카드 뷰 */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {orders.map((order) => (
+                <button
+                  key={order.id}
+                  onClick={() => {
+                    if (order.business_id) {
+                      handleOpenModal(order.business_id)
+                    } else {
+                      alert('이 항목은 사업장 정보가 없어 상세보기를 할 수 없습니다.')
+                    }
+                  }}
+                  className={`w-full px-3 py-3 text-left hover:bg-gray-50 transition-colors ${order.business_id ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                >
+                  {/* 사업장명 + 상태 배지 */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="text-sm font-semibold text-gray-900 flex-1">
+                      {order.business_name}
+                    </h3>
+                    {order.status === 'completed' ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 flex-shrink-0">
+                        완료
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 flex-shrink-0">
+                        진행중
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 주소 */}
+                  {order.address && (
+                    <p className="text-xs text-gray-500 mb-2 truncate">
+                      {order.address}
+                    </p>
+                  )}
+
+                  {/* 제조사 + 최종 업데이트 */}
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    {order.manufacturer && MANUFACTURERS[order.manufacturer] && (
+                      <span
+                        className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium
+                        ${
+                          order.manufacturer === 'ecosense'
+                            ? 'bg-blue-100 text-blue-700'
+                            : order.manufacturer === 'gaia_cns'
+                              ? 'bg-green-100 text-green-700'
+                              : order.manufacturer === 'cleanearth'
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-orange-100 text-orange-700'
+                        }`}
+                      >
+                        {MANUFACTURERS[order.manufacturer].name}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-gray-500">
+                      {new Date(order.last_updated).toLocaleDateString('ko-KR')}
+                    </span>
+                  </div>
+
+                  {/* 진행률 */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-gray-600">
+                        {order.steps_completed}/{order.steps_total} 단계
+                      </span>
+                      <span className="font-medium text-gray-700">
+                        {order.progress_percentage}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div
+                        className="bg-green-500 h-1.5 rounded-full transition-all"
+                        style={{
+                          width: `${order.progress_percentage}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* 페이지네이션 */}
         {totalPages > 1 && (
-          <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200">
-            <div className="text-sm text-gray-600">
+          <div className="bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200">
+            <div className="text-xs sm:text-sm text-gray-600">
               페이지 {currentPage} / {totalPages}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2.5 sm:px-3 py-1 sm:py-1.5 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
               >
                 이전
               </button>
@@ -525,7 +607,7 @@ export default function OrderManagementPage() {
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2.5 sm:px-3 py-1 sm:py-1.5 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
               >
                 다음
               </button>

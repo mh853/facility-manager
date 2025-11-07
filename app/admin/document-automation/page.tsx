@@ -312,35 +312,37 @@ export default function DocumentAutomationPage() {
       title="문서 자동화"
       description="문서 템플릿 및 자동화 규칙 관리"
       actions={
-        <div className="flex gap-2">
-          <button 
+        <div className="flex gap-1.5 sm:gap-2">
+          <button
             onClick={() => {
               setModalType('template')
               setSelectedItem(null)
               setIsModalOpen(true)
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            className="flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            템플릿 추가
+            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">템플릿 추가</span>
+            <span className="sm:hidden">템플릿</span>
           </button>
-          <button 
+          <button
             onClick={() => {
               setModalType('rule')
               setSelectedItem(null)
               setIsModalOpen(true)
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+            className="flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
           >
-            <Zap className="w-4 h-4" />
-            규칙 추가
+            <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">규칙 추가</span>
+            <span className="sm:hidden">규칙</span>
           </button>
         </div>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-3 sm:space-y-4 md:space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
           <StatsCard
             title="전체 템플릿"
             value={stats.totalTemplates.toString()}
@@ -381,7 +383,7 @@ export default function DocumentAutomationPage() {
         {/* Tab Navigation */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="border-b border-gray-200">
-            <nav className="flex">
+            <nav className="flex overflow-x-auto">
               {[
                 { id: 'purchase_order', name: '발주서 관리', icon: ShoppingCart },
                 { id: 'templates', name: '문서 템플릿', icon: FileText },
@@ -391,20 +393,21 @@ export default function DocumentAutomationPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  className={`flex items-center gap-1 sm:gap-1.5 md:gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600 bg-blue-50'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <tab.icon className="w-4 h-4" />
-                  {tab.name}
+                  <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">{tab.name}</span>
+                  <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
                 </button>
               ))}
             </nav>
           </div>
 
-          <div className="p-6">
+          <div className="p-3 sm:p-4 md:p-6">
             {activeTab === 'templates' && (
               <div className="space-y-4">
                 {isLoading ? (
@@ -506,33 +509,34 @@ export default function DocumentAutomationPage() {
             {activeTab === 'purchase_order' && (
               <div className="space-y-4">
                 {/* 검색 및 새로고침 */}
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-2 sm:gap-3">
                   <div className="flex-1">
                     <input
                       type="text"
                       placeholder="사업장명으로 검색..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <button
                     onClick={loadBusinessesForPurchaseOrder}
                     disabled={loadingBusinesses}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:bg-gray-400"
+                    className="flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm rounded-lg transition-colors disabled:bg-gray-400 whitespace-nowrap"
                   >
-                    <RefreshCw className={`w-4 h-4 ${loadingBusinesses ? 'animate-spin' : ''}`} />
-                    새로고침
+                    <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${loadingBusinesses ? 'animate-spin' : ''}`} />
+                    <span className="hidden sm:inline">새로고침</span>
+                    <span className="sm:hidden">새로</span>
                   </button>
                 </div>
 
                 {/* 안내 메시지 */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <ShoppingCart className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <ShoppingCart className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-blue-600 mt-0.5 shrink-0" />
                     <div>
-                      <h4 className="font-medium text-blue-900 mb-1">발주서 자동 생성</h4>
-                      <p className="text-sm text-blue-700">
+                      <h4 className="font-medium text-blue-900 mb-1 text-xs sm:text-sm">발주서 자동 생성</h4>
+                      <p className="text-[11px] sm:text-xs text-blue-700 leading-relaxed">
                         발주 필요 단계(product_order)에 있는 사업장을 선택하면 등록된 측정기기 정보를 바탕으로 발주서를 자동으로 생성합니다.
                         엑셀 또는 PDF 형식으로 다운로드할 수 있습니다.
                       </p>
@@ -546,21 +550,21 @@ export default function DocumentAutomationPage() {
                     <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 ) : businesses.length === 0 ? (
-                  <div className="bg-gray-50 rounded-lg p-6 text-center">
-                    <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">발주 필요 사업장이 없습니다</h3>
-                    <p className="text-gray-500 mb-4">
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-6 text-center">
+                    <AlertTriangle className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">발주 필요 사업장이 없습니다</h3>
+                    <p className="text-sm sm:text-base text-gray-500 mb-3 sm:mb-4">
                       발주 관리 페이지에서 사업장을 "발주 필요(product_order)" 단계로 이동시켜주세요.
                     </p>
                     <button
                       onClick={() => window.location.href = '/admin/order-management'}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                      className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm rounded-lg transition-colors"
                     >
                       발주 관리로 이동
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {/* 필터링된 사업장 목록 */}
                     {businesses
                       .filter((business) =>
@@ -570,7 +574,7 @@ export default function DocumentAutomationPage() {
                       .map((business) => (
                         <div
                           key={business.id}
-                          className="bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+                          className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
                           onClick={() => {
                             setSelectedBusiness({
                               id: business.business_id,
@@ -579,14 +583,14 @@ export default function DocumentAutomationPage() {
                             setIsPurchaseOrderModalOpen(true)
                           }}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h3 className="font-semibold text-gray-900">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                <h3 className="font-semibold text-sm sm:text-base text-gray-900 truncate">
                                   {business.business_name}
                                 </h3>
                                 {business.manufacturer && (
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs font-medium rounded whitespace-nowrap">
                                     {business.manufacturer === 'ecosense' && '에코센스'}
                                     {business.manufacturer === 'gaia_cns' && '가이아씨앤에스'}
                                     {business.manufacturer === 'cleanearth' && '크린어스'}
@@ -595,11 +599,11 @@ export default function DocumentAutomationPage() {
                                 )}
                               </div>
                               {business.address && (
-                                <p className="text-sm text-gray-600 mb-1">
+                                <p className="text-xs sm:text-sm text-gray-600 mb-1 truncate">
                                   📍 {business.address}
                                 </p>
                               )}
-                              <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <div className="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-xs text-gray-500">
                                 <span>진행률: {business.progress_percentage || 0}%</span>
                                 <span>
                                   단계: {business.steps_completed || 0}/{business.steps_total || 0}
@@ -616,7 +620,7 @@ export default function DocumentAutomationPage() {
                                   })
                                   setIsPurchaseOrderModalOpen(true)
                                 }}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+                                className="w-full sm:w-auto px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm rounded-lg transition-colors whitespace-nowrap"
                               >
                                 발주서 생성
                               </button>
@@ -632,29 +636,29 @@ export default function DocumentAutomationPage() {
             {activeTab === 'history' && (
               <div className="space-y-6">
                 {/* 통계 요약 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-sm text-gray-500 mb-1">전체 문서</div>
-                    <div className="text-2xl font-bold text-gray-900">{historySummary.total_documents}</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+                  <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1">전체 문서</div>
+                    <div className="text-xl sm:text-2xl font-bold text-gray-900">{historySummary.total_documents}</div>
                   </div>
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-sm text-gray-500 mb-1">발주서</div>
-                    <div className="text-2xl font-bold text-blue-600">{historySummary.by_type.purchase_order}</div>
+                  <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1">발주서</div>
+                    <div className="text-xl sm:text-2xl font-bold text-blue-600">{historySummary.by_type.purchase_order}</div>
                   </div>
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-sm text-gray-500 mb-1">Excel</div>
-                    <div className="text-2xl font-bold text-green-600">{historySummary.by_format.excel}</div>
+                  <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1">Excel</div>
+                    <div className="text-xl sm:text-2xl font-bold text-green-600">{historySummary.by_format.excel}</div>
                   </div>
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-sm text-gray-500 mb-1">PDF</div>
-                    <div className="text-2xl font-bold text-red-600">{historySummary.by_format.pdf}</div>
+                  <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1">PDF</div>
+                    <div className="text-xl sm:text-2xl font-bold text-red-600">{historySummary.by_format.pdf}</div>
                   </div>
                 </div>
 
                 {/* 필터 */}
-                <div className="bg-white p-4 rounded-lg border border-gray-200">
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <div className="md:col-span-2">
+                <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+                    <div className="sm:col-span-2">
                       <input
                         type="text"
                         placeholder="사업장명 검색..."
@@ -663,7 +667,7 @@ export default function DocumentAutomationPage() {
                           setHistoryFilter({ ...historyFilter, search: e.target.value })
                           setHistoryPagination({ ...historyPagination, page: 1 })
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                     <select
@@ -672,7 +676,7 @@ export default function DocumentAutomationPage() {
                         setHistoryFilter({ ...historyFilter, document_type: e.target.value })
                         setHistoryPagination({ ...historyPagination, page: 1 })
                       }}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">전체 문서</option>
                       <option value="purchase_order">발주서</option>
@@ -686,7 +690,7 @@ export default function DocumentAutomationPage() {
                         setHistoryFilter({ ...historyFilter, file_format: e.target.value })
                         setHistoryPagination({ ...historyPagination, page: 1 })
                       }}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">전체 형식</option>
                       <option value="excel">Excel</option>
@@ -697,7 +701,7 @@ export default function DocumentAutomationPage() {
                         setHistoryFilter({ search: '', document_type: '', file_format: '', start_date: '', end_date: '' })
                         setHistoryPagination({ ...historyPagination, page: 1 })
                       }}
-                      className="px-4 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       초기화
                     </button>
@@ -711,14 +715,124 @@ export default function DocumentAutomationPage() {
                     <p className="text-gray-500">문서 이력을 불러오는 중...</p>
                   </div>
                 ) : documentHistory.length === 0 ? (
-                  <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">문서 이력 없음</h3>
-                    <p className="text-gray-500">발주서 관리 탭에서 문서를 생성하면 이력이 표시됩니다.</p>
+                  <div className="text-center py-8 sm:py-12 bg-white rounded-lg border border-gray-200">
+                    <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">문서 이력 없음</h3>
+                    <p className="text-sm sm:text-base text-gray-500 px-4">발주서 관리 탭에서 문서를 생성하면 이력이 표시됩니다.</p>
                   </div>
                 ) : (
-                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
+                  <>
+                    {/* Mobile card view */}
+                    <div className="md:hidden space-y-2 sm:space-y-3">
+                      {documentHistory.map((doc: any) => (
+                        <div key={doc.id} className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+                          {/* Business name and badges */}
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-sm text-gray-900 truncate">{doc.business_name}</h3>
+                              {doc.address && (
+                                <p className="text-[10px] sm:text-xs text-gray-500 truncate">{doc.address}</p>
+                              )}
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full whitespace-nowrap ${
+                                doc.document_type === 'purchase_order' ? 'bg-blue-100 text-blue-800' :
+                                doc.document_type === 'estimate' ? 'bg-green-100 text-green-800' :
+                                doc.document_type === 'contract' ? 'bg-purple-100 text-purple-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {doc.document_type === 'purchase_order' ? '발주서' :
+                                 doc.document_type === 'estimate' ? '견적서' :
+                                 doc.document_type === 'contract' ? '계약서' : '기타'}
+                              </span>
+                              <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full whitespace-nowrap ${
+                                doc.file_format === 'excel' ? 'bg-green-100 text-green-800' :
+                                doc.file_format === 'pdf' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {doc.file_format === 'excel' ? 'Excel' :
+                                 doc.file_format === 'pdf' ? 'PDF' : doc.file_format}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Document name */}
+                          <p className="text-xs sm:text-sm text-gray-700 mb-2 break-words">{doc.document_name}</p>
+
+                          {/* Info grid */}
+                          <div className="grid grid-cols-2 gap-2 mb-3 text-[10px] sm:text-xs">
+                            <div>
+                              <span className="text-gray-500">생성일</span>
+                              <p className="text-gray-900 font-medium">
+                                {new Date(doc.created_at).toLocaleString('ko-KR', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">생성자</span>
+                              <p className="text-gray-900 font-medium truncate">{doc.created_by_name || '-'}</p>
+                              {doc.created_by_email && (
+                                <p className="text-gray-500 truncate">{doc.created_by_email}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-2">
+                            {doc.document_type === 'purchase_order' && doc.document_data && (
+                              <button
+                                onClick={() => setPreviewDocument(doc)}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-green-600 hover:text-green-900 border border-green-200 hover:border-green-300 rounded-lg transition-colors text-xs"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                보기
+                              </button>
+                            )}
+                            {doc.file_path ? (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const { createClient } = await import('@supabase/supabase-js')
+                                    const supabase = createClient(
+                                      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                                      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                                    )
+
+                                    const { data: urlData } = supabase.storage
+                                      .from('facility-files')
+                                      .getPublicUrl(doc.file_path)
+
+                                    if (urlData?.publicUrl) {
+                                      window.open(urlData.publicUrl, '_blank')
+                                    } else {
+                                      alert('파일 URL을 가져올 수 없습니다.')
+                                    }
+                                  } catch (error) {
+                                    console.error('다운로드 오류:', error)
+                                    alert('파일 다운로드 중 오류가 발생했습니다.')
+                                  }
+                                }}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-blue-600 hover:text-blue-900 border border-blue-200 hover:border-blue-300 rounded-lg transition-colors text-xs"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                다운로드
+                              </button>
+                            ) : (
+                              <span className="flex-1 text-center text-gray-400 text-xs py-1.5">파일 없음</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop table view */}
+                    <div className="hidden md:block bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
@@ -851,25 +965,29 @@ export default function DocumentAutomationPage() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
 
                 {/* 페이지네이션 */}
                 {!loadingHistory && documentHistory.length > 0 && (
-                  <div className="flex items-center justify-between bg-white px-4 py-3 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between bg-white px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-200 rounded-lg">
                     <div className="flex-1 flex justify-between sm:hidden">
                       <button
                         onClick={() => setHistoryPagination({ ...historyPagination, page: Math.max(1, historyPagination.page - 1) })}
                         disabled={historyPagination.page === 1}
-                        className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="relative inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         이전
                       </button>
+                      <span className="text-xs text-gray-700">
+                        {historyPagination.page} / {historyPagination.total_pages}
+                      </span>
                       <button
                         onClick={() => setHistoryPagination({ ...historyPagination, page: Math.min(historyPagination.total_pages, historyPagination.page + 1) })}
                         disabled={historyPagination.page === historyPagination.total_pages}
-                        className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="relative inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         다음
                       </button>
@@ -944,27 +1062,27 @@ export default function DocumentAutomationPage() {
 
       {/* 발주서 미리보기 모달 */}
       {previewDocument && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-3 md:p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-full sm:max-w-[98vw] md:max-w-[95vw] lg:max-w-7xl h-[95vh] sm:h-auto sm:max-h-[95vh] flex flex-col">
             {/* 헤더 */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">발주서 미리보기</h2>
-                <p className="text-sm text-gray-500 mt-1">
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0">
+              <div className="flex-1 min-w-0 mr-2">
+                <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 truncate">발주서 미리보기</h2>
+                <p className="text-[10px] sm:text-xs md:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">
                   {previewDocument.business_name} - {previewDocument.document_name}
                 </p>
               </div>
               <button
                 onClick={() => setPreviewDocument(null)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
 
             {/* 내용 */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="bg-white border-2 border-blue-200 rounded-lg p-4">
+            <div className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 lg:p-6 min-h-0">
+              <div className="max-w-5xl mx-auto text-sm">
                 <EcosensePurchaseOrderForm
                   data={previewDocument.document_data}
                   showPrintButton={false}
@@ -973,10 +1091,10 @@ export default function DocumentAutomationPage() {
             </div>
 
             {/* 푸터 */}
-            <div className="flex items-center justify-end p-4 border-t border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-end p-3 sm:p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
               <button
                 onClick={() => setPreviewDocument(null)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
               >
                 닫기
               </button>

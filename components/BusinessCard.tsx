@@ -57,97 +57,126 @@ export default memo(function BusinessCard({ business, onClick }: BusinessCardPro
   return (
     <button
       onClick={() => onClick(business.business_name)}
-      className="w-full px-6 py-3 text-left transition-all group grid grid-cols-[auto_1fr_auto] gap-4 items-center hover:bg-blue-50 cursor-pointer hover:shadow-sm"
+      className="w-full px-3 sm:px-6 py-2.5 sm:py-3 text-left transition-all group hover:bg-blue-50 cursor-pointer hover:shadow-sm"
     >
-      {/* 1열: 아이콘 */}
-      <div className="p-2.5 rounded-lg bg-gray-100 group-hover:bg-blue-100 transition-colors">
-        <Building2 className="w-5 h-5 text-gray-500 group-hover:text-blue-600" />
-      </div>
+      {/* 모바일: 세로 레이아웃, 데스크톱: 가로 그리드 레이아웃 */}
+      <div className="flex flex-col sm:grid sm:grid-cols-[auto_1fr_auto] gap-2 sm:gap-4 sm:items-center">
 
-      {/* 2열: 메인 정보 영역 (서브 그리드) */}
-      <div className="grid grid-cols-[2fr_1fr_1fr] gap-4 min-w-0 items-center">
-        {/* 2-1: 사업장명 + 주소 + Phase 배지 */}
-        <div className="min-w-0 flex flex-col justify-center">
-          {/* 사업장명 + 주소 */}
-          <div className="flex items-baseline gap-2 mb-1">
-            <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 truncate">
-              {business.business_name}
-            </h3>
-            {business.address && (
-              <span className="text-xs text-gray-500 truncate flex-shrink">
-                {business.address}
-              </span>
-            )}
+        {/* 모바일: 아이콘 + 사업장명 행 / 데스크톱: 아이콘만 */}
+        <div className="flex items-center gap-2 sm:block">
+          <div className="p-2 sm:p-2.5 rounded-lg bg-gray-100 group-hover:bg-blue-100 transition-colors flex-shrink-0">
+            <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 group-hover:text-blue-600" />
           </div>
 
-          {/* Phase 진행 상태 배지 */}
-          {business.phases && (
-            <div className="flex flex-wrap gap-1">
-              {business.phases.presurvey && (
-                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium whitespace-nowrap">
-                  🔍 설치 전 실사
-                </span>
-              )}
-              {business.phases.postinstall && (
-                <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs font-medium whitespace-nowrap">
-                  📸 설치 후 사진
-                </span>
-              )}
-              {business.phases.aftersales && (
-                <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-medium whitespace-nowrap">
-                  🔧 AS 사진
+          {/* 모바일에만 표시: 사업장명 */}
+          <h3 className="text-sm sm:hidden font-semibold text-gray-900 group-hover:text-blue-600 truncate flex-1">
+            {business.business_name}
+          </h3>
+
+          {/* 모바일에만 표시: 화살표 */}
+          <div className="text-gray-400 group-hover:text-blue-600 transition-colors sm:hidden text-lg">
+            →
+          </div>
+        </div>
+
+        {/* 메인 정보 영역 */}
+        <div className="flex flex-col sm:grid sm:grid-cols-[2fr_1fr_1fr] gap-2 sm:gap-4 min-w-0 sm:items-center">
+
+          {/* 1열: 사업장명 + 주소 + Phase 배지 */}
+          <div className="min-w-0 flex flex-col justify-center">
+
+            {/* 데스크톱: 사업장명 + 주소 */}
+            <div className="hidden sm:flex items-baseline gap-2 mb-1">
+              <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 truncate">
+                {business.business_name}
+              </h3>
+              {business.address && (
+                <span className="text-xs text-gray-500 truncate flex-shrink">
+                  {business.address}
                 </span>
               )}
             </div>
-          )}
-        </div>
 
-        {/* 2-2: 실사자 */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          {primaryInspector ? (
-            <>
-              <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <span className="text-sm text-gray-700 truncate">{primaryInspector}</span>
-            </>
-          ) : (
-            <span className="text-sm text-gray-400">실사자 미배정</span>
-          )}
-        </div>
+            {/* 모바일: 주소만 (사업장명은 위에 표시됨) */}
+            {business.address && (
+              <div className="sm:hidden text-xs text-gray-500 truncate mb-1.5">
+                {business.address}
+              </div>
+            )}
 
-        {/* 2-3: 날짜 + 사진 */}
-        <div className="flex flex-col gap-1.5">
-          {/* 실사일자 */}
-          <div className="flex items-center gap-1.5">
-            {primaryDate ? (
-              <>
-                <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                <span className="text-sm text-gray-600">{formatDate(primaryDate)}</span>
-              </>
-            ) : (
-              <span className="text-xs text-gray-400">날짜 미정</span>
+            {/* Phase 진행 상태 배지 */}
+            {business.phases && (
+              <div className="flex flex-wrap gap-1">
+                {business.phases.presurvey && (
+                  <span className="px-1.5 sm:px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap">
+                    🔍 설치 전 실사
+                  </span>
+                )}
+                {business.phases.postinstall && (
+                  <span className="px-1.5 sm:px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap">
+                    📸 설치 후 사진
+                  </span>
+                )}
+                {business.phases.aftersales && (
+                  <span className="px-1.5 sm:px-2 py-0.5 bg-green-50 text-green-700 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap">
+                    🔧 AS 사진
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
-          {/* 사진 통계 */}
-          <div className="flex items-center gap-1.5">
-            {business.has_photos && business.photo_count ? (
-              <>
-                <Camera className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-                <span className="text-sm text-green-700 font-medium">사진 {business.photo_count}장</span>
-              </>
-            ) : (
-              <>
-                <Camera className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                <span className="text-xs text-gray-500">사진 없음</span>
-              </>
-            )}
+          {/* 2열: 실사자 + 날짜 + 사진 (모바일: 가로 배치) */}
+          <div className="flex sm:contents gap-3 sm:gap-0 text-xs sm:text-sm">
+
+            {/* 실사자 */}
+            <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 sm:flex-none">
+              {primaryInspector ? (
+                <>
+                  <User className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-700 truncate">{primaryInspector}</span>
+                </>
+              ) : (
+                <span className="text-gray-400 truncate">실사자 미배정</span>
+              )}
+            </div>
+
+            {/* 날짜 + 사진 */}
+            <div className="flex flex-col sm:flex-col gap-1 sm:gap-1.5 flex-1 sm:flex-none">
+              {/* 실사일자 */}
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                {primaryDate ? (
+                  <>
+                    <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-600 text-[10px] sm:text-sm">{formatDate(primaryDate)}</span>
+                  </>
+                ) : (
+                  <span className="text-gray-400 text-[10px] sm:text-xs">날짜 미정</span>
+                )}
+              </div>
+
+              {/* 사진 통계 */}
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                {business.has_photos && business.photo_count ? (
+                  <>
+                    <Camera className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-600 flex-shrink-0" />
+                    <span className="text-green-700 font-medium text-[10px] sm:text-sm">사진 {business.photo_count}장</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-500 text-[10px] sm:text-xs">사진 없음</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* 3열: 화살표 */}
-      <div className="text-gray-400 group-hover:text-blue-600 transition-colors">
-        →
+        {/* 데스크톱: 화살표 */}
+        <div className="hidden sm:block text-gray-400 group-hover:text-blue-600 transition-colors">
+          →
+        </div>
       </div>
     </button>
   );

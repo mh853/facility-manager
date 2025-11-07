@@ -242,36 +242,36 @@ export default function PurchaseOrderModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-[65vw] h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-full sm:max-w-[98vw] md:max-w-[95vw] lg:max-w-[85vw] xl:max-w-[80vw] h-[98vh] flex flex-col">
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">발주서 생성</h2>
-            <p className="text-xs text-gray-500 mt-1">{businessName}</p>
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0">
+          <div className="flex-1 min-w-0 mr-2">
+            <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 truncate">발주서 생성</h2>
+            <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">{businessName}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
         {/* 내용 - 2단 레이아웃 */}
         <div className="flex-1 overflow-hidden min-h-0">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <div className="flex items-center justify-center py-8 sm:py-12">
+              <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-blue-600" />
             </div>
           ) : editedData ? (
-            <div className="flex h-full gap-4 p-4">
+            <div className="flex flex-col md:flex-row h-full gap-3 sm:gap-4 p-3 sm:p-4">
               {/* 왼쪽: 입력 폼 */}
-              <div className="w-80 flex-shrink-0 overflow-y-auto space-y-3">
+              <div className="w-full md:w-80 md:flex-shrink-0 overflow-y-auto space-y-2 sm:space-y-3 min-h-[400px] md:min-h-0">
 
               {/* 택배 주소 선택 */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">택배 주소</h3>
+              <div className="bg-gray-50 rounded-lg p-2.5 sm:p-3">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3">택배 주소</h3>
                 <DeliveryAddressManager
                   selectedId={selectedDeliveryAddress}
                   onSelect={(address) => {
@@ -289,11 +289,11 @@ export default function PurchaseOrderModal({
               </div>
 
               {/* 전류계 타입 설정 */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">전류계 타입</h3>
-                <div className="space-y-2">
+              <div className="bg-gray-50 rounded-lg p-2.5 sm:p-3">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3">전류계 타입</h3>
+                <div className="space-y-1.5 sm:space-y-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-[11px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1">
                       16L 수량 (자동 계산)
                     </label>
                     <input
@@ -301,11 +301,11 @@ export default function PurchaseOrderModal({
                       min="0"
                       value={editedData.ct_16l || 0}
                       readOnly
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
+                      className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-[11px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1">
                       24L 수량
                     </label>
                     <input
@@ -327,11 +327,11 @@ export default function PurchaseOrderModal({
                           })
                         }
                       }}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-[11px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1">
                       36L 수량
                     </label>
                     <input
@@ -353,161 +353,161 @@ export default function PurchaseOrderModal({
                           })
                         }
                       }}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-[10px] sm:text-xs text-gray-500 mt-1.5 sm:mt-2">
                   배출 전류계 수량: {editedData.equipment?.discharge_ct || 0}개
                   (16L: {editedData.ct_16l || 0}개,
                    24L: {editedData.ct_24l || 0}개,
                    36L: {editedData.ct_36l || 0}개)
                 </p>
-                <p className="text-sm text-blue-600 mt-1">
+                <p className="text-[10px] sm:text-xs text-blue-600 mt-1">
                   * 송풍+펌프 전류계는 항상 16L로 표시됩니다.
                 </p>
               </div>
 
               {/* 온도센서 타입 */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-4">온도센서 타입</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <label className="flex items-center space-x-2 cursor-pointer">
+              <div className="bg-gray-50 rounded-lg p-2.5 sm:p-3 md:p-4">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4">온도센서 타입</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.temperature_sensor_type === 'flange'}
                       onChange={(e) => setEditedData({ ...editedData, temperature_sensor_type: 'flange' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600"
                     />
-                    <span className="text-sm font-medium text-gray-700">프렌지타입</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">프렌지타입</span>
                   </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.temperature_sensor_type === 'nipple'}
                       onChange={(e) => setEditedData({ ...editedData, temperature_sensor_type: 'nipple' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600"
                     />
-                    <span className="text-sm font-medium text-gray-700">니플(소켓)타입</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">니플(소켓)타입</span>
                   </label>
                 </div>
-                <p className="text-sm text-blue-600 mt-2">* 기본값: 프렌지타입</p>
+                <p className="text-[10px] sm:text-xs text-blue-600 mt-1.5 sm:mt-2">* 기본값: 프렌지타입</p>
               </div>
 
               {/* 온도센서 길이 */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-4">온도센서 길이</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <label className="flex items-center space-x-2 cursor-pointer">
+              <div className="bg-gray-50 rounded-lg p-2.5 sm:p-3 md:p-4">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4">온도센서 길이</h3>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.temperature_sensor_length === '10cm'}
                       onChange={(e) => setEditedData({ ...editedData, temperature_sensor_length: '10cm' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600"
                     />
-                    <span className="text-sm font-medium text-gray-700">10CM</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">10CM</span>
                   </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.temperature_sensor_length === '20cm'}
                       onChange={(e) => setEditedData({ ...editedData, temperature_sensor_length: '20cm' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600"
                     />
-                    <span className="text-sm font-medium text-gray-700">20CM</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">20CM</span>
                   </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.temperature_sensor_length === '40cm'}
                       onChange={(e) => setEditedData({ ...editedData, temperature_sensor_length: '40cm' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600"
                     />
-                    <span className="text-sm font-medium text-gray-700">40CM</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">40CM</span>
                   </label>
                 </div>
-                <p className="text-sm text-blue-600 mt-2">* 기본값: 10CM</p>
+                <p className="text-[10px] sm:text-xs text-blue-600 mt-1.5 sm:mt-2">* 기본값: 10CM</p>
               </div>
 
               {/* PH 인디게이터 부착위치 */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-4">PH 인디게이터 부착위치</h3>
-                <div className="space-y-2">
-                  <label className="flex items-center space-x-2 cursor-pointer">
+              <div className="bg-gray-50 rounded-lg p-2.5 sm:p-3 md:p-4">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4">PH 인디게이터 부착위치</h3>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.ph_indicator_location === 'panel'}
                       onChange={(e) => setEditedData({ ...editedData, ph_indicator_location: 'panel' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0"
                     />
-                    <span className="text-sm font-medium text-gray-700">방지시설판넬(타공)</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">방지시설판넬(타공)</span>
                   </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.ph_indicator_location === 'independent_box'}
                       onChange={(e) => setEditedData({ ...editedData, ph_indicator_location: 'independent_box' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0"
                     />
-                    <span className="text-sm font-medium text-gray-700">독립형하이박스부착</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">독립형하이박스부착</span>
                   </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.ph_indicator_location === 'none'}
                       onChange={(e) => setEditedData({ ...editedData, ph_indicator_location: 'none' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0"
                     />
-                    <span className="text-sm font-medium text-gray-700">해당없음</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">해당없음</span>
                   </label>
                 </div>
-                <p className="text-sm text-blue-600 mt-2">* 기본값: 독립형하이박스부착</p>
+                <p className="text-[10px] sm:text-xs text-blue-600 mt-1.5 sm:mt-2">* 기본값: 독립형하이박스부착</p>
               </div>
 
               {/* 결제조건 */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-4">결제조건*세금계산서 발행 후 7일 이내</h3>
-                <div className="space-y-2">
-                  <label className="flex items-center space-x-2 cursor-pointer">
+              <div className="bg-gray-50 rounded-lg p-2.5 sm:p-3 md:p-4">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4">결제조건*세금계산서 발행 후 7일 이내</h3>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.payment_terms === 'prepay_5_balance_5'}
                       onChange={(e) => setEditedData({ ...editedData, payment_terms: 'prepay_5_balance_5' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0"
                     />
-                    <span className="text-sm font-medium text-gray-700">선금5(발주기준) | 잔금5(납품완료기준)</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">선금5(발주기준) | 잔금5(납품완료기준)</span>
                   </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.payment_terms === 'full_after_delivery'}
                       onChange={(e) => setEditedData({ ...editedData, payment_terms: 'full_after_delivery' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0"
                     />
-                    <span className="text-sm font-medium text-gray-700">납품 후 완납(납품완료기준)</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">납품 후 완납(납품완료기준)</span>
                   </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
+                  <label className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editedData.payment_terms === 'other_prepaid'}
                       onChange={(e) => setEditedData({ ...editedData, payment_terms: 'other_prepaid' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0"
                     />
-                    <span className="text-sm font-medium text-gray-700">기타사항(선입금)</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">기타사항(선입금)</span>
                   </label>
                 </div>
-                <p className="text-sm text-blue-600 mt-2">* 기본값: 기타사항(선입금)</p>
+                <p className="text-[10px] sm:text-xs text-blue-600 mt-1.5 sm:mt-2">* 기본값: 기타사항(선입금)</p>
               </div>
               </div>
 
               {/* 오른쪽: 발주서 미리보기 */}
-              <div className="flex-1 overflow-y-auto">
-                <div className="bg-white border-2 border-blue-200 rounded-lg p-4">
-                  <div className="text-center mb-4">
-                    <span className="inline-block bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
-                      발주서 미리보기
-                    </span>
-                  </div>
+              <div className="flex-1 overflow-y-auto min-h-[600px] md:min-h-0">
+                <div className="text-center mb-2 sm:mb-3 md:mb-4">
+                  <span className="inline-block bg-blue-100 text-blue-800 text-[11px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 md:px-3 py-0.5 rounded-full">
+                    발주서 미리보기
+                  </span>
+                </div>
+                <div className="text-sm">
                   <EcosensePurchaseOrderForm
                     data={editedData}
                     showPrintButton={false}
@@ -516,31 +516,31 @@ export default function PurchaseOrderModal({
               </div>
             </div>
           ) : (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-8 sm:py-12 text-sm sm:text-base text-gray-500">
               데이터를 불러올 수 없습니다.
             </div>
           )}
         </div>
 
         {/* 푸터 */}
-        <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0 p-3 sm:p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+            className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-200 rounded-lg transition-colors order-2 sm:order-1"
             disabled={generating}
           >
             취소
           </button>
-          <div>
+          <div className="order-1 sm:order-2">
             <button
               onClick={() => handleGenerate('excel')}
               disabled={generating || !editedData}
-              className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:bg-gray-400"
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm rounded-lg transition-colors disabled:bg-gray-400"
             >
               {generating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
               ) : (
-                <FileSpreadsheet className="w-4 h-4" />
+                <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               )}
               발주서 다운로드
             </button>

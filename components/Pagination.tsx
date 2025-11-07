@@ -60,23 +60,23 @@ export default memo(function Pagination({
 
   return (
     <nav
-      className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-white"
+      className="flex flex-col sm:flex-row items-center justify-between px-3 sm:px-6 py-3 sm:py-4 gap-2 sm:gap-0 border-t border-gray-200 bg-white"
       aria-label="페이지네이션"
     >
-      {/* 왼쪽: 항목 범위 표시 */}
-      <div className="text-sm text-gray-600">
+      {/* 왼쪽: 항목 범위 표시 (모바일에서는 숨김) */}
+      <div className="hidden sm:block text-sm text-gray-600">
         <span className="font-medium">{startItem}-{endItem}</span>
         <span className="text-gray-400 mx-1">/</span>
         <span>전체 {totalItems}개</span>
       </div>
 
       {/* 가운데: 페이지 번호 */}
-      <div className="flex items-center gap-1">
-        {/* 처음 페이지로 */}
+      <div className="flex items-center gap-0.5 sm:gap-1">
+        {/* 처음 페이지로 (모바일에서는 숨김) */}
         <button
           onClick={() => handlePageChange(1)}
           disabled={currentPage === 1}
-          className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="hidden sm:block p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label="처음 페이지"
         >
           <ChevronsLeft className="w-4 h-4" />
@@ -86,10 +86,10 @@ export default memo(function Pagination({
         <button
           onClick={() => handlePageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 sm:p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label="이전 페이지"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
 
         {/* 첫 페이지 + 생략 표시 */}
@@ -97,13 +97,13 @@ export default memo(function Pagination({
           <>
             <button
               onClick={() => handlePageChange(1)}
-              className="px-3 py-1.5 text-sm rounded hover:bg-gray-100 transition-colors"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded hover:bg-gray-100 transition-colors"
               aria-label="페이지 1"
             >
               1
             </button>
             {pageNumbers[0] > 2 && (
-              <span className="px-2 text-gray-400">...</span>
+              <span className="px-1 sm:px-2 text-gray-400 text-xs sm:text-sm">...</span>
             )}
           </>
         )}
@@ -113,7 +113,7 @@ export default memo(function Pagination({
           <button
             key={pageNum}
             onClick={() => handlePageChange(pageNum)}
-            className={`px-3 py-1.5 text-sm rounded transition-colors ${
+            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded transition-colors ${
               currentPage === pageNum
                 ? 'bg-blue-600 text-white font-medium'
                 : 'hover:bg-gray-100 text-gray-700'
@@ -129,11 +129,11 @@ export default memo(function Pagination({
         {pageNumbers[pageNumbers.length - 1] < totalPages && (
           <>
             {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && (
-              <span className="px-2 text-gray-400">...</span>
+              <span className="px-1 sm:px-2 text-gray-400 text-xs sm:text-sm">...</span>
             )}
             <button
               onClick={() => handlePageChange(totalPages)}
-              className="px-3 py-1.5 text-sm rounded hover:bg-gray-100 transition-colors"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded hover:bg-gray-100 transition-colors"
               aria-label={`페이지 ${totalPages}`}
             >
               {totalPages}
@@ -145,17 +145,17 @@ export default memo(function Pagination({
         <button
           onClick={() => handlePageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 sm:p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label="다음 페이지"
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
 
-        {/* 마지막 페이지로 */}
+        {/* 마지막 페이지로 (모바일에서는 숨김) */}
         <button
           onClick={() => handlePageChange(totalPages)}
           disabled={currentPage === totalPages}
-          className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="hidden sm:block p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label="마지막 페이지"
         >
           <ChevronsRight className="w-4 h-4" />
@@ -163,10 +163,13 @@ export default memo(function Pagination({
       </div>
 
       {/* 오른쪽: 페이지 정보 */}
-      <div className="text-sm text-gray-600">
+      <div className="text-xs sm:text-sm text-gray-600">
         <span className="font-medium">{currentPage}</span>
         <span className="text-gray-400 mx-1">/</span>
         <span>{totalPages} 페이지</span>
+        {/* 모바일에서 항목 범위 표시 */}
+        <span className="sm:hidden text-gray-400 mx-1">·</span>
+        <span className="sm:hidden text-gray-500">{startItem}-{endItem}/{totalItems}</span>
       </div>
     </nav>
   );
