@@ -82,15 +82,15 @@ export default memo(function FilterPanel({
       {/* 기본 검색 (항상 표시) */}
       <div className="p-3 sm:p-6 border-b border-gray-200">
         <div className="relative">
-          <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
             lang="ko"
             inputMode="text"
-            placeholder="🔍 사업장명, 주소, 실사자명 검색..."
+            placeholder="사업장명, 주소, 실사자명 검색"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 sm:pl-12 pr-10 sm:pr-4 py-2 sm:py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-xs sm:text-sm transition-all"
+            className="w-full pl-11 pr-10 py-2 sm:py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-xs sm:text-sm transition-all"
             autoComplete="off"
           />
           {searchTerm && (
