@@ -203,7 +203,7 @@ export default function ImprovedFacilityPhotoSection({
   });
   
   // Individual file upload tracking and cancellation
-  const [fileUploadStates, setFileUploadStates] = useState<{ 
+  const [fileUploadStates, setFileUploadStates] = useState<{
     [fileId: string]: {
       status: 'waiting' | 'uploading' | 'success' | 'error';
       progress: number;
@@ -213,7 +213,16 @@ export default function ImprovedFacilityPhotoSection({
       previewUrl?: string;
     }
   }>({});
-  
+
+  // 🔄 실패한 파일 추적 상태 (재업로드용)
+  const [failedFiles, setFailedFiles] = useState<{
+    file: File;
+    error: string;
+    facilityType: 'discharge' | 'prevention' | 'basic' | 'gateway' | 'fan' | 'others';
+    facility: Facility;
+    uploadKey: string;
+  }[]>([]);
+
   const [activeUploads, setActiveUploads] = useState<Set<string>>(new Set());
   const [isDeletingPhoto, setIsDeletingPhoto] = useState<boolean>(false);
   
@@ -407,7 +416,7 @@ export default function ImprovedFacilityPhotoSection({
         error: undefined
       }
     }));
-    
+
     try {
       await uploadFunction();
     } catch (error) {
@@ -739,6 +748,7 @@ export default function ImprovedFacilityPhotoSection({
     try {
       let successCount = 0;
       const uploadedFiles: any[] = [];
+      const currentFailedFiles: typeof failedFiles = []; // 🔄 이번 업로드에서 실패한 파일 추적
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -820,6 +830,15 @@ export default function ImprovedFacilityPhotoSection({
           }
 
         } catch (fileError: any) {
+          // 🔄 실패한 파일 추적 목록에 추가
+          currentFailedFiles.push({
+            file,
+            error: fileError.message || '업로드 실패',
+            facilityType,
+            facility,
+            uploadKey
+          });
+
           // 파일 상태를 오류로 업데이트
           setFileUploadStates(prev => ({
             ...prev,
@@ -840,6 +859,12 @@ export default function ImprovedFacilityPhotoSection({
 
       console.log(`✅ [UPLOAD] ${successCount}/${files.length}장 완료`);
 
+      // 🔄 실패한 파일이 있으면 failedFiles 상태에 추가
+      if (currentFailedFiles.length > 0) {
+        setFailedFiles(prev => [...prev, ...currentFailedFiles]);
+        console.log(`🔄 [FAILED-FILES] ${currentFailedFiles.length}개 파일 실패 추적 목록에 추가`);
+      }
+
       // ✅ FIX: 업로드 완료 후 즉시 새로고침하여 1분 지연 제거
       if (successCount > 0) {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -853,7 +878,7 @@ export default function ImprovedFacilityPhotoSection({
       if (successCount === files.length) {
         toast.success(`업로드 완료`, `${successCount}장의 사진이 모두 업로드되었습니다.`);
       } else if (successCount > 0) {
-        toast.warning(`부분 업로드`, `${successCount}/${files.length}장의 사진이 업로드되었습니다.`);
+        toast.warning(`부분 업로드`, `${successCount}/${files.length}장의 사진이 업로드되었습니다. ${currentFailedFiles.length}장 실패.`);
       } else {
         toast.error(`업로드 실패`, `모든 파일의 업로드가 실패했습니다.`);
       }
@@ -917,6 +942,59 @@ export default function ImprovedFacilityPhotoSection({
     }
   }, [businessName, loadUploadedFiles]);
 
+  // 🔄 실패한 파일 전체 재업로드 함수
+  const retryAllFailedFiles = useCallback(async () => {
+    if (failedFiles.length === 0) {
+      toast.warning('재업로드 불가', '실패한 파일이 없습니다.');
+      return;
+    }
+
+    console.log(`🔄 [RETRY-ALL] ${failedFiles.length}개 실패 파일 재업로드 시작`);
+
+    // 시설별로 그룹화
+    const groupedByFacility = failedFiles.reduce((acc, item) => {
+      const key = `${item.facilityType}-${item.facility.number}`;
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(item);
+      return acc;
+    }, {} as Record<string, typeof failedFiles>);
+
+    // failedFiles 초기화 (재업로드 시작 전)
+    setFailedFiles([]);
+
+    // 각 시설별로 재업로드 실행
+    for (const [key, items] of Object.entries(groupedByFacility)) {
+      const firstItem = items[0];
+      const filesArray = items.map(item => item.file);
+
+      console.log(`🔄 [RETRY-GROUP] ${key} - ${filesArray.length}개 파일 재업로드`);
+
+      try {
+        // FileList 객체로 변환 (handleOriginalFacilityUpload는 FileList를 요구)
+        const dataTransfer = new DataTransfer();
+        filesArray.forEach(file => dataTransfer.items.add(file));
+        const fileList = dataTransfer.files;
+
+        // 기존 업로드 핸들러 호출
+        if (firstItem.facilityType === 'discharge' || firstItem.facilityType === 'prevention') {
+          await handleOriginalFacilityUpload(
+            fileList,
+            firstItem.facilityType,
+            firstItem.facility
+          );
+        } else {
+          // 기본사진인 경우 (gateway, fan, others)
+          await handleBasicUpload(fileList, firstItem.facilityType);
+        }
+      } catch (error) {
+        console.error(`❌ [RETRY-ERROR] ${key} 재업로드 실패:`, error);
+      }
+    }
+
+    toast.success('재업로드 완료', '실패한 파일 재업로드를 완료했습니다.');
+  }, [failedFiles, toast, handleOriginalFacilityUpload, handleBasicUpload]);
 
   // 🔧 개선된 사진 삭제 - 즉시 UI 업데이트 + 백그라운드 동기화 + 롤백 처리
   const deletePhoto = useCallback(async (photo: FacilityPhoto) => {
@@ -1158,22 +1236,45 @@ export default function ImprovedFacilityPhotoSection({
 
   // Individual file upload status component
   const FileUploadStatus = ({ fileStates }: { fileStates: typeof fileUploadStates }) => {
-    const activeFiles = Object.entries(fileStates).filter(([_, state]) => 
+    const activeFiles = Object.entries(fileStates).filter(([_, state]) =>
       state.status === 'uploading' || state.status === 'waiting' || state.status === 'error'
     );
 
-    if (activeFiles.length === 0) return null;
+    if (activeFiles.length === 0 && failedFiles.length === 0) return null;
+
+    const hasActiveUploads = activeFiles.length > 0;
+    const hasFailedFiles = failedFiles.length > 0;
 
     return (
       <div className="mb-4 bg-gray-50 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="font-medium text-gray-800">파일 업로드 상태</h4>
-          <button
-            onClick={clearCompletedUploads}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            완료된 항목 정리
-          </button>
+          <h4 className="font-medium text-gray-800">
+            파일 업로드 상태
+            {hasFailedFiles && (
+              <span className="ml-2 text-sm text-red-600">
+                (실패: {failedFiles.length}개)
+              </span>
+            )}
+          </h4>
+          <div className="flex gap-2">
+            {hasFailedFiles && (
+              <button
+                onClick={retryAllFailedFiles}
+                className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                실패한 파일 재업로드 ({failedFiles.length})
+              </button>
+            )}
+            {hasActiveUploads && (
+              <button
+                onClick={clearCompletedUploads}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                완료된 항목 정리
+              </button>
+            )}
+          </div>
         </div>
         <div className="space-y-2 max-h-48 overflow-y-auto">
           {activeFiles.map(([fileId, state]) => (
@@ -1198,17 +1299,25 @@ export default function ImprovedFacilityPhotoSection({
                 state.status === 'success' ? 'bg-green-500' :
                 'bg-red-500'
               }`} />
-              
+
               {/* File info */}
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-900 truncate">
+                <div className={`text-sm font-medium truncate ${
+                  state.status === 'success' ? 'text-green-700' :
+                  state.status === 'error' ? 'text-red-700' :
+                  'text-gray-900'
+                }`}>
                   {state.fileName}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className={`text-xs ${
+                  state.status === 'success' ? 'text-green-600' :
+                  state.status === 'error' ? 'text-red-600' :
+                  'text-gray-500'
+                }`}>
                   {state.status === 'uploading' ? `업로드 중... ${state.progress}%` :
                    state.status === 'waiting' ? '대기 중' :
-                   state.status === 'success' ? '완료' :
-                   state.error || '실패'}
+                   state.status === 'success' ? '✓ 완료' :
+                   `✗ ${state.error || '실패'}`}
                 </div>
               </div>
 

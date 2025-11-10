@@ -29,13 +29,76 @@ export interface UploadOptions {
 }
 
 /**
- * XMLHttpRequest 기반 파일 업로드 (진행률 추적)
+ * 재시도 기능이 포함된 파일 업로드 (지수 백오프 재시도)
  * @param file 업로드할 파일
- * @param formData 추가 폼 데이터
+ * @param additionalData 추가 폼 데이터
  * @param options 업로드 옵션 (진행률 콜백 등)
  * @returns Promise<UploadResponse>
  */
-export function uploadWithProgress(
+export async function uploadWithProgress(
+  file: File,
+  additionalData: Record<string, string>,
+  options: UploadOptions = {}
+): Promise<UploadResponse> {
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1초
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        console.log(`🔄 [UPLOAD-RETRY] ${file.name} 시도 ${attempt + 1}/${maxRetries}`);
+      }
+
+      const result = await uploadWithProgressInternal(file, additionalData, options);
+
+      if (attempt > 0) {
+        console.log(`✅ [UPLOAD-RETRY-SUCCESS] ${file.name} ${attempt + 1}번째 시도에서 성공`);
+      }
+
+      return result;
+
+    } catch (error) {
+      lastError = error as Error;
+      const errorMessage = (error as Error).message || '';
+
+      // 네트워크 오류인지 확인
+      const isRetriableError =
+        errorMessage.includes('network') ||
+        errorMessage.includes('네트워크') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('연결') ||
+        errorMessage.includes('Failed to fetch') ||
+        errorMessage.includes('ECONNRESET') ||
+        errorMessage.includes('ETIMEDOUT');
+
+      // 재시도 불가능한 오류이거나 마지막 시도인 경우
+      if (!isRetriableError || attempt === maxRetries - 1) {
+        if (attempt === maxRetries - 1 && isRetriableError) {
+          console.error(`❌ [UPLOAD-RETRY-FAILED] ${file.name} 최대 재시도 횟수 도달 (${maxRetries}회)`);
+        }
+        throw error;
+      }
+
+      // 지수 백오프 대기 (1초, 2초, 4초)
+      const backoffDelay = baseDelay * Math.pow(2, attempt);
+      console.log(`⏳ [UPLOAD-RETRY] ${file.name} ${backoffDelay}ms 후 재시도... (${attempt + 1}/${maxRetries - 1})`);
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+    }
+  }
+
+  throw lastError || new Error('Upload failed after retries');
+}
+
+/**
+ * 내부 업로드 함수 (재시도 없음)
+ * XMLHttpRequest 기반 파일 업로드 (진행률 추적)
+ * @param file 업로드할 파일
+ * @param additionalData 추가 폼 데이터
+ * @param options 업로드 옵션 (진행률 콜백 등)
+ * @returns Promise<UploadResponse>
+ */
+function uploadWithProgressInternal(
   file: File,
   additionalData: Record<string, string>,
   options: UploadOptions = {}
@@ -43,7 +106,7 @@ export function uploadWithProgress(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
-    
+
     // 파일 및 추가 데이터 추가
     formData.append('file', file);
     Object.entries(additionalData).forEach(([key, value]) => {
@@ -59,7 +122,7 @@ export function uploadWithProgress(
           percent: Math.round((e.loaded / e.total) * 100)
         };
         options.onProgress(progress);
-        
+
         console.log(`📊 [UPLOAD-PROGRESS] ${file.name}: ${progress.percent}% (${progress.loaded}/${progress.total} bytes)`);
       }
     });
@@ -68,7 +131,7 @@ export function uploadWithProgress(
     xhr.addEventListener('load', () => {
       try {
         const response = JSON.parse(xhr.responseText) as UploadResponse;
-        
+
         if (xhr.status === 200 && response.success) {
           console.log(`✅ [UPLOAD-SUCCESS] ${file.name} 업로드 완료`);
           options.onSuccess?.(response);

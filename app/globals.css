@@ -496,3 +496,61 @@ img {
   backface-visibility: hidden;
   perspective: 1000;
 }
+
+/* ================================================
+   iOS Safari 날짜 입력 최적화
+   ================================================ */
+
+/* 모든 날짜 입력 필드에 기본 스타일 적용 */
+input[type="date"] {
+  /* iOS Safari 기본 스타일 재설정 */
+  -webkit-appearance: none;
+  appearance: none;
+
+  /* 너비 강제 적용 */
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+
+  /* Flexbox 자식 요소 최소 너비 제한 해제 */
+  flex-shrink: 1;
+
+  /* iOS Safari 터치 최적화 */
+  -webkit-tap-highlight-color: transparent;
+
+  /* 모바일 폰트 크기 자동 확대 방지 (iOS에서 16px 미만 시 자동 확대) */
+  font-size: 16px;
+
+  /* 레이아웃 고정 */
+  box-sizing: border-box;
+}
+
+/* iOS Safari 전용 날짜 입력 컨테이너 */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari에서만 적용 */
+  .date-input-container {
+    overflow: hidden; /* 영역 초과 방지 */
+    min-width: 0; /* Flex 자식 요소 최소 너비 제한 해제 */
+  }
+
+  .date-input-container input[type="date"] {
+    /* iOS Safari picker 너비 강제 제한 */
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* iPhone SE 이하 소형 기기 대응 */
+@media screen and (max-width: 375px) {
+  input[type="date"] {
+    padding-left: 0.75rem;  /* 12px */
+    padding-right: 0.75rem; /* 12px */
+    font-size: 14px;
+  }
+}
+
+/* 날짜 입력 포커스 상태 개선 */
+input[type="date"]:focus {
+  outline: none;
+}

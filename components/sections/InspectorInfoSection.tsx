@@ -114,7 +114,7 @@ export default function InspectorInfoSection({ inspectorInfo, onUpdate, onSave, 
           />
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 date-input-container min-w-0">
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-purple-600" />
             <label className="text-sm font-medium text-gray-700">
@@ -126,7 +126,11 @@ export default function InspectorInfoSection({ inspectorInfo, onUpdate, onSave, 
             type="date"
             value={editData.date}
             onChange={(e) => setEditData({...editData, date: e.target.value})}
-            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+            className="w-full min-w-0 px-3 py-2.5 md:px-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+            style={{
+              WebkitAppearance: 'none',
+              flexShrink: 1
+            }}
           />
         </div>
       </div>

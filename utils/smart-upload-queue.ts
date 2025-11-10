@@ -32,7 +32,7 @@ export interface UploadQueueStats {
 export class SmartUploadQueue {
   private queue: Map<string, QueuedUpload> = new Map();
   private activeUploads: Set<string> = new Set();
-  private maxConcurrentUploads: number = 2; // 시설별 동시 업로드 제한
+  private maxConcurrentUploads: number = 4; // 시설별 동시 업로드 제한 (기본값 4로 증가)
   private compressionEnabled: boolean = true;
   private listeners: Map<string, (upload: QueuedUpload) => void> = new Map();
   private globalListeners: ((stats: UploadQueueStats) => void)[] = [];
@@ -41,13 +41,55 @@ export class SmartUploadQueue {
     maxConcurrentUploads?: number;
     compressionEnabled?: boolean;
   } = {}) {
-    this.maxConcurrentUploads = options.maxConcurrentUploads || 2;
+    this.maxConcurrentUploads = options.maxConcurrentUploads || 4;
     this.compressionEnabled = options.compressionEnabled ?? true;
-    
+
     console.log(`🎯 [SMART-QUEUE] 업로드 큐 초기화:`, {
       maxConcurrentUploads: this.maxConcurrentUploads,
       compressionEnabled: this.compressionEnabled
     });
+  }
+
+  /**
+   * 네트워크 상태 기반 최적 동시성 계산
+   * @returns 최적 동시 업로드 수
+   */
+  private getOptimalConcurrency(): number {
+    // 브라우저 네트워크 연결 정보 확인
+    const connection = (navigator as any).connection ||
+                       (navigator as any).mozConnection ||
+                       (navigator as any).webkitConnection;
+
+    if (connection) {
+      const { effectiveType, downlink } = connection;
+
+      console.log(`📡 [NETWORK-INFO] 네트워크 상태:`, {
+        effectiveType,
+        downlink: downlink ? `${downlink}Mbps` : 'unknown'
+      });
+
+      // 네트워크 타입별 최적 동시성
+      if (effectiveType === '4g' && downlink > 10) {
+        console.log(`🚀 [CONCURRENCY] 고속 4G 감지 → 동시 업로드 6개`);
+        return 6; // 고속 4G
+      }
+      if (effectiveType === '4g') {
+        console.log(`⚡ [CONCURRENCY] 일반 4G 감지 → 동시 업로드 4개`);
+        return 4; // 일반 4G
+      }
+      if (effectiveType === '3g') {
+        console.log(`📶 [CONCURRENCY] 3G 감지 → 동시 업로드 3개`);
+        return 3; // 3G
+      }
+      if (effectiveType === '2g') {
+        console.log(`🐌 [CONCURRENCY] 2G 감지 → 동시 업로드 2개`);
+        return 2; // 저속 연결
+      }
+    }
+
+    // 네트워크 정보 없으면 기본값 사용
+    console.log(`⚙️ [CONCURRENCY] 네트워크 정보 없음 → 기본값 ${this.maxConcurrentUploads}개`);
+    return this.maxConcurrentUploads;
   }
 
   /**
@@ -91,11 +133,15 @@ export class SmartUploadQueue {
   }
 
   /**
-   * 큐 처리 (비동기)
+   * 큐 처리 (비동기, 네트워크 기반 동적 동시성)
    */
   private async processQueue(): Promise<void> {
-    // 활성 업로드 수가 최대치에 도달했으면 대기
-    if (this.activeUploads.size >= this.maxConcurrentUploads) {
+    // 네트워크 상태 기반 최적 동시성 계산
+    const optimalConcurrency = this.getOptimalConcurrency();
+
+    // 활성 업로드 수가 최적 동시성에 도달했으면 대기
+    if (this.activeUploads.size >= optimalConcurrency) {
+      console.log(`⏸️ [QUEUE] 최대 동시 업로드 도달 (${this.activeUploads.size}/${optimalConcurrency}) - 대기 중`);
       return;
     }
 
@@ -112,6 +158,7 @@ export class SmartUploadQueue {
     }
 
     const nextUpload = queuedUploads[0];
+    console.log(`▶️ [QUEUE] 업로드 시작 (활성: ${this.activeUploads.size + 1}/${optimalConcurrency})`);
     await this.processUpload(nextUpload.id);
   }
 
@@ -163,47 +210,75 @@ export class SmartUploadQueue {
         });
       }
 
-      // 2단계: 실제 업로드
+      // 2단계: 실제 업로드 (청크 기반 병렬 처리)
       upload.status = 'uploading';
       upload.progress = 30;
       this.notifyListeners(uploadId);
 
       const results: UploadResponse[] = [];
-      
-      // 파일별 개별 업로드 (진행률 추적)
-      for (let i = 0; i < finalFiles.length; i++) {
-        const file = finalFiles[i];
-        const fileMetadata = {
-          ...upload.metadata,
-          fileName: file.name,
-          fileIndex: (i + 1).toString()
-        };
+      const CHUNK_SIZE = 4; // 모바일 최적화: 4개 파일 동시 업로드
 
-        try {
-          const result = await uploadWithProgress(file, fileMetadata, {
-            onProgress: (progress) => {
-              // 개별 파일 진행률을 전체 진행률에 반영
-              const fileBaseProgress = 30 + (i / finalFiles.length) * 60; // 30-90%
-              const fileProgress = (progress.percent / 100) * (60 / finalFiles.length);
-              upload.progress = Math.round(fileBaseProgress + fileProgress);
-              this.notifyListeners(uploadId);
-            }
-          });
+      console.log(`🚀 [PARALLEL-UPLOAD] 청크 기반 병렬 업로드 시작: ${finalFiles.length}개 파일, 청크 크기: ${CHUNK_SIZE}`);
 
-          results.push(result);
-          
-          console.log(`✅ [SMART-QUEUE] 파일 업로드 완료: ${file.name} (${i+1}/${finalFiles.length})`);
-          
-        } catch (fileError) {
-          console.error(`❌ [SMART-QUEUE] 파일 업로드 실패: ${file.name}`, fileError);
-          
-          // 실패한 파일도 결과에 포함 (에러 정보와 함께)
-          results.push({
-            success: false,
-            error: fileError instanceof Error ? fileError.message : String(fileError),
-            message: `파일 업로드 실패: ${file.name}`
-          });
-        }
+      // 청크 단위로 파일 병렬 업로드
+      for (let i = 0; i < finalFiles.length; i += CHUNK_SIZE) {
+        const chunk = finalFiles.slice(i, i + CHUNK_SIZE);
+        const chunkStartIndex = i;
+
+        console.log(`📦 [CHUNK] 청크 ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(finalFiles.length / CHUNK_SIZE)} 처리 중 (${chunk.length}개 파일)`);
+
+        // 청크 내 파일들을 병렬로 업로드
+        const chunkPromises = chunk.map(async (file, chunkIndex) => {
+          const globalIndex = chunkStartIndex + chunkIndex;
+          const fileMetadata = {
+            ...upload.metadata,
+            fileName: file.name,
+            fileIndex: (globalIndex + 1).toString()
+          };
+
+          try {
+            const result = await uploadWithProgress(file, fileMetadata, {
+              onProgress: (progress) => {
+                // 개별 파일 진행률을 전체 진행률에 반영
+                const fileBaseProgress = 30 + (globalIndex / finalFiles.length) * 60; // 30-90%
+                const fileProgress = (progress.percent / 100) * (60 / finalFiles.length);
+                upload.progress = Math.round(fileBaseProgress + fileProgress);
+                this.notifyListeners(uploadId);
+              }
+            });
+
+            console.log(`✅ [PARALLEL-UPLOAD] 파일 업로드 완료: ${file.name} (${globalIndex + 1}/${finalFiles.length})`);
+            return { success: true, result };
+
+          } catch (fileError) {
+            console.error(`❌ [PARALLEL-UPLOAD] 파일 업로드 실패: ${file.name}`, fileError);
+
+            // 실패한 파일도 결과에 포함 (에러 정보와 함께)
+            return {
+              success: false,
+              error: fileError instanceof Error ? fileError.message : String(fileError),
+              message: `파일 업로드 실패: ${file.name}`
+            };
+          }
+        });
+
+        // 청크 내 모든 파일 업로드 완료 대기 (병렬 처리)
+        const chunkResults = await Promise.all(chunkPromises);
+
+        // 결과 수집
+        chunkResults.forEach(({ success, result, error, message }) => {
+          if (success && result) {
+            results.push(result);
+          } else {
+            results.push({
+              success: false,
+              error: error || 'Unknown error',
+              message: message || '파일 업로드 실패'
+            });
+          }
+        });
+
+        console.log(`✅ [CHUNK-COMPLETE] 청크 완료: ${chunkResults.filter(r => r.success).length}/${chunk.length} 성공`);
       }
 
       // 3단계: 완료 처리
@@ -357,6 +432,6 @@ export class SmartUploadQueue {
 
 // 전역 싱글톤 인스턴스
 export const smartUploadQueue = new SmartUploadQueue({
-  maxConcurrentUploads: 2, // 시설별 동시 업로드 최대 2개
+  maxConcurrentUploads: 4, // 시설별 동시 업로드 최대 4개 (네트워크 기반 동적 조정)
   compressionEnabled: true
 });
