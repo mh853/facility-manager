@@ -216,7 +216,8 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
         // 응답 형식을 기존 시스템과 호환되도록 변환
         const compatibleResponse = {
           success: response.success,
-          files: response.success ? [{
+          files: response.success && response.fileData ? [response.fileData] :
+                 response.success ? [{
             id: response.fileId,
             name: photo.file.name,
             publicUrl: response.publicUrl,

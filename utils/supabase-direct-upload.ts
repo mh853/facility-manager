@@ -26,6 +26,7 @@ export interface DirectUploadResult {
   filePath?: string;
   publicUrl?: string;
   fileId?: string;
+  fileData?: any;
   error?: string;
 }
 
@@ -130,12 +131,14 @@ export async function uploadToSupabaseStorage(
     });
 
     let fileId: string | undefined;
+    let fileData: any = null;
 
     if (!metadataResponse.ok) {
       console.warn('⚠️ [DIRECT-UPLOAD] 메타데이터 저장 실패, 파일은 이미 업로드됨');
     } else {
       const metadataResult = await metadataResponse.json();
       fileId = metadataResult.fileId;
+      fileData = metadataResult.fileData;
       console.log(`✅ [DIRECT-UPLOAD] 메타데이터 저장 완료: ${fileId}`);
     }
 
@@ -153,7 +156,8 @@ export async function uploadToSupabaseStorage(
       success: true,
       filePath: uploadData.path,
       publicUrl: publicUrlData.publicUrl,
-      fileId
+      fileId,
+      fileData
     };
 
   } catch (error) {

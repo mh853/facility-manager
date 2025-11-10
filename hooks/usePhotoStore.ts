@@ -172,10 +172,46 @@ export const usePhotoStore = create<PhotoStoreState>()(
 // Progressive Upload와의 동기화를 위한 이벤트 리스너
 if (typeof window !== 'undefined') {
   window.addEventListener('progressiveUploadComplete', (event: any) => {
-    const { uploadedFiles } = event.detail;
+    const { uploadedFiles, instant } = event.detail;
     if (uploadedFiles && uploadedFiles.length > 0) {
-      usePhotoStore.getState().addPhotos(uploadedFiles);
-      console.log(`🔗 [PHOTO-STORE] Progressive Upload 동기화: ${uploadedFiles.length}개 추가`);
+      const state = usePhotoStore.getState();
+
+      // 중복 체크: 이미 존재하는 파일은 업데이트, 새 파일만 추가
+      const existingIds = new Set(state.photos.map(p => p.id));
+      const newFiles = uploadedFiles.filter((file: any) => !existingIds.has(file.id));
+      const updatedFiles = uploadedFiles.filter((file: any) => existingIds.has(file.id));
+
+      if (newFiles.length > 0) {
+        state.addPhotos(newFiles);
+        console.log(`🔗 [PHOTO-STORE] Progressive Upload 동기화: ${newFiles.length}개 신규 추가`);
+      }
+
+      if (updatedFiles.length > 0) {
+        updatedFiles.forEach((file: any) => {
+          state.updatePhoto(file.id, file);
+        });
+        console.log(`🔄 [PHOTO-STORE] Progressive Upload 동기화: ${updatedFiles.length}개 업데이트`);
+      }
+
+      // 즉시 모드가 아닌 경우에만 통계 새로고침
+      if (!instant) {
+        console.log(`📊 [PHOTO-STORE] 통계 카드 새로고침 트리거`);
+      }
+
+      // 통계 카드 업데이트를 위한 커스텀 이벤트 발송
+      try {
+        const statsUpdateEvent = new CustomEvent('photoStatsUpdate', {
+          detail: {
+            totalPhotos: state.photos.length,
+            newPhotos: newFiles.length,
+            updatedPhotos: updatedFiles.length
+          }
+        });
+        window.dispatchEvent(statsUpdateEvent);
+        console.log(`📊 [PHOTO-STORE] 통계 업데이트 이벤트 발송: total=${state.photos.length}, new=${newFiles.length}`);
+      } catch (error) {
+        console.warn('⚠️ [PHOTO-STORE] 통계 업데이트 이벤트 발송 실패:', error);
+      }
     }
   });
 }

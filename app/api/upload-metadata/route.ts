@@ -128,7 +128,17 @@ export async function POST(request: NextRequest) {
         upload_status: 'uploaded',
         facility_info: facilityInfo || null
       })
-      .select()
+      .select(`
+        id,
+        filename,
+        original_filename,
+        file_path,
+        file_size,
+        mime_type,
+        upload_status,
+        created_at,
+        facility_info
+      `)
       .single();
 
     if (dbError) {
@@ -162,9 +172,50 @@ export async function POST(request: NextRequest) {
     memoryCache.delete(`files_${businessName}_presurvey`);
     console.log(`💾 [METADATA-API] 캐시 무효화: ${businessName}`);
 
+    // 6. 폴더명 추출 (uploaded-files-supabase API와 동일한 로직)
+    const pathParts = filePath.split('/');
+    let folderName = '기본사진';
+
+    if (pathParts.includes('discharge')) {
+      folderName = '배출시설';
+    } else if (pathParts.includes('prevention')) {
+      folderName = '방지시설';
+    } else if (pathParts.includes('basic')) {
+      folderName = '기본사진';
+    } else if (facilityInfo) {
+      const facilityLower = facilityInfo.toLowerCase();
+      if (facilityLower.includes('배출') || facilityLower.includes('도장') || facilityLower.includes('건조') || facilityLower.includes('탈사')) {
+        folderName = '배출시설';
+      } else if (facilityLower.includes('방지') || facilityLower.includes('집진') || facilityLower.includes('세정') || facilityLower.includes('흡착')) {
+        folderName = '방지시설';
+      }
+    }
+
+    // 7. 완전한 파일 객체 반환 (uploaded-files-supabase API 응답 형식과 동일)
+    const completeFileData = {
+      id: fileRecord.id,
+      name: fileRecord.filename,
+      originalName: fileRecord.original_filename,
+      mimeType: fileRecord.mime_type,
+      size: fileRecord.file_size,
+      createdTime: fileRecord.created_at,
+      modifiedTime: fileRecord.created_at,
+      webViewLink: publicUrl,
+      downloadUrl: publicUrl,
+      thumbnailUrl: publicUrl,
+      publicUrl: publicUrl,
+      directUrl: publicUrl,
+      folderName,
+      uploadStatus: fileRecord.upload_status,
+      facilityInfo: fileRecord.facility_info,
+      filePath: fileRecord.file_path,
+      justUploaded: true
+    };
+
     return NextResponse.json({
       success: true,
       fileId: fileRecord.id,
+      fileData: completeFileData,
       message: '메타데이터 저장 완료'
     });
 

@@ -365,6 +365,18 @@ export default function ImprovedFacilityPhotoSection({
     return () => window.removeEventListener('verify-uploads', handleVerifyUploads);
   }, [loadUploadedFiles]);
 
+  // ✅ NEW: 통계 카드 자동 업데이트 이벤트 리스너
+  useEffect(() => {
+    const handlePhotoStatsUpdate = (event: any) => {
+      console.log('📊 [STATS-UPDATE-EVENT] PhotoStore에서 통계 업데이트 요청:', event.detail);
+      // 서버에서 최신 데이터 가져와서 photoTracker 및 통계 재빌드
+      loadUploadedFiles(true, false);
+    };
+
+    window.addEventListener('photoStatsUpdate', handlePhotoStatsUpdate);
+    return () => window.removeEventListener('photoStatsUpdate', handlePhotoStatsUpdate);
+  }, [loadUploadedFiles]);
+
   // Cleanup preview URLs on unmount
   useEffect(() => {
     return () => {
