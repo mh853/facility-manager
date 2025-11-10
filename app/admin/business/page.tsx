@@ -387,6 +387,16 @@ function BusinessManagementPage() {
 
   // 영업점 목록 (자동완성용)
   const [salesOfficeList, setSalesOfficeList] = useState<string[]>([])
+
+  // 🗄️ 비즈니스 데이터 캐시 시스템
+  const businessCacheRef = useRef<Map<string, {
+    data: UnifiedBusinessInfo;
+    timestamp: number;
+    ttl: number; // Time To Live in milliseconds
+  }>>(new Map())
+
+  // 캐시 TTL 설정 (5분)
+  const CACHE_TTL = 5 * 60 * 1000;
   const [salesOfficeLoading, setSalesOfficeLoading] = useState(false)
 
   // 실사비용 정보 state
@@ -2050,14 +2060,119 @@ function BusinessManagementPage() {
     }
   }, [isDetailModalOpen, isModalOpen])
 
+  // 🗄️ 캐시 관리 함수들
+
+  /**
+   * 캐시에서 비즈니스 데이터 조회
+   * @param businessId 사업장 ID
+   * @returns 캐시된 데이터 또는 null (만료/없음)
+   */
+  const getCachedBusiness = useCallback((businessId: string): UnifiedBusinessInfo | null => {
+    const cached = businessCacheRef.current.get(businessId);
+
+    if (!cached) {
+      console.log(`📦 [CACHE-MISS] 캐시 없음: ${businessId}`);
+      return null;
+    }
+
+    const now = Date.now();
+    const age = now - cached.timestamp;
+
+    // TTL 체크
+    if (age > cached.ttl) {
+      console.log(`⏰ [CACHE-EXPIRED] 캐시 만료 (${Math.round(age / 1000)}초 경과): ${businessId}`);
+      businessCacheRef.current.delete(businessId);
+      return null;
+    }
+
+    console.log(`✅ [CACHE-HIT] 캐시 사용 (유효시간: ${Math.round((cached.ttl - age) / 1000)}초 남음): ${businessId}`);
+    return cached.data;
+  }, []);
+
+  /**
+   * 캐시에 비즈니스 데이터 저장
+   * @param businessId 사업장 ID
+   * @param data 사업장 데이터
+   * @param ttl Time To Live (기본: CACHE_TTL)
+   */
+  const setCachedBusiness = useCallback((businessId: string, data: UnifiedBusinessInfo, ttl: number = CACHE_TTL) => {
+    businessCacheRef.current.set(businessId, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+    console.log(`💾 [CACHE-SET] 캐시 저장 (TTL: ${Math.round(ttl / 1000)}초): ${businessId} - ${data.사업장명}`);
+  }, [CACHE_TTL]);
+
+  /**
+   * 특정 비즈니스 캐시 무효화
+   * @param businessId 사업장 ID (없으면 전체 캐시 무효화)
+   */
+  const invalidateBusinessCache = useCallback((businessId?: string) => {
+    if (businessId) {
+      const deleted = businessCacheRef.current.delete(businessId);
+      if (deleted) {
+        console.log(`🗑️ [CACHE-INVALIDATE] 캐시 무효화: ${businessId}`);
+      } else {
+        console.log(`ℹ️ [CACHE-INVALIDATE] 캐시 없음 (무효화 불필요): ${businessId}`);
+      }
+    } else {
+      const size = businessCacheRef.current.size;
+      businessCacheRef.current.clear();
+      console.log(`🧹 [CACHE-INVALIDATE-ALL] 전체 캐시 무효화 (${size}개 항목 삭제)`);
+    }
+  }, []);
+
+  // 원자적 상태 업데이트 함수 - 모든 관련 상태를 한 번에 동기화
+  const updateBusinessState = (updatedBusiness: UnifiedBusinessInfo, businessId: string) => {
+    console.log('🔄 [updateBusinessState] 원자적 상태 업데이트 시작:', {
+      businessId,
+      businessName: updatedBusiness.사업장명
+    });
+
+    // 1. allBusinesses 업데이트
+    setAllBusinesses(prev => {
+      const updated = prev.map(business =>
+        business.id === businessId ? updatedBusiness : business
+      );
+      console.log('✅ [updateBusinessState] allBusinesses 업데이트 완료');
+      return updated;
+    });
+
+    // 2. selectedBusiness 업데이트 (현재 선택된 사업장인 경우)
+    if (selectedBusiness && selectedBusiness.id === businessId) {
+      setSelectedBusiness(updatedBusiness);
+      console.log('✅ [updateBusinessState] selectedBusiness 업데이트 완료');
+    } else {
+      console.log('ℹ️ [updateBusinessState] selectedBusiness 업데이트 건너뜀 (선택된 사업장 아님)');
+    }
+
+    console.log('🎯 [updateBusinessState] 원자적 상태 업데이트 완료');
+  };
+
   // 통합 새로고침 함수 - 모든 데이터 동기화를 위한 단일 소스
-  const refreshBusinessData = async (businessId: string, businessName: string): Promise<UnifiedBusinessInfo | null> => {
+  const refreshBusinessData = async (businessId: string, businessName: string, forceRefresh: boolean = false): Promise<UnifiedBusinessInfo | null> => {
     try {
+      // 1. 캐시 확인 (forceRefresh가 false인 경우)
+      if (!forceRefresh) {
+        const cachedData = getCachedBusiness(businessId);
+        if (cachedData) {
+          console.log(`🚀 [refreshBusinessData] 캐시 데이터 반환: ${businessName}`);
+          return cachedData;
+        }
+      } else {
+        console.log(`🔄 [refreshBusinessData] 강제 새로고침 - 캐시 무시: ${businessName}`);
+      }
+
+      // 2. API에서 최신 데이터 가져오기
       const timestamp = Date.now()
       const response = await fetch(`/api/business-info-direct?id=${businessId}&t=${timestamp}`, {
         headers: {
           'Accept': 'application/json',
-          'Accept-Charset': 'utf-8'
+          'Accept-Charset': 'utf-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       })
       
@@ -2245,6 +2360,10 @@ function BusinessManagementPage() {
           fileCount: 0,
           files: null
         }
+
+        // 3. 캐시에 저장
+        setCachedBusiness(businessId, refreshedBusiness);
+
         return refreshedBusiness
       }
       return null
@@ -2382,7 +2501,12 @@ function BusinessManagementPage() {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
       const response = await fetch(`/api/business-info-direct?id=${business.id}`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
 
       if (!response.ok) {
@@ -2809,86 +2933,94 @@ function BusinessManagementPage() {
 
       // 2. Optimistic Update - 편집의 경우 즉시 로컬 상태 업데이트
       if (editingBusiness) {
+        // 🔍 [SYNC-CHECK] Optimistic Update 전 상태 로깅
+        console.log('🔍 [SYNC-CHECK-BEFORE] Optimistic Update 전 상태:', {
+          editingBusinessId: editingBusiness.id,
+          editingBusinessName: editingBusiness.사업장명,
+          selectedBusinessId: selectedBusiness?.id,
+          isDetailModalOpen,
+          변경사항: {
+            invoice_1st_amount: processedFormData.invoice_1st_amount,
+            payment_1st_amount: processedFormData.payment_1st_amount,
+            invoice_2nd_amount: processedFormData.invoice_2nd_amount,
+            payment_2nd_amount: processedFormData.payment_2nd_amount,
+            invoice_advance_amount: processedFormData.invoice_advance_amount,
+            payment_advance_amount: processedFormData.payment_advance_amount,
+            invoice_balance_amount: processedFormData.invoice_balance_amount,
+            payment_balance_amount: processedFormData.payment_balance_amount
+          }
+        });
+
+        // 개선된 Optimistic Update: 영문/한글 키 모두 업데이트
         const optimisticUpdate = {
           ...editingBusiness,
           ...Object.keys(processedFormData).reduce((acc, key) => {
-            // 한글 키로 매핑
+            const value = (processedFormData as any)[key];
+
+            // 영문 키는 그대로 저장
+            acc[key] = value;
+
+            // 한글 키 매핑 (UI 표시용)
             const koreanKeyMap: {[key: string]: string} = {
               'business_name': '사업장명',
               'local_government': '지자체',
               'address': '주소',
-              'representative_name': '대표자명',
+              'representative_name': '대표자',
               'business_registration_number': '사업자등록번호',
               'business_type': '업종',
-              'business_contact': '사업장전화번호',
+              'business_contact': '사업장연락처',
               'manager_name': '담당자명',
               'manager_contact': '담당자연락처',
               'manager_position': '담당자직급',
               'fax_number': '팩스번호',
               'email': '이메일',
-              // 시스템 정보 필드
-              'manufacturer': 'manufacturer',
-              'vpn': 'vpn',
               'greenlink_id': '그린링크ID',
               'greenlink_pw': '그린링크PW',
               'business_management_code': '사업장관리코드',
               'sales_office': '영업점',
-              // 프로젝트 관리 필드
               'progress_status': '진행상태',
               'project_year': '사업진행연도',
               'installation_team': '설치팀',
-              'order_manager': 'order_manager',
-              // 일정 관리 필드
-              'order_request_date': 'order_request_date',
-              'order_date': 'order_date',
-              'shipment_date': 'shipment_date',
-              'installation_date': 'installation_date',
-              // 실사 관리 필드
-              'estimate_survey_manager': 'estimate_survey_manager',
-              'estimate_survey_date': 'estimate_survey_date',
-              'pre_construction_survey_manager': 'pre_construction_survey_manager',
-              'pre_construction_survey_date': 'pre_construction_survey_date',
-              'completion_survey_manager': 'completion_survey_manager',
-              'completion_survey_date': 'completion_survey_date',
-              // 계산서 및 입금 관리 필드 (보조금)
-              'invoice_1st_date': 'invoice_1st_date',
-              'invoice_1st_amount': 'invoice_1st_amount',
-              'payment_1st_date': 'payment_1st_date',
-              'payment_1st_amount': 'payment_1st_amount',
-              'invoice_2nd_date': 'invoice_2nd_date',
-              'invoice_2nd_amount': 'invoice_2nd_amount',
-              'payment_2nd_date': 'payment_2nd_date',
-              'payment_2nd_amount': 'payment_2nd_amount',
-              'invoice_additional_date': 'invoice_additional_date',
-              'payment_additional_date': 'payment_additional_date',
-              'payment_additional_amount': 'payment_additional_amount',
-              // 계산서 및 입금 관리 필드 (자비)
-              'invoice_advance_date': 'invoice_advance_date',
-              'invoice_advance_amount': 'invoice_advance_amount',
-              'payment_advance_date': 'payment_advance_date',
-              'payment_advance_amount': 'payment_advance_amount',
-              'invoice_balance_date': 'invoice_balance_date',
-              'invoice_balance_amount': 'invoice_balance_amount',
-              'payment_balance_date': 'payment_balance_date',
-              'payment_balance_amount': 'payment_balance_amount'
-            }
-            
-            const koreanKey = koreanKeyMap[key] || key
-            acc[koreanKey] = (processedFormData as any)[key]
-            return acc
-          }, {} as any),
-          수정일: new Date().toISOString()
-        }
+              'ph_meter': 'PH센서',
+              'differential_pressure_meter': '차압계',
+              'temperature_meter': '온도계',
+              'discharge_current_meter': '배출전류계',
+              'fan_current_meter': '송풍전류계',
+              'pump_current_meter': '펌프전류계',
+              'gateway': '게이트웨이',
+              'vpn_wired': 'VPN유선',
+              'vpn_wireless': 'VPN무선'
+            };
 
-        // 즉시 로컬 상태 업데이트
-        setAllBusinesses(prev => prev.map(business => 
-          business.id === editingBusiness.id ? optimisticUpdate : business
-        ))
-        
-        // 선택된 사업장도 업데이트
-        if (selectedBusiness && selectedBusiness.id === editingBusiness.id) {
-          setSelectedBusiness(optimisticUpdate)
-        }
+            // 한글 키가 있으면 함께 저장
+            if (koreanKeyMap[key]) {
+              acc[koreanKeyMap[key]] = value;
+            }
+
+            return acc;
+          }, {} as any),
+          updated_at: new Date().toISOString(),
+          수정일: new Date().toISOString()
+        };
+
+        // 원자적 상태 업데이트 함수 호출
+        updateBusinessState(optimisticUpdate, editingBusiness.id);
+
+        // ✅ [SYNC-CHECK] Optimistic Update 완료 로깅
+        console.log('✅ [SYNC-CHECK-AFTER] Optimistic Update 완료:', {
+          updatedBusinessId: optimisticUpdate.id,
+          updatedBusinessName: optimisticUpdate.사업장명,
+          적용된_계산서_입금_데이터: {
+            invoice_1st_amount: optimisticUpdate.invoice_1st_amount,
+            payment_1st_amount: optimisticUpdate.payment_1st_amount,
+            invoice_2nd_amount: optimisticUpdate.invoice_2nd_amount,
+            payment_2nd_amount: optimisticUpdate.payment_2nd_amount,
+            invoice_advance_amount: optimisticUpdate.invoice_advance_amount,
+            payment_advance_amount: optimisticUpdate.payment_advance_amount,
+            invoice_balance_amount: optimisticUpdate.invoice_balance_amount,
+            payment_balance_amount: optimisticUpdate.payment_balance_amount
+          }
+        });
       }
 
       const response = await fetch('/api/business-info-direct', {
@@ -2944,7 +3076,31 @@ function BusinessManagementPage() {
         // 3. API 응답으로 정확한 데이터 동기화
         if (result.success && result.data) {
           console.log('✅ API 응답에서 받은 업데이트된 데이터:', result.data)
-          
+
+          // 🔍 [SYNC-CHECK] 서버 응답 데이터 검증
+          console.log('🔍 [SYNC-CHECK-SERVER] 서버 응답 데이터 상세:', {
+            businessId: result.data.id,
+            businessName: result.data.business_name,
+            서버에서_받은_계산서_입금_데이터: {
+              invoice_1st_date: result.data.invoice_1st_date,
+              invoice_1st_amount: result.data.invoice_1st_amount,
+              payment_1st_date: result.data.payment_1st_date,
+              payment_1st_amount: result.data.payment_1st_amount,
+              invoice_2nd_date: result.data.invoice_2nd_date,
+              invoice_2nd_amount: result.data.invoice_2nd_amount,
+              payment_2nd_date: result.data.payment_2nd_date,
+              payment_2nd_amount: result.data.payment_2nd_amount,
+              invoice_advance_date: result.data.invoice_advance_date,
+              invoice_advance_amount: result.data.invoice_advance_amount,
+              payment_advance_date: result.data.payment_advance_date,
+              payment_advance_amount: result.data.payment_advance_amount,
+              invoice_balance_date: result.data.invoice_balance_date,
+              invoice_balance_amount: result.data.invoice_balance_amount,
+              payment_balance_date: result.data.payment_balance_date,
+              payment_balance_amount: result.data.payment_balance_amount
+            }
+          });
+
           if (editingBusiness) {
             // 편집의 경우: 서버에서 받은 정확한 데이터로 교체
             const serverData = result.data
@@ -3093,13 +3249,73 @@ function BusinessManagementPage() {
               // 기존 통계 데이터 유지
               fileStats: (editingBusiness as any).fileStats
             }
-            
-            setAllBusinesses(prev => prev.map(business => 
-              business.id === editingBusiness.id ? updatedBusiness as unknown as UnifiedBusinessInfo : business
-            ))
-            
-            if (selectedBusiness && selectedBusiness.id === editingBusiness.id) {
-              setSelectedBusiness(updatedBusiness as unknown as UnifiedBusinessInfo)
+
+            // 원자적 상태 업데이트 함수 사용 (서버 데이터 동기화)
+            updateBusinessState(updatedBusiness as unknown as UnifiedBusinessInfo, editingBusiness.id);
+
+            // 🗑️ 캐시 무효화 (서버에서 최신 데이터를 받았으므로)
+            invalidateBusinessCache(editingBusiness.id);
+
+            // ✅ [SYNC-CHECK] 최종 동기화 완료 로깅
+            console.log('✅ [SYNC-CHECK-FINAL] 서버 데이터로 최종 동기화 완료:', {
+              businessId: updatedBusiness.id,
+              businessName: updatedBusiness.사업장명,
+              최종_상태: {
+                allBusinesses에_반영됨: '✓',
+                selectedBusiness에_반영됨: selectedBusiness?.id === editingBusiness.id ? '✓' : '✗',
+                계산서_입금_최종값: {
+                  invoice_1st_amount: updatedBusiness.invoice_1st_amount,
+                  payment_1st_amount: updatedBusiness.payment_1st_amount,
+                  invoice_2nd_amount: updatedBusiness.invoice_2nd_amount,
+                  payment_2nd_amount: updatedBusiness.payment_2nd_amount,
+                  invoice_advance_amount: updatedBusiness.invoice_advance_amount,
+                  payment_advance_amount: updatedBusiness.payment_advance_amount,
+                  invoice_balance_amount: updatedBusiness.invoice_balance_amount,
+                  payment_balance_amount: updatedBusiness.payment_balance_amount
+                }
+              }
+            });
+
+            // 🔄 [AUTO-REFRESH] 상세보기 모달 자동 새로고침
+            if (isDetailModalOpen && selectedBusiness?.id === editingBusiness.id) {
+              console.log('🔄 [AUTO-REFRESH] 상세보기 모달 자동 새로고침 시작:', {
+                businessId: editingBusiness.id,
+                businessName: editingBusiness.사업장명
+              });
+
+              try {
+                // 강제 새로고침 (캐시 무시하고 최신 데이터 가져오기)
+                const freshData = await refreshBusinessData(editingBusiness.id, editingBusiness.사업장명, true);
+                if (freshData) {
+                  setSelectedBusiness(freshData);
+                  console.log('✅ [AUTO-REFRESH] 상세보기 모달 새로고침 완료:', {
+                    businessId: freshData.id,
+                    businessName: freshData.사업장명,
+                    계산서_입금_데이터: {
+                      invoice_1st_amount: freshData.invoice_1st_amount,
+                      payment_1st_amount: freshData.payment_1st_amount,
+                      invoice_2nd_amount: freshData.invoice_2nd_amount,
+                      payment_2nd_amount: freshData.payment_2nd_amount,
+                      invoice_advance_amount: freshData.invoice_advance_amount,
+                      payment_advance_amount: freshData.payment_advance_amount,
+                      invoice_balance_amount: freshData.invoice_balance_amount,
+                      payment_balance_amount: freshData.payment_balance_amount
+                    }
+                  });
+                } else {
+                  console.warn('⚠️ [AUTO-REFRESH] refreshBusinessData 반환값이 null입니다');
+                }
+              } catch (refreshError) {
+                console.error('❌ [AUTO-REFRESH] 모달 새로고침 실패:', refreshError);
+                // 새로고침 실패해도 이미 Optimistic Update는 완료되었으므로 무시
+              }
+            } else {
+              console.log('ℹ️ [AUTO-REFRESH] 모달 자동 새로고침 건너뜀:', {
+                isDetailModalOpen,
+                selectedBusinessId: selectedBusiness?.id,
+                editingBusinessId: editingBusiness.id,
+                일치여부: selectedBusiness?.id === editingBusiness.id
+              });
             }
           } else {
             // 새 사업장 추가의 경우: 전체 목록 새로고침
