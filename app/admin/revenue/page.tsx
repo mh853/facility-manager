@@ -831,6 +831,29 @@ function RevenueDashboard() {
       return sum + (business[field as keyof BusinessInfo] as number || 0);
     }, 0);
 
+    // 설치 기기 목록 기준 매입금액 계산 (모달과 동일)
+    const businessManufacturer = business.manufacturer || 'ecosense';
+    const actualTotalCost = equipmentFields.reduce((sum, field) => {
+      const quantity = business[field as keyof BusinessInfo] as number || 0;
+      if (quantity > 0) {
+        const unitCost = (pricesLoaded && manufacturerPrices[businessManufacturer]?.[field] !== undefined)
+          ? manufacturerPrices[businessManufacturer][field]
+          : (MANUFACTURER_COSTS[field] || 0);
+        sum += unitCost * quantity;
+      }
+      return sum;
+    }, 0);
+
+    // 총이익 = 매출 - 매입
+    const grossProfit = business.total_revenue - actualTotalCost;
+
+    // 순이익 = 총이익 - 영업비용 - 실사비용 - 기본설치비 - 추가설치비
+    const netProfit = grossProfit
+      - (business.sales_commission || 0)
+      - (business.survey_costs || 0)
+      - (business.installation_costs || 0)
+      - ((business as any).installation_extra_cost || 0);
+
     // 미수금 계산 (진행구분에 따라 다르게 계산)
     let totalReceivables = 0;
     const progressStatus = business.progress_status || '';
@@ -855,11 +878,11 @@ function RevenueDashboard() {
 
     return {
       ...business,
-      // 서버 계산 결과가 있으면 우선 사용, 없으면 클라이언트 자동 계산 값 사용
-      total_revenue: revenueCalc?.total_revenue || business.total_revenue || 0,
-      total_cost: revenueCalc?.total_cost || business.total_cost || 0,
-      net_profit: revenueCalc?.net_profit || business.net_profit || 0,
-      gross_profit: revenueCalc?.gross_profit || business.gross_profit || 0,
+      // 실시간 계산 값 사용 (모달과 동일한 로직)
+      total_revenue: business.total_revenue || 0,
+      total_cost: actualTotalCost, // 설치 기기 목록 기준 매입금액
+      net_profit: netProfit, // 순이익 (총이익 - 모든 비용)
+      gross_profit: grossProfit, // 총이익 (매출 - 매입)
       equipment_count: totalEquipment,
       calculation_date: revenueCalc?.calculation_date || null,
       category: business.progress_status || 'N/A', // progress_status 사용 (진행구분)
@@ -1719,27 +1742,62 @@ function RevenueDashboard() {
                 </div>
 
                 {/* 매출/매입/이익 정보 */}
-                <>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mb-3 md:mb-4">
-                      <div className="bg-green-50 rounded-lg p-3 md:p-4">
-                        <p className="text-xs font-medium text-green-600 mb-1">매출금액</p>
-                        <p className="text-sm md:text-lg font-bold text-green-700 break-words">
-                          {formatCurrency(selectedEquipmentBusiness.total_revenue)}
-                        </p>
+                {(() => {
+                  // 설치 기기 목록에서 매입금액 합계 계산 (정확한 값)
+                  const equipmentFields = [
+                    'ph_meter', 'differential_pressure_meter', 'temperature_meter',
+                    'discharge_current_meter', 'fan_current_meter', 'pump_current_meter',
+                    'gateway', 'vpn_wired', 'vpn_wireless',
+                    'explosion_proof_differential_pressure_meter_domestic',
+                    'explosion_proof_temperature_meter_domestic', 'expansion_device',
+                    'relay_8ch', 'relay_16ch', 'main_board_replacement', 'multiple_stack'
+                  ];
+
+                  const businessManufacturer = selectedEquipmentBusiness.manufacturer || 'ecosense';
+
+                  const actualTotalCost = equipmentFields.reduce((sum, field) => {
+                    const quantity = selectedEquipmentBusiness[field as keyof BusinessInfo] as number || 0;
+                    if (quantity > 0) {
+                      const unitCost = (pricesLoaded && manufacturerPrices[businessManufacturer]?.[field] !== undefined)
+                        ? manufacturerPrices[businessManufacturer][field]
+                        : (MANUFACTURER_COSTS[field] || 0);
+                      sum += unitCost * quantity;
+                    }
+                    return sum;
+                  }, 0);
+
+                  // 총이익 = 매출 - 매입
+                  const grossProfit = selectedEquipmentBusiness.total_revenue - actualTotalCost;
+
+                  // 순이익 = 총이익 - 영업비용 - 실사비용 - 기본설치비 - 추가설치비
+                  const netProfit = grossProfit
+                    - (selectedEquipmentBusiness.sales_commission || 0)
+                    - (selectedEquipmentBusiness.survey_costs || 0)
+                    - (selectedEquipmentBusiness.installation_costs || 0)
+                    - (selectedEquipmentBusiness.installation_extra_cost || 0);
+
+                  return (
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mb-3 md:mb-4">
+                        <div className="bg-green-50 rounded-lg p-3 md:p-4">
+                          <p className="text-xs font-medium text-green-600 mb-1">매출금액</p>
+                          <p className="text-sm md:text-lg font-bold text-green-700 break-words">
+                            {formatCurrency(selectedEquipmentBusiness.total_revenue)}
+                          </p>
+                        </div>
+                        <div className="bg-red-50 rounded-lg p-3 md:p-4">
+                          <p className="text-xs font-medium text-red-600 mb-1">매입금액</p>
+                          <p className="text-sm md:text-lg font-bold text-red-700 break-words">
+                            {formatCurrency(actualTotalCost)}
+                          </p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3 md:p-4 col-span-2 md:col-span-1">
+                          <p className="text-xs font-medium text-gray-600 mb-1">총 이익 (매출-매입)</p>
+                          <p className="text-sm md:text-lg font-bold text-gray-700 break-words">
+                            {formatCurrency(grossProfit)}
+                          </p>
+                        </div>
                       </div>
-                      <div className="bg-red-50 rounded-lg p-3 md:p-4">
-                        <p className="text-xs font-medium text-red-600 mb-1">매입금액</p>
-                        <p className="text-sm md:text-lg font-bold text-red-700 break-words">
-                          {formatCurrency(selectedEquipmentBusiness.total_cost)}
-                        </p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3 md:p-4 col-span-2 md:col-span-1">
-                        <p className="text-xs font-medium text-gray-600 mb-1">총 이익 (매출-매입)</p>
-                        <p className="text-sm md:text-lg font-bold text-gray-700 break-words">
-                          {formatCurrency(selectedEquipmentBusiness.gross_profit || (selectedEquipmentBusiness.total_revenue - selectedEquipmentBusiness.total_cost))}
-                        </p>
-                      </div>
-                    </div>
 
                     {/* 비용 항목 */}
                     {(selectedEquipmentBusiness.sales_commission > 0 ||
@@ -1809,39 +1867,39 @@ function RevenueDashboard() {
                       </div>
                     )}
 
-                    {/* 최종 이익 */}
-                    <div className="grid grid-cols-2 gap-2 md:gap-4">
-                      <div className={`rounded-lg p-3 md:p-4 ${selectedEquipmentBusiness.net_profit >= 0 ? 'bg-blue-50' : 'bg-red-50'}`}>
-                        <p className={`text-xs font-medium mb-1 ${selectedEquipmentBusiness.net_profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>순이익</p>
-                        <p className={`text-sm md:text-lg font-bold ${selectedEquipmentBusiness.net_profit >= 0 ? 'text-blue-700' : 'text-red-700'} break-words`}>
-                          {formatCurrency(selectedEquipmentBusiness.net_profit)}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1 hidden md:block">
-                          = 총이익 - {(selectedEquipmentBusiness.installation_extra_cost || 0) > 0 ? '추가설치비 - ' : ''}영업 - 실사 - 설치
-                        </p>
+                      {/* 최종 이익 */}
+                      <div className="grid grid-cols-2 gap-2 md:gap-4">
+                        <div className={`rounded-lg p-3 md:p-4 ${netProfit >= 0 ? 'bg-blue-50' : 'bg-red-50'}`}>
+                          <p className={`text-xs font-medium mb-1 ${netProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>순이익</p>
+                          <p className={`text-sm md:text-lg font-bold ${netProfit >= 0 ? 'text-blue-700' : 'text-red-700'} break-words`}>
+                            {formatCurrency(netProfit)}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1 hidden md:block">
+                            = 총이익 - {(selectedEquipmentBusiness.installation_extra_cost || 0) > 0 ? '추가설치비 - ' : ''}영업 - 실사 - 설치
+                          </p>
+                        </div>
+                        <div className="bg-purple-50 rounded-lg p-3 md:p-4">
+                          <p className="text-xs font-medium text-purple-600 mb-1">이익률</p>
+                          <p className="text-sm md:text-lg font-bold text-purple-700">
+                            {selectedEquipmentBusiness.total_revenue > 0
+                              ? ((netProfit / selectedEquipmentBusiness.total_revenue) * 100).toFixed(1)
+                              : '0'}%
+                          </p>
+                        </div>
                       </div>
-                      <div className="bg-purple-50 rounded-lg p-3 md:p-4">
-                        <p className="text-xs font-medium text-purple-600 mb-1">이익률</p>
-                        <p className="text-sm md:text-lg font-bold text-purple-700">
-                          {selectedEquipmentBusiness.total_revenue > 0
-                            ? ((selectedEquipmentBusiness.net_profit / selectedEquipmentBusiness.total_revenue) * 100).toFixed(1)
-                            : '0'}%
-                        </p>
-                      </div>
-                    </div>
 
-                    {/* 추가공사비 및 협의사항 */}
-                    {(selectedEquipmentBusiness.additional_cost > 0 ||
-                      selectedEquipmentBusiness.negotiation > 0) && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <h5 className="text-sm font-semibold text-gray-800 mb-3">매출 조정 내역</h5>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {selectedEquipmentBusiness.additional_cost > 0 && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">추가공사비 (+):</span>
-                              <span className="text-sm font-semibold text-green-700">
-                                +{formatCurrency(selectedEquipmentBusiness.additional_cost)}
-                              </span>
+                      {/* 추가공사비 및 협의사항 */}
+                      {(selectedEquipmentBusiness.additional_cost > 0 ||
+                        selectedEquipmentBusiness.negotiation > 0) && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                          <h5 className="text-sm font-semibold text-gray-800 mb-3">매출 조정 내역</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {selectedEquipmentBusiness.additional_cost > 0 && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">추가공사비 (+):</span>
+                                <span className="text-sm font-semibold text-green-700">
+                                  +{formatCurrency(selectedEquipmentBusiness.additional_cost)}
+                                </span>
                             </div>
                           )}
                           {selectedEquipmentBusiness.negotiation > 0 && (
@@ -1856,37 +1914,39 @@ function RevenueDashboard() {
                       </div>
                     )}
 
-                    {/* 매출 계산식 */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h5 className="text-sm font-semibold text-gray-800 mb-3">💰 최종 매출금액 계산식</h5>
-                      <div className="text-sm text-gray-700 space-y-1">
-                        <div className="flex items-center justify-between border-b border-blue-200 pb-2">
-                          <span>기본 매출 (기기 합계)</span>
-                          <span className="font-mono">{formatCurrency(
-                            selectedEquipmentBusiness.total_revenue -
-                            (selectedEquipmentBusiness.additional_cost || 0) +
-                            (selectedEquipmentBusiness.negotiation || 0)
-                          )}</span>
-                        </div>
-                        {selectedEquipmentBusiness.additional_cost > 0 && (
-                          <div className="flex items-center justify-between text-green-700">
-                            <span>+ 추가공사비</span>
-                            <span className="font-mono">+{formatCurrency(selectedEquipmentBusiness.additional_cost)}</span>
+                      {/* 매출 계산식 */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h5 className="text-sm font-semibold text-gray-800 mb-3">💰 최종 매출금액 계산식</h5>
+                        <div className="text-sm text-gray-700 space-y-1">
+                          <div className="flex items-center justify-between border-b border-blue-200 pb-2">
+                            <span>기본 매출 (기기 합계)</span>
+                            <span className="font-mono">{formatCurrency(
+                              selectedEquipmentBusiness.total_revenue -
+                              (selectedEquipmentBusiness.additional_cost || 0) +
+                              (selectedEquipmentBusiness.negotiation || 0)
+                            )}</span>
                           </div>
-                        )}
-                        {selectedEquipmentBusiness.negotiation > 0 && (
-                          <div className="flex items-center justify-between text-red-700">
-                            <span>- 협의사항/네고</span>
-                            <span className="font-mono">-{formatCurrency(selectedEquipmentBusiness.negotiation)}</span>
+                          {selectedEquipmentBusiness.additional_cost > 0 && (
+                            <div className="flex items-center justify-between text-green-700">
+                              <span>+ 추가공사비</span>
+                              <span className="font-mono">+{formatCurrency(selectedEquipmentBusiness.additional_cost)}</span>
+                            </div>
+                          )}
+                          {selectedEquipmentBusiness.negotiation > 0 && (
+                            <div className="flex items-center justify-between text-red-700">
+                              <span>- 협의사항/네고</span>
+                              <span className="font-mono">-{formatCurrency(selectedEquipmentBusiness.negotiation)}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between border-t-2 border-blue-300 pt-2 font-bold text-blue-900">
+                            <span>= 최종 매출금액</span>
+                            <span className="font-mono text-lg">{formatCurrency(selectedEquipmentBusiness.total_revenue)}</span>
                           </div>
-                        )}
-                        <div className="flex items-center justify-between border-t-2 border-blue-300 pt-2 font-bold text-blue-900">
-                          <span>= 최종 매출금액</span>
-                          <span className="font-mono text-lg">{formatCurrency(selectedEquipmentBusiness.total_revenue)}</span>
                         </div>
                       </div>
-                    </div>
-                  </>
+                    </>
+                  );
+                })()}
 
                 {/* 설치 기기 목록 */}
                 <div>
