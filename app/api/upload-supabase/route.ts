@@ -21,7 +21,7 @@ async function calculateFileHash(file: File): Promise<string> {
 }
 
 // 🚀 이미지 최적화 및 압축 (50% 파일 크기 감소)
-async function optimizeImage(file: File): Promise<{
+async function optimizeImage(file: File, alreadyCompressed: boolean = false): Promise<{
   buffer: Buffer;
   optimizedSize: number;
   originalSize: number;
@@ -30,32 +30,48 @@ async function optimizeImage(file: File): Promise<{
 }> {
   const startTime = Date.now();
   const originalSize = file.size;
-  
+
+  // 클라이언트에서 이미 압축된 경우 서버 압축 건너뜀 (이중 압축 방지)
+  if (alreadyCompressed) {
+    console.log(`⚡ [IMAGE-OPT] 클라이언트 압축 완료, 서버 압축 건너뜀: ${file.name} (${Math.round(originalSize / 1024)}KB)`);
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    return {
+      buffer,
+      optimizedSize: originalSize,
+      originalSize,
+      compressionRatio: 0,
+      mimeType: file.type
+    };
+  }
+
   try {
     // 파일을 Buffer로 변환
     const arrayBuffer = await file.arrayBuffer();
     const inputBuffer = Buffer.from(arrayBuffer);
-    
+
     console.log(`🖼️ [IMAGE-OPT] 이미지 최적화 시작: ${file.name} (${Math.round(originalSize / 1024)}KB)`);
-    
+
     // Sharp를 사용한 이미지 최적화
     const optimizedBuffer = await sharp(inputBuffer)
-      .resize(1920, 1920, { 
+      .resize(1920, 1920, {
         fit: 'inside',           // 비율 유지하면서 크기 조정
         withoutEnlargement: true // 원본보다 크게 하지 않음
       })
-      .webp({ 
+      .webp({
         quality: 80,             // 80% 품질 (기존 대비 50% 크기 감소 목표)
         effort: 6                // 압축 노력 (1-6, 높을수록 더 작은 파일)
       })
       .toBuffer();
-    
+
     const optimizedSize = optimizedBuffer.length;
     const compressionRatio = Math.round((1 - optimizedSize / originalSize) * 100);
     const processingTime = Date.now() - startTime;
-    
+
     console.log(`✨ [IMAGE-OPT] 최적화 완료: ${Math.round(optimizedSize / 1024)}KB (${compressionRatio}% 감소, ${processingTime}ms)`);
-    
+
     return {
       buffer: optimizedBuffer,
       optimizedSize,
@@ -63,14 +79,14 @@ async function optimizeImage(file: File): Promise<{
       compressionRatio,
       mimeType: 'image/webp'
     };
-    
+
   } catch (error) {
     console.warn(`⚠️ [IMAGE-OPT] 최적화 실패, 원본 사용: ${file.name}`, error);
-    
+
     // 최적화 실패 시 원본 반환
     const arrayBuffer = await file.arrayBuffer();
     const originalBuffer = Buffer.from(arrayBuffer);
-    
+
     return {
       buffer: originalBuffer,
       optimizedSize: originalSize,
@@ -478,6 +494,7 @@ export async function POST(request: NextRequest) {
     const facilityId = formData.get('facilityId') as string | null;
     const facilityType = formData.get('facilityType') as string | null;
     const facilityNumber = formData.get('facilityNumber') as string | null;
+    const alreadyCompressed = formData.get('compressed') === 'true'; // 클라이언트 압축 여부
 
     console.log('🔍 [UPLOAD-DEBUG] 받은 데이터:', {
       businessName,
@@ -486,7 +503,8 @@ export async function POST(request: NextRequest) {
       facilityId,
       facilityType,
       facilityNumber,
-      파일명: file?.name
+      파일명: file?.name,
+      클라이언트압축완료: alreadyCompressed
     });
 
     if (!file) {
@@ -623,9 +641,9 @@ export async function POST(request: NextRequest) {
 
         console.log(`📝 [FILENAME] 서버 생성 파일명 (fallback): ${file.name} → ${structuredFilename}`);
       }
-        
-        // 🚀 이미지 최적화 적용
-        const optimizedImage = await optimizeImage(file);
+
+        // 🚀 이미지 최적화 적용 (클라이언트 압축 여부 전달)
+        const optimizedImage = await optimizeImage(file, alreadyCompressed);
         
         // 최적화된 파일명 생성 (WebP 확장자로 변경)
         const originalExt = structuredFilename.split('.').pop()?.toLowerCase();

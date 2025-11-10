@@ -163,6 +163,39 @@ export class SmartUploadQueue {
   }
 
   /**
+   * 파일 크기 기반 최적 청크 크기 계산
+   * @param files 업로드할 파일 배열
+   * @returns 최적 청크 크기 (동시 업로드 파일 수)
+   */
+  private calculateOptimalChunkSize(files: File[]): number {
+    const MAX_PAYLOAD = 4 * 1024 * 1024; // 4MB 안전 마진 (Vercel 4.5MB 제한)
+
+    if (files.length === 0) {
+      return 4; // 기본값
+    }
+
+    // 파일 평균 크기 계산
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    const avgFileSize = totalSize / files.length;
+
+    // 평균 파일 크기 기반 최적 청크 크기 계산
+    const optimalChunkSize = Math.max(1, Math.floor(MAX_PAYLOAD / avgFileSize));
+
+    // 최소 1개, 최대 10개로 제한 (너무 많은 동시 요청 방지)
+    const finalChunkSize = Math.min(10, optimalChunkSize);
+
+    console.log(`📊 [CHUNK-SIZE] 동적 청크 크기 계산:`, {
+      파일수: files.length,
+      평균파일크기: `${Math.round(avgFileSize / 1024)}KB`,
+      계산된청크크기: optimalChunkSize,
+      최종청크크기: finalChunkSize,
+      예상페이로드: `${Math.round((avgFileSize * finalChunkSize) / 1024 / 1024 * 100) / 100}MB`
+    });
+
+    return finalChunkSize;
+  }
+
+  /**
    * 개별 업로드 처리
    */
   private async processUpload(uploadId: string): Promise<void> {
@@ -187,7 +220,7 @@ export class SmartUploadQueue {
           {
             maxWidth: 1920,
             maxHeight: 1920,
-            quality: 0.8,
+            quality: 0.75, // Vercel 4.5MB 페이로드 제한 대응 (15-20% 추가 압축)
             format: 'jpeg'
           },
           (completed, total) => {
@@ -216,7 +249,9 @@ export class SmartUploadQueue {
       this.notifyListeners(uploadId);
 
       const results: UploadResponse[] = [];
-      const CHUNK_SIZE = 4; // 모바일 최적화: 4개 파일 동시 업로드
+
+      // 동적 청크 크기 계산 (파일 크기 기반, Vercel 4MB 페이로드 제한 대응)
+      const CHUNK_SIZE = this.calculateOptimalChunkSize(finalFiles);
 
       console.log(`🚀 [PARALLEL-UPLOAD] 청크 기반 병렬 업로드 시작: ${finalFiles.length}개 파일, 청크 크기: ${CHUNK_SIZE}`);
 
@@ -233,7 +268,8 @@ export class SmartUploadQueue {
           const fileMetadata = {
             ...upload.metadata,
             fileName: file.name,
-            fileIndex: (globalIndex + 1).toString()
+            fileIndex: (globalIndex + 1).toString(),
+            compressed: this.compressionEnabled ? 'true' : 'false' // 클라이언트 압축 여부 전달
           };
 
           try {
@@ -289,13 +325,60 @@ export class SmartUploadQueue {
 
       const successCount = results.filter(r => r.success).length;
       const failCount = results.length - successCount;
+      const processingTime = (upload.completedTime - upload.startTime!) / 1000;
+
+      // 📊 상세 통계 계산
+      const totalSize = finalFiles.reduce((sum, file) => sum + file.size, 0);
+      const avgFileSize = totalSize / finalFiles.length;
+      const successRate = ((successCount / finalFiles.length) * 100).toFixed(1);
+
+      // 실패 원인 분석
+      const failedResults = results.filter(r => !r.success);
+      const failureReasons = failedResults.reduce((acc, result) => {
+        const reason = result.error || '알 수 없는 오류';
+
+        // 에러 유형별 분류
+        let category = '기타';
+        if (reason.includes('PAYLOAD_TOO_LARGE') || reason.includes('Request Entity Too Large')) {
+          category = '페이로드 초과';
+        } else if (reason.includes('네트워크') || reason.includes('network')) {
+          category = '네트워크 오류';
+        } else if (reason.includes('timeout') || reason.includes('시간 초과')) {
+          category = '타임아웃';
+        } else if (reason.includes('파싱') || reason.includes('parse')) {
+          category = '응답 파싱 실패';
+        }
+
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
 
       console.log(`🎯 [SMART-QUEUE] 업로드 완료: ${upload.facilityName}`, {
         총파일: finalFiles.length,
         성공: successCount,
         실패: failCount,
-        처리시간: `${((upload.completedTime - upload.startTime!) / 1000).toFixed(1)}초`
+        성공률: `${successRate}%`,
+        처리시간: `${processingTime.toFixed(1)}초`,
+        평균처리속도: `${(finalFiles.length / processingTime).toFixed(1)}파일/초`
       });
+
+      console.log(`📊 [UPLOAD-STATS] 파일 크기 통계:`, {
+        총크기: `${(totalSize / 1024 / 1024).toFixed(2)}MB`,
+        평균파일크기: `${Math.round(avgFileSize / 1024)}KB`,
+        최소파일크기: `${Math.round(Math.min(...finalFiles.map(f => f.size)) / 1024)}KB`,
+        최대파일크기: `${Math.round(Math.max(...finalFiles.map(f => f.size)) / 1024)}KB`,
+        청크크기: CHUNK_SIZE
+      });
+
+      if (failCount > 0) {
+        console.error(`⚠️ [UPLOAD-FAILURES] 실패 원인 분석:`, failureReasons);
+        failedResults.forEach((result, index) => {
+          console.error(`   ${index + 1}. ${result.message || '파일 업로드 실패'}`);
+          if (result.error) {
+            console.error(`      오류: ${result.error}`);
+          }
+        });
+      }
 
     } catch (error) {
       // 전체 업로드 실패

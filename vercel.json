@@ -18,6 +18,9 @@
     "app/api/upload/route.ts": {
       "maxDuration": 60
     },
+    "app/api/upload-supabase/route.ts": {
+      "maxDuration": 60
+    },
     "app/api/download/**/*.ts": {
       "maxDuration": 60
     },

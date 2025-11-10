@@ -143,7 +143,19 @@ function uploadWithProgressInternal(
           reject(error);
         }
       } catch (parseError) {
-        const error = new Error(`응답 파싱 실패: ${xhr.responseText}`);
+        // 파싱 실패 시 원본 응답에서 Vercel 페이로드 에러 감지
+        const responseText = xhr.responseText || '';
+        let errorMessage = `응답 파싱 실패: ${responseText}`;
+
+        // Vercel Function Payload 에러 감지
+        if (responseText.includes('FUNCTION_PAYLOAD_TOO_LARGE') ||
+            responseText.includes('Request Entity Too Large') ||
+            responseText.includes('FunctionPayloadTooLargeError')) {
+          errorMessage = `파일 크기 초과: 업로드하려는 파일이 너무 큽니다. 파일 수를 줄이거나 이미지 해상도를 낮춰주세요. (제한: 4MB)`;
+          console.error(`🚨 [PAYLOAD-TOO-LARGE] ${file.name}: Vercel 페이로드 제한 초과`);
+        }
+
+        const error = new Error(errorMessage);
         console.error(`❌ [UPLOAD-PARSE-ERROR] ${file.name}:`, parseError);
         options.onError?.(error);
         reject(error);
@@ -152,8 +164,22 @@ function uploadWithProgressInternal(
 
     // 네트워크 오류 처리
     xhr.addEventListener('error', () => {
-      const error = new Error(`네트워크 오류: ${file.name} 업로드 중 연결 문제 발생`);
-      console.error(`❌ [UPLOAD-NETWORK-ERROR] ${file.name}:`, error.message);
+      // XHR 응답 확인 (페이로드 에러가 error 이벤트로 올 수 있음)
+      const responseText = xhr.responseText || '';
+      let errorMessage = `네트워크 오류: ${file.name} 업로드 중 연결 문제 발생`;
+
+      // Vercel Function Payload 에러 감지
+      if (responseText.includes('FUNCTION_PAYLOAD_TOO_LARGE') ||
+          responseText.includes('Request Entity Too Large') ||
+          responseText.includes('FunctionPayloadTooLargeError') ||
+          xhr.status === 413) { // HTTP 413 Payload Too Large
+        errorMessage = `파일 크기 초과: 업로드하려는 파일이 너무 큽니다. 파일 수를 줄이거나 이미지 해상도를 낮춰주세요. (제한: 4MB)`;
+        console.error(`🚨 [PAYLOAD-TOO-LARGE] ${file.name}: Vercel 페이로드 제한 초과 (HTTP ${xhr.status})`);
+      } else {
+        console.error(`❌ [UPLOAD-NETWORK-ERROR] ${file.name}:`, errorMessage);
+      }
+
+      const error = new Error(errorMessage);
       options.onError?.(error);
       reject(error);
     });

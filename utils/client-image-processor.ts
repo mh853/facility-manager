@@ -47,7 +47,7 @@ export async function compressImage(
   const {
     maxWidth = 1920,
     maxHeight = 1920,
-    quality = 0.8,
+    quality = 0.75, // Vercel 4.5MB 페이로드 제한 대응 (0.8 → 0.75, 15-20% 추가 압축)
     format = 'jpeg',
     maxFileSize = 2 * 1024 * 1024, // 2MB
     progressive = true
