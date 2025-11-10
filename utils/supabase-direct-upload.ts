@@ -43,6 +43,20 @@ export async function uploadToSupabaseStorage(
   try {
     console.log(`🚀 [DIRECT-UPLOAD] Supabase Storage 직접 업로드 시작: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`);
 
+    // 0단계: 버킷 존재 확인
+    const { data: buckets, error: bucketListError } = await supabase.storage.listBuckets();
+
+    if (bucketListError) {
+      console.warn('⚠️ [DIRECT-UPLOAD] 버킷 목록 조회 실패:', bucketListError);
+    } else {
+      const bucketExists = buckets?.some(b => b.name === 'facility-files');
+      console.log(`🗂️ [DIRECT-UPLOAD] facility-files 버킷 존재 여부: ${bucketExists ? '✅ 존재' : '❌ 없음'}`);
+
+      if (!bucketExists) {
+        throw new Error('facility-files 버킷이 존재하지 않습니다. Supabase Console에서 버킷을 생성해주세요.');
+      }
+    }
+
     // 1단계: Progressive Compression (클라이언트 측)
     options.onProgress?.(10);
     console.log(`🗜️ [DIRECT-UPLOAD] Progressive Compression 시작...`);
@@ -90,8 +104,15 @@ export async function uploadToSupabaseStorage(
       });
 
     if (uploadError) {
-      console.error(`❌ [DIRECT-UPLOAD] Storage 업로드 실패:`, uploadError);
-      throw new Error(`Storage 업로드 실패: ${uploadError.message}`);
+      console.error(`❌ [DIRECT-UPLOAD] Storage 업로드 실패:`, {
+        error: uploadError,
+        message: uploadError.message,
+        statusCode: uploadError.statusCode,
+        details: uploadError,
+        filePath,
+        bucketName: 'facility-files'
+      });
+      throw new Error(`Storage 업로드 실패: ${uploadError.message} (${uploadError.statusCode || 'unknown'})`);
     }
 
     console.log(`✅ [DIRECT-UPLOAD] Supabase Storage 업로드 완료: ${uploadData.path}`);
@@ -134,7 +155,13 @@ export async function uploadToSupabaseStorage(
     let fileData: any = null;
 
     if (!metadataResponse.ok) {
-      console.warn('⚠️ [DIRECT-UPLOAD] 메타데이터 저장 실패, 파일은 이미 업로드됨');
+      const errorText = await metadataResponse.text();
+      console.error('❌ [DIRECT-UPLOAD] 메타데이터 저장 실패:', {
+        status: metadataResponse.status,
+        statusText: metadataResponse.statusText,
+        error: errorText
+      });
+      throw new Error(`메타데이터 저장 실패: ${metadataResponse.status} - ${errorText}`);
     } else {
       const metadataResult = await metadataResponse.json();
       fileId = metadataResult.fileId;
