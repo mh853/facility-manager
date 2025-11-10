@@ -2102,6 +2102,29 @@ function InlinePhotoViewer({ photos, onPhotoSelect, viewMode, colorScheme, recen
     };
   }, [expandedIndex, photos.length]);
 
+  // 🔄 사진 삭제 후 인덱스 자동 조정 (안전망)
+  useEffect(() => {
+    if (expandedIndex === null) return;
+
+    console.log('🔍 [INDEX-SAFETY-CHECK]', {
+      expandedIndex,
+      photosLength: photos.length,
+      isOutOfBounds: expandedIndex >= photos.length
+    });
+
+    // photos 배열 길이가 변경되어 인덱스가 범위를 벗어난 경우
+    if (expandedIndex >= photos.length && photos.length > 0) {
+      // 마지막 사진으로 자동 조정
+      const lastIndex = photos.length - 1;
+      console.log(`⚠️ [INDEX-OUT-OF-BOUNDS] 인덱스 범위 초과 - 마지막 사진으로 조정 (${expandedIndex} → ${lastIndex})`);
+      setExpandedIndex(lastIndex);
+    } else if (photos.length === 0) {
+      // 모든 사진이 삭제되면 모달 닫기
+      console.log('❌ [ALL-PHOTOS-DELETED] 모든 사진 삭제됨 - 모달 닫기');
+      setExpandedIndex(null);
+    }
+  }, [photos.length, expandedIndex]);
+
   // 썸네일 그리드 렌더링
   const renderThumbnailGrid = () => {
     if (viewMode === 'list') {
@@ -2304,10 +2327,27 @@ function ExpandedPhotoSection({
   const markPhotoAsUndeleted = useSetAtom(undeletePhotoAtom);
   
   console.log('🔧 [EXPANDED-SCOPE] ExpandedPhotoSection에서 Jotai 함수 직접 정의:', !!markPhotoAsDeleted);
-  
-  // 🛡️ 방어 코드: photo가 undefined이거나 삭제된 경우 처리
+
+  // 🛡️ 개선된 방어 코드: photo가 undefined인 경우 스마트 복구 시도
   if (!photo) {
-    console.warn('⚠️ [EXPANDED-PHOTO] photo 객체가 undefined입니다. 모달을 자동으로 닫습니다.');
+    console.warn('⚠️ [EXPANDED-PHOTO] photo 객체가 undefined입니다.');
+
+    // 다음 사진으로 이동 시도
+    if (currentIndex < photos.length - 1) {
+      console.log(`➡️ [AUTO-RECOVER] 다음 사진으로 자동 복구 (index: ${currentIndex} → ${currentIndex + 1})`);
+      onNavigate(currentIndex + 1);
+      return null;
+    }
+
+    // 이전 사진으로 이동 시도
+    if (currentIndex > 0 && photos.length > 0) {
+      console.log(`⬅️ [AUTO-RECOVER] 이전 사진으로 자동 복구 (index: ${currentIndex} → ${currentIndex - 1})`);
+      onNavigate(currentIndex - 1);
+      return null;
+    }
+
+    // 남은 사진이 없으면 모달 닫기
+    console.log('❌ [NO-RECOVERY] 복구 불가능 - 모달 닫기');
     onClose();
     return null;
   }
@@ -2564,9 +2604,31 @@ function ExpandedPhotoSection({
                 console.warn(`⚠️ [EXPANDED-STATS-SKIP] photoTracker에서 사진을 찾을 수 없어 통계 업데이트 생략`);
               }
 
-              // ✅ 모달 닫지 않음 - 사용자가 계속 다른 사진들을 볼 수 있도록
-              // onClose(); // 주석 처리 - 모달 닫지 않음
-              console.log('👁️ [EXPANDED-MODAL-KEEP] 확장 뷰어 유지 - 모달 닫지 않음');
+              // 🔄 삭제 후 인덱스 자동 조정 로직
+              const remainingPhotosCount = photos.length - 1; // 현재 사진 삭제 후 남은 사진 수
+
+              console.log('🔍 [DELETE-INDEX-CHECK]', {
+                currentIndex,
+                photosLength: photos.length,
+                remainingPhotosCount,
+                willClose: remainingPhotosCount === 0
+              });
+
+              if (remainingPhotosCount === 0) {
+                // 마지막 남은 사진 삭제 - 모달 닫기
+                console.log('❌ [NO-PHOTOS] 마지막 사진 삭제 - 모달 닫기');
+                onClose();
+              } else if (currentIndex >= remainingPhotosCount) {
+                // 마지막 사진을 삭제한 경우 - 이전 사진으로 이동
+                const prevIndex = remainingPhotosCount - 1;
+                console.log(`⬅️ [AUTO-NAVIGATE] 마지막 사진 삭제 - 이전 사진으로 이동 (index: ${prevIndex})`);
+                onNavigate(prevIndex);
+              } else {
+                // 중간 사진 삭제 - 다음 사진으로 이동 (인덱스 유지)
+                console.log(`➡️ [AUTO-NAVIGATE] 중간 사진 삭제 - 현재 인덱스 유지 (다음 사진으로 자동 이동)`);
+                // onNavigate(currentIndex)를 호출하면 같은 인덱스의 다음 사진이 표시됨
+                onNavigate(currentIndex);
+              }
 
               // 성공 메시지 즉시 표시
               toast.success('삭제 완료', '사진이 성공적으로 삭제되었습니다.');
