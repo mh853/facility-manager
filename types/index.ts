@@ -344,6 +344,52 @@ export interface BusinessRevenueSummary {
   calculation_error?: string;
 }
 
+// 영업비용 조정 타입
+export interface OperatingCostAdjustment {
+  id: string;
+  business_id: string;
+  adjustment_amount: number;
+  adjustment_reason?: string;
+  adjustment_type: 'add' | 'subtract';
+  applied_date: string;
+  created_at: string;
+  created_by?: string;
+  updated_at: string;
+  updated_by?: string;
+}
+
+// 기기별 상세 내역
+export interface EquipmentBreakdownItem {
+  equipment_type: string;
+  equipment_name: string;
+  quantity: number;
+  unit_official_price: number;
+  unit_manufacturer_price: number;
+  unit_installation_cost: number;
+  total_revenue: number;
+  total_cost: number;
+  total_installation: number;
+  profit: number;
+}
+
+// 매출 계산 결과 데이터
+export interface CalculatedData {
+  total_revenue: number;
+  total_cost: number;
+  gross_profit: number;
+  sales_commission: number;
+  survey_costs: number;
+  installation_costs: number;
+  additional_installation_revenue: number;
+  net_profit: number;
+  has_calculation: boolean;
+  equipment_breakdown?: EquipmentBreakdownItem[];
+
+  // 영업비용 조정 관련 (신규)
+  operating_cost_adjustment?: OperatingCostAdjustment | null;
+  adjusted_sales_commission?: number;
+}
+
 export interface BusinessSummaryResponse {
   success: boolean;
   data: {

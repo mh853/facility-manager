@@ -72,15 +72,10 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // 토큰에서 사용자 정보 추출
     const userId = decoded.userId || decoded.id;
     const permissionLevel = decoded.permissionLevel || decoded.permission_level;
 
-    console.log('🔍 [REVENUE-CALCULATE] 토큰 검증:', { userId, permissionLevel });
-
-    // 권한 1 이상 확인 (매출 조회/계산)
     if (!permissionLevel || permissionLevel < 1) {
-      console.log('❌ [REVENUE-CALCULATE] 권한 부족:', { permissionLevel });
       return NextResponse.json({
         success: false,
         message: '매출 계산 권한이 필요합니다.'
@@ -98,8 +93,6 @@ export async function POST(request: NextRequest) {
     }
 
     const calcDate = calculation_date || new Date().toISOString().split('T')[0];
-
-    console.log('🧮 [REVENUE-CALCULATE] 계산 시작:', { business_id, calcDate });
 
     // 1. 사업장 정보 조회
     const { data: businessInfo, error: businessError } = await supabaseAdmin
@@ -123,7 +116,7 @@ export async function POST(request: NextRequest) {
       .lte('effective_from', calcDate);
 
     if (pricingError) {
-      console.error('❌ [REVENUE-CALCULATE] 가격 정보 조회 오류:', pricingError);
+      console.error('가격 정보 조회 오류:', pricingError);
       return NextResponse.json({
         success: false,
         message: '가격 정보 조회에 실패했습니다.'
@@ -139,21 +132,16 @@ export async function POST(request: NextRequest) {
     // 2-1. 제조사별 원가 정보 조회
     let manufacturer = businessInfo.manufacturer;
 
-    // 제조사 정보가 없으면 기본값으로 '에코센스' 사용 및 업데이트
     if (!manufacturer || manufacturer.trim() === '') {
       manufacturer = '에코센스';
-      console.log(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name}: 제조사 정보 없음, 기본값 '에코센스' 사용`);
 
-      // business_info 테이블 업데이트 (다음번 계산을 위해)
       const { error: updateError } = await supabaseAdmin
         .from('business_info')
         .update({ manufacturer: '에코센스' })
         .eq('id', business_id);
 
       if (updateError) {
-        console.error('❌ [REVENUE-CALCULATE] 제조사 업데이트 오류:', updateError);
-      } else {
-        console.log(`✅ [REVENUE-CALCULATE] ${businessInfo.business_name}: 제조사를 '에코센스'로 업데이트 완료`);
+        console.error('제조사 업데이트 오류:', updateError);
       }
     }
 
@@ -166,7 +154,7 @@ export async function POST(request: NextRequest) {
       .or(`effective_to.is.null,effective_to.gte.${calcDate}`);
 
     if (mfgPricingError) {
-      console.error('❌ [REVENUE-CALCULATE] 제조사별 원가 조회 오류:', mfgPricingError);
+      console.error('제조사별 원가 조회 오류:', mfgPricingError);
       return NextResponse.json({
         success: false,
         message: '제조사별 원가 조회에 실패했습니다.'
@@ -188,7 +176,7 @@ export async function POST(request: NextRequest) {
       .or(`effective_to.is.null,effective_to.gte.${calcDate}`);
 
     if (installError) {
-      console.error('❌ [REVENUE-CALCULATE] 설치비 조회 오류:', installError);
+      console.error('설치비 조회 오류:', installError);
     }
 
     const installationCostMap = installationCosts?.reduce((acc, item) => {
@@ -205,7 +193,7 @@ export async function POST(request: NextRequest) {
       .lte('applied_date', calcDate);
 
     if (additionalError) {
-      console.error('❌ [REVENUE-CALCULATE] 추가 설치비 조회 오류:', additionalError);
+      console.error('추가 설치비 조회 오류:', additionalError);
     }
 
     // 사업장 추가 설치비를 맵으로 변환 (equipment_type별로 그룹화)
@@ -218,11 +206,8 @@ export async function POST(request: NextRequest) {
       return acc;
     }, {} as Record<string, number>) || {};
 
-    console.log(`🔧 [REVENUE-CALCULATE] 제조사: ${manufacturer}, 기기수: ${Object.keys(manufacturerCostMap).length}`);
-
-    // 원가 데이터가 없는 경우 경고
     if (Object.keys(manufacturerCostMap).length === 0) {
-      console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name}: 제조사 '${manufacturer}'의 원가 데이터가 없습니다. 매출 계산이 0이 될 수 있습니다.`);
+      console.warn(`제조사 '${manufacturer}'의 원가 데이터 없음:`, businessInfo.business_name);
     }
 
     // 3. 영업비용 설정 조회: 영업점별 + 제조사별 수수료율 우선
@@ -267,7 +252,6 @@ export async function POST(request: NextRequest) {
       commission_per_unit: null
     };
 
-    // 우선순위: 제조사별 수수료율 > 영업점별 설정 > 기본값
     let commissionSettings;
     if (commissionRate) {
       commissionSettings = {
@@ -275,13 +259,10 @@ export async function POST(request: NextRequest) {
         commission_percentage: commissionRate.commission_rate,
         commission_per_unit: null
       };
-      console.log(`✅ [COMMISSION] 제조사별 수수료율 적용: ${salesOffice} - ${manufacturer} → ${commissionRate.commission_rate}%`);
     } else if (salesSettings) {
       commissionSettings = salesSettings;
-      console.log(`✅ [COMMISSION] 영업점별 기본 설정 적용: ${salesOffice} → ${salesSettings.commission_percentage || salesSettings.commission_per_unit}${salesSettings.commission_type === 'percentage' ? '%' : '원/대'}`);
     } else {
       commissionSettings = defaultCommission;
-      console.log(`⚠️ [COMMISSION] 기본 설정 적용: 10%`);
     }
 
     // 4. 실사비용 설정 조회
@@ -357,7 +338,6 @@ export async function POST(request: NextRequest) {
           unitRevenue = officialPrice.official_price;
         } else {
           unitRevenue = DEFAULT_OFFICIAL_PRICES[field] || 0;
-          console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name} - ${field}: 환경부 고시가 없음 → 기본값 사용 (${unitRevenue.toLocaleString()}원)`);
         }
 
         // 제조사별 원가 (매입) - DB에서 조회, 없으면 기본값 사용
@@ -388,7 +368,6 @@ export async function POST(request: NextRequest) {
           unitCost = manufacturerCost.cost_price;
         } else {
           unitCost = DEFAULT_COSTS[field] || 0;
-          console.warn(`⚠️ [REVENUE-CALCULATE] ${businessInfo.business_name} - ${field}: ${manufacturer} 제조사 원가 없음 → 기본값 사용 (${unitCost.toLocaleString()}원)`);
         }
 
         // 설치비 = 기본 설치비 + 사업장 추가비(공통) + 사업장 추가비(기기별)
@@ -446,33 +425,19 @@ export async function POST(request: NextRequest) {
     // 7. 실사비용 계산 (실사일이 있는 경우에만 비용 추가)
     let baseSurveyCosts = 0;
 
-    // 견적실사 비용 (견적실사일이 있고 빈 문자열이 아닌 경우에만)
     if (businessInfo.estimate_survey_date && businessInfo.estimate_survey_date.trim() !== '') {
       baseSurveyCosts += surveyCostMap.estimate || 0;
-      console.log(`✅ [SURVEY-COST] 견적실사 비용 추가: ${surveyCostMap.estimate} (실사일: ${businessInfo.estimate_survey_date})`);
-    } else {
-      console.log(`⏭️ [SURVEY-COST] 견적실사 비용 제외 (실사일 없음)`);
     }
 
-    // 착공전실사 비용 (착공전실사일이 있고 빈 문자열이 아닌 경우에만)
     if (businessInfo.pre_construction_survey_date && businessInfo.pre_construction_survey_date.trim() !== '') {
       baseSurveyCosts += surveyCostMap.pre_construction || 0;
-      console.log(`✅ [SURVEY-COST] 착공전실사 비용 추가: ${surveyCostMap.pre_construction} (실사일: ${businessInfo.pre_construction_survey_date})`);
-    } else {
-      console.log(`⏭️ [SURVEY-COST] 착공전실사 비용 제외 (실사일 없음)`);
     }
 
-    // 준공실사 비용 (준공실사일이 있고 빈 문자열이 아닌 경우에만)
     if (businessInfo.completion_survey_date && businessInfo.completion_survey_date.trim() !== '') {
       baseSurveyCosts += surveyCostMap.completion || 0;
-      console.log(`✅ [SURVEY-COST] 준공실사 비용 추가: ${surveyCostMap.completion} (실사일: ${businessInfo.completion_survey_date})`);
-    } else {
-      console.log(`⏭️ [SURVEY-COST] 준공실사 비용 제외 (실사일 없음)`);
     }
 
     const totalSurveyCosts = baseSurveyCosts + totalAdjustments;
-
-    console.log(`💰 [SURVEY-COST] 총 실사비용: ${totalSurveyCosts} (기본: ${baseSurveyCosts}, 조정: ${totalAdjustments})`);
 
     // 8. 추가공사비 및 협의사항 반영
     const additionalCost = businessInfo.additional_cost || 0; // 추가공사비 (매출에 더하기)
@@ -484,27 +449,37 @@ export async function POST(request: NextRequest) {
     // 최종 매출 = 기본 매출 + 추가공사비 - 협의사항
     const adjustedRevenue = totalRevenue + additionalCost - negotiationDiscount;
 
-    // 추가설치비 (설치팀 요청 추가 비용)
     const installationExtraCost = businessInfo.installation_extra_cost || 0;
 
-    console.log(`💰 [REVENUE-CALCULATE] 매출 조정: 기본 ${totalRevenue} + 추가공사비 ${additionalCost} - 협의사항 ${negotiationDiscount} = ${adjustedRevenue}`);
-    console.log(`💰 [REVENUE-CALCULATE] 영업비용 계산 기준: 기본 ${totalRevenue} - 협의사항 ${negotiationDiscount} = ${commissionBaseRevenue} (추가공사비 제외)`);
-    console.log(`💰 [REVENUE-CALCULATE] 추가설치비: ${installationExtraCost}`);
-
-    // 9. 영업비용 계산 (추가공사비 제외, 협의사항 반영된 금액 기준)
     let salesCommission = 0;
     if (commissionSettings.commission_type === 'percentage') {
       salesCommission = commissionBaseRevenue * (commissionSettings.commission_percentage / 100);
-      console.log(`💰 [COMMISSION] 퍼센트 방식: ${commissionBaseRevenue} × ${commissionSettings.commission_percentage}% = ${salesCommission}`);
     } else {
       salesCommission = totalEquipmentCount * (commissionSettings.commission_per_unit || 0);
-      console.log(`💰 [COMMISSION] 대당 방식: ${totalEquipmentCount}대 × ${commissionSettings.commission_per_unit} = ${salesCommission}`);
+    }
+
+    // 9.1 영업비용 조정 값 조회 및 적용
+    const { data: operatingCostAdjustment } = await supabaseAdmin
+      .from('operating_cost_adjustments')
+      .select('*')
+      .eq('business_id', business_id)
+      .single();
+
+    let adjustedSalesCommission = salesCommission;
+    let hasAdjustment = false;
+    if (operatingCostAdjustment) {
+      hasAdjustment = true;
+      if (operatingCostAdjustment.adjustment_type === 'add') {
+        adjustedSalesCommission = salesCommission + operatingCostAdjustment.adjustment_amount;
+      } else {
+        adjustedSalesCommission = salesCommission - operatingCostAdjustment.adjustment_amount;
+      }
     }
 
     // 10. 최종 계산 (조정된 매출 기준)
-    // 순이익 = 매출 - 매입 - 추가설치비 - 영업비용 - 실사비용 - 설치비용
+    // 순이익 = 매출 - 매입 - 추가설치비 - 조정된 영업비용 - 실사비용 - 설치비용
     const grossProfit = adjustedRevenue - totalCost;
-    const netProfit = grossProfit - installationExtraCost - salesCommission - totalSurveyCosts - totalInstallationCosts;
+    const netProfit = grossProfit - installationExtraCost - adjustedSalesCommission - totalSurveyCosts - totalInstallationCosts;
 
     const result: RevenueCalculationResult = {
       business_id,
@@ -515,7 +490,7 @@ export async function POST(request: NextRequest) {
       total_cost: totalCost,
       installation_extra_cost: installationExtraCost,  // 추가설치비
       gross_profit: grossProfit,
-      sales_commission: salesCommission,
+      sales_commission: salesCommission, // 기본 영업비용 (조정 전)
       survey_costs: totalSurveyCosts,
       installation_costs: totalInstallationCosts,
       net_profit: netProfit,
@@ -534,13 +509,19 @@ export async function POST(request: NextRequest) {
           total: totalSurveyCosts
         },
         total_installation_costs: totalInstallationCosts
-      }
+      },
+      // 영업비용 조정 정보 (신규)
+      operating_cost_adjustment: operatingCostAdjustment || null,
+      adjusted_sales_commission: hasAdjustment ? adjustedSalesCommission : null
     };
 
-    // 10. 결과 저장 (옵션)
     let savedCalculation = null;
-    if (save_result && permissionLevel >= 3) {
-      // 가격 정보 스냅샷 생성 (계산 시점의 가격 정보 보존)
+
+    if (save_result) {
+      if (permissionLevel < 3) {
+        console.warn(`DB 저장 권한 부족 (권한 ${permissionLevel}, 필요: 3 이상)`);
+      } else {
+        // 가격 정보 스냅샷 생성 (계산 시점의 가격 정보 보존)
       const pricingSnapshot = {
         manufacturer,
         official_prices: officialPriceMap,
@@ -550,16 +531,18 @@ export async function POST(request: NextRequest) {
         calculation_date: calcDate
       };
 
+      // UPSERT: 같은 business_id + calculation_date 조합이 있으면 UPDATE, 없으면 INSERT
       const { data: saved, error: saveError } = await supabaseAdmin
         .from('revenue_calculations')
-        .insert({
+        .upsert({
           business_id,
           business_name: businessInfo.business_name,
           calculation_date: calcDate,
           total_revenue: adjustedRevenue, // 조정된 최종 매출
           total_cost: totalCost,
           gross_profit: grossProfit,
-          sales_commission: salesCommission,
+          sales_commission: salesCommission, // 기본 영업비용 (조정 전)
+          adjusted_sales_commission: hasAdjustment ? adjustedSalesCommission : null, // 조정이 있을 때만 저장, 없으면 null
           survey_costs: totalSurveyCosts,
           installation_costs: totalInstallationCosts,
           net_profit: netProfit,
@@ -568,24 +551,21 @@ export async function POST(request: NextRequest) {
           pricing_version_snapshot: pricingSnapshot,
           sales_office: salesOffice,
           business_category: businessInfo.category || null,
-          calculated_by: userId
+          calculated_by: userId,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'business_id,calculation_date'  // 중복 키 지정
         })
         .select()
         .single();
 
       if (saveError) {
-        console.error('❌ [REVENUE-CALCULATE] 저장 오류:', saveError);
+        console.error('매출 계산 저장 오류:', saveError);
       } else {
         savedCalculation = saved;
-        console.log('💾 [REVENUE-CALCULATE] 계산 결과 저장 완료');
+      }
       }
     }
-
-    console.log(`✅ [REVENUE-CALCULATE] 계산 완료:`, {
-      business_name: businessInfo.business_name,
-      total_revenue: totalRevenue,
-      net_profit: netProfit
-    });
 
     return NextResponse.json({
       success: true,
@@ -602,7 +582,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ [REVENUE-CALCULATE] API 오류:', error);
+    console.error('매출 계산 API 오류:', error);
     return NextResponse.json({
       success: false,
       message: '서버 오류가 발생했습니다.'
@@ -610,7 +590,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 저장된 계산 결과 조회
 export async function GET(request: NextRequest) {
   try {
     // JWT 토큰 검증 (헤더 또는 쿠키)
@@ -628,7 +607,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (!token) {
-      console.log('❌ [REVENUE-CALCULATE-GET] 토큰 없음 (헤더/쿠키 모두 없음)');
       return NextResponse.json({
         success: false,
         message: '인증이 필요합니다.'
@@ -638,30 +616,23 @@ export async function GET(request: NextRequest) {
     const decoded = verifyTokenString(token);
 
     if (!decoded) {
-      console.log('❌ [REVENUE-CALCULATE-GET] 토큰 검증 실패');
       return NextResponse.json({
         success: false,
         message: '유효하지 않은 토큰입니다.'
       }, { status: 401 });
     }
 
-    // 사용자 ID 추출
     const userId = decoded.userId || decoded.id;
     if (!userId) {
-      console.log('❌ [REVENUE-CALCULATE-GET] 사용자 ID 없음');
       return NextResponse.json({
         success: false,
         message: '토큰에 사용자 정보가 없습니다.'
       }, { status: 401 });
     }
 
-    console.log('✅ [REVENUE-CALCULATE-GET] 인증 성공:', { userId });
-
-    // 권한 레벨 확인 - JWT에 없으면 DB에서 조회
     let permissionLevel = decoded.permissionLevel || decoded.permission_level;
 
     if (!permissionLevel) {
-      console.log('🔍 [REVENUE-CALCULATE-GET] JWT에 권한 정보 없음, DB에서 조회:', userId);
       const { data: user, error: userError } = await supabaseAdmin
         .from('employees')
         .select('id, permission_level')
@@ -670,7 +641,7 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (userError || !user) {
-        console.error('❌ [REVENUE-CALCULATE-GET] 사용자 조회 실패:', userError);
+        console.error('사용자 조회 실패:', userError);
         return NextResponse.json({
           success: false,
           message: '사용자를 찾을 수 없습니다.'
@@ -678,7 +649,6 @@ export async function GET(request: NextRequest) {
       }
 
       permissionLevel = user.permission_level;
-      console.log('✅ [REVENUE-CALCULATE-GET] DB에서 권한 조회 완료:', { userId, permissionLevel });
     }
 
     // 권한 1 이상 확인
@@ -724,18 +694,15 @@ export async function GET(request: NextRequest) {
     const { data: calculations, error } = await query;
 
     if (error) {
-      console.error('❌ [REVENUE-CALCULATE] 조회 오류:', error);
+      console.error('매출 계산 조회 오류:', error);
       return NextResponse.json({
         success: false,
         message: '계산 결과 조회에 실패했습니다.'
       }, { status: 500 });
     }
 
-    // 집계 정보 계산
     const totalRevenue = calculations?.reduce((sum, calc) => sum + (calc.total_revenue || 0), 0) || 0;
     const totalProfit = calculations?.reduce((sum, calc) => sum + (calc.net_profit || 0), 0) || 0;
-
-    console.log(`📊 [REVENUE-CALCULATE] 조회 완료: ${calculations?.length || 0}건`);
 
     return NextResponse.json({
       success: true,
@@ -756,7 +723,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ [REVENUE-CALCULATE] API 오류:', error);
+    console.error('매출 계산 GET 오류:', error);
     return NextResponse.json({
       success: false,
       message: '서버 오류가 발생했습니다.'

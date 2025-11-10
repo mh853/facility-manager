@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { InvoiceDisplay } from './InvoiceDisplay';
 import { TokenManager } from '@/lib/api-client';
+import type { CalculatedData, OperatingCostAdjustment } from '@/types';
 
 interface BusinessRevenueModalProps {
   business: any;
@@ -11,31 +12,6 @@ interface BusinessRevenueModalProps {
   userPermission: number;
 }
 
-interface EquipmentBreakdownItem {
-  equipment_type: string;
-  equipment_name: string;
-  quantity: number;
-  unit_official_price: number;
-  unit_manufacturer_price: number;
-  unit_installation_cost: number;
-  total_revenue: number;
-  total_cost: number;
-  total_installation: number;
-  profit: number;
-}
-
-interface CalculatedData {
-  total_revenue: number;
-  total_cost: number;
-  gross_profit: number;
-  sales_commission: number;
-  survey_costs: number;
-  installation_costs: number;
-  additional_installation_revenue: number;
-  net_profit: number;
-  has_calculation: boolean;
-  equipment_breakdown?: EquipmentBreakdownItem[];
-}
 
 export default function BusinessRevenueModal({
   business,
@@ -47,7 +23,17 @@ export default function BusinessRevenueModal({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 영업비용 조정 상태
+  const [isEditingAdjustment, setIsEditingAdjustment] = useState(false);
+  const [adjustmentForm, setAdjustmentForm] = useState({
+    amount: 0,
+    type: 'add' as 'add' | 'subtract',
+    reason: ''
+  });
+  const [isSavingAdjustment, setIsSavingAdjustment] = useState(false);
+
   // API에서 최신 계산 결과 가져오기 (Hook은 항상 최상위에서 호출)
+  // ⚠️ 중요: isOpen이 true로 변경될 때만 실행 (모달 열릴 때만)
   useEffect(() => {
     // 조건 체크는 Hook 내부에서 수행
     if (!isOpen || !business || !business.id) {
@@ -68,18 +54,15 @@ export default function BusinessRevenueModal({
           },
           body: JSON.stringify({
             business_id: business.id,
-            save_result: false // 조회만 하고 저장하지 않음
+            save_result: false
           })
         });
 
         const data = await response.json();
-        console.log('🔍 [BusinessRevenueModal] API 응답:', data);
 
         if (data.success && data.data && data.data.calculation) {
-          console.log('✅ [BusinessRevenueModal] calculatedData 설정:', data.data.calculation);
           setCalculatedData(data.data.calculation);
         } else {
-          console.error('❌ [BusinessRevenueModal] 응답 실패:', data.message);
           setError(data.message || '계산 결과를 가져올 수 없습니다.');
         }
       } catch (err) {
@@ -91,7 +74,145 @@ export default function BusinessRevenueModal({
     };
 
     fetchLatestCalculation();
-  }, [isOpen, business?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); // ⚠️ business.id 제거: 모달이 열릴 때만 실행하도록 수정
+
+  // 영업비용 조정 값 로드 (기존 조정이 있으면 폼에 채우기)
+  useEffect(() => {
+    if (calculatedData?.operating_cost_adjustment) {
+      const adj = calculatedData.operating_cost_adjustment;
+      setAdjustmentForm({
+        amount: adj.adjustment_amount,
+        type: adj.adjustment_type,
+        reason: adj.adjustment_reason || ''
+      });
+    } else {
+      // 조정이 없으면 폼 초기화
+      setAdjustmentForm({ amount: 0, type: 'add', reason: '' });
+    }
+  }, [calculatedData?.operating_cost_adjustment]);
+
+  // 영업비용 조정 저장 핸들러
+  const handleSaveAdjustment = async () => {
+    if (!business?.id) return;
+
+    // 금액 유효성 검증
+    if (adjustmentForm.amount <= 0) {
+      alert('조정 금액은 0보다 커야 합니다.');
+      return;
+    }
+
+    setIsSavingAdjustment(true);
+    try {
+      const token = TokenManager.getToken();
+      const url = '/api/revenue/operating-cost-adjustment';
+      const hasExisting = calculatedData?.operating_cost_adjustment;
+      const method = hasExisting ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          business_id: business.id,
+          adjustment_amount: adjustmentForm.amount,
+          adjustment_type: adjustmentForm.type,
+          adjustment_reason: adjustmentForm.reason || undefined
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const calcResponse = await fetch('/api/revenue/calculate', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            business_id: business.id,
+            save_result: true
+          })
+        });
+
+        const calcData = await calcResponse.json();
+
+        if (calcData.success && calcData.data && calcData.data.calculation) {
+          setCalculatedData(calcData.data.calculation);
+        } else {
+          alert('조정은 저장되었으나 매출 재계산에 실패했습니다. 페이지를 새로고침해주세요.');
+        }
+
+        setIsEditingAdjustment(false);
+        alert('영업비용 조정이 저장되었습니다.');
+      } else {
+        alert(data.message || '조정 저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('영업비용 조정 저장 오류:', error);
+      alert('조정 저장 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
+    } finally {
+      setIsSavingAdjustment(false);
+    }
+  };
+
+  // 영업비용 조정 삭제 핸들러
+  const handleDeleteAdjustment = async () => {
+    if (!business?.id || !calculatedData?.operating_cost_adjustment) {
+      return;
+    }
+
+    if (!confirm('영업비용 조정을 삭제하시겠습니까?\n\n삭제 후 영업비용은 기본 계산 방식으로 돌아갑니다.')) return;
+
+    setIsSavingAdjustment(true);
+    try {
+      const token = TokenManager.getToken();
+      const response = await fetch(`/api/revenue/operating-cost-adjustment?business_id=${business.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const calcResponse = await fetch('/api/revenue/calculate', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            business_id: business.id,
+            save_result: true
+          })
+        });
+
+        const calcData = await calcResponse.json();
+
+        if (calcData.success && calcData.data && calcData.data.calculation) {
+          setCalculatedData(calcData.data.calculation);
+        } else {
+          alert('조정은 삭제되었으나 매출 재계산에 실패했습니다. 페이지를 새로고침해주세요.');
+        }
+
+        setAdjustmentForm({ amount: 0, type: 'add', reason: '' });
+        setIsEditingAdjustment(false);
+        alert('영업비용 조정이 삭제되었습니다.');
+      } else {
+        alert(data.message || '조정 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('영업비용 조정 삭제 오류:', error);
+      alert('조정 삭제 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
+    } finally {
+      setIsSavingAdjustment(false);
+    }
+  };
 
   const formatCurrency = (amount: number | string | undefined) => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : (amount || 0);
@@ -99,6 +220,7 @@ export default function BusinessRevenueModal({
   };
 
   const isReadOnly = userPermission < 2;
+  const canEditAdjustment = userPermission >= 3;
 
   // 모달이 닫혀있거나 business 데이터가 없으면 null 반환 (JSX 조건부 렌더링)
   if (!isOpen || !business) {
@@ -192,6 +314,102 @@ export default function BusinessRevenueModal({
                 <span className="ml-2 text-sm text-gray-900">{business.address || business.주소}</span>
               </div>
             )}
+          </div>
+
+          {/* 설치 기기 목록 */}
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">설치 기기 목록</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-300">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-300 px-4 py-2 text-left">기기명</th>
+                    <th className="border border-gray-300 px-4 py-2 text-center">수량</th>
+                    <th className="border border-gray-300 px-4 py-2 text-right">매출단가</th>
+                    <th className="border border-gray-300 px-4 py-2 text-right">매입단가</th>
+                    <th className="border border-gray-300 px-4 py-2 text-right">매출합계</th>
+                    <th className="border border-gray-300 px-4 py-2 text-right">매입합계</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    // API에서 받은 equipment_breakdown 사용
+                    const equipmentBreakdown = displayData.equipment_breakdown || [];
+
+                    if (equipmentBreakdown.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={6} className="border border-gray-300 px-4 py-6 text-center text-gray-500">
+                            등록된 기기 정보가 없습니다.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    const totalRevenue = equipmentBreakdown.reduce((sum, item) => sum + (item.total_revenue || 0), 0);
+                    const totalCost = equipmentBreakdown.reduce((sum, item) => sum + (item.total_cost || 0), 0);
+
+                    return (
+                      <>
+                        {equipmentBreakdown.map((item: any) => (
+                          <tr key={item.equipment_type} className="hover:bg-gray-50">
+                            <td className="border border-gray-300 px-4 py-2">{item.equipment_name}</td>
+                            <td className="border border-gray-300 px-4 py-2 text-center font-medium">{item.quantity}대</td>
+                            <td className="border border-gray-300 px-4 py-2 text-right font-mono">
+                              {item.unit_official_price.toLocaleString()}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-2 text-right font-mono text-red-600">
+                              {item.unit_manufacturer_price.toLocaleString()}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-2 text-right font-mono font-medium">
+                              {item.total_revenue.toLocaleString()}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-2 text-right font-mono font-medium text-red-600">
+                              {item.total_cost.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-blue-50 font-bold">
+                          <td className="border border-gray-300 px-4 py-2" colSpan={4}>합계</td>
+                          <td className="border border-gray-300 px-4 py-2 text-right font-mono text-blue-600">
+                            {totalRevenue.toLocaleString()}원
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2 text-right font-mono text-red-600">
+                            {totalCost.toLocaleString()}원
+                          </td>
+                        </tr>
+                      </>
+                    );
+                  })()}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              * 매출단가는 환경부 고시가, 매입단가는 제조사별 원가가 적용됩니다. {calculatedData ? '최신 DB 가격이 적용되었습니다.' : '저장된 계산 결과입니다.'}
+            </p>
+          </div>
+
+          {/* 추가 비용 정보 */}
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">추가 비용 정보</h4>
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-gray-200">
+                <span className="text-sm font-medium text-gray-700">추가공사비</span>
+                <span className="text-base font-semibold text-green-700">
+                  {business.additional_cost
+                    ? `+${formatCurrency(business.additional_cost)}`
+                    : '₩0'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm font-medium text-gray-700">협의사항 (할인 금액)</span>
+                <span className="text-base font-semibold text-red-700">
+                  {business.negotiation
+                    ? `-${formatCurrency(business.negotiation)}`
+                    : '₩0'}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* 매출/매입/이익 정보 */}
@@ -300,102 +518,6 @@ export default function BusinessRevenueModal({
             </div>
           </>
 
-          {/* 설치 기기 목록 */}
-          <div>
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">설치 기기 목록</h4>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-300">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-300 px-4 py-2 text-left">기기명</th>
-                    <th className="border border-gray-300 px-4 py-2 text-center">수량</th>
-                    <th className="border border-gray-300 px-4 py-2 text-right">매출단가</th>
-                    <th className="border border-gray-300 px-4 py-2 text-right">매입단가</th>
-                    <th className="border border-gray-300 px-4 py-2 text-right">매출합계</th>
-                    <th className="border border-gray-300 px-4 py-2 text-right">매입합계</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    // API에서 받은 equipment_breakdown 사용
-                    const equipmentBreakdown = displayData.equipment_breakdown || [];
-
-                    if (equipmentBreakdown.length === 0) {
-                      return (
-                        <tr>
-                          <td colSpan={6} className="border border-gray-300 px-4 py-6 text-center text-gray-500">
-                            등록된 기기 정보가 없습니다.
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    const totalRevenue = equipmentBreakdown.reduce((sum, item) => sum + (item.total_revenue || 0), 0);
-                    const totalCost = equipmentBreakdown.reduce((sum, item) => sum + (item.total_cost || 0), 0);
-
-                    return (
-                      <>
-                        {equipmentBreakdown.map((item: any) => (
-                          <tr key={item.equipment_type} className="hover:bg-gray-50">
-                            <td className="border border-gray-300 px-4 py-2">{item.equipment_name}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center font-medium">{item.quantity}대</td>
-                            <td className="border border-gray-300 px-4 py-2 text-right font-mono">
-                              {item.unit_official_price.toLocaleString()}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-right font-mono text-red-600">
-                              {item.unit_manufacturer_price.toLocaleString()}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-right font-mono font-medium">
-                              {item.total_revenue.toLocaleString()}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-right font-mono font-medium text-red-600">
-                              {item.total_cost.toLocaleString()}
-                            </td>
-                          </tr>
-                        ))}
-                        <tr className="bg-blue-50 font-bold">
-                          <td className="border border-gray-300 px-4 py-2" colSpan={4}>합계</td>
-                          <td className="border border-gray-300 px-4 py-2 text-right font-mono text-blue-600">
-                            {totalRevenue.toLocaleString()}원
-                          </td>
-                          <td className="border border-gray-300 px-4 py-2 text-right font-mono text-red-600">
-                            {totalCost.toLocaleString()}원
-                          </td>
-                        </tr>
-                      </>
-                    );
-                  })()}
-                </tbody>
-              </table>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              * 매출단가는 환경부 고시가, 매입단가는 제조사별 원가가 적용됩니다. {calculatedData ? '최신 DB 가격이 적용되었습니다.' : '저장된 계산 결과입니다.'}
-            </p>
-          </div>
-
-          {/* 추가 비용 정보 */}
-          <div className="mt-6">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">추가 비용 정보</h4>
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between py-2 border-b border-gray-200">
-                <span className="text-sm font-medium text-gray-700">추가공사비</span>
-                <span className="text-base font-semibold text-green-700">
-                  {business.additional_cost
-                    ? `+${formatCurrency(business.additional_cost)}`
-                    : '₩0'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm font-medium text-gray-700">협의사항 (할인 금액)</span>
-                <span className="text-base font-semibold text-red-700">
-                  {business.negotiation
-                    ? `-${formatCurrency(business.negotiation)}`
-                    : '₩0'}
-                </span>
-              </div>
-            </div>
-          </div>
-
           {/* 비용 상세 내역 */}
           <div className="mt-6">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">💰 비용 상세 내역</h4>
@@ -405,16 +527,138 @@ export default function BusinessRevenueModal({
                 <div className="bg-white rounded-lg p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-600">💼 영업비용</span>
-                    <span className="text-xs text-gray-500">
-                      {business.sales_office || '미배정'} 영업점
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {displayData.operating_cost_adjustment && (
+                        <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full">
+                          조정됨
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-500">
+                        {business.sales_office || '미배정'} 영업점
+                      </span>
+                    </div>
                   </div>
                   <p className="text-xl font-bold text-orange-700">
-                    {formatCurrency(displayData.sales_commission)}
+                    {formatCurrency(displayData.adjusted_sales_commission || displayData.sales_commission)}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {calculatedData ? '최신 계산 적용' : '저장된 값'}
-                  </p>
+                  {displayData.operating_cost_adjustment ? (
+                    <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                      <div>기본: {formatCurrency(displayData.sales_commission)}</div>
+                      <div className={displayData.operating_cost_adjustment.adjustment_type === 'add' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                        {displayData.operating_cost_adjustment.adjustment_type === 'add' ? '+ ' : '- '}
+                        {formatCurrency(displayData.operating_cost_adjustment.adjustment_amount)}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {calculatedData ? '최신 계산 적용' : '저장된 값'}
+                    </p>
+                  )}
+                </div>
+
+                {/* 영업비용 조정 카드 */}
+                <div className="bg-yellow-50 rounded-lg p-4 shadow-sm border-2 border-yellow-300">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-600">⚙️ 영업비용 조정</span>
+                    {!isEditingAdjustment && canEditAdjustment && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setIsEditingAdjustment(true)}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          {displayData.operating_cost_adjustment ? '수정' : '추가'}
+                        </button>
+                        {displayData.operating_cost_adjustment && (
+                          <button
+                            onClick={handleDeleteAdjustment}
+                            disabled={isSavingAdjustment}
+                            className="text-xs text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
+                          >
+                            삭제
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {isEditingAdjustment && canEditAdjustment ? (
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        placeholder="조정 금액"
+                        value={adjustmentForm.amount || ''}
+                        onChange={(e) => setAdjustmentForm({...adjustmentForm, amount: Number(e.target.value)})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                        min="0"
+                      />
+                      <select
+                        value={adjustmentForm.type}
+                        onChange={(e) => setAdjustmentForm({...adjustmentForm, type: e.target.value as 'add' | 'subtract'})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      >
+                        <option value="add">추가 (+)</option>
+                        <option value="subtract">차감 (-)</option>
+                      </select>
+                      <textarea
+                        placeholder="조정 사유 (선택)"
+                        value={adjustmentForm.reason}
+                        onChange={(e) => setAdjustmentForm({...adjustmentForm, reason: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                        rows={2}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleSaveAdjustment}
+                          disabled={isSavingAdjustment || adjustmentForm.amount <= 0}
+                          className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                        >
+                          {isSavingAdjustment ? '저장 중...' : '저장'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsEditingAdjustment(false);
+                            // 기존 값으로 복원
+                            if (displayData.operating_cost_adjustment) {
+                              setAdjustmentForm({
+                                amount: displayData.operating_cost_adjustment.adjustment_amount,
+                                type: displayData.operating_cost_adjustment.adjustment_type,
+                                reason: displayData.operating_cost_adjustment.adjustment_reason || ''
+                              });
+                            } else {
+                              setAdjustmentForm({ amount: 0, type: 'add', reason: '' });
+                            }
+                          }}
+                          disabled={isSavingAdjustment}
+                          className="flex-1 px-3 py-2 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400 disabled:opacity-50 font-medium"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      {displayData.operating_cost_adjustment ? (
+                        <>
+                          <p className="text-xl font-bold text-yellow-700">
+                            {displayData.operating_cost_adjustment.adjustment_type === 'add' ? '+' : '-'}
+                            {formatCurrency(displayData.operating_cost_adjustment.adjustment_amount)}
+                          </p>
+                          {displayData.operating_cost_adjustment.adjustment_reason && (
+                            <p className="text-xs text-gray-600 mt-1 italic">
+                              사유: {displayData.operating_cost_adjustment.adjustment_reason}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-500">조정 없음</p>
+                      )}
+                      {!canEditAdjustment && (
+                        <p className="text-xs text-gray-400 mt-2">
+                          ℹ️ 권한 레벨 3 이상만 수정 가능합니다
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 실사비용 */}
@@ -450,13 +694,13 @@ export default function BusinessRevenueModal({
                   </div>
                   <p className="text-xl font-bold">
                     {formatCurrency(
-                      displayData.sales_commission +
+                      (displayData.adjusted_sales_commission || displayData.sales_commission) +
                       displayData.survey_costs +
                       displayData.installation_costs
                     )}
                   </p>
                   <p className="text-xs opacity-80 mt-1">
-                    영업비용 + 실사비용 + 기본설치비
+                    {displayData.operating_cost_adjustment ? '조정된 영업비용' : '영업비용'} + 실사비용 + 기본설치비
                   </p>
                 </div>
               </div>
@@ -479,8 +723,17 @@ export default function BusinessRevenueModal({
                   </div>
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 영업비용</span>
-                    <span className="font-bold text-orange-700">-{formatCurrency(displayData.sales_commission)}</span>
+                    <span className="font-bold text-orange-700">
+                      -{formatCurrency(displayData.adjusted_sales_commission || displayData.sales_commission)}
+                    </span>
                   </div>
+                  {displayData.operating_cost_adjustment && (
+                    <div className="text-xs text-yellow-600 pl-4 -mt-1 mb-2">
+                      (기본 {formatCurrency(displayData.sales_commission)}
+                      {displayData.operating_cost_adjustment.adjustment_type === 'add' ? ' + ' : ' - '}
+                      {formatCurrency(displayData.operating_cost_adjustment.adjustment_amount)})
+                    </div>
+                  )}
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 실사비용</span>
                     <span className="font-bold text-purple-700">-{formatCurrency(displayData.survey_costs)}</span>
