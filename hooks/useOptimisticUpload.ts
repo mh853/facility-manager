@@ -3,6 +3,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { uploadWithProgress, uploadMultipleWithProgress, createImagePreview, UploadProgress } from '@/utils/upload-with-progress';
+import { uploadToSupabaseStorage } from '@/utils/supabase-direct-upload';
 import { useOptimisticUpdates } from '@/utils/optimistic-updates';
 
 export interface OptimisticPhoto {
@@ -191,39 +192,60 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
     // 병렬 업로드 실행
     const uploadPromises = batch.map(async (photo, index) => {
       try {
-        const response = await uploadWithProgress(
+        // additionalDataFactory에서 업로드 옵션 추출
+        const additionalData = additionalDataFactory(photo.file, index);
+
+        // Supabase Storage 직접 업로드 (Progressive Compression 자동 적용)
+        const response = await uploadToSupabaseStorage(
           photo.file,
-          additionalDataFactory(photo.file, index),
           {
-            onProgress: (progress) => {
-              updatePhoto(photo.id, { 
-                progress: progress.percent 
+            businessName: additionalData.businessName,
+            systemType: (additionalData.systemType as 'presurvey' | 'completion') || 'completion',
+            fileType: (additionalData.category as 'basic' | 'discharge' | 'prevention') || 'basic',
+            facilityInfo: additionalData.facilityInfo,
+            facilityId: additionalData.facilityId,
+            facilityNumber: additionalData.facilityNumber,
+            onProgress: (percent) => {
+              updatePhoto(photo.id, {
+                progress: percent
               });
-            },
-            signal: photo.abortController?.signal
+            }
           }
         );
+
+        // 응답 형식을 기존 시스템과 호환되도록 변환
+        const compatibleResponse = {
+          success: response.success,
+          files: response.success ? [{
+            id: response.fileId,
+            name: photo.file.name,
+            publicUrl: response.publicUrl,
+            filePath: response.filePath,
+            justUploaded: true
+          }] : [],
+          error: response.error
+        };
         
         // 🚀 ENHANCED: 즉시 UI 업데이트 + 백그라운드 동기화
-        
+
         // 1단계: 즉시 업로드 완료 상태로 UI 업데이트
         updatePhoto(photo.id, {
           status: 'uploaded',
           progress: 100,
-          uploadedData: response,
+          uploadedData: compatibleResponse,
           endTime: Date.now(),
           error: undefined
         });
-        
-        console.log(`⚡ [INSTANT-UI-UPDATE] ${photo.file.name} 즉시 UI 업데이트 완료`);
-        
+
+        console.log(`⚡ [INSTANT-UI-UPDATE] ${photo.file.name} Supabase 직접 업로드 완료`);
+
         // 2단계: 백그라운드에서 FileContext 동기화
-        if (response.files && response.files.length > 0) {
+        if (compatibleResponse.files && compatibleResponse.files.length > 0) {
           // 즉시 동기화 시도
           try {
             const fileContextEvent = new CustomEvent('progressiveUploadComplete', {
               detail: {
-                uploadedFiles: response.files,
+                uploadedFiles: compatibleResponse.files,
                 photoId: photo.id,
                 instant: true // 즉시 처리 플래그
               }
@@ -233,13 +255,13 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
           } catch (error) {
             console.warn('⚠️ [BACKGROUND-SYNC] 백그라운드 동기화 실패:', error);
           }
-          
+
           // 3단계: 안전을 위한 지연된 재동기화 (UI는 이미 업데이트됨)
           setTimeout(() => {
             try {
               const retryEvent = new CustomEvent('progressiveUploadComplete', {
                 detail: {
-                  uploadedFiles: response.files,
+                  uploadedFiles: compatibleResponse.files,
                   photoId: photo.id,
                   retry: true
                 }
@@ -251,8 +273,8 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
             }
           }, 1000); // 3초에서 1초로 단축
         }
-        
-        return { photo, response, error: null };
+
+        return { photo, response: compatibleResponse, error: null };
         
       } catch (error) {
         const uploadError = error instanceof Error ? error : new Error(String(error));
