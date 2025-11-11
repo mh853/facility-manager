@@ -2570,6 +2570,7 @@ function BusinessManagementPage() {
 
         // 비용 정보 필드들
         additional_cost: freshData.additional_cost,
+        installation_extra_cost: freshData.installation_extra_cost,  // 추가설치비 (설치팀 요청 추가 비용)
         multiple_stack_cost: freshData.multiple_stack_cost,
         expansion_pack: freshData.expansion_pack,
         other_equipment: freshData.other_equipment,

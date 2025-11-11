@@ -228,14 +228,17 @@ export default function BusinessRevenueModal({
   }
 
   // 표시할 데이터: API 계산 결과 우선, 없으면 기존 business 객체 사용
-  const displayData = calculatedData || {
+  const displayData = calculatedData ? {
+    ...calculatedData,
+    additional_installation_revenue: Number(calculatedData.installation_extra_cost) || 0
+  } : {
     total_revenue: business.total_revenue || 0,
     total_cost: business.total_cost || 0,
     gross_profit: business.gross_profit || 0,
     sales_commission: business.sales_commission || 0,
     survey_costs: business.survey_costs || 0,
     installation_costs: business.installation_costs || 0,
-    additional_installation_revenue: business.additional_installation_revenue || 0,
+    additional_installation_revenue: Number(business.installation_extra_cost) || Number(business.additional_installation_revenue) || 0,
     net_profit: business.net_profit || 0,
     has_calculation: false
   };
@@ -443,19 +446,8 @@ export default function BusinessRevenueModal({
               </div>
             </div>
 
-            {/* 추가설치비 (매출에 포함) */}
-            {displayData.additional_installation_revenue > 0 && (
-              <div className="bg-cyan-50 rounded-lg p-4">
-                <p className="text-xs font-medium text-cyan-600 mb-1">추가설치비 (매출 포함)</p>
-                <p className="text-lg font-bold text-cyan-700">
-                  {formatCurrency(displayData.additional_installation_revenue)}
-                </p>
-                <p className="text-xs text-cyan-600 mt-1">설치팀 추가 수입 (매출에 반영됨)</p>
-              </div>
-            )}
-
             {/* 추가공사비 및 협의사항 */}
-            {(business.additional_cost || business.negotiation) && (
+            {(business.additional_cost || business.negotiation) ? (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <h5 className="text-sm font-semibold text-gray-800 mb-3">매출 조정 내역</h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -477,7 +469,7 @@ export default function BusinessRevenueModal({
                   )}
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* 매출 계산식 */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -487,8 +479,7 @@ export default function BusinessRevenueModal({
                   <span>기본 매출 (기기 합계)</span>
                   <span className="font-mono">{formatCurrency(
                     displayData.total_revenue -
-                    (business.additional_cost || 0) -
-                    (displayData.additional_installation_revenue || 0) +
+                    (business.additional_cost || 0) +
                     (business.negotiation || 0)
                   )}</span>
                 </div>
@@ -496,12 +487,6 @@ export default function BusinessRevenueModal({
                   <div className="flex items-center justify-between text-green-700">
                     <span>+ 추가공사비</span>
                     <span className="font-mono">+{formatCurrency(business.additional_cost)}</span>
-                  </div>
-                )}
-                {displayData.additional_installation_revenue > 0 && (
-                  <div className="flex items-center justify-between text-cyan-700">
-                    <span>+ 추가설치비</span>
-                    <span className="font-mono">+{formatCurrency(displayData.additional_installation_revenue)}</span>
                   </div>
                 )}
                 {business.negotiation > 0 && (
@@ -677,13 +662,21 @@ export default function BusinessRevenueModal({
                 {/* 설치비 */}
                 <div className="bg-white rounded-lg p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-600">🔧 기본 설치비</span>
+                    <span className="text-sm font-medium text-gray-600">🔧 총 설치비</span>
                   </div>
                   <p className="text-xl font-bold text-cyan-700">
-                    {formatCurrency(displayData.installation_costs)}
+                    {(() => {
+                      const total = (displayData.installation_costs || 0) + (displayData.additional_installation_revenue || 0);
+                      console.log('🔧 총 설치비 계산:', {
+                        installation_costs: displayData.installation_costs,
+                        additional_installation_revenue: displayData.additional_installation_revenue,
+                        total: total
+                      });
+                      return formatCurrency(total);
+                    })()}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    기기별 기본 설치비 합계
+                    기본 설치비 + 추가설치비
                   </p>
                 </div>
 
@@ -693,14 +686,23 @@ export default function BusinessRevenueModal({
                     <span className="text-sm font-medium">📊 총 비용 합계</span>
                   </div>
                   <p className="text-xl font-bold">
-                    {formatCurrency(
-                      (displayData.adjusted_sales_commission || displayData.sales_commission) +
-                      displayData.survey_costs +
-                      displayData.installation_costs
-                    )}
+                    {(() => {
+                      const total = (displayData.adjusted_sales_commission || displayData.sales_commission || 0) +
+                        (displayData.survey_costs || 0) +
+                        (displayData.installation_costs || 0) +
+                        (displayData.additional_installation_revenue || 0);
+                      console.log('📊 총 비용 합계 계산:', {
+                        sales_commission: displayData.adjusted_sales_commission || displayData.sales_commission,
+                        survey_costs: displayData.survey_costs,
+                        installation_costs: displayData.installation_costs,
+                        additional_installation_revenue: displayData.additional_installation_revenue,
+                        total: total
+                      });
+                      return formatCurrency(total);
+                    })()}
                   </p>
                   <p className="text-xs opacity-80 mt-1">
-                    {displayData.operating_cost_adjustment ? '조정된 영업비용' : '영업비용'} + 실사비용 + 기본설치비
+                    {displayData.operating_cost_adjustment ? '조정된 영업비용' : '영업비용'} + 실사비용 + 총설치비
                   </p>
                 </div>
               </div>
@@ -742,6 +744,12 @@ export default function BusinessRevenueModal({
                     <span>- 기본설치비</span>
                     <span className="font-bold text-cyan-700">-{formatCurrency(displayData.installation_costs)}</span>
                   </div>
+                  {displayData.additional_installation_revenue > 0 && (
+                    <div className="flex justify-between border-b border-gray-200 pb-2">
+                      <span>- 추가설치비</span>
+                      <span className="font-bold text-orange-700">-{formatCurrency(displayData.additional_installation_revenue)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between border-t-2 border-blue-400 pt-3">
                     <span className="font-bold text-lg">= 순이익</span>
                     <span className={`font-bold text-lg ${displayData.net_profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>

@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 데이터 조회 (히스토리 용)
+    // 기존 활성 데이터 조회 (히스토리 용)
     const { data: existingData } = await supabaseAdmin
       .from('sales_office_cost_settings')
       .select('*')
@@ -214,8 +214,8 @@ export async function POST(request: NextRequest) {
       .eq('is_active', true)
       .single();
 
-    // 새 데이터 삽입
-    const insertData = {
+    // 새 데이터 삽입 또는 업데이트 (UPSERT)
+    const upsertData = {
       sales_office,
       commission_type,
       commission_percentage: commission_type === 'percentage' ? commission_percentage : null,
@@ -228,7 +228,10 @@ export async function POST(request: NextRequest) {
 
     const { data: newSettings, error: insertError } = await supabaseAdmin
       .from('sales_office_cost_settings')
-      .insert(insertData)
+      .upsert(upsertData, {
+        onConflict: 'sales_office,effective_from',
+        ignoreDuplicates: false
+      })
       .select()
       .single();
 
@@ -240,8 +243,9 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // 기존 데이터가 있다면 비활성화
-    if (existingData) {
+    // 기존 활성 데이터가 있고, 새로 생성/수정된 레코드와 다른 경우에만 비활성화
+    // (UPSERT로 같은 레코드를 업데이트한 경우 비활성화하지 않음)
+    if (existingData && existingData.id !== newSettings.id) {
       await supabaseAdmin
         .from('sales_office_cost_settings')
         .update({
@@ -499,7 +503,7 @@ export async function PUT(request: NextRequest) {
           effective_from
         } = setting;
 
-        // 기존 데이터 조회
+        // 기존 활성 데이터 조회
         const { data: existingData } = await supabaseAdmin
           .from('sales_office_cost_settings')
           .select('*')
@@ -507,8 +511,8 @@ export async function PUT(request: NextRequest) {
           .eq('is_active', true)
           .single();
 
-        // 새 데이터 삽입
-        const insertData = {
+        // 새 데이터 삽입 또는 업데이트 (UPSERT)
+        const upsertData = {
           sales_office,
           commission_type,
           commission_percentage: commission_type === 'percentage' ? commission_percentage : null,
@@ -520,7 +524,10 @@ export async function PUT(request: NextRequest) {
 
         const { data: newSettings, error: insertError } = await supabaseAdmin
           .from('sales_office_cost_settings')
-          .insert(insertData)
+          .upsert(upsertData, {
+            onConflict: 'sales_office,effective_from',
+            ignoreDuplicates: false
+          })
           .select()
           .single();
 
@@ -529,13 +536,13 @@ export async function PUT(request: NextRequest) {
           continue;
         }
 
-        // 기존 데이터 비활성화
-        if (existingData) {
+        // 기존 활성 데이터가 있고, 새로 생성/수정된 레코드와 다른 경우에만 비활성화
+        if (existingData && existingData.id !== newSettings.id) {
           await supabaseAdmin
             .from('sales_office_cost_settings')
             .update({
               is_active: false,
-              effective_to: insertData.effective_from
+              effective_to: upsertData.effective_from
             })
             .eq('id', existingData.id);
         }
