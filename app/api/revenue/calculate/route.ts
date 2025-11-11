@@ -38,7 +38,8 @@ interface RevenueCalculationResult {
   business_name: string;
   sales_office: string;
   calculation_date: string;
-  total_revenue: number;
+  base_revenue: number;  // 기본 매출 (기기 합계, 조정 전)
+  total_revenue: number;  // 최종 매출 (기본 매출 + 추가공사비 - 협의사항)
   total_cost: number;
   installation_extra_cost: number;  // 추가설치비 (설치팀 요청 추가 비용)
   gross_profit: number;
@@ -481,12 +482,27 @@ export async function POST(request: NextRequest) {
     const grossProfit = adjustedRevenue - totalCost;
     const netProfit = grossProfit - installationExtraCost - adjustedSalesCommission - totalSurveyCosts - totalInstallationCosts;
 
+    // 기본 매출 = equipment_breakdown의 total_revenue 합계 (장비 합계만)
+    const baseRevenue = equipmentBreakdown.reduce((sum, item) => sum + item.total_revenue, 0);
+
+    console.log('💰 [REVENUE API] 매출 계산 결과:', {
+      business_id,
+      baseRevenue_from_equipment: baseRevenue,
+      totalRevenue_variable: totalRevenue,
+      additionalCost,
+      negotiationDiscount,
+      adjustedRevenue,
+      equipment_count: equipmentBreakdown.length,
+      calculation: `${baseRevenue} + ${additionalCost} - ${negotiationDiscount} = ${adjustedRevenue}`
+    });
+
     const result: RevenueCalculationResult = {
       business_id,
       business_name: businessInfo.business_name,
       sales_office: salesOffice,
       calculation_date: calcDate,
-      total_revenue: adjustedRevenue, // 조정된 최종 매출
+      base_revenue: baseRevenue, // 기본 매출 (기기 합계만, 조정 전)
+      total_revenue: adjustedRevenue, // 최종 매출 (기본 + 추가공사비 - 협의사항)
       total_cost: totalCost,
       installation_extra_cost: installationExtraCost,  // 추가설치비
       gross_profit: grossProfit,
@@ -729,4 +745,4 @@ export async function GET(request: NextRequest) {
       message: '서버 오류가 발생했습니다.'
     }, { status: 500 });
   }
-}
+}// Force reload
