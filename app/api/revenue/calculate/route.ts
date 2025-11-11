@@ -485,17 +485,6 @@ export async function POST(request: NextRequest) {
     // 기본 매출 = equipment_breakdown의 total_revenue 합계 (장비 합계만)
     const baseRevenue = equipmentBreakdown.reduce((sum, item) => sum + item.total_revenue, 0);
 
-    console.log('💰 [REVENUE API] 매출 계산 결과:', {
-      business_id,
-      baseRevenue_from_equipment: baseRevenue,
-      totalRevenue_variable: totalRevenue,
-      additionalCost,
-      negotiationDiscount,
-      adjustedRevenue,
-      equipment_count: equipmentBreakdown.length,
-      calculation: `${baseRevenue} + ${additionalCost} - ${negotiationDiscount} = ${adjustedRevenue}`
-    });
-
     const result: RevenueCalculationResult = {
       business_id,
       business_name: businessInfo.business_name,

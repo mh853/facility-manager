@@ -66,15 +66,6 @@ export async function POST(request: NextRequest) {
       negotiation_cost
     } = body;
 
-    console.log('📝 계약서 생성 요청 데이터:', {
-      business_id,
-      contract_type,
-      payment_advance_ratio,
-      payment_balance_ratio,
-      additional_cost,
-      negotiation_cost
-    });
-
     // 필수 파라미터 검증
     if (!business_id || !contract_type) {
       return NextResponse.json({
@@ -133,7 +124,6 @@ export async function POST(request: NextRequest) {
     let negotiationCost = 0;
 
     // 2-1. /api/revenue/calculate 호출하여 실시간 매출 계산 (매출 관리 모달과 동일)
-    console.log('💰 [CONTRACT] 실시간 매출 계산 시작 (매출 관리 모달 방식)');
     try {
       const calculateResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/revenue/calculate`, {
         method: 'POST',
@@ -150,47 +140,21 @@ export async function POST(request: NextRequest) {
       if (calculateResponse.ok) {
         const calculateData = await calculateResponse.json();
 
-        console.log('💰 [CONTRACT] API 응답 전체:', JSON.stringify(calculateData, null, 2));
-
         if (calculateData.success && calculateData.data?.calculation) {
           const calc = calculateData.data.calculation;
 
-          console.log('💰 [CONTRACT] calculation 객체:', {
-            base_revenue: calc.base_revenue,
-            total_revenue: calc.total_revenue,
-            equipment_breakdown_count: calc.equipment_breakdown?.length || 0,
-            all_keys: Object.keys(calc)
-          });
-
-          // 🔥 대안: equipment_breakdown에서 직접 기본 매출 계산 (API가 base_revenue를 안돌려주므로)
+          // equipment_breakdown에서 직접 기본 매출 계산
           if (calc.equipment_breakdown && Array.isArray(calc.equipment_breakdown)) {
             baseRevenue = calc.equipment_breakdown.reduce((sum, item) => {
               return sum + (item.total_revenue || 0);
             }, 0);
-            console.log('✅ [CONTRACT] equipment_breakdown에서 기본 매출 직접 계산:', {
-              count: calc.equipment_breakdown.length,
-              base_revenue: baseRevenue,
-              items: calc.equipment_breakdown.map(item => ({
-                equipment: item.equipment_type,
-                revenue: item.total_revenue
-              }))
-            });
           } else {
             // Fallback: API가 base_revenue를 돌려주면 사용
             baseRevenue = calc.base_revenue || 0;
-            console.log('⚠️ [CONTRACT] equipment_breakdown 없음, base_revenue 사용:', baseRevenue);
           }
 
           // 최종 매출 (기본 + 추가공사비 - 협의사항) - 헤더에 표시
           totalAmount = calc.total_revenue || 0;
-
-          console.log('💰 [CONTRACT] 실시간 매출 계산 성공:', {
-            base_revenue: baseRevenue,
-            total_revenue: totalAmount,
-            calculation: `${baseRevenue} (기기 합계)`
-          });
-        } else {
-          console.warn('⚠️ [CONTRACT] 매출 계산 API 응답이 올바르지 않습니다:', calculateData);
         }
       } else {
         console.error('❌ [CONTRACT] 매출 계산 API 호출 실패:', calculateResponse.status);
@@ -208,35 +172,7 @@ export async function POST(request: NextRequest) {
       ? parseFloat(String(business.negotiation).replace(/[^0-9.-]/g, '')) || 0
       : 0;
 
-    console.log('💰 사업장 비용 정보 최종:', {
-      business_id,
-      business_name: business.business_name,
-      base_revenue: baseRevenue,  // 기본 매출 (기기 합계)
-      additional_cost: additionalCost,  // 추가공사비
-      negotiation_cost: negotiationCost,  // 협의사항
-      total_amount: totalAmount,  // 최종 매출
-      calculation_formula: `${baseRevenue} + ${additionalCost} - ${negotiationCost} = ${totalAmount}`,
-      calculation_method: 'realtime_api_call'
-    });
-
     // 2-2. 장비 수량 추출 (business_info 테이블에서 직접 사용)
-    console.log('🔍 사업장 장비 수량 추출:', {
-      business_id,
-      business_name: business.business_name,
-      equipment_from_business_info: {
-        ph_meter: business.ph_meter,
-        differential_pressure_meter: business.differential_pressure_meter,
-        temperature_meter: business.temperature_meter,
-        discharge_current_meter: business.discharge_current_meter,
-        fan_current_meter: business.fan_current_meter,
-        pump_current_meter: business.pump_current_meter,
-        gateway: business.gateway,
-        vpn_wired: business.vpn_wired,
-        vpn_wireless: business.vpn_wireless
-      }
-    });
-
-    // business_info 테이블의 장비 수량 사용
     const phCount = business.ph_meter || 0;
     const pressureCount = business.differential_pressure_meter || 0;
     const temperatureCount = business.temperature_meter || 0;
@@ -245,21 +181,6 @@ export async function POST(request: NextRequest) {
     const pumpCtCount = business.pump_current_meter || 0;
     const gatewayCount = business.gateway || 0;
     const vpnCount = (business.vpn_wired || 0) + (business.vpn_wireless || 0);
-
-    // 장비 수량 로그
-    console.log('🔧 장비 수량 최종 계산:', {
-      business_name: business.business_name,
-      equipment_counts: {
-        ph_meter: phCount,
-        differential_pressure_meter: pressureCount,
-        temperature_meter: temperatureCount,
-        discharge_current_meter: dischargeCtCount,
-        fan_current_meter: fanCtCount,
-        pump_current_meter: pumpCtCount,
-        gateway: gatewayCount,
-        vpn: vpnCount
-      }
-    });
 
     // 2. 계약서 번호 생성 (CONT-YYYYMMDD-XXX)
     const today = contract_date || new Date().toISOString().split('T')[0];
@@ -474,14 +395,6 @@ export async function GET(request: NextRequest) {
 
     const { data: contracts, error, count } = await query;
 
-    // 디버깅: equipment_counts 확인
-    if (contracts && contracts.length > 0) {
-      console.log('📋 조회된 계약서 equipment_counts:', contracts.map(c => ({
-        contract_number: c.contract_number,
-        business_name: c.business_name,
-        equipment_counts: c.equipment_counts
-      })));
-    }
 
     if (error) {
       console.error('계약서 조회 오류:', error);
