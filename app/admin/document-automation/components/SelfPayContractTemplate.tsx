@@ -101,8 +101,8 @@ export default function SelfPayContractTemplate({ data }: Props) {
 
             {/* 을 정보 */}
             <tr>
-              <td rowSpan={6} className="border-r-2 border-b border-black text-center font-bold align-middle bg-gray-50">을</td>
-              <td className="border-r border-b border-black px-3 py-2 bg-gray-50">상호</td>
+              <td rowSpan={6} className="border-r-2 border-b border-black w-16 text-center font-bold align-middle bg-gray-50">을</td>
+              <td className="border-r border-b border-black px-3 py-2 w-32 bg-gray-50">상호</td>
               <td className="border-b border-black px-3 py-2">주식회사 블루온</td>
             </tr>
             <tr>
@@ -123,7 +123,7 @@ export default function SelfPayContractTemplate({ data }: Props) {
             </tr>
             <tr>
               <td className="border-r border-black px-3 py-2 bg-gray-50">팩스번호</td>
-              <td className="px-3 py-2">031-8077-2054</td>
+              <td className="border-black px-3 py-2">031-8077-2054</td>
             </tr>
           </tbody>
         </table>
