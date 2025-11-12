@@ -97,13 +97,14 @@ async function optimizeImage(file: File, alreadyCompressed: boolean = false): Pr
   }
 }
 
-// 사업장 ID 가져오기 또는 생성
+// 사업장 ID 가져오기 또는 생성 - ✅ business_info 테이블 사용 (신규 시스템)
 async function getOrCreateBusiness(businessName: string): Promise<string> {
   // 기존 사업장 조회
   const { data: existingBusiness, error: selectError } = await supabaseAdmin
-    .from('businesses')
+    .from('business_info')
     .select('id')
-    .eq('name', businessName)
+    .eq('business_name', businessName)
+    .eq('is_deleted', false)
     .single();
 
   if (existingBusiness) {
@@ -117,10 +118,11 @@ async function getOrCreateBusiness(businessName: string): Promise<string> {
 
   // 새 사업장 생성 (중복 방지)
   const { data: newBusiness, error: insertError } = await supabaseAdmin
-    .from('businesses')
+    .from('business_info')
     .insert({
-      name: businessName,
-      status: 'active'
+      business_name: businessName,
+      is_deleted: false,
+      is_active: true
     })
     .select('id')
     .single();
@@ -130,11 +132,12 @@ async function getOrCreateBusiness(businessName: string): Promise<string> {
     if (insertError.code === '23505') {
       console.log(`⚠️ [BUSINESS] 중복 생성 시도, 기존 사업장 재조회: ${businessName}`);
       const { data: retryBusiness, error: retryError } = await supabaseAdmin
-        .from('businesses')
+        .from('business_info')
         .select('id')
-        .eq('name', businessName)
+        .eq('business_name', businessName)
+        .eq('is_deleted', false)
         .single();
-      
+
       if (retryBusiness) {
         return retryBusiness.id;
       }
