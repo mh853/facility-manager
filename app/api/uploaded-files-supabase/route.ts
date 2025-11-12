@@ -36,11 +36,12 @@ export async function GET(request: NextRequest) {
 
     console.log(`📂 [FILES-SUPABASE] 파일 조회 시작: ${businessName}, 시스템=${systemType}, 강제새로고침=${forceRefresh}`);
 
-    // 사업장 조회 - ✅ FIXED: businesses 테이블 사용 (업로드 API와 일치)
+    // 사업장 조회 - ✅ FIXED: business_info 테이블 사용 (신규 시스템)
     const { data: business, error: businessError } = await supabaseAdmin
-      .from('businesses')
+      .from('business_info')
       .select('id')
-      .eq('name', businessName)
+      .eq('business_name', businessName)
+      .eq('is_deleted', false)
       .single();
 
     if (businessError) {
