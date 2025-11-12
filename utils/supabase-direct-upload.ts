@@ -4,6 +4,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { compressImage } from './client-image-processor';
+import { generateBusinessId } from './business-id-generator';
 
 // Supabase 클라이언트 생성 (클라이언트 측)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -74,20 +75,38 @@ export async function uploadToSupabaseStorage(
 
     options.onProgress?.(30);
 
-    // 2단계: 파일 경로 생성 (ASCII 호환)
+    // 2단계: 파일 경로 생성 (해시 기반 사업장 ID 사용)
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const sanitizedBusinessName = options.businessName
-      .replace(/[^a-zA-Z0-9_-]/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_|_$/g, '')
-      || 'business';
+
+    // ✅ 해시 기반 사업장 ID 생성 (facility-photos API와 동일한 방식)
+    const businessId = generateBusinessId(options.businessName);
+
+    console.log(`🏢 [DIRECT-UPLOAD] 해시 기반 경로 생성:`, {
+      원본사업장명: options.businessName,
+      생성된ID: businessId
+    });
 
     // 파일 확장자 추출
     const fileExtension = compressedFile.name.split('.').pop()?.toLowerCase() || 'jpg';
     const baseFilename = compressedFile.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
 
     const filename = `${timestamp}_${baseFilename}.${fileExtension}`;
-    const filePath = `${sanitizedBusinessName}/${options.systemType}/${options.fileType}/${filename}`;
+
+    // ✅ 시설 정보에 따른 폴더 구조 생성
+    let folderPath: string;
+
+    if (options.fileType === 'basic') {
+      // 기본사진: businessId/systemType/basic/category
+      const category = options.facilityInfo || 'others';
+      folderPath = `${businessId}/${options.systemType}/basic/${category}`;
+    } else {
+      // 배출시설/방지시설: businessId/systemType/fileType/outlet_N/facilityType_N
+      const outletNumber = options.facilityNumber || '1';
+      const facilityId = options.facilityId || '1';
+      folderPath = `${businessId}/${options.systemType}/${options.fileType}/outlet_${outletNumber}/${options.fileType}_${facilityId}`;
+    }
+
+    const filePath = `${folderPath}/${filename}`;
 
     console.log(`📁 [DIRECT-UPLOAD] 업로드 경로: ${filePath}`);
 
