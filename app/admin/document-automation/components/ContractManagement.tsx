@@ -171,16 +171,52 @@ export default function ContractManagement() {
     setLoading(true)
     try {
       const token = localStorage.getItem('auth_token')
+      // document_history에서 계약서 조회 (실행 이력과 동일한 데이터 소스)
       const url = businessId
-        ? `/api/document-automation/contract?business_id=${businessId}`
-        : '/api/document-automation/contract'
+        ? `/api/document-automation/history?business_id=${businessId}&document_type=contract`
+        : '/api/document-automation/history?document_type=contract'
 
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      const data = await response.json()
-      if (data.success) {
-        setContracts(data.data || [])
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        // document_history 형식을 Contract 형식으로 변환
+        const contracts = result.data.documents.map((doc: any) => {
+          const contractData = typeof doc.document_data === 'string'
+            ? JSON.parse(doc.document_data)
+            : doc.document_data
+
+          return {
+            id: doc.id,
+            business_id: doc.business_id,
+            business_name: doc.business_name || contractData.business_name,
+            contract_type: contractData.contract_type,
+            contract_number: contractData.contract_number,
+            contract_date: contractData.contract_date,
+            total_amount: contractData.total_amount,
+            base_revenue: contractData.base_revenue,
+            final_amount: contractData.final_amount,
+            business_address: contractData.business_address,
+            business_representative: contractData.business_representative,
+            business_registration_number: contractData.business_registration_number,
+            business_phone: contractData.business_phone,
+            business_fax: contractData.business_fax,
+            supplier_company_name: contractData.supplier_company_name,
+            supplier_representative: contractData.supplier_representative,
+            supplier_address: contractData.supplier_address,
+            payment_advance_ratio: contractData.payment_advance_ratio,
+            payment_balance_ratio: contractData.payment_balance_ratio,
+            additional_cost: contractData.additional_cost,
+            negotiation_cost: contractData.negotiation_cost,
+            equipment_counts: contractData.equipment_counts,
+            created_at: doc.created_at,
+            pdf_file_url: doc.file_path
+          }
+        })
+
+        setContracts(contracts)
       }
     } catch (error) {
       console.error('계약서 로드 오류:', error)
@@ -218,37 +254,21 @@ export default function ContractManagement() {
 
       const data = await response.json()
       if (data.success) {
-        const createdContract = data.data.contract
-
-        // is_deleted 필드가 없으면 기본값 false 추가
-        const contractWithDefaults = {
-          ...createdContract,
-          is_deleted: createdContract.is_deleted ?? false
-        }
-
-        // 생성된 계약서를 즉시 목록에 추가 (UI 즉시 반영)
-        setContracts(prev => [contractWithDefaults, ...prev])
-
         alert('계약서가 생성되었습니다.')
 
+        // 계약서 목록 전체를 다시 로드하여 document_history에서 최신 데이터 가져오기
+        loadContracts(selectedBusiness ? selectedBusiness.id : undefined)
+
         // 생성된 계약서로 자동 PDF 저장 (백그라운드)
-        savePDFAfterCreation(contractWithDefaults)
+        const createdContract = data.data.contract
+        savePDFAfterCreation(createdContract)
           .then(() => {
-            // PDF 저장 후 해당 계약서만 업데이트 (목록 전체를 다시 로드하지 않음)
-            return fetch(`/api/document-automation/contract?business_id=${selectedBusiness.id}`, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
-            })
-          })
-          .then(response => response?.json())
-          .then(data => {
-            if (data?.success) {
-              // 최신 데이터로 업데이트 (PDF URL 포함)
-              setContracts(data.data || [])
-            }
+            console.log('PDF 자동 저장 완료')
+            // PDF 저장 후 다시 로드하여 file_path 업데이트
+            loadContracts(selectedBusiness ? selectedBusiness.id : undefined)
           })
           .catch(err => {
-            console.error('PDF 자동 저장 또는 업데이트 실패:', err)
-            // 실패해도 이미 추가된 계약서는 유지됨
+            console.error('PDF 자동 저장 실패:', err)
           })
       } else {
         alert(data.message || '계약서 생성에 실패했습니다.')
@@ -370,7 +390,8 @@ export default function ContractManagement() {
 
     try {
       const token = localStorage.getItem('auth_token')
-      const response = await fetch(`/api/document-automation/contract?id=${contractId}`, {
+      // document_history ID로 삭제 (자동으로 contract_history도 함께 삭제됨)
+      const response = await fetch(`/api/document-automation/history/${contractId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       })
@@ -381,7 +402,7 @@ export default function ContractManagement() {
         // 삭제된 항목을 즉시 UI에서 제거
         setContracts(prev => prev.filter(c => c.id !== contractId))
       } else {
-        alert(data.message || '삭제에 실패했습니다.')
+        alert(data.error || '삭제에 실패했습니다.')
       }
     } catch (error) {
       console.error('계약서 삭제 오류:', error)

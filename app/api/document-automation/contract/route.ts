@@ -309,7 +309,10 @@ export async function POST(request: NextRequest) {
         business_id,
         document_type: 'contract',
         document_name: documentName,
-        document_data: JSON.stringify(contractData),
+        document_data: JSON.stringify({
+          ...contractData,
+          contract_id: savedContract.id  // contract_history의 ID 저장 (동기화용)
+        }),
         file_format: 'pdf',
         file_size: 0, // PDF 생성 후 업데이트 가능
         created_by: userId
@@ -381,7 +384,6 @@ export async function GET(request: NextRequest) {
     let query = supabaseAdmin
       .from('contract_history')
       .select('*', { count: 'exact' })
-      .eq('is_deleted', false) // 삭제되지 않은 계약서만 조회
       .order('created_at', { ascending: false });
 
     if (businessId) {
@@ -549,14 +551,26 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 계약서 soft delete (is_deleted = true로 업데이트)
+    // document_history에서 먼저 삭제 (동기화)
+    // document_data에 contract_id가 저장되어 있으므로 JSON 필드로 검색
+    try {
+      // PostgreSQL의 JSON 연산자를 사용하여 contract_id로 검색
+      await supabaseAdmin
+        .from('document_history')
+        .delete()
+        .eq('document_type', 'contract')
+        .filter('document_data->>contract_id', 'eq', contractId);
+
+      console.log(`[CONTRACT] document_history 동기화 삭제 완료: contract_id=${contractId}`);
+    } catch (syncError) {
+      console.error('[CONTRACT] document_history 동기화 삭제 실패:', syncError);
+      // 동기화 실패해도 계속 진행
+    }
+
+    // 계약서 hard delete (실제 삭제)
     const { error } = await supabaseAdmin
       .from('contract_history')
-      .update({
-        is_deleted: true,
-        deleted_at: new Date().toISOString(),
-        deleted_by: userId
-      })
+      .delete()
       .eq('id', contractId);
 
     if (error) {
