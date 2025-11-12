@@ -468,11 +468,12 @@ export async function GET(request: NextRequest) {
       category
     });
 
-    // 사업장 조회
+    // 사업장 조회 - ✅ business_info 테이블 사용
     const { data: business } = await supabaseAdmin
-      .from('businesses')
+      .from('business_info')
       .select('id')
-      .eq('name', businessName)
+      .eq('business_name', businessName)
+      .eq('is_deleted', false)
       .single();
 
     if (!business) {
