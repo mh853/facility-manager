@@ -8,6 +8,8 @@ import PurchaseOrderModal from './components/PurchaseOrderModal'
 import EcosensePurchaseOrderForm from '@/components/EcosensePurchaseOrderForm'
 import EstimateManagement from './components/EstimateManagement'
 import ContractManagement from './components/ContractManagement'
+import SubsidyContractTemplate from './components/SubsidyContractTemplate'
+import SelfPayContractTemplate from './components/SelfPayContractTemplate'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   FileText,
@@ -813,6 +815,24 @@ export default function DocumentAutomationPage() {
                                 보기
                               </button>
                             )}
+                            {doc.document_type === 'estimate' && doc.metadata && (
+                              <button
+                                onClick={() => setPreviewDocument(doc)}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-green-600 hover:text-green-900 border border-green-200 hover:border-green-300 rounded-lg transition-colors text-xs"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                보기
+                              </button>
+                            )}
+                            {doc.document_type === 'contract' && doc.document_data && (
+                              <button
+                                onClick={() => setPreviewDocument(doc)}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-purple-600 hover:text-purple-900 border border-purple-200 hover:border-purple-300 rounded-lg transition-colors text-xs"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                보기
+                              </button>
+                            )}
                             {doc.file_path ? (
                               <button
                                 onClick={async () => {
@@ -930,7 +950,7 @@ export default function DocumentAutomationPage() {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div className="flex items-center justify-end gap-2">
-                                  {/* 보기 버튼 (발주서 & 견적서) */}
+                                  {/* 보기 버튼 (발주서 & 견적서 & 계약서) */}
                                   {doc.document_type === 'purchase_order' && doc.document_data && (
                                     <button
                                       onClick={() => setPreviewDocument(doc)}
@@ -946,6 +966,16 @@ export default function DocumentAutomationPage() {
                                       onClick={() => setPreviewDocument(doc)}
                                       className="text-green-600 hover:text-green-900 inline-flex items-center gap-1"
                                       title="견적서 보기"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                      보기
+                                    </button>
+                                  )}
+                                  {doc.document_type === 'contract' && doc.document_data && (
+                                    <button
+                                      onClick={() => setPreviewDocument(doc)}
+                                      className="text-purple-600 hover:text-purple-900 inline-flex items-center gap-1"
+                                      title="계약서 보기"
                                     >
                                       <Eye className="w-4 h-4" />
                                       보기
@@ -1110,7 +1140,9 @@ export default function DocumentAutomationPage() {
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0">
               <div className="flex-1 min-w-0 mr-2">
                 <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 truncate">
-                  {previewDocument.document_type === 'estimate' ? '견적서 미리보기' : '발주서 미리보기'}
+                  {previewDocument.document_type === 'estimate' ? '견적서 미리보기' :
+                   previewDocument.document_type === 'contract' ? '계약서 미리보기' :
+                   '발주서 미리보기'}
                 </h2>
                 <p className="text-[10px] sm:text-xs md:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">
                   {previewDocument.business_name} - {previewDocument.document_name}
@@ -1373,6 +1405,23 @@ export default function DocumentAutomationPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                ) : previewDocument.document_type === 'contract' && previewDocument.document_data ? (
+                  <div className="bg-white">
+                    {/* 계약서 타입에 따라 적절한 템플릿 렌더링 */}
+                    {(() => {
+                      const contractData = typeof previewDocument.document_data === 'string'
+                        ? JSON.parse(previewDocument.document_data)
+                        : previewDocument.document_data;
+
+                      if (contractData.contract_type === 'subsidy') {
+                        return <SubsidyContractTemplate data={contractData} />;
+                      } else if (contractData.contract_type === 'self_pay') {
+                        return <SelfPayContractTemplate data={contractData} />;
+                      } else {
+                        return <div className="text-center py-12 text-gray-500">알 수 없는 계약서 타입입니다.</div>;
+                      }
+                    })()}
                   </div>
                 ) : null}
               </div>
