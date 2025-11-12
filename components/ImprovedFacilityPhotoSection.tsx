@@ -584,17 +584,29 @@ export default function ImprovedFacilityPhotoSection({
         systemType: mapPhaseToSystemType(currentPhase),
         phase: currentPhase
       };
-      
+
       if (facility && facilityType !== 'basic') {
         data.facilityId = `${facility.number}`;
         data.facilityType = facilityType;
         data.facilityNumber = `${facility.number}`;
+
+        // ✅ facilityInfo JSON 생성 (photo-tracker가 기대하는 형식)
+        data.facilityInfo = JSON.stringify({
+          type: facilityType,
+          outlet: facility.outletNumber || 1,
+          number: facility.number
+        });
       }
-      
+
       if (category && facilityType === 'basic') {
         data.category = category;
+        // ✅ 기본사진도 facilityInfo 추가 (카테고리 정보)
+        data.facilityInfo = JSON.stringify({
+          type: 'basic',
+          category: category
+        });
       }
-      
+
       return data;
     };
   }, [businessName]);
