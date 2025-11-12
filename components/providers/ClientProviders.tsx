@@ -4,6 +4,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { Toaster } from 'react-hot-toast';
+import ReactQueryProvider from '@/app/providers/ReactQueryProvider';
 
 export default function ClientProviders({
   children,
@@ -12,37 +13,39 @@ export default function ClientProviders({
 }) {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <NotificationProvider>
-          {children}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 3000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-                padding: '16px',
-                borderRadius: '8px',
-              },
-              success: {
+      <ReactQueryProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            {children}
+            <Toaster
+              position="top-right"
+              toastOptions={{
                 duration: 3000,
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#fff',
+                style: {
+                  background: '#363636',
+                  color: '#fff',
+                  padding: '16px',
+                  borderRadius: '8px',
                 },
-              },
-              error: {
-                duration: 4000,
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
+                success: {
+                  duration: 3000,
+                  iconTheme: {
+                    primary: '#10b981',
+                    secondary: '#fff',
+                  },
                 },
-              },
-            }}
-          />
-        </NotificationProvider>
-      </AuthProvider>
+                error: {
+                  duration: 4000,
+                  iconTheme: {
+                    primary: '#ef4444',
+                    secondary: '#fff',
+                  },
+                },
+              }}
+            />
+          </NotificationProvider>
+        </AuthProvider>
+      </ReactQueryProvider>
     </ErrorBoundary>
   );
 }

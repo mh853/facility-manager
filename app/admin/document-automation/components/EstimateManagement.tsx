@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import {
   FileText,
   Plus,
@@ -18,8 +19,13 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
-import EstimatePreviewModal from './EstimatePreviewModal'
 import { useAuth } from '@/contexts/AuthContext'
+
+// Code Splitting: 모달은 사용할 때만 로드
+const EstimatePreviewModal = dynamic(() => import('./EstimatePreviewModal'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
 
 interface Business {
   id: string

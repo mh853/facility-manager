@@ -2,15 +2,29 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import AdminLayout from '@/components/ui/AdminLayout'
 import { ConfirmModal } from '@/components/ui/Modal'
-import PurchaseOrderModal from './components/PurchaseOrderModal'
 import EcosensePurchaseOrderForm from '@/components/EcosensePurchaseOrderForm'
 import EstimateManagement from './components/EstimateManagement'
 import ContractManagement from './components/ContractManagement'
-import SubsidyContractTemplate from './components/SubsidyContractTemplate'
-import SelfPayContractTemplate from './components/SelfPayContractTemplate'
 import { useAuth } from '@/contexts/AuthContext'
+
+// Code Splitting: 무거운 모달 및 템플릿 컴포넌트를 동적 로딩
+const PurchaseOrderModal = dynamic(() => import('./components/PurchaseOrderModal'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
+
+const SubsidyContractTemplate = dynamic(() => import('./components/SubsidyContractTemplate'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
+
+const SelfPayContractTemplate = dynamic(() => import('./components/SelfPayContractTemplate'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
 import {
   FileText,
   Download,

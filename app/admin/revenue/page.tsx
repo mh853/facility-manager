@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { TokenManager } from '@/lib/api-client';
@@ -9,9 +10,18 @@ import { ProtectedPage } from '@/components/auth/ProtectedPage';
 import { AuthLevel } from '@/lib/auth/AuthLevels';
 import StatsCard from '@/components/ui/StatsCard';
 import Modal, { ModalActions } from '@/components/ui/Modal';
-import { InvoiceDisplay } from '@/components/business/InvoiceDisplay';
-import BusinessRevenueModal from '@/components/business/BusinessRevenueModal';
 import { MANUFACTURER_NAMES_REVERSE, type ManufacturerName } from '@/constants/manufacturers';
+
+// Code Splitting: 무거운 모달 및 디스플레이 컴포넌트를 동적 로딩
+const InvoiceDisplay = dynamic(() => import('@/components/business/InvoiceDisplay').then(mod => ({ default: mod.InvoiceDisplay })), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+});
+
+const BusinessRevenueModal = dynamic(() => import('@/components/business/BusinessRevenueModal'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+});
 import {
   BarChart3,
   Calculator,

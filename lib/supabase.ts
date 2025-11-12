@@ -23,29 +23,43 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   }
 });
 
-// 서버용 (관리자 권한) - 서버에서만 사용
-export const supabaseAdmin = createClient(
-  supabaseUrl,
-  supabaseServiceKey || supabaseAnonKey,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-    global: {
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Accept-Charset': 'utf-8'
+// 서버용 (관리자 권한) - Connection Pooling 최적화
+let supabaseAdminInstance: any = null;
+
+export const getSupabaseAdmin = () => {
+  if (!supabaseAdminInstance) {
+    supabaseAdminInstance = createClient(
+      supabaseUrl,
+      supabaseServiceKey || supabaseAnonKey,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+        db: {
+          schema: 'public',
+        },
+        global: {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Accept-Charset': 'utf-8',
+            'x-connection-pooling': 'true', // Connection pooling 활성화
+          }
+        }
       }
-    }
+    );
   }
-);
+  return supabaseAdminInstance;
+};
+
+// 하위 호환성을 위한 export (기존 코드 지원)
+export const supabaseAdmin = getSupabaseAdmin();
 
 // Missing exports - API routes에서 사용하는 함수들 추가
 export { createClient };
 
 export function getSupabaseAdminClient() {
-  return supabaseAdmin;
+  return getSupabaseAdmin();
 }
 
 // 데이터베이스 타입 정의
