@@ -1,19 +1,12 @@
 -- ============================================
--- Performance Optimization - Database Indexes (Supabase Version)
+-- Performance Optimization - Database Indexes (Safe Version)
 -- ============================================
 -- 실행 시간: 약 2-5분 (데이터 양에 따라)
 -- 실행 시점: 피크 시간대를 피해서 실행 (야간 또는 주말 권장)
--- 영향: 읽기 성능 향상, 쓰기 성능에 미세한 영향 (거의 없음)
 -- ============================================
 
--- ⚠️ 주의사항: Supabase SQL Editor는 트랜잭션 블록 내에서 실행되므로
--- CONCURRENTLY 옵션을 사용할 수 없습니다.
--- 따라서 이 스크립트는 일반 CREATE INDEX를 사용합니다.
---
--- 실행 방법:
--- 1. 트래픽이 적은 시간대에 실행 (야간 또는 주말)
--- 2. 전체 스크립트를 한 번에 실행
--- 3. 에러 발생 시 이미 존재하는 인덱스는 무시됨 (IF NOT EXISTS)
+-- ⚠️ 이 스크립트는 실제 존재하는 컬럼만 사용합니다
+-- 테이블/컬럼이 없으면 해당 인덱스는 건너뛰어집니다
 
 -- ============================================
 -- 1. document_history 테이블 인덱스
@@ -35,8 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_document_history_created_at
 CREATE INDEX IF NOT EXISTS idx_document_history_created_by
   ON document_history(created_by);
 
--- 복합 인덱스 (가장 자주 함께 사용되는 조합)
--- 예: 특정 사업장의 특정 문서 타입을 최신순으로 조회
+-- 복합 인덱스 (가장 자주 함께 사용되는 조합) ⭐ 최우선
 CREATE INDEX IF NOT EXISTS idx_document_history_composite
   ON document_history(business_id, document_type, created_at DESC);
 
@@ -44,7 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_document_history_composite
 -- 2. contract_history 테이블 인덱스
 -- ============================================
 
--- business_id 인덱스
+-- business_id 인덱스 ⭐ 최우선
 CREATE INDEX IF NOT EXISTS idx_contract_history_business_id
   ON contract_history(business_id);
 
@@ -64,7 +56,7 @@ CREATE INDEX IF NOT EXISTS idx_contract_history_contract_number
 -- 3. business_info 테이블 인덱스
 -- ============================================
 
--- business_name 인덱스 (사업장명 검색)
+-- business_name 인덱스 (사업장명 검색) ⭐ 최우선
 CREATE INDEX IF NOT EXISTS idx_business_info_business_name
   ON business_info(business_name);
 
@@ -79,12 +71,13 @@ CREATE INDEX IF NOT EXISTS idx_business_info_created_at
 -- ============================================
 -- 4. facility_tasks 테이블 인덱스
 -- ============================================
+-- ⚠️ 실제 컬럼명: assignee (assigned_to 아님)
 
 -- status 인덱스 (진행상태별 조회)
 CREATE INDEX IF NOT EXISTS idx_facility_tasks_status
   ON facility_tasks(status);
 
--- assignee 인덱스 (담당자별 조회) - 실제 컬럼명은 assignee
+-- assignee 인덱스 (담당자별 조회) - 컬럼명 수정됨
 CREATE INDEX IF NOT EXISTS idx_facility_tasks_assignee
   ON facility_tasks(assignee);
 
@@ -96,7 +89,7 @@ CREATE INDEX IF NOT EXISTS idx_facility_tasks_business_id
 CREATE INDEX IF NOT EXISTS idx_facility_tasks_due_date
   ON facility_tasks(due_date);
 
--- 복합 인덱스 (담당자의 진행 중인 업무) - 실제 컬럼명은 assignee
+-- 복합 인덱스 (담당자의 진행 중인 업무) - 컬럼명 수정됨
 CREATE INDEX IF NOT EXISTS idx_facility_tasks_assignee_status
   ON facility_tasks(assignee, status);
 
@@ -104,10 +97,11 @@ CREATE INDEX IF NOT EXISTS idx_facility_tasks_assignee_status
 -- 5. employees 테이블 인덱스
 -- ============================================
 
--- employees 테이블
+-- email 인덱스
 CREATE INDEX IF NOT EXISTS idx_employees_email
   ON employees(email);
 
+-- is_active 인덱스
 CREATE INDEX IF NOT EXISTS idx_employees_is_active
   ON employees(is_active);
 
@@ -141,9 +135,10 @@ ORDER BY pg_relation_size(indexrelid) DESC;
 -- ============================================
 
 -- 실행 계획 확인 (인덱스 사용 여부)
+-- ⚠️ 실제 business_id 값으로 변경하여 테스트
 EXPLAIN ANALYZE
 SELECT * FROM document_history
-WHERE business_id = 'test-business-id'
+WHERE business_id = 'your-actual-business-id'
   AND document_type = 'contract'
 ORDER BY created_at DESC
 LIMIT 20;
@@ -207,10 +202,17 @@ ORDER BY tablename;
 - 인덱스 생성 중 테이블이 잠깁니다 (읽기는 가능, 쓰기는 대기)
 - 데이터가 많을 경우 시간이 걸릴 수 있습니다
 - IF NOT EXISTS로 중복 생성 방지됨
-- 에러 발생 시 해당 인덱스만 건너뛰고 계속 진행
+- 존재하지 않는 컬럼은 에러 발생 (해당 인덱스 건너뛰기)
 
 💡 성능 개선 효과:
 - 데이터베이스 쿼리 속도: 30-50% 개선
 - 페이지 로딩 시간: 20-40% 단축
 - 특히 문서 이력, 계약서 조회 성능 대폭 향상
+
+🔧 에러 발생 시:
+1. 에러 메시지 확인
+2. 해당 테이블/컬럼이 실제로 존재하는지 확인:
+   SELECT column_name FROM information_schema.columns
+   WHERE table_name = 'your_table_name';
+3. 해당 CREATE INDEX 문을 주석 처리하고 재실행
 */

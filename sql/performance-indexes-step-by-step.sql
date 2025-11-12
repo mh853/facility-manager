@@ -64,8 +64,8 @@ CREATE INDEX IF NOT EXISTS idx_business_info_created_at ON business_info(created
 -- 4-1. status 인덱스
 CREATE INDEX IF NOT EXISTS idx_facility_tasks_status ON facility_tasks(status);
 
--- 4-2. assigned_to 인덱스
-CREATE INDEX IF NOT EXISTS idx_facility_tasks_assigned_to ON facility_tasks(assigned_to);
+-- 4-2. assignee 인덱스 (실제 컬럼명: assignee)
+CREATE INDEX IF NOT EXISTS idx_facility_tasks_assignee ON facility_tasks(assignee);
 
 -- 4-3. business_id 인덱스
 CREATE INDEX IF NOT EXISTS idx_facility_tasks_business_id ON facility_tasks(business_id);
@@ -73,23 +73,17 @@ CREATE INDEX IF NOT EXISTS idx_facility_tasks_business_id ON facility_tasks(busi
 -- 4-4. due_date 인덱스
 CREATE INDEX IF NOT EXISTS idx_facility_tasks_due_date ON facility_tasks(due_date);
 
--- 4-5. 복합 인덱스
-CREATE INDEX IF NOT EXISTS idx_facility_tasks_assignee_status ON facility_tasks(assigned_to, status);
+-- 4-5. 복합 인덱스 (실제 컬럼명: assignee)
+CREATE INDEX IF NOT EXISTS idx_facility_tasks_assignee_status ON facility_tasks(assignee, status);
 
 -- ============================================
--- Step 5: 기타 테이블 인덱스 (4개)
+-- Step 5: employees 테이블 인덱스 (2개)
 -- ============================================
 
--- 5-1. air_permits - business_id
-CREATE INDEX IF NOT EXISTS idx_air_permits_business_id ON air_permits(business_id) WHERE business_id IS NOT NULL;
-
--- 5-2. air_permits - created_at
-CREATE INDEX IF NOT EXISTS idx_air_permits_created_at ON air_permits(created_at DESC);
-
--- 5-3. employees - email
+-- 5-1. employees - email
 CREATE INDEX IF NOT EXISTS idx_employees_email ON employees(email);
 
--- 5-4. employees - is_active
+-- 5-2. employees - is_active
 CREATE INDEX IF NOT EXISTS idx_employees_is_active ON employees(is_active);
 
 -- ============================================
