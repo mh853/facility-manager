@@ -1372,6 +1372,10 @@ function PricingManagement() {
             item={editingItem}
             type={editType}
             onSave={handleSave}
+            onCancel={() => {
+              setIsEditModalOpen(false);
+              setEditingItem(null);
+            }}
             saving={saving}
           />
         </Modal>
@@ -1394,10 +1398,11 @@ function PricingManagement() {
 }
 
 // 편집 폼 컴포넌트
-function EditForm({ item, type, onSave, saving }: {
+function EditForm({ item, type, onSave, onCancel, saving }: {
   item: any;
   type: 'government' | 'sales' | 'survey' | 'manufacturer' | 'installation' | 'dealer';
   onSave: (data: any) => void;
+  onCancel: () => void;
   saving: boolean;
 }) {
   const [formData, setFormData] = useState<any>({});
@@ -1408,7 +1413,8 @@ function EditForm({ item, type, onSave, saving }: {
     } else {
       // 새 항목 초기값 설정
       const defaultData: any = {
-        effective_from: new Date().toISOString().split('T')[0]
+        effective_from: new Date().toISOString().split('T')[0],
+        is_active: true
       };
 
       // sales 타입인 경우 commission_type 기본값 설정
@@ -1458,6 +1464,17 @@ function EditForm({ item, type, onSave, saving }: {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.is_active ?? true}
+                onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium">활성 상태</span>
+            </label>
+          </div>
         </>
       )}
 
@@ -1506,6 +1523,17 @@ function EditForm({ item, type, onSave, saving }: {
               />
             </div>
           )}
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.is_active ?? true}
+                onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium">활성 상태</span>
+            </label>
+          </div>
         </>
       )}
 
@@ -1590,6 +1618,17 @@ function EditForm({ item, type, onSave, saving }: {
               placeholder="원가 변경 사유 등"
             />
           </div>
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.is_active ?? true}
+                onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium">활성 상태</span>
+            </label>
+          </div>
         </>
       )}
 
@@ -1658,6 +1697,17 @@ function EditForm({ item, type, onSave, saving }: {
               rows={2}
               placeholder="설치비 변경 사유 등"
             />
+          </div>
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.is_active ?? true}
+                onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium">활성 상태</span>
+            </label>
           </div>
         </>
       )}
@@ -1752,6 +1802,17 @@ function EditForm({ item, type, onSave, saving }: {
               placeholder="대리점 가격 변경 사유 등"
             />
           </div>
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.is_active ?? true}
+                onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium">활성 상태</span>
+            </label>
+          </div>
         </>
       )}
 
@@ -1812,6 +1873,17 @@ function EditForm({ item, type, onSave, saving }: {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.is_active ?? true}
+                onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium">활성 상태</span>
+            </label>
+          </div>
         </>
       )}
 
@@ -1832,7 +1904,7 @@ function EditForm({ item, type, onSave, saving }: {
       <div className="flex justify-end gap-2 pt-4">
         <button
           type="button"
-          onClick={() => window.history.back()}
+          onClick={onCancel}
           className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
         >
           취소

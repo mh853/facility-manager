@@ -2,11 +2,17 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import AdminLayout from '@/components/ui/AdminLayout'
 import StatsCard from '@/components/ui/StatsCard'
 import DataTable, { commonActions } from '@/components/ui/DataTable'
 import { ConfirmModal } from '@/components/ui/Modal'
-import ContractPreviewModal from '@/app/admin/document-automation/components/ContractPreviewModal'
+
+// Code Splitting: 무거운 모달 컴포넌트를 동적 로딩
+const ContractPreviewModal = dynamic(() => import('@/app/admin/document-automation/components/ContractPreviewModal'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
 import {
   ArrowLeft,
   RefreshCw,

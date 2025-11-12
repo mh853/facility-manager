@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import {
   FileText,
   Plus,
@@ -15,9 +16,18 @@ import {
   FileCheck,
   Settings
 } from 'lucide-react'
-import ContractPreviewModal from './ContractPreviewModal'
-import ContractTemplateEditor from './ContractTemplateEditor'
 import { useAuth } from '@/contexts/AuthContext'
+
+// Code Splitting: 모달 컴포넌트는 사용할 때만 로드
+const ContractPreviewModal = dynamic(() => import('./ContractPreviewModal'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
+
+const ContractTemplateEditor = dynamic(() => import('./ContractTemplateEditor'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
 
 interface Business {
   id: string
@@ -96,8 +106,13 @@ export default function ContractManagement() {
 
   useEffect(() => {
     if (canView) {
-      loadBusinesses()
-      loadContracts()
+      // API 병렬 처리로 성능 개선
+      Promise.all([
+        loadBusinesses(),
+        loadContracts()
+      ]).catch(error => {
+        console.error('데이터 로드 오류:', error)
+      })
     }
   }, [canView])
 

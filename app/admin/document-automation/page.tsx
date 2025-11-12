@@ -2,69 +2,44 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import AdminLayout from '@/components/ui/AdminLayout'
 import { ConfirmModal } from '@/components/ui/Modal'
-import PurchaseOrderModal from './components/PurchaseOrderModal'
 import EcosensePurchaseOrderForm from '@/components/EcosensePurchaseOrderForm'
 import EstimateManagement from './components/EstimateManagement'
 import ContractManagement from './components/ContractManagement'
-import SubsidyContractTemplate from './components/SubsidyContractTemplate'
-import SelfPayContractTemplate from './components/SelfPayContractTemplate'
 import { useAuth } from '@/contexts/AuthContext'
+
+// Code Splitting: 무거운 모달 및 템플릿 컴포넌트를 동적 로딩
+const PurchaseOrderModal = dynamic(() => import('./components/PurchaseOrderModal'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
+
+const SubsidyContractTemplate = dynamic(() => import('./components/SubsidyContractTemplate'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
+
+const SelfPayContractTemplate = dynamic(() => import('./components/SelfPayContractTemplate'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
 import {
   FileText,
   Download,
-  Upload,
-  Settings,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
   RefreshCw,
-  Calendar,
-  Mail,
-  Printer,
-  Database,
-  CheckCircle,
+  Eye,
   Clock,
   AlertTriangle,
-  Zap,
   ShoppingCart,
   X,
-  FileCheck
+  FileCheck,
+  Trash2
 } from 'lucide-react'
 
-interface DocumentTemplate {
-  id: string
-  name: string
-  description: string
-  type: 'report' | 'certificate' | 'inspection' | 'notification'
-  status: 'active' | 'inactive'
-  created_at: string
-  updated_at: string
-  usage_count: number
-  file_path?: string
-}
-
-interface AutomationRule {
-  id: string
-  name: string
-  description: string
-  trigger: 'schedule' | 'event' | 'manual'
-  template_id: string
-  status: 'active' | 'inactive'
-  last_run?: string
-  next_run?: string
-}
-
 export default function DocumentAutomationPage() {
-  const [templates, setTemplates] = useState<DocumentTemplate[]>([])
-  const [rules, setRules] = useState<AutomationRule[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'templates' | 'rules' | 'purchase_order' | 'estimate' | 'contract' | 'history'>('estimate')
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [modalType, setModalType] = useState<'template' | 'rule'>('template')
-  const [selectedItem, setSelectedItem] = useState<DocumentTemplate | AutomationRule | null>(null)
+  const [activeTab, setActiveTab] = useState<'purchase_order' | 'estimate' | 'contract' | 'history'>('estimate')
 
   // 발주서 관련 상태
   const [businesses, setBusinesses] = useState<any[]>([])
@@ -321,157 +296,11 @@ export default function DocumentAutomationPage() {
     }
   }
 
-  // Mock data - replace with actual API calls
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true)
-      
-      // Simulate API call
-      setTimeout(() => {
-        setTemplates([
-          {
-            id: '1',
-            name: '시설점검 보고서',
-            description: '사업장 시설 점검 결과 보고서 템플릿',
-            type: 'report',
-            status: 'active',
-            created_at: '2024-01-15',
-            updated_at: '2024-03-10',
-            usage_count: 45,
-            file_path: '/templates/inspection-report.docx'
-          },
-          {
-            id: '2',
-            name: '대기배출 허가증',
-            description: '대기배출시설 허가증 문서 템플릿',
-            type: 'certificate',
-            status: 'active',
-            created_at: '2024-02-20',
-            updated_at: '2024-03-15',
-            usage_count: 23,
-            file_path: '/templates/air-permit.docx'
-          },
-          {
-            id: '3',
-            name: '설치 완료 통지서',
-            description: '시설 설치 완료 통지서 템플릿',
-            type: 'notification',
-            status: 'active',
-            created_at: '2024-03-01',
-            updated_at: '2024-03-20',
-            usage_count: 67,
-            file_path: '/templates/installation-notice.docx'
-          }
-        ])
-
-        setRules([
-          {
-            id: '1',
-            name: '월간 점검 보고서 자동 생성',
-            description: '매월 마지막 날 모든 사업장의 점검 보고서를 자동 생성',
-            trigger: 'schedule',
-            template_id: '1',
-            status: 'active',
-            last_run: '2024-02-29',
-            next_run: '2024-03-31'
-          },
-          {
-            id: '2',
-            name: '허가증 갱신 알림',
-            description: '허가증 만료 30일 전 자동 알림 발송',
-            trigger: 'event',
-            template_id: '2',
-            status: 'active',
-            last_run: '2024-03-15',
-            next_run: '2024-04-15'
-          }
-        ])
-
-        setIsLoading(false)
-      }, 1000)
-    }
-
-    loadData()
-  }, [])
-
-  const stats = {
-    totalTemplates: templates.length,
-    activeTemplates: templates.filter(t => t.status === 'active').length,
-    totalRules: rules.length,
-    activeRules: rules.filter(r => r.status === 'active').length,
-    totalUsage: templates.reduce((sum, t) => sum + t.usage_count, 0),
-  }
-
-  const getTypeColor = (type: DocumentTemplate['type']) => {
-    switch (type) {
-      case 'report': return 'bg-blue-100 text-blue-800'
-      case 'certificate': return 'bg-green-100 text-green-800'
-      case 'inspection': return 'bg-yellow-100 text-yellow-800'
-      case 'notification': return 'bg-purple-100 text-purple-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getTypeLabel = (type: DocumentTemplate['type']) => {
-    switch (type) {
-      case 'report': return '보고서'
-      case 'certificate': return '허가증'
-      case 'inspection': return '점검표'
-      case 'notification': return '통지서'
-      default: return '기타'
-    }
-  }
-
-  const getTriggerColor = (trigger: AutomationRule['trigger']) => {
-    switch (trigger) {
-      case 'schedule': return 'bg-blue-100 text-blue-800'
-      case 'event': return 'bg-orange-100 text-orange-800'
-      case 'manual': return 'bg-gray-100 text-gray-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getTriggerLabel = (trigger: AutomationRule['trigger']) => {
-    switch (trigger) {
-      case 'schedule': return '일정'
-      case 'event': return '이벤트'
-      case 'manual': return '수동'
-      default: return '기타'
-    }
-  }
 
   return (
-    <AdminLayout 
+    <AdminLayout
       title="문서 자동화"
-      description="문서 템플릿 및 자동화 규칙 관리"
-      actions={
-        <div className="flex gap-1.5 sm:gap-2">
-          <button
-            onClick={() => {
-              setModalType('template')
-              setSelectedItem(null)
-              setIsModalOpen(true)
-            }}
-            className="flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">템플릿 추가</span>
-            <span className="sm:hidden">템플릿</span>
-          </button>
-          <button
-            onClick={() => {
-              setModalType('rule')
-              setSelectedItem(null)
-              setIsModalOpen(true)
-            }}
-            className="flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
-          >
-            <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">규칙 추가</span>
-            <span className="sm:hidden">규칙</span>
-          </button>
-        </div>
-      }
+      description="견적서, 계약서, 발주서 관리"
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
         {/* Tab Navigation */}
@@ -482,8 +311,6 @@ export default function DocumentAutomationPage() {
                 { id: 'estimate', name: '견적서 관리', icon: FileText },
                 { id: 'contract', name: '계약서 관리', icon: FileCheck },
                 { id: 'purchase_order', name: '발주서 관리', icon: ShoppingCart },
-                { id: 'templates', name: '문서 템플릿', icon: FileText },
-                { id: 'rules', name: '자동화 규칙', icon: Settings },
                 { id: 'history', name: '실행 이력', icon: Clock }
               ].map((tab) => (
                 <button
@@ -510,104 +337,6 @@ export default function DocumentAutomationPage() {
 
             {activeTab === 'contract' && (
               <ContractManagement />
-            )}
-
-            {activeTab === 'templates' && (
-              <div className="space-y-4">
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                ) : (
-                  templates.map((template) => (
-                    <div key={template.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-medium text-gray-900">{template.name}</h3>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(template.type)}`}>
-                              {getTypeLabel(template.type)}
-                            </span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              template.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {template.status === 'active' ? '활성' : '비활성'}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">{template.description}</p>
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span>사용 횟수: {template.usage_count}</span>
-                            <span>마지막 수정: {template.updated_at}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
-                            <Download className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {activeTab === 'rules' && (
-              <div className="space-y-4">
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                ) : (
-                  rules.map((rule) => (
-                    <div key={rule.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-medium text-gray-900">{rule.name}</h3>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTriggerColor(rule.trigger)}`}>
-                              {getTriggerLabel(rule.trigger)}
-                            </span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              rule.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {rule.status === 'active' ? '활성' : '비활성'}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">{rule.description}</p>
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            {rule.last_run && <span>마지막 실행: {rule.last_run}</span>}
-                            {rule.next_run && <span>다음 실행: {rule.next_run}</span>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
-                            <RefreshCw className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
             )}
 
             {activeTab === 'purchase_order' && (
