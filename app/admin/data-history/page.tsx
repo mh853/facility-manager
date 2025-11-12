@@ -6,14 +6,15 @@ import AdminLayout from '@/components/ui/AdminLayout'
 import StatsCard from '@/components/ui/StatsCard'
 import DataTable, { commonActions } from '@/components/ui/DataTable'
 import { ConfirmModal } from '@/components/ui/Modal'
-import { 
-  ArrowLeft, 
-  RefreshCw, 
-  Undo2, 
-  Eye, 
-  Users, 
-  FileText, 
-  Database, 
+import ContractPreviewModal from '@/app/admin/document-automation/components/ContractPreviewModal'
+import {
+  ArrowLeft,
+  RefreshCw,
+  Undo2,
+  Eye,
+  Users,
+  FileText,
+  Database,
   History,
   Filter,
   RotateCcw,
@@ -33,6 +34,8 @@ export default function DataHistoryPage() {
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any>(null)
   const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false)
   const [restoreReason, setRestoreReason] = useState('')
+  const [isContractPreviewOpen, setIsContractPreviewOpen] = useState(false)
+  const [selectedContractData, setSelectedContractData] = useState<any>(null)
   
   // Stats calculation
   const stats = useMemo(() => {
@@ -111,6 +114,16 @@ export default function DataHistoryPage() {
   const openDetailModal = (historyItem: any) => {
     setSelectedHistoryItem(historyItem)
     setIsDetailModalOpen(true)
+  }
+
+  // 계약서 미리보기 열기
+  const openContractPreview = (historyItem: any) => {
+    // historyItem.new_data가 계약서 데이터임
+    const contractData = historyItem.new_data
+    if (contractData) {
+      setSelectedContractData(contractData)
+      setIsContractPreviewOpen(true)
+    }
   }
 
   // 복구 모달 열기
@@ -289,6 +302,13 @@ export default function DataHistoryPage() {
     {
       ...commonActions.view((item: any) => openDetailModal(item)),
       show: () => true
+    },
+    {
+      label: '계약서 보기',
+      icon: FileText,
+      onClick: (item: any) => openContractPreview(item),
+      variant: 'primary' as const,
+      show: (item: any) => item.table_name === 'contract_history' && (item.operation === 'INSERT' || item.operation === 'UPDATE')
     },
     {
       label: '복구',
@@ -618,7 +638,7 @@ export default function DataHistoryPage() {
         }}
         onConfirm={handleRestore}
         title="데이터 복구 확인"
-        message={selectedHistoryItem ? 
+        message={selectedHistoryItem ?
           `${selectedHistoryItem.table_display_name}의 ${selectedHistoryItem.operation_display_name} 작업을 복구하시겠습니까?` :
           '데이터를 복구하시겠습니까?'
         }
@@ -626,6 +646,18 @@ export default function DataHistoryPage() {
         cancelText="취소"
         variant="primary"
       />
+
+      {/* Contract Preview Modal */}
+      {isContractPreviewOpen && selectedContractData && (
+        <ContractPreviewModal
+          contract={selectedContractData}
+          isOpen={isContractPreviewOpen}
+          onClose={() => {
+            setIsContractPreviewOpen(false)
+            setSelectedContractData(null)
+          }}
+        />
+      )}
     </AdminLayout>
   )
 }
