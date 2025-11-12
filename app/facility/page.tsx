@@ -160,8 +160,9 @@ export default memo(function FacilityPage() {
       console.log('🔍 [FRONTEND] business-list API 호출 시작');
       const response = await fetch('/api/business-list', {
         signal: controller.signal,
+        cache: 'no-store',  // ✅ 캐시 비활성화 - 항상 최신 데이터
         headers: {
-          'Cache-Control': 'max-age=300'
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
         }
       });
 
@@ -196,6 +197,19 @@ export default memo(function FacilityPage() {
 
   useEffect(() => {
     loadBusinessList();
+  }, [loadBusinessList]);
+
+  // ✅ 페이지 포커스 시 자동 새로고침 (다른 페이지에서 돌아왔을 때)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('🔄 [FRONTEND] 페이지 포커스 - 자동 새로고침');
+        loadBusinessList();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [loadBusinessList]);
 
   // 필터 변경 시 첫 페이지로 리셋
