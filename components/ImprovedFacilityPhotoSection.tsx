@@ -593,7 +593,7 @@ export default function ImprovedFacilityPhotoSection({
         // ✅ facilityInfo JSON 생성 (photo-tracker가 기대하는 형식)
         data.facilityInfo = JSON.stringify({
           type: facilityType,
-          outlet: facility.outletNumber || 1,
+          outlet: facility.outlet || 1,  // ✅ outletNumber → outlet 수정
           number: facility.number
         });
       }
