@@ -2,23 +2,25 @@ import { Inter, Noto_Sans_KR } from 'next/font/google';
 import './globals.css';
 import ClientProviders from '@/components/providers/ClientProviders';
 
-// 폰트 최적화
-const inter = Inter({ 
+// 폰트 최적화 - 타임아웃 개선
+const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
-  preload: true,
+  preload: false, // 개발 환경 성능 개선
   variable: '--font-inter',
-  fallback: ['system-ui', 'arial']
+  fallback: ['system-ui', 'arial'],
+  adjustFontFallback: false // 빌드 시간 단축
 });
 
-// 한글 폰트 추가
+// 한글 폰트 추가 - 경량화
 const notoSansKR = Noto_Sans_KR({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '700'],
+  weight: ['400', '700'], // 사용하는 폰트만 로드 (300, 500 제거)
   display: 'swap',
-  preload: true,
+  preload: false, // 개발 환경 성능 개선
   variable: '--font-noto-sans-kr',
-  fallback: ['Malgun Gothic', 'Apple SD Gothic Neo', 'sans-serif']
+  fallback: ['Malgun Gothic', 'Apple SD Gothic Neo', 'sans-serif'],
+  adjustFontFallback: false // 빌드 시간 단축
 });
 
 export const viewport = {

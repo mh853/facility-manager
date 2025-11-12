@@ -12,11 +12,31 @@ import {
   CheckCircle,
   AlertTriangle,
   BarChart3,
-  ChevronRight,
   Clock,
   RefreshCw,
-  Eye
+  Eye,
+  Search,
+  X,
+  Filter,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
+
+interface TaskDetail {
+  id: string
+  title: string
+  business_name: string
+  task_type: 'self' | 'subsidy' | 'etc' | 'as'
+  status: string
+  status_label: string
+  status_color: string
+  priority: string
+  due_date?: string
+  completed_at?: string
+  created_at: string
+  is_completed: boolean
+  is_overdue: boolean
+}
 
 interface WeeklyReport {
   id: string
@@ -35,8 +55,10 @@ interface WeeklyReport {
   average_completion_time_days: number
   generated_at: string
   is_auto_generated: boolean
-  completed_task_details: any[]
-  pending_task_details: any[]
+  completed_task_details: TaskDetail[]
+  in_progress_task_details: TaskDetail[]
+  pending_task_details: TaskDetail[]
+  all_task_details: TaskDetail[]
 }
 
 interface AdminSummary {
@@ -49,24 +71,25 @@ interface AdminSummary {
   total_pending: number
 }
 
-function AdminWeeklyReportsPage() {
+function AdminWeeklyReportsPageV2() {
   const { user } = useAuth()
   const router = useRouter()
   const [reports, setReports] = useState<WeeklyReport[]>([])
   const [summary, setSummary] = useState<AdminSummary | null>(null)
   const [loading, setLoading] = useState(false)
-  const [generating, setGenerating] = useState(false)
   const [selectedWeek, setSelectedWeek] = useState('')
   const [weekPeriod, setWeekPeriod] = useState<{ start: string; end: string; display: string } | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [expandedReports, setExpandedReports] = useState<Set<string>>(new Set())
 
-  // URL 파라미터 또는 이번 주 기본값 설정
+  // 이번 주 날짜 계산
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search)
       const weekDateParam = urlParams.get('weekDate')
 
       if (weekDateParam) {
-        console.log('📅 [관리자페이지] URL 주간 파라미터:', weekDateParam)
         setSelectedWeek(weekDateParam)
       } else {
         const today = new Date()
@@ -78,14 +101,21 @@ function AdminWeeklyReportsPage() {
     }
   }, [])
 
-  const fetchAdminReports = async () => {
+  const fetchRealtimeReports = async () => {
     if (!selectedWeek) return
 
     setLoading(true)
     try {
       const token = TokenManager.getToken()
+      const params = new URLSearchParams({
+        weekDate: selectedWeek
+      })
+
+      if (searchQuery) params.append('search', searchQuery)
+      if (assigneeFilter) params.append('assignee', assigneeFilter)
+
       const response = await fetch(
-        `/api/weekly-reports/admin?weekDate=${selectedWeek}`,
+        `/api/weekly-reports/realtime?${params.toString()}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -93,11 +123,8 @@ function AdminWeeklyReportsPage() {
         }
       )
 
-      console.log('📡 응답 상태:', response.status, response.statusText)
-
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('❌ HTTP 에러:', response.status, errorText)
         throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
 
@@ -107,9 +134,8 @@ function AdminWeeklyReportsPage() {
         setReports(data.data.reports)
         setSummary(data.data.summary)
         setWeekPeriod(data.data.week_period)
-        console.log('✅ 리포트 조회 성공:', data.data.reports.length, '건')
+        console.log('✅ 실시간 리포트 조회 성공:', data.data.reports.length, '건')
       } else {
-        console.error('리포트 조회 실패:', data.error || data.message)
         alert(data.message || '리포트 조회에 실패했습니다')
       }
     } catch (error: any) {
@@ -120,53 +146,33 @@ function AdminWeeklyReportsPage() {
     }
   }
 
-  const generateAllReports = async () => {
-    if (!selectedWeek) {
-      alert('주간을 먼저 선택해주세요')
-      return
-    }
-
-    if (!confirm('전체 사용자의 리포트를 생성하시겠습니까?\n기존 리포트가 있으면 업데이트됩니다.')) {
-      return
-    }
-
-    setGenerating(true)
-    try {
-      const token = TokenManager.getToken()
-      const response = await fetch('/api/weekly-reports/generate-all', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ weekDate: selectedWeek })
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        const results = data.data.results
-        alert(`리포트 생성 완료!\n\n성공: ${results.success}건\n업데이트: ${results.updated}건\n실패: ${results.failed}건`)
-
-        // 리포트 재조회
-        await fetchAdminReports()
-      } else {
-        console.error('리포트 생성 실패:', data.error)
-        alert(data.message || '리포트 생성에 실패했습니다')
-      }
-    } catch (error) {
-      console.error('리포트 생성 오류:', error)
-      alert('리포트 생성 중 오류가 발생했습니다')
-    } finally {
-      setGenerating(false)
-    }
-  }
-
   useEffect(() => {
     if (selectedWeek) {
-      fetchAdminReports()
+      fetchRealtimeReports()
     }
   }, [selectedWeek])
+
+  // 주간 변경 함수
+  const changeWeek = (direction: 'prev' | 'next') => {
+    if (!selectedWeek) return
+
+    const currentDate = new Date(selectedWeek)
+    const newDate = new Date(currentDate)
+    newDate.setDate(currentDate.getDate() + (direction === 'next' ? 7 : -7))
+    setSelectedWeek(newDate.toISOString().split('T')[0])
+  }
+
+  const toggleReportExpansion = (reportId: string) => {
+    setExpandedReports(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(reportId)) {
+        newSet.delete(reportId)
+      } else {
+        newSet.add(reportId)
+      }
+      return newSet
+    })
+  }
 
   const getPerformanceColor = (rate: number) => {
     if (rate >= 80) return 'text-green-600 bg-green-100'
@@ -174,58 +180,126 @@ function AdminWeeklyReportsPage() {
     return 'text-red-600 bg-red-100'
   }
 
+  const getStatusBadgeColor = (color: string) => {
+    const colors: Record<string, string> = {
+      blue: 'bg-blue-100 text-blue-800',
+      yellow: 'bg-yellow-100 text-yellow-800',
+      orange: 'bg-orange-100 text-orange-800',
+      purple: 'bg-purple-100 text-purple-800',
+      indigo: 'bg-indigo-100 text-indigo-800',
+      cyan: 'bg-cyan-100 text-cyan-800',
+      emerald: 'bg-emerald-100 text-emerald-800',
+      teal: 'bg-teal-100 text-teal-800',
+      green: 'bg-green-100 text-green-800',
+      lime: 'bg-lime-100 text-lime-800',
+      red: 'bg-red-100 text-red-800',
+      pink: 'bg-pink-100 text-pink-800',
+      gray: 'bg-gray-100 text-gray-800'
+    }
+    return colors[color] || 'bg-gray-100 text-gray-800'
+  }
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric'
     })
   }
 
   return (
     <AdminLayout
-      title="주간 리포트 관리"
-      description="전체 사용자의 주간 업무 성과 확인 (관리자 전용)"
+      title="실시간 주간 리포트"
+      description="담당자별 주간 업무 현황 실시간 조회"
     >
       <div className="space-y-6">
         {/* 컨트롤 영역 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
-          <div className="flex flex-col gap-3 md:gap-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 md:w-5 md:h-5 text-gray-500" />
-                <label className="text-xs md:text-sm font-medium text-gray-700">주간 선택:</label>
-              </div>
-              <input
-                type="date"
-                value={selectedWeek}
-                onChange={(e) => setSelectedWeek(e.target.value)}
-                className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {weekPeriod && (
-                <div className="text-xs md:text-sm text-gray-600">
-                  기간: {weekPeriod.display}
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+          <div className="space-y-4">
+            {/* 주간 선택 */}
+            <div className="flex items-center gap-3">
               <button
-                onClick={fetchAdminReports}
-                disabled={loading || generating}
-                className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                onClick={() => changeWeek('prev')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-2 flex-1">
+                <Calendar className="w-5 h-5 text-gray-500" />
+                <input
+                  type="date"
+                  value={selectedWeek}
+                  onChange={(e) => setSelectedWeek(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {weekPeriod && (
+                  <div className="text-sm text-gray-600 hidden md:block">
+                    {weekPeriod.display}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => changeWeek('next')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 검색 및 필터 */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="업무명, 사업장명 검색..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && fetchRealtimeReports()}
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('')
+                      setTimeout(fetchRealtimeReports, 0)
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                  >
+                    <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                  </button>
+                )}
+              </div>
+
+              <div className="relative flex-1 sm:flex-initial sm:w-48">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="담당자 필터..."
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && fetchRealtimeReports()}
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {assigneeFilter && (
+                  <button
+                    onClick={() => {
+                      setAssigneeFilter('')
+                      setTimeout(fetchRealtimeReports, 0)
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                  >
+                    <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={fetchRealtimeReports}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{loading ? '조회중...' : '리포트 조회'}</span>
-                <span className="sm:hidden">{loading ? '조회중...' : '조회'}</span>
-              </button>
-              <button
-                onClick={generateAllReports}
-                disabled={loading || generating}
-                className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-              >
-                <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{generating ? '생성중...' : '전체 생성'}</span>
-                <span className="sm:hidden">{generating ? '생성중...' : '생성'}</span>
+                {loading ? '조회중...' : '조회'}
               </button>
             </div>
           </div>
@@ -234,179 +308,44 @@ function AdminWeeklyReportsPage() {
         {/* 전체 통계 카드 */}
         {summary && (
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 md:gap-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Users className="w-4 h-4 md:w-6 md:h-6 text-blue-600" />
-                </div>
-                <div>
-                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_users}</div>
-                  <div className="text-xs text-gray-600">사용자</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <BarChart3 className="w-4 h-4 md:w-6 md:h-6 text-purple-600" />
-                </div>
-                <div>
-                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_tasks}</div>
-                  <div className="text-xs text-gray-600">총 업무</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="w-4 h-4 md:w-6 md:h-6 text-green-600" />
-                </div>
-                <div>
-                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_completed}</div>
-                  <div className="text-xs text-gray-600">완료</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-4 h-4 md:w-6 md:h-6 text-blue-600" />
-                </div>
-                <div>
-                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_in_progress}</div>
-                  <div className="text-xs text-gray-600">진행중</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-4 h-4 md:w-6 md:h-6 text-gray-600" />
-                </div>
-                <div>
-                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_pending}</div>
-                  <div className="text-xs text-gray-600">대기</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-4 h-4 md:w-6 md:h-6 text-indigo-600" />
-                </div>
-                <div>
-                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.average_completion_rate}%</div>
-                  <div className="text-xs text-gray-600">평균율</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle className="w-4 h-4 md:w-6 md:h-6 text-red-600" />
-                </div>
-                <div>
-                  <div className="text-lg md:text-2xl font-bold text-gray-900">{summary.total_overdue}</div>
-                  <div className="text-xs text-gray-600">연체</div>
-                </div>
-              </div>
-            </div>
+            <StatCard icon={Users} label="사용자" value={summary.total_users} color="blue" />
+            <StatCard icon={BarChart3} label="총 업무" value={summary.total_tasks} color="purple" />
+            <StatCard icon={CheckCircle} label="완료" value={summary.total_completed} color="green" />
+            <StatCard icon={Clock} label="진행중" value={summary.total_in_progress} color="blue" />
+            <StatCard icon={Clock} label="대기" value={summary.total_pending} color="gray" />
+            <StatCard icon={TrendingUp} label="평균율" value={`${summary.average_completion_rate}%`} color="indigo" />
+            <StatCard icon={AlertTriangle} label="연체" value={summary.total_overdue} color="red" />
           </div>
         )}
 
         {/* 사용자별 리포트 목록 */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-4 md:p-6 border-b border-gray-200">
-            <h3 className="text-base md:text-lg font-semibold text-gray-900">사용자별 주간 성과</h3>
-            <p className="text-xs md:text-sm text-gray-600 mt-1">
-              {reports.length}명의 사용자 리포트
+            <h3 className="text-lg font-semibold text-gray-900">담당자별 주간 업무</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              {reports.length}명의 담당자 • 실시간 업데이트
             </p>
           </div>
 
           <div className="divide-y divide-gray-200">
             {reports.map((report) => (
-              <div
+              <ReportCard
                 key={report.id}
-                className="p-4 md:p-6 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex flex-col gap-3">
-                  {/* 헤더 */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-                    <h4 className="text-base md:text-lg font-semibold text-gray-900">{report.user_name}</h4>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-medium ${getPerformanceColor(report.completion_rate)}`}>
-                        완료율 {report.completion_rate}%
-                      </span>
-                      {report.is_auto_generated && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
-                          자동생성
-                        </span>
-                      )}
-                      <button
-                        onClick={() => router.push(`/admin/weekly-reports/${report.user_id}?weekDate=${selectedWeek}`)}
-                        className="flex items-center gap-1 px-2 md:px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs transition-colors"
-                      >
-                        <Eye className="w-3 h-3" />
-                        <span className="hidden sm:inline">상세보기</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 통계 그리드 */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 text-sm">
-                    <div>
-                      <div className="text-xs text-gray-500">총 업무</div>
-                      <div className="text-base md:text-xl font-bold text-gray-900">{report.total_tasks}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">완료</div>
-                      <div className="text-base md:text-xl font-bold text-green-600">{report.completed_tasks}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">진행중</div>
-                      <div className="text-base md:text-xl font-bold text-blue-600">{report.in_progress_tasks}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">대기</div>
-                      <div className="text-base md:text-xl font-bold text-gray-600">{report.pending_tasks}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">연체</div>
-                      <div className={`text-base md:text-xl font-bold ${report.overdue_tasks > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                        {report.overdue_tasks}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">평균시간</div>
-                      <div className="text-base md:text-xl font-bold text-gray-900">{report.average_completion_time_days}일</div>
-                    </div>
-                  </div>
-
-                  {/* 업무 타입 */}
-                  <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-gray-600 flex-wrap">
-                    <span>자체 {report.self_tasks}개</span>
-                    <span>보조 {report.subsidy_tasks}개</span>
-                    <span className="text-gray-400">•</span>
-                    <span className="text-xs text-gray-500">
-                      {formatDate(report.generated_at)} 생성
-                    </span>
-                  </div>
-                </div>
-              </div>
+                report={report}
+                isExpanded={expandedReports.has(report.id)}
+                onToggleExpand={() => toggleReportExpansion(report.id)}
+                getPerformanceColor={getPerformanceColor}
+                getStatusBadgeColor={getStatusBadgeColor}
+                formatDate={formatDate}
+              />
             ))}
 
             {reports.length === 0 && !loading && (
               <div className="p-12 text-center">
                 <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">해당 주간의 리포트가 없습니다</p>
+                <p className="text-gray-500">해당 주간의 업무가 없습니다</p>
                 <p className="text-sm text-gray-400 mt-2">
-                  주간을 선택하고 리포트 조회 버튼을 클릭하세요
+                  다른 주간을 선택하거나 검색 조건을 변경해보세요
                 </p>
               </div>
             )}
@@ -417,5 +356,132 @@ function AdminWeeklyReportsPage() {
   )
 }
 
-// 관리자 전용 (권한 3 이상)
-export default withAuth(AdminWeeklyReportsPage, undefined, 3)
+// 통계 카드 컴포넌트
+function StatCard({ icon: Icon, label, value, color }: any) {
+  const colorClasses: Record<string, string> = {
+    blue: 'bg-blue-100 text-blue-600',
+    purple: 'bg-purple-100 text-purple-600',
+    green: 'bg-green-100 text-green-600',
+    indigo: 'bg-indigo-100 text-indigo-600',
+    red: 'bg-red-100 text-red-600',
+    gray: 'bg-gray-100 text-gray-600'
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
+      <div className="flex items-center gap-2 md:gap-3">
+        <div className={`w-8 h-8 md:w-10 md:h-10 ${colorClasses[color]} rounded-lg flex items-center justify-center flex-shrink-0`}>
+          <Icon className="w-4 h-4 md:w-6 md:h-6" />
+        </div>
+        <div>
+          <div className="text-lg md:text-2xl font-bold text-gray-900">{value}</div>
+          <div className="text-xs text-gray-600">{label}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 리포트 카드 컴포넌트
+function ReportCard({ report, isExpanded, onToggleExpand, getPerformanceColor, getStatusBadgeColor, formatDate }: any) {
+  return (
+    <div
+      className="p-4 md:p-6 hover:bg-gray-50 transition-colors cursor-pointer"
+      onClick={onToggleExpand}
+    >
+      <div className="space-y-3">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h4 className="text-lg font-semibold text-gray-900">{report.user_name}</h4>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPerformanceColor(report.completion_rate)}`}>
+              {report.completion_rate}%
+            </span>
+          </div>
+          <div className="text-sm text-blue-600 font-medium flex items-center gap-1">
+            {isExpanded ? (
+              <>
+                <Eye className="w-4 h-4" />
+                <span>접기</span>
+              </>
+            ) : (
+              <>
+                <Eye className="w-4 h-4" />
+                <span>상세보기</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 통계 */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 text-sm">
+          <div>
+            <div className="text-xs text-gray-500">총 업무</div>
+            <div className="text-xl font-bold text-gray-900">{report.total_tasks}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">완료</div>
+            <div className="text-xl font-bold text-green-600">{report.completed_tasks}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">진행중</div>
+            <div className="text-xl font-bold text-blue-600">{report.in_progress_tasks}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">대기</div>
+            <div className="text-xl font-bold text-gray-600">{report.pending_tasks}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">연체</div>
+            <div className={`text-xl font-bold ${report.overdue_tasks > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+              {report.overdue_tasks}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">평균시간</div>
+            <div className="text-xl font-bold text-gray-900">{report.average_completion_time_days}일</div>
+          </div>
+        </div>
+
+        {/* 상세 업무 목록 */}
+        {isExpanded && (
+          <div className="mt-4 space-y-4 border-t pt-4">
+            {report.all_task_details.length > 0 ? (
+              <div className="space-y-2">
+                {report.all_task_details.map((task: TaskDetail) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">{task.title}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {task.business_name} • {formatDate(task.created_at)}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded text-xs ${getStatusBadgeColor(task.status_color)}`}>
+                        {task.status_label}
+                      </span>
+                      {task.is_overdue && (
+                        <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">
+                          연체
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">
+                업무가 없습니다
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default withAuth(AdminWeeklyReportsPageV2, undefined, 3)

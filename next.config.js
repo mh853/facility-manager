@@ -26,6 +26,13 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react'],
     serverComponentsExternalPackages: ['googleapis', 'sharp', 'canvas'],
+    // Google Fonts 타임아웃 증가 (개발 환경 안정화)
+    fetchCacheKeyPrefix: 'v1',
+  },
+
+  // Google Fonts 로딩 타임아웃 설정
+  env: {
+    NEXT_FONT_GOOGLE_MOCKED_RESPONSES: process.env.NODE_ENV === 'development' ? 'true' : undefined,
   },
 
   // Vercel 배포 최적화
