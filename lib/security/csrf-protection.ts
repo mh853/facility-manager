@@ -110,6 +110,7 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/air-permit',  // 대기필증 관리 API (JWT 인증 사용)
     '/api/outlet-facility',  // 배출구/시설 관리 API (JWT 인증 사용)
     '/api/upload-supabase',  // 파일 업로드 API (공개 사용)
+    '/api/upload-metadata',  // 파일 메타데이터 저장 API (Supabase Direct Upload용)
     '/api/facility-photos',  // 시설별 사진 업로드 API (공개 사용)
     '/api/uploaded-files-supabase',  // 업로드 파일 조회 API (공개 사용)
     '/api/uploaded-files',  // 업로드 파일 관리 API (공개 사용)

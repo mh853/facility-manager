@@ -43,17 +43,18 @@ export async function uploadToSupabaseStorage(
   try {
     console.log(`🚀 [DIRECT-UPLOAD] Supabase Storage 직접 업로드 시작: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`);
 
-    // 0단계: 버킷 존재 확인
+    // 0단계: 버킷 존재 확인 (권한 에러 시에도 업로드 시도)
     const { data: buckets, error: bucketListError } = await supabase.storage.listBuckets();
 
     if (bucketListError) {
-      console.warn('⚠️ [DIRECT-UPLOAD] 버킷 목록 조회 실패:', bucketListError);
+      console.warn('⚠️ [DIRECT-UPLOAD] 버킷 목록 조회 실패 (권한 부족 가능성):', bucketListError);
+      console.warn('⚠️ [DIRECT-UPLOAD] 버킷 존재를 가정하고 업로드 시도합니다...');
     } else {
       const bucketExists = buckets?.some(b => b.name === 'facility-files');
       console.log(`🗂️ [DIRECT-UPLOAD] facility-files 버킷 존재 여부: ${bucketExists ? '✅ 존재' : '❌ 없음'}`);
 
       if (!bucketExists) {
-        throw new Error('facility-files 버킷이 존재하지 않습니다. Supabase Console에서 버킷을 생성해주세요.');
+        console.warn('⚠️ [DIRECT-UPLOAD] 버킷 목록에서 facility-files를 찾지 못했지만 업로드를 시도합니다...');
       }
     }
 
