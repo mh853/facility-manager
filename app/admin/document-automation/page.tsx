@@ -95,6 +95,7 @@ export default function DocumentAutomationPage() {
   })
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [previewDocument, setPreviewDocument] = useState<any | null>(null)
+  const [loadingContractData, setLoadingContractData] = useState(false)
 
   // AuthContext에서 사용자 정보 및 권한 가져오기
   const { user } = useAuth()
@@ -236,6 +237,84 @@ export default function DocumentAutomationPage() {
     } catch (error) {
       console.error('문서 삭제 오류:', error)
       alert('문서 삭제 중 오류가 발생했습니다.')
+    }
+  }
+
+  // 계약서 데이터 로드 (document_data가 없을 때)
+  const loadContractData = async (doc: any) => {
+    try {
+      setLoadingContractData(true)
+
+      // document_data가 이미 있으면 그대로 사용
+      if (doc.document_data) {
+        setPreviewDocument(doc)
+        return
+      }
+
+      // document_data가 없으면 contract_history에서 조회
+      const token = localStorage.getItem('auth_token')
+
+      // business_id로 contract_history 조회
+      const response = await fetch(`/api/document-automation/contract?business_id=${doc.business_id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (!response.ok) {
+        throw new Error('계약서 조회 실패')
+      }
+
+      const result = await response.json()
+
+      if (result.success && result.data && result.data.length > 0) {
+        // 가장 최근 계약서 사용 (created_at 기준 내림차순 정렬됨)
+        const contract = result.data[0]
+
+        // 계약서 데이터 구성
+        const contractData = {
+          contract_number: contract.contract_number,
+          contract_date: contract.contract_date,
+          contract_type: contract.contract_type,
+          business_name: contract.business_name,
+          business_address: contract.business_address || '',
+          business_representative: contract.business_representative || '',
+          business_registration_number: contract.business_registration_number || '',
+          business_phone: contract.business_phone || '',
+          business_fax: contract.business_fax || '',
+          total_amount: contract.total_amount,
+          base_revenue: contract.base_revenue || contract.total_amount,
+          final_amount: contract.final_amount || contract.total_amount,
+          supplier_company_name: contract.supplier_company_name || '주식회사 블루온',
+          supplier_representative: contract.supplier_representative || '김경수',
+          supplier_address: contract.supplier_address || '경상북도 고령군 대가야읍 낫질로 285',
+          payment_advance_ratio: contract.payment_advance_ratio || 50,
+          payment_balance_ratio: contract.payment_balance_ratio || 50,
+          additional_cost: contract.additional_cost || 0,
+          negotiation_cost: contract.negotiation_cost || 0,
+          equipment_counts: contract.equipment_counts || {
+            ph_meter: 0,
+            differential_pressure_meter: 0,
+            temperature_meter: 0,
+            discharge_current_meter: 0,
+            fan_current_meter: 0,
+            pump_current_meter: 0,
+            gateway: 0,
+            vpn: 0
+          }
+        }
+
+        // document 객체에 contractData 추가
+        setPreviewDocument({
+          ...doc,
+          document_data: contractData
+        })
+      } else {
+        alert('계약서 데이터를 찾을 수 없습니다.')
+      }
+    } catch (error) {
+      console.error('계약서 데이터 로드 오류:', error)
+      alert('계약서 데이터를 불러오는 중 오류가 발생했습니다.')
+    } finally {
+      setLoadingContractData(false)
     }
   }
 
@@ -824,13 +903,23 @@ export default function DocumentAutomationPage() {
                                 보기
                               </button>
                             )}
-                            {doc.document_type === 'contract' && doc.document_data && (
+                            {doc.document_type === 'contract' && (
                               <button
-                                onClick={() => setPreviewDocument(doc)}
-                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-purple-600 hover:text-purple-900 border border-purple-200 hover:border-purple-300 rounded-lg transition-colors text-xs"
+                                onClick={() => loadContractData(doc)}
+                                disabled={loadingContractData}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-purple-600 hover:text-purple-900 border border-purple-200 hover:border-purple-300 rounded-lg transition-colors text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <Eye className="w-3.5 h-3.5" />
-                                보기
+                                {loadingContractData ? (
+                                  <>
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    로딩...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="w-3.5 h-3.5" />
+                                    보기
+                                  </>
+                                )}
                               </button>
                             )}
                             {doc.file_path ? (
@@ -971,14 +1060,24 @@ export default function DocumentAutomationPage() {
                                       보기
                                     </button>
                                   )}
-                                  {doc.document_type === 'contract' && doc.document_data && (
+                                  {doc.document_type === 'contract' && (
                                     <button
-                                      onClick={() => setPreviewDocument(doc)}
-                                      className="text-purple-600 hover:text-purple-900 inline-flex items-center gap-1"
+                                      onClick={() => loadContractData(doc)}
+                                      disabled={loadingContractData}
+                                      className="text-purple-600 hover:text-purple-900 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                       title="계약서 보기"
                                     >
-                                      <Eye className="w-4 h-4" />
-                                      보기
+                                      {loadingContractData ? (
+                                        <>
+                                          <RefreshCw className="w-4 h-4 animate-spin" />
+                                          로딩...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Eye className="w-4 h-4" />
+                                          보기
+                                        </>
+                                      )}
                                     </button>
                                   )}
 
