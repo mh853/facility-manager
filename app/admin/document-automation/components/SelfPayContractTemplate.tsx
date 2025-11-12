@@ -150,18 +150,18 @@ export default function SelfPayContractTemplate({ data }: Props) {
         <table className="w-full border-2 border-black border-t-0 border-collapse">
           <tbody>
             <tr className="border-b border-black">
-              <td className="border-r-2 border-black w-16 text-center py-4 font-bold">"갑"</td>
+              <td className="border-r-2 border-black w-24 text-center py-4 font-bold">"갑"</td>
               <td className="border-r-2 border-black text-center py-4 font-bold w-1/2">{data.business_name}</td>
-              <td className="border-r-2 border-black w-16 text-center py-4 font-bold">"을"</td>
+              <td className="border-r-2 border-black w-24 text-center py-4 font-bold">"을"</td>
               <td className="text-center py-4 font-bold w-1/2">{data.supplier_company_name}</td>
             </tr>
             <tr>
-              <td className="border-r-2 border-black w-16 text-center py-6 font-bold">성명</td>
+              <td className="border-r-2 border-black w-24 text-center py-6 font-bold">성명</td>
               <td className="border-r-2 border-black text-center py-6 w-1/2">
                 <span className="text-lg">{formatNameWithSpaces(data.business_representative)}</span>
                 <span className="ml-4">(인)</span>
               </td>
-              <td className="border-r-2 border-black w-16 text-center py-6 font-bold">성명</td>
+              <td className="border-r-2 border-black w-24 text-center py-6 font-bold">성명</td>
               <td className="text-center py-6 w-1/2">
                 <span className="text-lg">{formatNameWithSpaces(data.supplier_representative)}</span>
                 <span className="ml-4 text-red-600">(인)</span>
