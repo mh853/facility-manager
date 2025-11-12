@@ -186,7 +186,10 @@ export default function DocumentAutomationPage() {
       const result = await response.json()
 
       if (result.success && result.data) {
-        setDocumentHistory(result.data.documents || [])
+        const docs = result.data.documents || []
+        console.log('[DOCUMENT-HISTORY] 로드된 문서:', docs)
+        console.log('[DOCUMENT-HISTORY] 계약서 개수:', docs.filter((d: any) => d.document_type === 'contract').length)
+        setDocumentHistory(docs)
         setHistoryPagination(result.data.pagination || historyPagination)
         setHistorySummary(result.data.summary || historySummary)
       }
