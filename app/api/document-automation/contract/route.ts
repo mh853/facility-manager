@@ -230,6 +230,7 @@ export async function POST(request: NextRequest) {
       business_phone: business.business_contact || '',
       business_fax: business.fax_number || '',
       total_amount: baseRevenue,  // 기본 매출 (기기 합계) - 계약서 표의 "금액 계"에 표시
+      base_revenue: baseRevenue,  // 기본 매출 (템플릿 렌더링용)
       final_amount: totalAmount,  // 최종 매출 (기본 + 추가공사비 - 협의사항) - 헤더에 표시
       supplier_company_name: template.supplier_company_name,
       supplier_representative: template.supplier_representative,
