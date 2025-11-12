@@ -54,7 +54,9 @@ export default function DataHistoryPage() {
     { value: 'air_permit_info', label: '대기필증 정보' },
     { value: 'discharge_outlets', label: '배출구 정보' },
     { value: 'discharge_facilities', label: '배출시설 정보' },
-    { value: 'prevention_facilities', label: '방지시설 정보' }
+    { value: 'prevention_facilities', label: '방지시설 정보' },
+    { value: 'contract_history', label: '계약서 생성 이력' },
+    { value: 'estimate_history', label: '견적서 생성 이력' }
   ]
 
   // 이력 데이터 로드

@@ -91,7 +91,9 @@ function getTableDisplayName(tableName: string): string {
     'air_permit_info': '대기필증 정보',
     'discharge_outlets': '배출구 정보',
     'discharge_facilities': '배출시설 정보',
-    'prevention_facilities': '방지시설 정보'
+    'prevention_facilities': '방지시설 정보',
+    'contract_history': '계약서 생성 이력',
+    'estimate_history': '견적서 생성 이력'
   }
   return tableNames[tableName] || tableName
 }

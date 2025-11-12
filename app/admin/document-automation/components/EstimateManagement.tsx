@@ -66,6 +66,12 @@ export default function EstimateManagement() {
   const { user } = useAuth()
   const userPermissionLevel = user?.permission_level || 0
 
+  // 권한 체크
+  const canView = userPermissionLevel >= 1
+  const canCreate = userPermissionLevel >= 1
+  const canEdit = userPermissionLevel >= 1
+  const canDelete = userPermissionLevel >= 4
+
   // 사업장 목록 로드
   useEffect(() => {
     loadBusinesses()
@@ -143,6 +149,11 @@ export default function EstimateManagement() {
   }
 
   const generateEstimate = async (businessId: string) => {
+    if (!canCreate) {
+      alert('견적서 생성 권한이 없습니다. (권한 1 이상 필요)')
+      return
+    }
+
     try {
       setGeneratingEstimate(true)
       const token = localStorage.getItem('auth_token')
@@ -409,6 +420,11 @@ export default function EstimateManagement() {
 
 
   const deleteEstimate = async (estimateId: string) => {
+    if (!canDelete) {
+      alert('삭제 권한이 없습니다. (권한 4 이상 필요)')
+      return
+    }
+
     if (!confirm('견적서를 삭제하시겠습니까?')) return
 
     try {
@@ -452,7 +468,14 @@ export default function EstimateManagement() {
     <div className="space-y-6">
       {/* 헤더 */}
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">견적서 관리</h2>
+        <div>
+          <h2 className="text-xl font-semibold">견적서 관리</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            현재 권한: {userPermissionLevel}
+            {canCreate && ' (생성/수정 가능)'}
+            {canDelete && ' (삭제 가능)'}
+          </p>
+        </div>
         <button
           onClick={() => setIsTemplateModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
@@ -622,11 +645,11 @@ export default function EstimateManagement() {
                         >
                           <Download className="w-4 h-4" />
                         </button>
-                        {userPermissionLevel >= 4 && (
+                        {canDelete && (
                           <button
                             onClick={() => deleteEstimate(estimate.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded"
-                            title="삭제"
+                            title="삭제 (권한 4 이상)"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

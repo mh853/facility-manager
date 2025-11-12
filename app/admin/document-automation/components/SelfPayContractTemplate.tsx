@@ -265,6 +265,11 @@ export default function SelfPayContractTemplate({ data }: Props) {
             <p className="text-base leading-relaxed">
               2. "을"은 설치 완료(입금확인 후)일로부터 7일 이내에 아래 보고서류를 "갑"에게 제출한다.
             </p>
+            <p className="ml-8 space-y-2 mb-6 text-sm">
+              <p>(1) 신호기기 부착완료 신고서</p>
+              <p>(2) 그린링크 전송확인서</p>
+            </p>
+              <div className="page-3 p-4">
           </div>
         </div>
       </div>
@@ -272,11 +277,7 @@ export default function SelfPayContractTemplate({ data }: Props) {
       <div className="page-break"></div>
 
       {/* 페이지 3 - 나머지 조항 */}
-      <div className="page-3 p-4">
-        <div className="ml-8 space-y-2 mb-6 text-sm">
-          <p>(1) 신호기기 부착완료 신고서</p>
-          <p>(2) 그린링크 전송확인서</p>
-        </div>
+    
 
         {/* 제5조 */}
         <div className="mb-6">

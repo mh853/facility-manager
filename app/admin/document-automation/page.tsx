@@ -7,6 +7,7 @@ import { ConfirmModal } from '@/components/ui/Modal'
 import PurchaseOrderModal from './components/PurchaseOrderModal'
 import EcosensePurchaseOrderForm from '@/components/EcosensePurchaseOrderForm'
 import EstimateManagement from './components/EstimateManagement'
+import ContractManagement from './components/ContractManagement'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   FileText,
@@ -27,7 +28,8 @@ import {
   AlertTriangle,
   Zap,
   ShoppingCart,
-  X
+  X,
+  FileCheck
 } from 'lucide-react'
 
 interface DocumentTemplate {
@@ -57,7 +59,7 @@ export default function DocumentAutomationPage() {
   const [templates, setTemplates] = useState<DocumentTemplate[]>([])
   const [rules, setRules] = useState<AutomationRule[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'templates' | 'rules' | 'purchase_order' | 'estimate' | 'history'>('estimate')
+  const [activeTab, setActiveTab] = useState<'templates' | 'rules' | 'purchase_order' | 'estimate' | 'contract' | 'history'>('estimate')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalType, setModalType] = useState<'template' | 'rule'>('template')
   const [selectedItem, setSelectedItem] = useState<DocumentTemplate | AutomationRule | null>(null)
@@ -394,6 +396,7 @@ export default function DocumentAutomationPage() {
             <nav className="flex overflow-x-auto">
               {[
                 { id: 'estimate', name: '견적서 관리', icon: FileText },
+                { id: 'contract', name: '계약서 관리', icon: FileCheck },
                 { id: 'purchase_order', name: '발주서 관리', icon: ShoppingCart },
                 { id: 'templates', name: '문서 템플릿', icon: FileText },
                 { id: 'rules', name: '자동화 규칙', icon: Settings },
@@ -419,6 +422,10 @@ export default function DocumentAutomationPage() {
           <div className="p-3 sm:p-4 md:p-6">
             {activeTab === 'estimate' && (
               <EstimateManagement />
+            )}
+
+            {activeTab === 'contract' && (
+              <ContractManagement />
             )}
 
             {activeTab === 'templates' && (
