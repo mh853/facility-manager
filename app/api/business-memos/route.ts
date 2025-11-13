@@ -158,6 +158,21 @@ export const POST = withApiHandler(async (request: NextRequest) => {
 
     console.log(`✅ [BUSINESS-MEMOS] 새 메모 추가 완료 - ID: ${newMemo.id}`)
 
+    // ✅ 메모 생성 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+    if (finalBusinessId) {
+      const { error: updateError } = await supabaseAdmin
+        .from('business_info')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', finalBusinessId);
+
+      if (updateError) {
+        console.warn('⚠️ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 실패:', updateError);
+        // 메모 생성은 성공했으므로 에러 throw 하지 않음
+      } else {
+        console.log(`✅ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 완료 - businessId: ${finalBusinessId}`);
+      }
+    }
+
     return createSuccessResponse({
       data: newMemo,
       message: '메모가 성공적으로 추가되었습니다.'
@@ -214,6 +229,21 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
     }
 
     console.log(`✅ [BUSINESS-MEMOS] 메모 수정 완료 - ID: ${memoId}`)
+
+    // ✅ 메모 수정 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+    if (updatedMemo?.business_id) {
+      const { error: updateError } = await supabaseAdmin
+        .from('business_info')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', updatedMemo.business_id);
+
+      if (updateError) {
+        console.warn('⚠️ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 실패:', updateError);
+        // 메모 수정은 성공했으므로 에러 throw 하지 않음
+      } else {
+        console.log(`✅ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 완료 - businessId: ${updatedMemo.business_id}`);
+      }
+    }
 
     return createSuccessResponse({
       data: updatedMemo,
@@ -276,6 +306,21 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
     }
 
     console.log(`✅ [BUSINESS-MEMOS] 메모 삭제 완료 - ID: ${memoId}`)
+
+    // ✅ 메모 삭제 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+    if (memoInfo?.business_id) {
+      const { error: updateError } = await supabaseAdmin
+        .from('business_info')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', memoInfo.business_id);
+
+      if (updateError) {
+        console.warn('⚠️ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 실패:', updateError);
+        // 메모 삭제는 성공했으므로 에러 throw 하지 않음
+      } else {
+        console.log(`✅ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 완료 - businessId: ${memoInfo.business_id}`);
+      }
+    }
 
     // 자동 메모 삭제 로그 기록 (슈퍼 관리자 전용 기능에 대한 감사 로그)
     if (isAutoMemo) {
