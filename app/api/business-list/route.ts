@@ -72,7 +72,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
           .eq('is_active', true)
           .eq('is_deleted', false)
           .not('business_name', 'is', null)
-          .order('business_name')
+          .order('updated_at', { ascending: false })  // ✅ 최근 수정된 순서로 정렬
           .range(page * pageSize, (page + 1) * pageSize - 1);
 
         if (businessError) {
@@ -220,7 +220,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       .eq('is_active', true)
       .eq('is_deleted', false)
       .not('business_name', 'is', null)
-      .order('business_name');
+      .order('updated_at', { ascending: false });  // ✅ 최근 수정된 순서로 정렬
     
     console.log(`🏢 [BUSINESS-LIST] 조회 결과:`, {
       permitBusinessesCount: businessIds.length,
