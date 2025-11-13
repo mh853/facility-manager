@@ -657,6 +657,38 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
+    // ✅ 업무 수정 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+    if (updatedTask?.business_name) {
+      try {
+        // business_name을 business_id로 변환
+        const { data: businessInfo, error: businessError } = await supabaseAdmin
+          .from('business_info')
+          .select('id')
+          .eq('business_name', updatedTask.business_name)
+          .eq('is_active', true)
+          .eq('is_deleted', false)
+          .single();
+
+        if (businessError || !businessInfo) {
+          console.warn('⚠️ [FACILITY-TASKS] 사업장 조회 실패:', updatedTask.business_name, businessError?.message);
+        } else {
+          const { error: updateError } = await supabaseAdmin
+            .from('business_info')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', businessInfo.id);
+
+          if (updateError) {
+            console.warn('⚠️ [FACILITY-TASKS] 사업장 updated_at 업데이트 실패:', updateError);
+            // 업무 수정은 성공했으므로 에러 throw 하지 않음
+          } else {
+            console.log(`✅ [FACILITY-TASKS] 사업장 updated_at 업데이트 완료 - businessName: ${updatedTask.business_name}`);
+          }
+        }
+      } catch (updateBusinessError) {
+        console.error('❌ [FACILITY-TASKS] 사업장 updated_at 업데이트 중 오류:', updateBusinessError);
+        // 업무 수정은 성공했으므로 계속 진행
+      }
+    }
 
     // 📝 수정 이력 상세 로깅
     const changedFields = Object.keys(updateData).filter(key =>
