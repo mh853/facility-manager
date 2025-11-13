@@ -166,7 +166,7 @@ async function protectAPIRoute(request: NextRequest): Promise<NextResponse | nul
   return null; // 모든 보안 검사 통과
 }
 
-// 페이지 인증 확인
+// 페이지 인증 및 권한 확인
 async function checkPageAuthentication(request: NextRequest): Promise<NextResponse | null> {
   // httpOnly 쿠키에서 토큰 확인
   const token = request.cookies.get('auth_token')?.value;
@@ -181,14 +181,35 @@ async function checkPageAuthentication(request: NextRequest): Promise<NextRespon
     return NextResponse.redirect(loginUrl);
   }
 
-  // JWT 토큰 검증
+  // JWT 토큰 검증 및 권한 확인
   try {
     const jwt = require('jsonwebtoken');
     const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 
     const decodedToken = jwt.verify(token, JWT_SECRET);
 
-    // 토큰이 유효하면 계속 진행
+    // ✅ 권한 레벨 확인 추가
+    const { pathname } = request.nextUrl;
+
+    // AuthGuard를 사용하여 페이지 권한 확인
+    const { AuthGuard } = require('@/lib/auth/AuthGuard');
+    const authResult = await AuthGuard.checkPageAccess(pathname, {
+      id: decodedToken.id,
+      name: decodedToken.name,
+      email: decodedToken.email,
+      permission_level: decodedToken.permission_level || 1
+    });
+
+    if (!authResult.allowed) {
+      // 권한 부족 시 접근 거부 페이지 또는 메인으로 리다이렉트
+      const redirectUrl = new URL(authResult.redirectTo || '/login', request.url);
+
+      console.warn(`[SECURITY] Permission denied for ${pathname} - User level: ${authResult.userLevel}, Required: ${authResult.requiredLevel}`);
+
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // 토큰이 유효하고 권한이 충분하면 계속 진행
     return null;
   } catch (error) {
     // 토큰이 유효하지 않으면 로그인 페이지로 리다이렉트

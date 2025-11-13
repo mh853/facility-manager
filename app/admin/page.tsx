@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import AdminLayout from '@/components/ui/AdminLayout'
 import OrganizationChart from '@/components/admin/OrganizationChart'
 import RevenueChart from '@/components/dashboard/charts/RevenueChart'
@@ -10,6 +11,8 @@ import FilterPanel from '@/components/dashboard/FilterPanel'
 import DashboardCustomizer from '@/components/dashboard/DashboardCustomizer'
 import { DashboardFilters } from '@/types/dashboard'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { AuthGuard, AuthUser } from '@/lib/auth/AuthGuard'
+import { AuthLevel } from '@/lib/auth/AuthLevels'
 
 interface Widget {
   id: string;
@@ -31,10 +34,13 @@ const DEFAULT_LAYOUT: DashboardLayout = {
 };
 
 export default function AdminDashboard() {
+  const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [filters, setFilters] = useState<DashboardFilters>({})
   const [layout, setLayout] = useState<DashboardLayout>(DEFAULT_LAYOUT)
   const [isOrgExpanded, setIsOrgExpanded] = useState(false)
+  const [authChecking, setAuthChecking] = useState(true)
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
 
   // ✅ 병렬 API 호출을 위한 데이터 상태
   const [revenueData, setRevenueData] = useState<any>(null)
@@ -42,19 +48,75 @@ export default function AdminDashboard() {
   const [installationData, setInstallationData] = useState<any>(null)
   const [chartsLoading, setChartsLoading] = useState(true)
 
+  // ✅ 권한 확인 (최우선)
+  useEffect(() => {
+    checkAuthAndPermission()
+  }, [])
+
   // ✅ 최적화 1: 레이아웃 로딩을 백그라운드로 처리 (즉시 렌더링)
   useEffect(() => {
-    setMounted(true)
-    // 레이아웃 로드는 백그라운드에서 실행 (블로킹하지 않음)
-    loadLayout()
-  }, [])
+    if (mounted && !authChecking) {
+      // 권한 확인 후에만 레이아웃 로드
+      loadLayout()
+    }
+  }, [mounted, authChecking])
 
   // ✅ 최적화 2: 병렬 API 호출로 차트 데이터 로드
   useEffect(() => {
-    if (mounted) {
+    if (mounted && !authChecking) {
       loadAllChartData()
     }
-  }, [filters, mounted])
+  }, [filters, mounted, authChecking])
+
+  // 권한 확인 함수
+  const checkAuthAndPermission = async () => {
+    try {
+      // 사용자 정보 조회 (쿠키에서 토큰 확인)
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        // 로그인 안 됨 - 로그인 페이지로 리다이렉트
+        router.push('/login?redirect=/admin')
+        return
+      }
+
+      const userData = await response.json()
+
+      if (!userData.success || !userData.user) {
+        router.push('/login?redirect=/admin')
+        return
+      }
+
+      const user: AuthUser = {
+        id: userData.user.id,
+        name: userData.user.name,
+        email: userData.user.email,
+        permission_level: userData.user.permission_level || 1
+      }
+
+      // 권한 확인 (SUPER_ADMIN = 레벨 3 이상 필요)
+      const authResult = AuthGuard.checkComponentAccess(AuthLevel.SUPER_ADMIN, user)
+
+      if (!authResult.allowed) {
+        console.warn(`[ADMIN] Access denied - User level: ${authResult.userLevel}, Required: ${authResult.requiredLevel}`)
+
+        // 권한 부족 메시지와 함께 메인 페이지로 리다이렉트
+        alert(`관리자 대시보드는 슈퍼 관리자 권한(레벨 3) 이상이 필요합니다.\n현재 권한: 레벨 ${authResult.userLevel}`)
+        router.push('/')
+        return
+      }
+
+      // 권한 확인 완료
+      setCurrentUser(user)
+      setAuthChecking(false)
+      setMounted(true)
+    } catch (error) {
+      console.error('[ADMIN] Auth check failed:', error)
+      router.push('/login?redirect=/admin')
+    }
+  }
 
   const loadLayout = async () => {
     try {
@@ -210,8 +272,8 @@ export default function AdminDashboard() {
     }
   }
 
-  // ✅ 최적화: mounted만 체크 (loading 제거)
-  if (!mounted) {
+  // ✅ 권한 확인 중 로딩 표시
+  if (authChecking || !mounted) {
     return (
       <AdminLayout
         title="관리자 대시보드"
@@ -220,7 +282,9 @@ export default function AdminDashboard() {
         <div className="h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">대시보드 초기화 중...</p>
+            <p className="text-gray-600">
+              {authChecking ? '권한 확인 중...' : '대시보드 초기화 중...'}
+            </p>
           </div>
         </div>
       </AdminLayout>

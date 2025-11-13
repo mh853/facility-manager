@@ -23,12 +23,10 @@ export const PAGE_AUTH_LEVELS = {
   '/admin/users': AuthLevel.ADMIN,
 
   // SUPER_ADMIN 페이지 - 슈퍼 관리자 권한 필요 (레벨 3 이상)
+  '/admin': AuthLevel.SUPER_ADMIN, // 관리자 대시보드 - 레벨 3 이상
   '/admin/revenue/pricing': AuthLevel.SUPER_ADMIN,
   '/admin/settings': AuthLevel.SUPER_ADMIN,
   '/admin/system': AuthLevel.SUPER_ADMIN,
-
-  // SYSTEM_ADMIN 페이지 - 시스템 관리자 권한 필요 (레벨 4)
-  '/admin': AuthLevel.SYSTEM_ADMIN,
 
   // 테스트 페이지 - 개발 환경에서만 접근 가능
   '/admin/revenue/test': AuthLevel.PUBLIC, // 테스트용이므로 PUBLIC
