@@ -42,13 +42,13 @@ ORDER BY indexname;
 -- 인덱스 사용 통계 확인
 SELECT
     schemaname,
-    tablename,
-    indexname,
+    relname as tablename,
+    indexrelname as indexname,
     idx_scan as index_scans,
     idx_tup_read as tuples_read,
     idx_tup_fetch as tuples_fetched
 FROM pg_stat_user_indexes
-WHERE tablename = 'business_info'
+WHERE relname = 'business_info'
 ORDER BY idx_scan DESC;
 
 -- =====================================================
