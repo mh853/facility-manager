@@ -264,6 +264,17 @@ export async function createBusinessMemo(memoData: CreateBusinessMemoInput) {
     throw new Error(`메모 생성 실패: ${error.message}`);
   }
 
+  // ✅ 메모 생성 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+  const { error: updateError } = await supabaseAdmin
+    .from('business_info')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', memoData.business_id);
+
+  if (updateError) {
+    console.warn('⚠️ [SUPABASE] 사업장 updated_at 업데이트 실패:', updateError);
+    // 메모 생성은 성공했으므로 에러 throw 하지 않음
+  }
+
   return data as BusinessMemo;
 }
 
@@ -286,10 +297,30 @@ export async function updateBusinessMemo(id: string, updates: UpdateBusinessMemo
     throw new Error(`메모 업데이트 실패: ${error.message}`);
   }
 
+  // ✅ 메모 수정 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+  if (data?.business_id) {
+    const { error: updateError } = await supabaseAdmin
+      .from('business_info')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', data.business_id);
+
+    if (updateError) {
+      console.warn('⚠️ [SUPABASE] 사업장 updated_at 업데이트 실패:', updateError);
+      // 메모 수정은 성공했으므로 에러 throw 하지 않음
+    }
+  }
+
   return data as BusinessMemo;
 }
 
 export async function deleteBusinessMemo(id: string) {
+  // ✅ 삭제 전 business_id 조회 (사업장 updated_at 업데이트용)
+  const { data: memo } = await supabaseAdmin
+    .from('business_memos')
+    .select('business_id')
+    .eq('id', id)
+    .single();
+
   const { error } = await supabaseAdmin
     .from('business_memos')
     .delete()
@@ -298,6 +329,19 @@ export async function deleteBusinessMemo(id: string) {
   if (error) {
     console.error('❌ [SUPABASE] 메모 삭제 실패:', error);
     throw new Error(`메모 삭제 실패: ${error.message}`);
+  }
+
+  // ✅ 메모 삭제 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+  if (memo?.business_id) {
+    const { error: updateError } = await supabaseAdmin
+      .from('business_info')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', memo.business_id);
+
+    if (updateError) {
+      console.warn('⚠️ [SUPABASE] 사업장 updated_at 업데이트 실패:', updateError);
+      // 메모 삭제는 성공했으므로 에러 throw 하지 않음
+    }
   }
 
   return true;
