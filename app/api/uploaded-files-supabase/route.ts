@@ -235,10 +235,10 @@ export async function DELETE(request: NextRequest) {
     const { data: file, error: selectError } = await supabaseAdmin
       .from('uploaded_files')
       .select(`
-        file_path, 
-        google_file_id, 
+        file_path,
+        google_file_id,
         filename,
-        businesses!business_id(name)
+        business_info!business_id(business_name)
       `)
       .eq('id', fileId)
       .single();

@@ -263,6 +263,7 @@ export default function ImprovedFacilityPhotoSection({
   const [statistics, setStatistics] = useState({
     totalFacilities: 0,
     totalPhotos: 0,
+    totalPhotosAllPhases: 0, // ✅ 전체 phase의 사진 총합 (facility list와 일치)
     dischargeFacilities: 0,
     preventionFacilities: 0,
     basicCategories: 0
@@ -272,12 +273,31 @@ export default function ImprovedFacilityPhotoSection({
   // 업로드된 파일 로드 및 추적기 업데이트 (새 사진 하이라이트 포함)
   const loadUploadedFiles = useCallback(async (forceRefresh = false, highlightNew = false) => {
     if (!businessName) return;
-    
+
     setLoadingFiles(true);
+
+    // ✅ 서버 데이터를 Source of Truth로 - 강제 새로고침 시 Jotai 상태 초기화
+    if (forceRefresh) {
+      clearDeletedPhotos();
+      console.log('🧹 [FORCE-REFRESH] 삭제 상태 초기화 - 서버 데이터와 완전 동기화');
+    }
+
     try {
       const refreshParam = forceRefresh ? '&refresh=true' : '';
       const phaseParam = `&phase=${currentPhase}`;
-      const response = await fetch(`/api/facility-photos?businessName=${encodeURIComponent(businessName)}${refreshParam}${phaseParam}`);
+      // ✅ 브라우저 캐시 무효화: timestamp + cache headers
+      const timestamp = forceRefresh ? `&_t=${Date.now()}` : '';
+      const response = await fetch(
+        `/api/facility-photos?businessName=${encodeURIComponent(businessName)}${refreshParam}${phaseParam}${timestamp}`,
+        {
+          cache: 'no-store',  // Next.js 캐시 비활성화
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',  // 브라우저 캐시 비활성화
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        }
+      );
       
       if (response.ok) {
         const result = await response.json();
@@ -326,7 +346,19 @@ export default function ImprovedFacilityPhotoSection({
           }
 
           // ✅ 통계 즉시 업데이트 - 실시간 반응성 우선
-          setStatistics(photoTracker.getStatistics());
+          const trackerStats = photoTracker.getStatistics();
+
+          console.log('📊 [STATISTICS-DEBUG] API 응답 통계:', {
+            fullStatistics: result.data.statistics,
+            totalPhotosAllPhases: result.data.statistics?.totalPhotosAllPhases,
+            currentPhasePhotos: result.data.statistics?.currentPhasePhotos,
+            trackerTotalPhotos: trackerStats.totalPhotos
+          });
+
+          setStatistics({
+            ...trackerStats,
+            totalPhotosAllPhases: result.data.statistics?.totalPhotosAllPhases ?? trackerStats.totalPhotos
+          });
           setLastRefreshTime(new Date());
 
           // 성능 로그 (제거)
@@ -375,6 +407,40 @@ export default function ImprovedFacilityPhotoSection({
 
     window.addEventListener('photoStatsUpdate', handlePhotoStatsUpdate);
     return () => window.removeEventListener('photoStatsUpdate', handlePhotoStatsUpdate);
+  }, [loadUploadedFiles]);
+
+  // ✅ 페이지 포커스 복원 시 자동 새로고침 (브라우저 뒤로가기, 탭 전환 등)
+  useEffect(() => {
+    let refreshTimeout: NodeJS.Timeout | null = null;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // 중복 호출 방지를 위한 짧은 debounce (200ms - 즉각 반응)
+        if (refreshTimeout) clearTimeout(refreshTimeout);
+        refreshTimeout = setTimeout(() => {
+          console.log('👁️ [PAGE-VISIBLE] 페이지 포커스 복원 - 데이터 새로고침');
+          loadUploadedFiles(true, false);
+        }, 200);
+      }
+    };
+
+    const handleFocus = () => {
+      // 중복 호출 방지를 위한 짧은 debounce (200ms - 즉각 반응)
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        console.log('🎯 [PAGE-FOCUS] 윈도우 포커스 복원 - 데이터 새로고침');
+        loadUploadedFiles(true, false);
+      }, 200);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [loadUploadedFiles]);
 
   // Cleanup preview URLs on unmount
@@ -1050,7 +1116,11 @@ export default function ImprovedFacilityPhotoSection({
       if (removed) {
         const updatedStats = photoTracker.getStatistics();
         console.log(`📊 [STATS-UPDATE-START] setStatistics 호출 직전:`, updatedStats);
-        setStatistics(updatedStats);
+        // ✅ totalPhotosAllPhases 보존하면서 업데이트 (NaN 방지)
+        setStatistics(prev => ({
+          ...updatedStats,
+          totalPhotosAllPhases: (prev.totalPhotosAllPhases || 0) - 1  // 1장 삭제됨
+        }));
         console.log(`📊 [STATS-UPDATE-COMPLETE] setStatistics 호출 완료`);
       } else {
         console.warn(`⚠️ [STATS-SKIP] photoTracker에서 사진을 찾을 수 없어 통계 업데이트 생략`);
@@ -1065,28 +1135,18 @@ export default function ImprovedFacilityPhotoSection({
       // setSelectedPhoto(null);   // 주석 처리 - 모달 닫지 않음
       // setModalPosition(null);   // 주석 처리 - 모달 닫지 않음
 
-      // 5️⃣ 성공 메시지는 즉시 표시
-      toast.success('삭제 완료', '사진이 성공적으로 삭제되었습니다.');
-      
-      // 🚨 삭제 작업 완료 - 외부 클릭 차단 해제
-      setIsDeletingPhoto(false);
-      console.log(`🔓 [DELETE-UNLOCK] 삭제 작업 완료 - 모달 잠금 해제`);
-      
-      // 4️⃣ 백그라운드에서 실제 API 삭제 수행 (사용자는 기다리지 않음)
-      const response = await fetch('/api/facility-photos', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          photoId: photo.id, 
-          businessName: businessName
-        })
+      // 4️⃣ 백그라운드 API 삭제가 아니라, 먼저 실제 API 삭제 수행
+      console.log(`🌐 [API-DELETE-START] 서버 삭제 API 호출 시작: DELETE /api/facility-photos/${photo.id}`);
+      const response = await fetch(`/api/facility-photos/${photo.id}`, {
+        method: 'DELETE'
       });
 
       const result = await response.json();
-      
+      console.log(`📡 [API-DELETE-RESPONSE]`, result);
+
       if (!result.success) {
         // 🔄 API 삭제 실패 시 롤백
-        console.error('❌ [DELETE-API-FAILED]', result.message);
+        console.error('❌ [DELETE-API-FAILED]', result.message || result.error);
 
         // Jotai에서 삭제 상태 롤백
         markPhotoAsUndeleted(photo.id);
@@ -1096,12 +1156,25 @@ export default function ImprovedFacilityPhotoSection({
           console.warn('롤백 새로고침 실패:', error);
         });
 
-        toast.error('삭제 실패', getUserFriendlyErrorMessage(result.message));
+        // 🚨 삭제 실패 시 잠금 해제
+        setIsDeletingPhoto(false);
+        console.log(`🔓 [DELETE-UNLOCK-FAILURE] API 실패 - 모달 잠금 해제`);
+
+        toast.error('삭제 실패', getUserFriendlyErrorMessage(result.message || result.error));
       } else {
         console.log(`✅ [DELETE-API-SUCCESS] ${photo.fileName} 서버에서도 삭제 완료`);
 
-        // ✅ 삭제 성공 - 통계는 이미 Line 943에서 업데이트됨
-        // 백그라운드 새로고침은 필요 없음 (optimistic update 완료)
+        // 5️⃣ API 삭제 성공 후에만 성공 메시지 표시
+        toast.success('삭제 완료', '사진이 성공적으로 삭제되었습니다.');
+
+        // ✅ 서버 삭제 완료 후 강제 새로고침으로 확실한 동기화
+        await loadUploadedFiles(true, false);
+        console.log('🔄 [POST-DELETE-REFRESH] 삭제 후 서버 데이터 재조회 완료');
+
+        // 🚨 삭제 작업 완료 - 외부 클릭 차단 해제
+        setIsDeletingPhoto(false);
+        console.log(`🔓 [DELETE-UNLOCK] 삭제 작업 완료 - 모달 잠금 해제`);
+
         console.log(`✅ [DELETE-COMPLETE] 삭제 완료, 통계 이미 업데이트됨`);
       }
       
@@ -1405,7 +1478,7 @@ export default function ImprovedFacilityPhotoSection({
           <div>
             <h2 className="text-xl font-bold text-gray-800">시설별 사진 관리</h2>
             <p className="text-sm text-gray-600">
-              총 {statistics.totalFacilities}개 시설, {statistics.totalPhotos}장의 사진
+              총 {statistics.totalFacilities}개 시설, 전체 {statistics.totalPhotosAllPhases}장 (현재 단계: {statistics.totalPhotos}장)
             </p>
           </div>
         </div>
@@ -1486,13 +1559,13 @@ export default function ImprovedFacilityPhotoSection({
         <div className="bg-purple-50 p-3 md:p-4 rounded-lg border border-purple-200 hover:bg-purple-100 hover:border-purple-300 active:bg-purple-200 active:border-purple-400 transition-all duration-200 transform hover:scale-105 active:scale-102 touch-manipulation shadow-sm hover:shadow-md">
           <div className="flex items-center gap-2">
             <Camera className="w-5 h-5 text-purple-600" />
-            <span className="font-medium text-purple-800">총 사진</span>
+            <span className="font-medium text-purple-800">총 사진 (전체)</span>
           </div>
           <div className="text-2xl font-bold text-purple-900">
-            <AnimatedCounter 
-              value={statistics.totalPhotos} 
-              duration={1000} 
-              className="inline-block" 
+            <AnimatedCounter
+              value={statistics.totalPhotosAllPhases || 0}
+              duration={1000}
+              className="inline-block"
             />
           </div>
         </div>
@@ -2608,17 +2681,17 @@ function ExpandedPhotoSection({
             if (confirm(`"${photo.originalFileName}" 파일을 삭제하시겠습니까?`)) {
               console.log('🚀 [EXPANDED-DELETE-START] 확장 뷰어에서 삭제 진행');
 
-              // 🎯 Jotai를 사용한 즉시 UI 업데이트
+              // 1️⃣ Jotai를 사용한 즉시 UI 업데이트
               markPhotoAsDeleted(photo.id);
               console.log('⚡ [EXPANDED-INSTANT-DELETE] markPhotoAsDeleted 호출완료');
 
-              // 📊 photoTracker에서도 즉시 제거하여 통계 업데이트
+              // 2️⃣ photoTracker에서도 즉시 제거하여 통계 업데이트
               console.log(`🔍 [EXPANDED-BEFORE-REMOVE] 삭제 전 통계:`, photoTracker.getStatistics());
               const removed = photoTracker.removePhoto(photo.id);
               console.log(`🗑️ [EXPANDED-TRACKER-REMOVE] photoTracker.removePhoto 결과: ${removed}`);
               console.log(`🔍 [EXPANDED-AFTER-REMOVE] 삭제 후 통계:`, photoTracker.getStatistics());
 
-              // 📊 통계 즉시 업데이트 (optimistic update)
+              // 3️⃣ 통계 즉시 업데이트 (optimistic update)
               if (removed) {
                 const updatedStats = photoTracker.getStatistics();
                 console.log(`📊 [EXPANDED-STATS-UPDATE] setStatistics 호출 직전:`, updatedStats);
@@ -2628,8 +2701,8 @@ function ExpandedPhotoSection({
                 console.warn(`⚠️ [EXPANDED-STATS-SKIP] photoTracker에서 사진을 찾을 수 없어 통계 업데이트 생략`);
               }
 
-              // 🔄 삭제 후 인덱스 자동 조정 로직
-              const remainingPhotosCount = photos.length - 1; // 현재 사진 삭제 후 남은 사진 수
+              // 4️⃣ 삭제 후 인덱스 자동 조정 로직
+              const remainingPhotosCount = photos.length - 1;
 
               console.log('🔍 [DELETE-INDEX-CHECK]', {
                 currentIndex,
@@ -2639,33 +2712,22 @@ function ExpandedPhotoSection({
               });
 
               if (remainingPhotosCount === 0) {
-                // 마지막 남은 사진 삭제 - 모달 닫기
                 console.log('❌ [NO-PHOTOS] 마지막 사진 삭제 - 모달 닫기');
                 onClose();
               } else if (currentIndex >= remainingPhotosCount) {
-                // 마지막 사진을 삭제한 경우 - 이전 사진으로 이동
                 const prevIndex = remainingPhotosCount - 1;
                 console.log(`⬅️ [AUTO-NAVIGATE] 마지막 사진 삭제 - 이전 사진으로 이동 (index: ${prevIndex})`);
                 onNavigate(prevIndex);
               } else {
-                // 중간 사진 삭제 - 다음 사진으로 이동 (인덱스 유지)
                 console.log(`➡️ [AUTO-NAVIGATE] 중간 사진 삭제 - 현재 인덱스 유지 (다음 사진으로 자동 이동)`);
-                // onNavigate(currentIndex)를 호출하면 같은 인덱스의 다음 사진이 표시됨
                 onNavigate(currentIndex);
               }
 
-              // 성공 메시지 즉시 표시
-              toast.success('삭제 완료', '사진이 성공적으로 삭제되었습니다.');
-
+              // 5️⃣ 실제 API 호출 (await로 완료 대기)
               try {
-                // 백그라운드에서 실제 API 삭제
-                const response = await fetch('/api/facility-photos', {
-                  method: 'DELETE',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    photoId: photo.id,
-                    businessName: businessName
-                  })
+                console.log(`🌐 [EXPANDED-API-DELETE-START] DELETE /api/facility-photos/${photo.id}`);
+                const response = await fetch(`/api/facility-photos/${photo.id}`, {
+                  method: 'DELETE'
                 });
 
                 const result = await response.json();
@@ -2674,13 +2736,34 @@ function ExpandedPhotoSection({
                   // API 실패 시 롤백
                   console.error('❌ [EXPANDED-DELETE-API-FAILED]', result.message);
                   markPhotoAsUndeleted(photo.id);
+
+                  // 전체 새로고침으로 복원
+                  if (onRefresh) {
+                    await onRefresh();
+                  }
+
                   toast.error('삭제 실패', result.message || '삭제 중 오류가 발생했습니다.');
                 } else {
                   console.log('✅ [EXPANDED-DELETE-API-SUCCESS] 서버에서도 삭제 완료');
+
+                  // API 성공 시에만 성공 메시지
+                  toast.success('삭제 완료', '사진이 성공적으로 삭제되었습니다.');
+
+                  // ✅ 서버 삭제 완료 후 강제 새로고침으로 확실한 동기화
+                  if (onRefresh) {
+                    await onRefresh();
+                    console.log('🔄 [EXPANDED-POST-DELETE-REFRESH] 삭제 후 서버 데이터 재조회 완료');
+                  }
                 }
               } catch (error) {
                 console.error('❌ [EXPANDED-DELETE-API-ERROR]', error);
                 markPhotoAsUndeleted(photo.id);
+
+                // 오류 발생 시 전체 새로고침으로 복원
+                if (onRefresh) {
+                  await onRefresh();
+                }
+
                 toast.error('삭제 오류', '사진 삭제 중 문제가 발생했습니다. 다시 시도해주세요.');
               }
             }

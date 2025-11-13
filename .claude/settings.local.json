@@ -63,7 +63,8 @@
       "Bash(timeout 3 bash:*)",
       "Bash(nul)",
       "Bash(dir:*)",
-      "Bash(timeout 15 npm run dev:*)"
+      "Bash(timeout 15 npm run dev:*)",
+      "Bash(xargs kill:*)"
     ],
     "deny": [],
     "ask": [],

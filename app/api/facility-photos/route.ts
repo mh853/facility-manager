@@ -484,7 +484,21 @@ export async function GET(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // 파일 목록 조회
+    // ✅ 전체 사진 개수 조회 (facility list와 동일한 로직 - phase 무관)
+    const { data: allPhotos, error: allPhotosError } = await supabaseAdmin
+      .from('uploaded_files')
+      .select('id')
+      .eq('business_id', business.id);
+
+    const totalPhotoCount = allPhotos?.length || 0;
+
+    console.log(`📊 [TOTAL-PHOTOS] 전체 사진 수:`, {
+      businessName,
+      businessId: business.id,
+      totalPhotos: totalPhotoCount
+    });
+
+    // 파일 목록 조회 (phase 필터링 적용)
     let query = supabaseAdmin
       .from('uploaded_files')
       .select('*')
@@ -498,7 +512,8 @@ export async function GET(request: NextRequest) {
     console.log(`🔍 [PHASE-FILTER] Phase 필터 적용:`, {
       원본phase: phase,
       스토리지경로: phasePrefix,
-      쿼리패턴: `%/${phasePrefix}/%`
+      쿼리패턴: `%/${phasePrefix}/%`,
+      전체사진수: totalPhotoCount
     });
 
     // 필터 적용
@@ -558,14 +573,26 @@ export async function GET(request: NextRequest) {
 
     const statistics = photoTracker.getStatistics();
 
-    console.log(`✅ [FACILITY-PHOTOS-GET] 조회 완료: ${formattedFiles.length}장`);
+    // ✅ 전체 사진 수를 statistics에 추가 (facility list와 일치하는 수량)
+    const enhancedStatistics = {
+      ...statistics,
+      totalPhotosAllPhases: totalPhotoCount, // 모든 phase의 사진 총합
+      currentPhasePhotos: formattedFiles.length, // 현재 phase의 사진 수
+      currentPhase: phase
+    };
+
+    console.log(`✅ [FACILITY-PHOTOS-GET] 조회 완료:`, {
+      현재phase사진: formattedFiles.length,
+      전체사진: totalPhotoCount,
+      phase
+    });
 
     return NextResponse.json({
       success: true,
       message: `${formattedFiles.length}장의 사진을 조회했습니다.`,
       data: {
         files: formattedFiles,
-        statistics,
+        statistics: enhancedStatistics,
         facilities: {
           discharge: photoTracker.getDischargeFacilities(),
           prevention: photoTracker.getPreventionFacilities(),
@@ -586,76 +613,6 @@ export async function GET(request: NextRequest) {
 }
 
 // 시설별 사진 삭제 (DELETE)
-export async function DELETE(request: NextRequest) {
-  try {
-    const { photoId, businessName } = await request.json();
-
-    if (!photoId || !businessName) {
-      return NextResponse.json({
-        success: false,
-        message: '사진 ID와 사업장명이 필요합니다.',
-        error: 'MISSING_REQUIRED_FIELDS'
-      }, { status: 400 });
-    }
-
-    console.log(`🗑️ [FACILITY-PHOTOS-DELETE] 삭제 시작: ${photoId}`);
-
-    // 파일 정보 조회
-    const { data: file, error: selectError } = await supabaseAdmin
-      .from('uploaded_files')
-      .select('file_path, filename, businesses!business_id(name)')
-      .eq('id', photoId)
-      .single();
-
-    if (selectError || !file) {
-      return NextResponse.json({
-        success: false,
-        message: '사진을 찾을 수 없습니다.',
-        error: 'PHOTO_NOT_FOUND'
-      }, { status: 404 });
-    }
-
-    // Storage에서 삭제
-    const { error: storageError } = await supabaseAdmin.storage
-      .from('facility-files')
-      .remove([file.file_path]);
-
-    if (storageError) {
-      console.warn(`⚠️ [DELETE-STORAGE] Storage 삭제 실패: ${storageError.message}`);
-    }
-
-    // DB에서 삭제
-    const { error: dbError } = await supabaseAdmin
-      .from('uploaded_files')
-      .delete()
-      .eq('id', photoId);
-
-    if (dbError) {
-      throw dbError;
-    }
-
-    // 캐시 무효화
-    memoryCache.delete(`files_${businessName}_completion`);
-    memoryCache.delete(`files_${businessName}_presurvey`);
-
-    console.log(`✅ [FACILITY-PHOTOS-DELETE] 삭제 완료: ${file.filename}`);
-
-    return NextResponse.json({
-      success: true,
-      message: `사진이 삭제되었습니다: ${file.filename}`,
-      data: {
-        deletedPhotoId: photoId,
-        fileName: file.filename
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ [FACILITY-PHOTOS-DELETE] 삭제 실패:', error);
-    
-    return NextResponse.json({
-      success: false,
-      message: '시설별 사진 삭제 중 오류가 발생했습니다.',
-      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
-    }, { status: 500 });
-  }
-}
+// ⚠️ 이 DELETE 핸들러는 제거되었습니다.
+// 개별 사진 삭제는 /api/facility-photos/[photoId]/route.ts의 DELETE 핸들러를 사용하세요.
+// 올바른 요청 형식: DELETE /api/facility-photos/{photoId}

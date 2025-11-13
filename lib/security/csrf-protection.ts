@@ -135,7 +135,9 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/estimates/*',  // 견적서 관리 API 전체 제외 (JWT 인증 사용)
     '/api/air-permit-pdf',  // 대기필증 PDF 생성 API (JWT 인증 사용)
     '/api/air-permit',  // 대기필증 관리 API (JWT 인증 사용)
-    '/api/outlet-facility'  // 배출구/시설 관리 API (JWT 인증 사용)
+    '/api/outlet-facility',  // 배출구/시설 관리 API (JWT 인증 사용)
+    '/api/facility-photos/*',  // 시설 사진 관리 API 전체 제외 (공개 사용)
+    '/api/uploaded-files-supabase/*'  // 업로드 파일 관리 API 전체 제외 (공개 사용)
   ];
 
   if (excludePaths.includes(request.nextUrl.pathname)) {

@@ -304,7 +304,19 @@ export default function BusinessDetailPage() {
             : `businessName=${encodeURIComponent(businessName)}`;
 
           try {
-            const mgmtResponse = await fetch(`/api/facility-management?${queryParam}`);
+            // ✅ 브라우저 캐시 무효화: timestamp + cache headers
+            const timestamp = `&_t=${Date.now()}`;
+            const mgmtResponse = await fetch(
+              `/api/facility-management?${queryParam}${timestamp}`,
+              {
+                cache: 'no-store',  // Next.js 캐시 비활성화
+                headers: {
+                  'Cache-Control': 'no-cache, no-store, must-revalidate',  // 브라우저 캐시 비활성화
+                  'Pragma': 'no-cache',
+                  'Expires': '0'
+                }
+              }
+            );
             const mgmtData = await mgmtResponse.json();
 
             if (mgmtData.success && mgmtData.data.business) {
@@ -567,6 +579,10 @@ export default function BusinessDetailPage() {
         setTimeout(() => {
           toast.remove();
         }, 3000);
+
+        // ✅ 저장 성공 후 최신 데이터 재조회 (브라우저 캐시 무효화 적용됨)
+        console.log('✅ [SPECIAL-NOTES-SAVED] 특이사항 저장 완료 - 데이터 재조회');
+        loadData();
       } else {
         throw new Error(result.message || '저장 실패');
       }
