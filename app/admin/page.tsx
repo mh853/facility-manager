@@ -34,17 +34,30 @@ export default function AdminDashboard() {
   const [mounted, setMounted] = useState(false)
   const [filters, setFilters] = useState<DashboardFilters>({})
   const [layout, setLayout] = useState<DashboardLayout>(DEFAULT_LAYOUT)
-  const [loading, setLoading] = useState(true)
   const [isOrgExpanded, setIsOrgExpanded] = useState(false)
 
+  // ✅ 병렬 API 호출을 위한 데이터 상태
+  const [revenueData, setRevenueData] = useState<any>(null)
+  const [receivableData, setReceivableData] = useState<any>(null)
+  const [installationData, setInstallationData] = useState<any>(null)
+  const [chartsLoading, setChartsLoading] = useState(true)
+
+  // ✅ 최적화 1: 레이아웃 로딩을 백그라운드로 처리 (즉시 렌더링)
   useEffect(() => {
     setMounted(true)
+    // 레이아웃 로드는 백그라운드에서 실행 (블로킹하지 않음)
     loadLayout()
   }, [])
 
+  // ✅ 최적화 2: 병렬 API 호출로 차트 데이터 로드
+  useEffect(() => {
+    if (mounted) {
+      loadAllChartData()
+    }
+  }, [filters, mounted])
+
   const loadLayout = async () => {
     try {
-      setLoading(true)
       const response = await fetch('/api/dashboard/layout')
       const result = await response.json()
 
@@ -53,10 +66,69 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error('Failed to load layout:', error)
-    } finally {
-      setLoading(false)
+      // 에러 발생 시 기본 레이아웃 유지
     }
   }
+
+  // ✅ 병렬 API 호출: 3개 차트 데이터를 동시에 로드
+  const loadAllChartData = async () => {
+    try {
+      setChartsLoading(true)
+
+      // 기간 필터 파라미터 구성 (공통)
+      const periodParams: Record<string, string> = {};
+
+      if (filters?.startDate && filters?.endDate) {
+        periodParams.startDate = filters.startDate;
+        periodParams.endDate = filters.endDate;
+      } else if (filters?.periodMode === 'custom') {
+        if (filters.startDate) periodParams.startDate = filters.startDate;
+        if (filters.endDate) periodParams.endDate = filters.endDate;
+      } else if (filters?.periodMode === 'yearly') {
+        periodParams.year = String(filters.year || new Date().getFullYear());
+      } else {
+        periodParams.months = String(filters?.months || 12);
+      }
+
+      const params = new URLSearchParams({
+        ...periodParams,
+        ...(filters?.office && { office: filters.office }),
+        ...(filters?.manufacturer && { manufacturer: filters.manufacturer }),
+        ...(filters?.salesOffice && { salesOffice: filters.salesOffice }),
+        ...(filters?.progressStatus && { progressStatus: filters.progressStatus })
+      });
+
+      // ✅ Promise.all로 3개 API 동시 호출 (병렬 실행)
+      const [revenueRes, receivableRes, installationRes] = await Promise.all([
+        fetch(`/api/dashboard/revenue?${params}`),
+        fetch(`/api/dashboard/receivables?${params}`),
+        fetch(`/api/dashboard/installations?${params}`)
+      ]);
+
+      // 응답 데이터 파싱 (병렬)
+      const [revenueResult, receivableResult, installationResult] = await Promise.all([
+        revenueRes.json(),
+        receivableRes.json(),
+        installationRes.json()
+      ]);
+
+      // 상태 업데이트
+      if (revenueResult.success) {
+        setRevenueData(revenueResult);
+      }
+      if (receivableResult.success) {
+        setReceivableData(receivableResult);
+      }
+      if (installationResult.success) {
+        setInstallationData(installationResult);
+      }
+
+    } catch (error) {
+      console.error('Failed to load chart data:', error);
+    } finally {
+      setChartsLoading(false);
+    }
+  };
 
   const handleFilterChange = (newFilters: DashboardFilters) => {
     setFilters(newFilters)
@@ -102,25 +174,44 @@ export default function AdminDashboard() {
     }
   }
 
-  // 위젯 렌더링 함수 (조직 제외)
+  // ✅ 위젯 렌더링 함수 (데이터를 props로 전달)
   const renderWidget = (widgetId: string) => {
     switch (widgetId) {
       case 'revenue':
         return (
           <div key={widgetId}>
-            <RevenueChart filters={filters} />
+            <RevenueChart
+              filters={filters}
+              initialData={revenueData}
+              loading={chartsLoading}
+            />
           </div>
         )
       case 'receivable':
-        return <ReceivableChart key={widgetId} filters={filters} />
+        return (
+          <ReceivableChart
+            key={widgetId}
+            filters={filters}
+            initialData={receivableData}
+            loading={chartsLoading}
+          />
+        )
       case 'installation':
-        return <InstallationChart key={widgetId} filters={filters} />
+        return (
+          <InstallationChart
+            key={widgetId}
+            filters={filters}
+            initialData={installationData}
+            loading={chartsLoading}
+          />
+        )
       default:
         return null
     }
   }
 
-  if (!mounted || loading) {
+  // ✅ 최적화: mounted만 체크 (loading 제거)
+  if (!mounted) {
     return (
       <AdminLayout
         title="관리자 대시보드"
@@ -129,7 +220,7 @@ export default function AdminDashboard() {
         <div className="h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">대시보드 로딩 중...</p>
+            <p className="text-gray-600">대시보드 초기화 중...</p>
           </div>
         </div>
       </AdminLayout>
@@ -158,6 +249,16 @@ export default function AdminDashboard() {
       <div className="max-w-[2000px] mx-auto pb-24">
         {/* 필터 패널 */}
         <FilterPanel onFilterChange={handleFilterChange} />
+
+        {/* ✅ 차트 로딩 상태 표시 */}
+        {chartsLoading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              <p className="text-blue-800 font-medium">대시보드 데이터를 불러오는 중...</p>
+            </div>
+          </div>
+        )}
 
         {/* 차트 위젯 렌더링 (조직 제외) */}
         {revenueWidget && renderWidget(revenueWidget.id)}
