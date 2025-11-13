@@ -36,6 +36,12 @@ const navigationItems: NavigationItem[] = [
     icon: Home
   },
   {
+    name: '관리자 대시보드',
+    href: '/admin',
+    icon: BarChart3,
+    requiredLevel: 3 // ✅ 슈퍼 관리자(레벨 3) 이상만 표시
+  },
+  {
     name: '프로젝트',
     href: '/projects',
     icon: FolderOpen,
@@ -55,7 +61,7 @@ const navigationItems: NavigationItem[] = [
   },
   {
     name: '관리',
-    href: '/admin',
+    href: '/management',
     icon: Settings,
     children: [
       { name: '업무 관리', href: '/admin/tasks', icon: ClipboardList },
@@ -87,13 +93,19 @@ export default function Navigation() {
 
   // 권한 체크 함수
   const hasPermission = (requiredLevel?: number): boolean => {
-    if (!requiredLevel || !user) return true;
+    if (!requiredLevel) return true; // 권한 요구 없음 → 모두 표시
+    if (!user) return false; // 로그인 안 됨 → 숨김
     return user.permission_level >= requiredLevel;
   };
 
   // 자식 메뉴 필터링 함수
   const filterChildren = (children: NavigationItem[]): NavigationItem[] => {
     return children.filter(child => hasPermission(child.requiredLevel));
+  };
+
+  // 상위 메뉴 필터링 함수 (권한 체크 포함)
+  const filterNavigationItems = (items: NavigationItem[]): NavigationItem[] => {
+    return items.filter(item => hasPermission(item.requiredLevel));
   };
 
   const isActive = (href: string) => {
@@ -198,7 +210,7 @@ export default function Navigation() {
 
           {/* 네비게이션 메뉴 */}
           <nav className="mt-6 flex-1 px-4 space-y-1">
-            {navigationItems.map((item) => (
+            {filterNavigationItems(navigationItems).map((item) => (
               <NavigationLink key={item.href} item={item} />
             ))}
           </nav>
@@ -230,7 +242,7 @@ export default function Navigation() {
         <div className="lg:hidden">
           <div className="pt-2 pb-3 space-y-1 bg-white border-b border-gray-200">
             <nav className="px-4 space-y-1">
-              {navigationItems.map((item) => (
+              {filterNavigationItems(navigationItems).map((item) => (
                 <NavigationLink key={item.href} item={item} />
               ))}
             </nav>

@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
         id: employee.id,          // verify API 호환성
         userId: employee.id,      // 기존 호환성 유지
         email: employee.email,
-        permissionLevel: employee.permission_level,
+        permission_level: employee.permission_level, // ✅ 필드명 통일
         name: employee.name
       },
       JWT_SECRET,
