@@ -42,15 +42,17 @@ WHERE tablename = 'air_permit_info'
 ORDER BY indexname;
 
 -- 검증 2: 인덱스 사용 통계 확인 (일정 시간 후 실행)
+-- ⚠️ 주의: Supabase 권한에 따라 실행 불가할 수 있음
+-- 대안: Supabase Dashboard → Database → Query Performance에서 확인
 SELECT
   schemaname,
-  tablename,
-  indexname,
+  relname as tablename,
+  indexrelname as indexname,
   idx_scan as index_scans,
   idx_tup_read as tuples_read,
   idx_tup_fetch as tuples_fetched
 FROM pg_stat_user_indexes
-WHERE tablename = 'air_permit_info'
+WHERE relname = 'air_permit_info'
 ORDER BY idx_scan DESC;
 
 -- 검증 3: 쿼리 실행 계획 확인 (인덱스 사용 여부)
@@ -88,14 +90,16 @@ SELECT
   pg_size_pretty(pg_total_relation_size('air_permit_info') - pg_relation_size('air_permit_info')) as indexes_size;
 
 -- 모니터링 2: 인덱스 히트율 확인 (95% 이상이 이상적)
+-- ⚠️ 주의: Supabase 권한에 따라 실행 불가할 수 있음
+-- 대안: Supabase Dashboard → Database → Query Performance에서 확인
 SELECT
   schemaname,
-  tablename,
+  relname as tablename,
   ROUND(100.0 * idx_scan / (seq_scan + idx_scan), 2) AS index_hit_rate_percent,
   idx_scan as index_scans,
   seq_scan as sequential_scans
 FROM pg_stat_user_tables
-WHERE tablename = 'air_permit_info'
+WHERE relname = 'air_permit_info'
   AND (seq_scan + idx_scan) > 0;
 
 -- ============================================================================
