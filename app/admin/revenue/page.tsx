@@ -491,9 +491,9 @@ function RevenueDashboard() {
   const loadBusinesses = async () => {
     console.log('📊 [LOAD-BUSINESSES] 사업장 데이터 로드 시작');
     try {
-      // ✅ 성능 개선: limit 파라미터 추가 (5000개 → 200개)
-      // Revenue 페이지는 최신 200개만 필요 (페이지네이션으로 20개씩 표시)
-      const response = await fetch('/api/business-info-direct?limit=200', {
+      // ✅ 전체 사업장 데이터 조회 (매출 계산을 위해 전체 데이터 필요)
+      // 기본 limit: 2000개 (현재 1509개 사업장 커버)
+      const response = await fetch('/api/business-info-direct', {
         headers: getAuthHeaders()
       });
       const data = await response.json();

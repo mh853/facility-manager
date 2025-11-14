@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const searchQuery = searchParams.get('search') || '';
-    const limit = parseInt(searchParams.get('limit') || '5000');
+    const limit = parseInt(searchParams.get('limit') || '2000');
     const id = searchParams.get('id');
     const includeFileStats = searchParams.get('includeFileStats') === 'true';
 
@@ -41,9 +41,12 @@ export async function GET(request: Request) {
       );
     }
 
-    // ✅ 성능 최적화: limit이 1000 이하면 단일 쿼리, 초과 시에만 페이지네이션
+    // ✅ 순차적 페이지네이션 (Supabase는 병렬 range 조회 미지원)
     let businesses: any[] = [];
     let count = 0;
+    const pageSize = 1000;
+    let page = 0;
+    let hasMore = true;
 
     if (limit <= 1000) {
       // 단일 쿼리로 처리 (대부분의 경우)
@@ -60,11 +63,7 @@ export async function GET(request: Request) {
       count = totalCount || 0;
       log(`✅ [BUSINESS-INFO-DIRECT] 단일 쿼리로 ${businesses.length}개 조회 완료`);
     } else {
-      // 1000개 초과 시에만 페이지네이션 사용
-      const pageSize = 1000;
-      let page = 0;
-      let hasMore = true;
-
+      // 1000개 초과 시 순차적 페이지네이션
       while (hasMore && businesses.length < limit) {
         const rangeStart = page * pageSize;
         const rangeEnd = rangeStart + pageSize - 1;
@@ -95,7 +94,7 @@ export async function GET(request: Request) {
       businessesLength: businesses?.length,
       totalCount: count,
       requestedLimit: limit,
-      pages: page
+      pages: limit <= 1000 ? 1 : page
     });
 
     if (!businesses || businesses.length === 0) {
