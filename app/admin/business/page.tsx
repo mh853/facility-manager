@@ -14,6 +14,10 @@ import { getManufacturerName } from '@/constants/manufacturers'
 import AutocompleteInput from '@/components/ui/AutocompleteInput'
 import DateInput from '@/components/ui/DateInput'
 import { formatMobilePhone, formatLandlinePhone } from '@/utils/phone-formatter'
+// ⚡ 커스텀 훅 임포트 (Phase 2.1 성능 최적화)
+import { useBusinessData } from './hooks/useBusinessData'
+import { useFacilityStats } from './hooks/useFacilityStats'
+import { useRevenueData } from './hooks/useRevenueData'
 
 interface Contact {
   name: string;
@@ -324,9 +328,9 @@ function BusinessManagementPage() {
   // URL 파라미터 처리
   const searchParams = useSearchParams()
 
-  const [allBusinesses, setAllBusinesses] = useState<UnifiedBusinessInfo[]>([])
+  // ⚡ 커스텀 훅 사용 (Phase 2.1 성능 최적화)
+  const { allBusinesses, isLoading, error: businessDataError, refetch: refetchBusinesses } = useBusinessData()
   const [searchQuery, setSearchQuery] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingBusiness, setEditingBusiness] = useState<UnifiedBusinessInfo | null>(null)
   const [formData, setFormData] = useState<Partial<UnifiedBusinessInfo>>({})
@@ -334,7 +338,6 @@ function BusinessManagementPage() {
   const [showLocalGovSuggestions, setShowLocalGovSuggestions] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<UnifiedBusinessInfo | null>(null)
   const [facilityData, setFacilityData] = useState<BusinessFacilityData | null>(null)
-  const [facilityLoading, setFacilityLoading] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [duplicateCheck, setDuplicateCheck] = useState<{
     isDuplicate: boolean
@@ -346,7 +349,16 @@ function BusinessManagementPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [businessToDelete, setBusinessToDelete] = useState<UnifiedBusinessInfo | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
-  const [facilityStats, setFacilityStats] = useState<{[businessId: string]: {dischargeCount: number, preventionCount: number, outletCount: number}}>({})
+
+  // ⚡ 시설 통계 관리 훅 (Phase 2.1 성능 최적화)
+  const {
+    facilityStats,
+    facilityLoading,
+    calculateFacilityStats,
+    loadBusinessFacilityStats,
+    loadBusinessFacilities,
+    setFacilityStats
+  } = useFacilityStats()
   const [facilityDeviceCounts, setFacilityDeviceCounts] = useState<{
     ph?: number, 
     pressure?: number, 
@@ -379,14 +391,17 @@ function BusinessManagementPage() {
   } | null>(null)
   const [revenueLoading, setRevenueLoading] = useState(false)
 
-  // 영업점별 수수료 정보 state
-  const [salesOfficeCommissions, setSalesOfficeCommissions] = useState<{
-    [salesOffice: string]: number; // 영업점명 -> 수수료 비율(%)
-  }>({})
-  const [commissionsLoading, setCommissionsLoading] = useState(false)
-
-  // 영업점 목록 (자동완성용)
-  const [salesOfficeList, setSalesOfficeList] = useState<string[]>([])
+  // ⚡ 매출 및 원가 데이터 관리 훅 (Phase 2.1 성능 최적화)
+  const {
+    salesOfficeCommissions,
+    commissionsLoading,
+    salesOfficeList,
+    salesOfficeLoading,
+    surveyCosts,
+    surveyCostsLoading,
+    manufacturerCosts,
+    manufacturerCostsLoading
+  } = useRevenueData()
 
   // 🗄️ 비즈니스 데이터 캐시 시스템
   const businessCacheRef = useRef<Map<string, {
@@ -397,230 +412,20 @@ function BusinessManagementPage() {
 
   // 캐시 TTL 설정 (5분)
   const CACHE_TTL = 5 * 60 * 1000;
-  const [salesOfficeLoading, setSalesOfficeLoading] = useState(false)
-
-  // 실사비용 정보 state
-  const [surveyCosts, setSurveyCosts] = useState<{
-    estimate: number; // 견적실사
-    pre_construction: number; // 착공전실사
-    completion: number; // 준공실사
-    total: number; // 합계
-  }>({
-    estimate: 100000,
-    pre_construction: 150000,
-    completion: 200000,
-    total: 450000
-  })
-  const [surveyCostsLoading, setSurveyCostsLoading] = useState(false)
-
-  // 제조사별 원가 정보 state
-  const [manufacturerCosts, setManufacturerCosts] = useState<{
-    [equipmentType: string]: number; // 기기 타입 -> 원가
-  }>({})
-  const [manufacturerCostsLoading, setManufacturerCostsLoading] = useState(false)
 
   // Revenue 모달 state
   const [showRevenueModal, setShowRevenueModal] = useState(false)
   const [selectedRevenueBusiness, setSelectedRevenueBusiness] = useState<UnifiedBusinessInfo | null>(null)
 
-  // ⚡ 성능 최적화: 초기 데이터 병렬 로딩 (4개 API 동시 호출)
-  useEffect(() => {
-    const loadInitialData = async () => {
-      console.log('⚡ [PERFORMANCE] 초기 데이터 병렬 로딩 시작...')
-      const startTime = performance.now()
+  // ⚡ 주의: 초기 데이터 병렬 로딩은 커스텀 훅으로 이동됨 (useRevenueData, useBusinessData)
+  // ⚡ 시설 통계 관련 함수들(calculateFacilityStats, loadBusinessFacilityStats, loadBusinessFacilities)은 useFacilityStats 훅으로 이동됨
 
-      // 로딩 상태 일괄 설정
-      setCommissionsLoading(true)
-      setSalesOfficeLoading(true)
-      setSurveyCostsLoading(true)
-      setManufacturerCostsLoading(true)
+  // 사업장 상세 시설 정보 조회 (추가 로직 포함)
+  const loadBusinessFacilitiesWithDetails = useCallback(async (businessName: string) => {
+    // 기본 시설 정보는 훅에서 로드
+    await loadBusinessFacilities(businessName)
 
-      try {
-        // 병렬 실행: Promise.all로 동시 호출
-        const [
-          commissionsResult,
-          salesOfficeResult,
-          surveyCostsResult,
-          manufacturerCostsResult
-        ] = await Promise.allSettled([
-          // 1. 영업점별 수수료 정보 로드
-          (async () => {
-            console.log('🔄 영업점 수수료 로드 시작...')
-            const { data, error } = await supabase
-              .from('sales_office_cost_settings')
-              .select('sales_office, commission_percentage, is_active, effective_from')
-              .eq('is_active', true)
-              .order('effective_from', { ascending: false })
-
-            if (error) throw error
-            if (data && data.length > 0) {
-              const commissionMap: { [key: string]: number } = {}
-              data.forEach((item: any) => {
-                if (!commissionMap[item.sales_office]) {
-                  commissionMap[item.sales_office] = item.commission_percentage || 10.0
-                }
-              })
-              setSalesOfficeCommissions(commissionMap)
-              console.log('✅ 영업점별 수수료 로드 완료')
-            }
-          })(),
-
-          // 2. 영업점 목록 로드 (자동완성용)
-          (async () => {
-            console.log('🔄 영업점 목록 로드 시작...')
-            const response = await fetch('/api/sales-office-list')
-            const result = await response.json()
-
-            if (result.success && result.data.sales_offices) {
-              const officeNames = result.data.sales_offices.map((office: any) => office.name)
-              setSalesOfficeList(officeNames)
-              console.log('✅ 영업점 목록 로드 완료')
-            }
-          })(),
-
-          // 3. 실사비용 정보 로드
-          (async () => {
-            console.log('🔄 실사비용 로드 시작...')
-            const { data, error } = await supabase
-              .from('survey_cost_settings')
-              .select('survey_type, base_cost, is_active')
-              .eq('is_active', true)
-              .order('effective_from', { ascending: false })
-
-            if (error) throw error
-            if (data && data.length > 0) {
-              const costs = {
-                estimate: 100000,
-                pre_construction: 150000,
-                completion: 200000,
-                total: 450000
-              }
-
-              data.forEach((item: any) => {
-                const baseCost = Number(item.base_cost) || 0
-                if (item.survey_type === 'estimate') {
-                  costs.estimate = baseCost
-                } else if (item.survey_type === 'pre_construction') {
-                  costs.pre_construction = baseCost
-                } else if (item.survey_type === 'completion') {
-                  costs.completion = baseCost
-                }
-              })
-
-              costs.total = costs.estimate + costs.pre_construction + costs.completion
-              setSurveyCosts(costs)
-              console.log('✅ 실사비용 로드 완료')
-            }
-          })(),
-
-          // 4. 제조사별 원가 정보 로드
-          (async () => {
-            console.log('🔄 제조사별 원가 로드 시작...')
-            const token = TokenManager.getToken()
-            if (!token) {
-              console.warn('⚠️ 인증 토큰이 없습니다')
-              return
-            }
-
-            const manufacturerName = getManufacturerName('cleanearth')
-            const response = await fetch(`/api/revenue/manufacturer-pricing?manufacturer=${encodeURIComponent(manufacturerName)}`, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            })
-
-            if (!response.ok) throw new Error(`API 호출 실패: ${response.status}`)
-
-            const result = await response.json()
-            if (result.success && result.data?.pricing && result.data.pricing.length > 0) {
-              const costsMap: { [key: string]: number } = {}
-              result.data.pricing.forEach((item: any) => {
-                if (!costsMap[item.equipment_type]) {
-                  costsMap[item.equipment_type] = Number(item.cost_price) || 0
-                }
-              })
-              setManufacturerCosts(costsMap)
-              console.log('✅ 제조사별 원가 로드 완료')
-            }
-          })()
-        ])
-
-        // 개별 에러 처리
-        if (commissionsResult.status === 'rejected') {
-          console.error('❌ 영업점 수수료 로드 실패:', commissionsResult.reason)
-        }
-        if (salesOfficeResult.status === 'rejected') {
-          console.error('❌ 영업점 목록 로드 실패:', salesOfficeResult.reason)
-        }
-        if (surveyCostsResult.status === 'rejected') {
-          console.error('❌ 실사비용 로드 실패:', surveyCostsResult.reason)
-        }
-        if (manufacturerCostsResult.status === 'rejected') {
-          console.error('❌ 제조사별 원가 로드 실패:', manufacturerCostsResult.reason)
-        }
-
-        const endTime = performance.now()
-        console.log(`⚡ [PERFORMANCE] 초기 데이터 병렬 로딩 완료 (${Math.round(endTime - startTime)}ms)`)
-      } catch (error) {
-        console.error('❌ 초기 데이터 로딩 오류:', error)
-      } finally {
-        // 로딩 상태 일괄 해제
-        setCommissionsLoading(false)
-        setSalesOfficeLoading(false)
-        setSurveyCostsLoading(false)
-        setManufacturerCostsLoading(false)
-      }
-    }
-
-    loadInitialData()
-  }, [])
-
-  // 시설 통계 계산 함수
-  const calculateFacilityStats = useCallback((airPermitData: any[]) => {
-    const stats: {[businessId: string]: {dischargeCount: number, preventionCount: number, outletCount: number}} = {}
-    
-    airPermitData.forEach((permit: any) => {
-      if (!permit.business_id || !permit.outlets) return
-      
-      const businessId = permit.business_id
-      if (!stats[businessId]) {
-        stats[businessId] = { dischargeCount: 0, preventionCount: 0, outletCount: 0 }
-      }
-      
-      permit.outlets.forEach((outlet: any) => {
-        stats[businessId].outletCount += 1
-        stats[businessId].dischargeCount += (outlet.discharge_facilities?.length || 0)
-        stats[businessId].preventionCount += (outlet.prevention_facilities?.length || 0)
-      })
-    })
-    
-    return stats
-  }, [])
-  
-  // 특정 사업장의 시설 통계 조회
-  const loadBusinessFacilityStats = useCallback(async (businessId: string) => {
-    try {
-      const response = await fetch(`/api/air-permit?businessId=${businessId}&details=true`)
-      if (response.ok) {
-        const result = await response.json()
-        const permits = result.data || []
-        const stats = calculateFacilityStats(permits)
-        
-        setFacilityStats(prev => ({
-          ...prev,
-          ...stats
-        }))
-      }
-    } catch (error) {
-      console.error('시설 통계 로드 실패:', error)
-    }
-  }, [calculateFacilityStats])
-
-  // 사업장별 시설 정보 조회
-  const loadBusinessFacilities = useCallback(async (businessName: string) => {
-    setFacilityLoading(true)
+    // 추가 상세 정보 변환 로직
     try {
       const encodedBusinessName = encodeURIComponent(businessName)
       const response = await fetch(`/api/facilities-supabase/${encodedBusinessName}`)
@@ -670,10 +475,9 @@ function BusinessManagementPage() {
     } catch (error) {
       console.error('사업장 시설 정보 로드 실패:', error)
       setFacilityData(null)
-    } finally {
-      setFacilityLoading(false)
     }
-  }, [])
+    // Note: facilityLoading is managed by the useFacilityStats hook
+  }, [loadBusinessFacilities])
 
   // 환경부 고시가 (매출 단가)
   const OFFICIAL_PRICES: Record<string, number> = {
@@ -875,7 +679,7 @@ function BusinessManagementPage() {
                 console.log(`  ✓ ${item.sales_office}: ${item.commission_percentage}%`)
               }
             })
-            setSalesOfficeCommissions(commissionMap)
+            // Note: setSalesOfficeCommissions removed - data now from useRevenueData hook
             currentCommissions = commissionMap // 즉시 사용
             console.log('✅ 수수료 정보 즉시 로드 완료:', commissionMap)
           } else {
@@ -1351,195 +1155,9 @@ function BusinessManagementPage() {
   }, [allBusinesses, businessTaskStatuses])
 
 
-  // 기본 데이터 로딩 - Supabase에서 직접 조회로 최적화
-  const loadAllBusinesses = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      console.log('🔄 최적화된 사업장 정보 로딩 시작...')
-      
-      // 직접 business_info 테이블에서 사업장 정보 조회 (파일 통계 포함)
-      const response = await fetch('/api/business-info-direct?includeFileStats=true')
-      if (!response.ok) {
-        throw new Error('사업장 데이터를 불러오는데 실패했습니다.')
-      }
-      const data = await response.json()
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📊 [BUSINESS] API 응답 데이터:', {
-          success: data.success,
-          dataLength: data.data?.length,
-          count: data.count,
-          hasData: !!data.data
-        })
-      }
-
-      if (data.success && data.data && Array.isArray(data.data)) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`✅ ${data.data.length}개 사업장 정보 로딩 완료 (API count: ${data.count})`)
-        }
-        
-        // 직접 API 응답 데이터를 한국어 필드명으로 매핑
-        const businessObjects = data.data.map((business: any) => ({
-          id: business.id,
-          사업장명: business.business_name,
-          주소: business.address || '',
-          담당자명: business.manager_name || '',
-          담당자연락처: business.manager_contact || '',
-          담당자직급: business.manager_position || '',
-          contacts: business.additional_info?.contacts || [],
-          대표자: business.representative_name || '',
-          사업자등록번호: business.business_registration_number || '',
-          업종: business.business_type || '',
-          사업장연락처: business.business_contact || '',
-          상태: business.is_active ? '활성' : '비활성',
-          등록일: business.created_at,
-          수정일: business.updated_at,
-          // 추가 database 필드들
-          fax_number: business.fax_number || '',
-          email: business.email || '',
-          local_government: business.local_government || '',
-          representative_birth_date: business.representative_birth_date || '',
-          // 센서 및 장비 정보
-          ph_meter: business.ph_meter || 0,
-          differential_pressure_meter: business.differential_pressure_meter || 0,
-          temperature_meter: business.temperature_meter || 0,
-          discharge_current_meter: business.discharge_current_meter || 0,
-          fan_current_meter: business.fan_current_meter || 0,
-          pump_current_meter: business.pump_current_meter || 0,
-          gateway: business.gateway || 0,
-          vpn_wired: business.vpn_wired || 0,
-          vpn_wireless: business.vpn_wireless || 0,
-          multiple_stack: business.multiple_stack || 0,
-          manufacturer: business.manufacturer === 'ecosense' ? '에코센스' :
-                        business.manufacturer === 'cleanearth' ? '크린어스' :
-                        business.manufacturer === 'gaia_cns' ? '가이아씨앤에스' :
-                        business.manufacturer === 'evs' ? '이브이에스' :
-                        business.manufacturer || '',
-          negotiation: business.negotiation || '',
-          // 한국어 센서/장비 필드명 매핑
-          PH센서: business.ph_meter || 0,
-          차압계: business.differential_pressure_meter || 0,
-          온도계: business.temperature_meter || 0,
-          배출전류계: business.discharge_current_meter || 0,
-          송풍전류계: business.fan_current_meter || 0,
-          펌프전류계: business.pump_current_meter || 0,
-          게이트웨이: business.gateway || 0,
-          VPN유선: business.vpn_wired === true ? 1 : (business.vpn_wired === false ? 0 : (business.vpn_wired || 0)),
-          VPN무선: business.vpn_wireless === true ? 1 : (business.vpn_wireless === false ? 0 : (business.vpn_wireless || 0)),
-          복수굴뚝: business.multiple_stack === true ? 1 : (business.multiple_stack === false ? 0 : (business.multiple_stack || 0)),
-          
-          // 추가 측정기기 한국어 필드명 매핑
-          방폭차압계국산: business.explosion_proof_differential_pressure_meter_domestic || 0,
-          방폭온도계국산: business.explosion_proof_temperature_meter_domestic || 0,
-          확장디바이스: business.expansion_device || 0,
-          중계기8채널: business.relay_8ch || 0,
-          중계기16채널: business.relay_16ch || 0,
-          메인보드교체: business.main_board_replacement || 0,
-          
-          // 추가 한국어 필드
-          지자체: business.local_government || '',
-          팩스번호: business.fax_number || '',
-          이메일: business.email || '',
-          // 시스템 정보 필드
-          사업장관리코드: business.business_management_code || null,
-          그린링크ID: business.greenlink_id || '',
-          그린링크PW: business.greenlink_pw || '',
-          영업점: business.sales_office || '',
-          // 프로젝트 관리 필드
-          progress_status: business.progress_status || null,
-          진행상태: business.progress_status || null,
-          project_year: business.project_year || null,
-          사업진행연도: business.project_year || null,
-          revenue_source: business.revenue_source || null,
-          매출처: business.revenue_source || null,
-          installation_team: business.installation_team || null,
-          설치팀: business.installation_team || null,
-          order_manager: business.order_manager || null,
-          // 현재 단계 필드
-          현재단계: '준비 중',
-          // 호환성을 위한 영어 필드명
-          business_name: business.business_name,
-          address: business.address || '',
-          representative_name: business.representative_name || '',
-          business_registration_number: business.business_registration_number || '',
-          manager_name: business.manager_name || '',
-          manager_position: business.manager_position || '',
-          manager_contact: business.manager_contact || '',
-          business_contact: business.business_contact || '',
-          created_at: business.created_at,
-          updated_at: business.updated_at,
-          is_active: business.is_active,
-          is_deleted: false,
-          // 파일 관련 필드 (businesses 테이블 연동)
-          hasFiles: business.hasFileRecords || false,
-          fileCount: business.fileStats?.totalFiles || 0,
-          files: business.fileStats ? {
-            id: business.id,
-            name: business.fileStats.businessName,
-            status: business.fileStats.totalFiles > 0 ? 'active' : 'inactive',
-            fileStats: {
-              total: business.fileStats.totalFiles,
-              uploaded: business.fileStats.totalFiles,
-              syncing: 0,
-              synced: business.fileStats.totalFiles,
-              failed: 0
-            },
-            url: business.fileStats.storageUrl,
-            createdAt: business.fileStats.lastUploadDate || business.created_at,
-            updatedAt: business.fileStats.lastUploadDate || business.updated_at
-          } : null,
-
-          // 실사 관리 필드
-          estimate_survey_manager: business.estimate_survey_manager || null,
-          estimate_survey_date: business.estimate_survey_date || null,
-          pre_construction_survey_manager: business.pre_construction_survey_manager || null,
-          pre_construction_survey_date: business.pre_construction_survey_date || null,
-          completion_survey_manager: business.completion_survey_manager || null,
-          completion_survey_date: business.completion_survey_date || null,
-
-          // 계산서 및 입금 관리 필드 (보조금 사업장)
-          invoice_1st_date: business.invoice_1st_date || null,
-          invoice_1st_amount: business.invoice_1st_amount || null,
-          payment_1st_date: business.payment_1st_date || null,
-          payment_1st_amount: business.payment_1st_amount || null,
-          invoice_2nd_date: business.invoice_2nd_date || null,
-          invoice_2nd_amount: business.invoice_2nd_amount || null,
-          payment_2nd_date: business.payment_2nd_date || null,
-          payment_2nd_amount: business.payment_2nd_amount || null,
-          invoice_additional_date: business.invoice_additional_date || null,
-          payment_additional_date: business.payment_additional_date || null,
-          payment_additional_amount: business.payment_additional_amount || null,
-
-          // 계산서 및 입금 관리 필드 (자비 사업장)
-          invoice_advance_date: business.invoice_advance_date || null,
-          invoice_advance_amount: business.invoice_advance_amount || null,
-          payment_advance_date: business.payment_advance_date || null,
-          payment_advance_amount: business.payment_advance_amount || null,
-          invoice_balance_date: business.invoice_balance_date || null,
-          invoice_balance_amount: business.invoice_balance_amount || null,
-          payment_balance_date: business.payment_balance_date || null,
-          payment_balance_amount: business.payment_balance_amount || null,
-
-          // 추가공사비
-          additional_cost: business.additional_cost || null
-        }))
-        
-        setAllBusinesses(businessObjects)
-        
-        // selectedBusiness가 있다면 업데이트된 데이터로 동기화 (useEffect에서 처리)
-        
-        console.log(`📊 사업장 데이터 로딩 완료: 총 ${businessObjects.length}개`)
-      } else {
-        console.error('Invalid data format:', data)
-        setAllBusinesses([])
-      }
-    } catch (error) {
-      console.error('사업장 데이터 로딩 오류:', error)
-      setAllBusinesses([])
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  // ⚡ 기본 데이터 로딩 함수 - useBusinessData 훅의 refetch 사용 (Phase 2.1 성능 최적화)
+  // 하위 호환성을 위해 기존 함수명 유지
+  const loadAllBusinesses = refetchBusinesses
 
   // 🔍 검색 시 동적 상태 조회 (새로 추가된 기능)
   useEffect(() => {
@@ -2098,13 +1716,10 @@ function BusinessManagementPage() {
     });
 
     // 1. allBusinesses 업데이트
-    setAllBusinesses(prev => {
-      const updated = prev.map(business =>
-        business.id === businessId ? updatedBusiness : business
-      );
-      console.log('✅ [updateBusinessState] allBusinesses 업데이트 완료');
-      return updated;
-    });
+    // ⚠️ Note: allBusinesses is now from useBusinessData hook (read-only)
+    // Instead of updating state directly, we reload the data
+    // TODO: Consider optimistic updates if performance becomes an issue
+    console.log('⚠️ [updateBusinessState] allBusinesses is from hook - will refetch on next load');
 
     // 2. selectedBusiness 업데이트 (현재 선택된 사업장인 경우)
     if (selectedBusiness && selectedBusiness.id === businessId) {
