@@ -1067,17 +1067,19 @@ export class DatabaseService {
    * 전체 대기필증 목록 조회
    */
   static async getAllAirPermits(): Promise<AirPermitInfo[]> {
-    // ✅ 성능 최적화: 40개 이상 필드 → 12개 필수 필드만 조회 (70% 데이터 감소)
+    // ✅ 성능 최적화: 실제 존재하는 필드만 조회
+    // ⚠️ NOTE: permit_number, permit_date, permit_classification은 DB에 존재하지 않음
+    // 이 필드들은 additional_info JSONB에 저장되어 있을 가능성이 있음
     const { data, error } = await supabase
       .from('air_permit_info')
       .select(`
         id,
         business_id,
-        permit_number,
-        permit_date,
-        permit_classification,
         business_type,
         annual_emission_amount,
+        annual_pollutant_emission,
+        first_report_date,
+        operation_start_date,
         additional_info,
         created_at,
         updated_at,
@@ -1093,7 +1095,17 @@ export class DatabaseService {
       .order('created_at', { ascending: false })
 
     if (error) throw new Error(`전체 대기필증 조회 실패: ${error.message}`)
-    return data || []
+
+    // additional_info에서 permit 관련 정보 추출하여 매핑
+    const permits = (data || []).map((permit: any) => ({
+      ...permit,
+      // additional_info에서 필드 추출 시도
+      permit_number: permit.additional_info?.permit_number || null,
+      permit_date: permit.additional_info?.permit_date || null,
+      permit_classification: permit.additional_info?.permit_classification || null,
+    }))
+
+    return permits
   }
 
   // 배출구 삭제
