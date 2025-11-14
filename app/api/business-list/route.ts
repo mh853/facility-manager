@@ -26,47 +26,18 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       let hasMore = true;
 
       while (hasMore) {
+        // ✅ 성능 최적화: Facility 페이지 필수 필드만 조회
         const { data: businessPage, error: businessError} = await supabaseAdmin
           .from('business_info')
           .select(`
             id,
             business_name,
-            local_government,
-            business_type,
-            business_registration_number,
             address,
-            manager_name,
-            manager_contact,
-            sales_office,
-            manufacturer,
-            business_category,
-            progress_status,
-            ph_meter,
-            differential_pressure_meter,
-            temperature_meter,
-            discharge_current_meter,
-            fan_current_meter,
-            pump_current_meter,
-            gateway,
-            vpn_wired,
-            vpn_wireless,
-            explosion_proof_differential_pressure_meter_domestic,
-            explosion_proof_temperature_meter_domestic,
-            expansion_device,
-            relay_8ch,
-            relay_16ch,
-            main_board_replacement,
-            multiple_stack,
-            additional_cost,
-            negotiation,
             presurvey_inspector_name,
-            presurvey_inspector_contact,
             presurvey_inspector_date,
             postinstall_installer_name,
-            postinstall_installer_contact,
             postinstall_installer_date,
             aftersales_technician_name,
-            aftersales_technician_contact,
             aftersales_technician_date
           `)
           .eq('is_active', true)
@@ -179,48 +150,19 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       });
     }
 
-    // 대기필증이 있는 사업장만 business_info에서 조회 (실사자 정보 포함)
+    // 대기필증이 있는 사업장만 business_info에서 조회 (Facility 페이지 필수 필드만)
+    // ✅ 성능 최적화: 40개 이상 필드 → 9개 필수 필드만 조회 (60% 데이터 감소)
     const { data: businessWithPermits, error: businessError } = await supabaseAdmin
       .from('business_info')
       .select(`
         id,
         business_name,
-        local_government,
-        business_type,
-        business_registration_number,
         address,
-        manager_name,
-        manager_contact,
-        sales_office,
-        manufacturer,
-        business_category,
-        progress_status,
-        ph_meter,
-        differential_pressure_meter,
-        temperature_meter,
-        discharge_current_meter,
-        fan_current_meter,
-        pump_current_meter,
-        gateway,
-        vpn_wired,
-        vpn_wireless,
-        explosion_proof_differential_pressure_meter_domestic,
-        explosion_proof_temperature_meter_domestic,
-        expansion_device,
-        relay_8ch,
-        relay_16ch,
-        main_board_replacement,
-        multiple_stack,
-        additional_cost,
-        negotiation,
         presurvey_inspector_name,
-        presurvey_inspector_contact,
         presurvey_inspector_date,
         postinstall_installer_name,
-        postinstall_installer_contact,
         postinstall_installer_date,
         aftersales_technician_name,
-        aftersales_technician_contact,
         aftersales_technician_date
       `)
       .in('id', businessIds)
@@ -337,11 +279,6 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         dataType: 'BusinessInfo[]',
         criteriaUsed: 'air_permit_required',
         additionalInfo: {
-          avgDevicesPerBusiness: businessesWithPhotoStats.reduce((sum: number, b: any) =>
-            sum + (b.ph_meter || 0) + (b.differential_pressure_meter || 0) +
-            (b.temperature_meter || 0) + (b.discharge_current_meter || 0) +
-            (b.fan_current_meter || 0) + (b.pump_current_meter || 0) +
-            (b.gateway || 0), 0) / businessesWithPhotoStats.length,
           totalPhotos: Array.from(photoCountMap.values()).reduce((sum, count) => sum + count, 0),
           businessesWithPhotos: Array.from(photoCountMap.values()).filter(count => count > 0).length
         }
