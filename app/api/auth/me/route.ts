@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
         id: tokenPayload.id,
         name: tokenPayload.name,
         email: tokenPayload.email,
-        permission_level: tokenPayload.permission_level || 1
+        // ✅ 하위 호환성: 구 토큰(permissionLevel)과 신 토큰(permission_level) 모두 지원
+        permission_level: tokenPayload.permission_level || tokenPayload.permissionLevel || 1
       }
     });
 
