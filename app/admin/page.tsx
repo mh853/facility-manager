@@ -71,9 +71,15 @@ export default function AdminDashboard() {
   // 권한 확인 함수
   const checkAuthAndPermission = async () => {
     try {
-      // 사용자 정보 조회 (쿠키에서 토큰 확인)
+      // ✅ localStorage 토큰을 헤더로 전달 (모바일 호환성)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+
+      // 사용자 정보 조회 (쿠키 + Authorization 헤더)
       const response = await fetch('/api/auth/me', {
-        credentials: 'include'
+        credentials: 'include',
+        headers: token ? {
+          'Authorization': `Bearer ${token}`
+        } : {}
       })
 
       if (!response.ok) {

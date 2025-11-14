@@ -10,8 +10,16 @@ export const runtime = 'nodejs';
  */
 export async function GET(request: NextRequest) {
   try {
-    // 쿠키에서 토큰 가져오기
-    const token = request.cookies.get('auth_token')?.value;
+    // ✅ 쿠키 우선, Authorization 헤더 폴백으로 토큰 가져오기 (모바일 호환성)
+    let token = request.cookies.get('auth_token')?.value;
+
+    // 쿠키에 토큰이 없으면 Authorization 헤더 확인 (localStorage 사용 케이스)
+    if (!token) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
 
     if (!token) {
       return NextResponse.json(
