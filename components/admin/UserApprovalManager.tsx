@@ -98,14 +98,20 @@ export default function UserApprovalManager() {
       const result = await response.json();
 
       if (result.success) {
+        // ✅ 즉시 UI에서 승인된 사용자 제거 (낙관적 업데이트)
+        setPendingUsers(prev => prev.filter(u => u.id !== userId));
         alert('사용자가 승인되었습니다.');
-        await loadPendingUsers(); // 목록 새로고침
+        // 백그라운드에서 최신 데이터 로드 (동기화)
+        loadPendingUsers();
+        return true; // 성공 반환
       } else {
         alert(result.error || '승인 처리에 실패했습니다.');
+        return false; // 실패 반환
       }
     } catch (error) {
       console.error('사용자 승인 실패:', error);
       alert('승인 처리에 실패했습니다.');
+      return false; // 실패 반환
     } finally {
       setApprovingUserId(null);
     }
@@ -240,7 +246,7 @@ function UserApprovalCard({
   user: PendingUser;
   departments: Department[];
   isApproving: boolean;
-  onApprove: (userId: string, departmentId: string, permissionLevel: number, role: string) => void;
+  onApprove: (userId: string, departmentId: string, permissionLevel: number, role: string) => Promise<boolean>;
   getProviderIcon: (provider: string) => string;
   getProviderName: (provider: string) => string;
   formatDate: (dateString: string) => string;
@@ -250,14 +256,17 @@ function UserApprovalCard({
   const [selectedRole, setSelectedRole] = useState('staff');
   const [showApprovalForm, setShowApprovalForm] = useState(false);
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     if (!selectedDepartment) {
       alert('부서를 선택해주세요.');
       return;
     }
 
-    onApprove(user.id, selectedDepartment, selectedPermission, selectedRole);
-    setShowApprovalForm(false);
+    // ✅ 승인 완료를 기다린 후 폼 닫기
+    const success = await onApprove(user.id, selectedDepartment, selectedPermission, selectedRole);
+    if (success) {
+      setShowApprovalForm(false);
+    }
   };
 
   return (
