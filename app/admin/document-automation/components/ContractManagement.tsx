@@ -74,7 +74,11 @@ interface Contract {
   created_at: string
 }
 
-export default function ContractManagement() {
+interface ContractManagementProps {
+  onDocumentCreated?: () => void
+}
+
+export default function ContractManagement({ onDocumentCreated }: ContractManagementProps) {
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [contracts, setContracts] = useState<Contract[]>([])
   const [loading, setLoading] = useState(false)
@@ -274,6 +278,9 @@ export default function ContractManagement() {
         // 계약서 목록 전체를 다시 로드하여 document_history에서 최신 데이터 가져오기
         loadContracts(selectedBusiness ? selectedBusiness.id : undefined)
 
+        // ✅ 실행 이력 탭 갱신
+        onDocumentCreated?.()
+
         // 생성된 계약서로 자동 PDF 저장 (백그라운드)
         const createdContract = data.data.contract
         savePDFAfterCreation(createdContract)
@@ -281,6 +288,8 @@ export default function ContractManagement() {
             console.log('PDF 자동 저장 완료')
             // PDF 저장 후 다시 로드하여 file_path 업데이트
             loadContracts(selectedBusiness ? selectedBusiness.id : undefined)
+            // ✅ PDF 저장 후에도 실행 이력 탭 갱신
+            onDocumentCreated?.()
           })
           .catch(err => {
             console.error('PDF 자동 저장 실패:', err)

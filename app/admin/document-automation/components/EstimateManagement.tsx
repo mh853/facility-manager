@@ -53,7 +53,11 @@ interface EstimateTemplate {
   supplier_company_name: string
 }
 
-export default function EstimateManagement() {
+interface EstimateManagementProps {
+  onDocumentCreated?: () => void
+}
+
+export default function EstimateManagement({ onDocumentCreated }: EstimateManagementProps) {
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [estimates, setEstimates] = useState<EstimateHistory[]>([])
   const [template, setTemplate] = useState<EstimateTemplate | null>(null)
@@ -183,6 +187,8 @@ export default function EstimateManagement() {
       if (data.success) {
         alert('견적서가 생성되었습니다.')
         loadEstimates(selectedBusiness?.id)
+        // ✅ 실행 이력 탭 갱신
+        onDocumentCreated?.()
       } else {
         alert(`견적서 생성 실패: ${data.error}`)
       }

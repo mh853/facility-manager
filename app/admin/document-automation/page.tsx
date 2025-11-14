@@ -332,11 +332,11 @@ export default function DocumentAutomationPage() {
 
           <div className="p-3 sm:p-4 md:p-6">
             {activeTab === 'estimate' && (
-              <EstimateManagement />
+              <EstimateManagement onDocumentCreated={loadDocumentHistory} />
             )}
 
             {activeTab === 'contract' && (
-              <ContractManagement />
+              <ContractManagement onDocumentCreated={loadDocumentHistory} />
             )}
 
             {activeTab === 'purchase_order' && (
@@ -960,6 +960,7 @@ export default function DocumentAutomationPage() {
           }}
           businessId={selectedBusiness.id}
           businessName={selectedBusiness.name}
+          onDocumentCreated={loadDocumentHistory}
         />
       )}
 

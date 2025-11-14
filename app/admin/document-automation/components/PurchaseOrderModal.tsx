@@ -13,13 +13,15 @@ interface PurchaseOrderModalProps {
   onClose: () => void
   businessId: string
   businessName: string
+  onDocumentCreated?: () => void
 }
 
 export default function PurchaseOrderModal({
   isOpen,
   onClose,
   businessId,
-  businessName
+  businessName,
+  onDocumentCreated
 }: PurchaseOrderModalProps) {
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -186,6 +188,9 @@ export default function PurchaseOrderModal({
         window.URL.revokeObjectURL(url)
 
         alert(`발주서가 생성되었습니다: ${result.data.document_name}`)
+
+        // ✅ 실행 이력 탭 갱신
+        onDocumentCreated?.()
       } else {
         // 다른 제조사: 클라이언트에서 PDF 직접 생성 (한글 지원)
         console.log(`[PURCHASE-ORDER-MODAL] ${manufacturer}: 클라이언트에서 PDF 생성 (한글 지원)`)
@@ -228,6 +233,9 @@ export default function PurchaseOrderModal({
         }
 
         alert(`발주서 PDF가 생성되었습니다.`)
+
+        // ✅ 실행 이력 탭 갱신
+        onDocumentCreated?.()
       }
 
       onClose()
