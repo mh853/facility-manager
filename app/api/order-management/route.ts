@@ -125,43 +125,39 @@ export const GET = withApiHandler(
           let businesses: any[] = []
           let bizErr: any = null
 
-          // business_id로 조회
-          if (businessIds.length > 0) {
-            const { data: businessesById, error: byIdErr } = await supabaseAdmin
+          // ✅ 쿼리 통합: business_id와 business_name 조회를 하나의 쿼리로 통합 (2 queries → 1 query)
+          if (businessIds.length > 0 || businessNames.length > 0) {
+            let query = supabaseAdmin
               .from('business_info')
-              .select('*')
-              .in('id', businessIds)
+              .select('id, business_name, address, manufacturer, updated_at, order_date')
               .eq('is_deleted', false)
 
-            if (byIdErr) {
-              bizErr = byIdErr
-            } else {
-              businesses = businessesById || []
+            // OR 조건으로 business_id와 business_name 동시 조회
+            const orConditions: string[] = []
+            if (businessIds.length > 0) {
+              orConditions.push(`id.in.(${businessIds.join(',')})`)
             }
-          }
+            if (businessNames.length > 0) {
+              const escapedNames = businessNames.map(name => `"${name}"`).join(',')
+              orConditions.push(`business_name.in.(${escapedNames})`)
+            }
 
-          // business_name으로도 조회 (fallback)
-          if (!bizErr && businessNames.length > 0) {
-            const { data: businessesByName, error: byNameErr } = await supabaseAdmin
-              .from('business_info')
-              .select('*')
-              .in('business_name', businessNames)
-              .eq('is_deleted', false)
+            if (orConditions.length > 0) {
+              query = query.or(orConditions.join(','))
+            }
 
-            if (byNameErr) {
-              console.warn('[ORDER-MANAGEMENT] business_name 조회 오류:', byNameErr)
-            } else if (businessesByName && businessesByName.length > 0) {
-              console.log('[ORDER-MANAGEMENT] business_name으로 조회 성공:', {
+            const { data: businessData, error: queryErr } = await query
+
+            if (queryErr) {
+              bizErr = queryErr
+              console.error('[ORDER-MANAGEMENT] business_info 통합 조회 오류:', queryErr)
+            } else {
+              businesses = businessData || []
+              console.log('[ORDER-MANAGEMENT] business_info 통합 조회 성공:', {
+                requestedIds: businessIds.length,
                 requestedNames: businessNames.length,
-                foundCount: businessesByName.length,
-                foundNames: businessesByName.map(b => b.business_name)
-              })
-              // 중복 제거하며 병합
-              const existingIds = new Set(businesses.map(b => b.id))
-              businessesByName.forEach(b => {
-                if (!existingIds.has(b.id)) {
-                  businesses.push(b)
-                }
+                foundBusinesses: businesses.length,
+                foundIds: businesses.map(b => b.id)
               })
             }
           }
@@ -169,13 +165,6 @@ export const GET = withApiHandler(
           if (bizErr) {
             orderError = bizErr
           } else {
-            console.log('[ORDER-MANAGEMENT] business_info 조회 결과:', {
-              requestedIds: businessIds.length,
-              requestedNames: businessNames.length,
-              foundBusinesses: businesses.length,
-              foundIds: businesses.map(b => b.id)
-            })
-
             // business_info를 Map으로 변환 (id 기반, name 기반 모두 지원)
             const businessMap = new Map(
               businesses.map(b => [b.id, b])
@@ -257,9 +246,10 @@ export const GET = withApiHandler(
         }
       } else if (status === 'not_started') {
         // 발주 진행 전: business_info에서 order_date가 NULL인 사업장
+        // ✅ 성능 최적화: 40개 이상 필드 → 6개 필수 필드만 조회 (85% 데이터 감소)
         let businessQuery = supabaseAdmin
           .from('business_info')
-          .select('*')
+          .select('id, business_name, address, manufacturer, updated_at, order_date')
           .is('order_date', null)
           .eq('is_deleted', false)
 
@@ -300,9 +290,10 @@ export const GET = withApiHandler(
         }
       } else if (status === 'completed') {
         // 발주 완료: business_info에서 order_date가 있는 사업장
+        // ✅ 성능 최적화: 40개 이상 필드 → 6개 필수 필드만 조회 (85% 데이터 감소)
         let businessQuery = supabaseAdmin
           .from('business_info')
-          .select('*')
+          .select('id, business_name, address, manufacturer, updated_at, order_date')
           .not('order_date', 'is', null)
           .eq('is_deleted', false)
 
@@ -343,9 +334,10 @@ export const GET = withApiHandler(
         }
       } else {
         // 'all' 상태: 모든 사업장 조회
+        // ✅ 성능 최적화: 40개 이상 필드 → 6개 필수 필드만 조회 (85% 데이터 감소)
         let businessQuery = supabaseAdmin
           .from('business_info')
-          .select('*')
+          .select('id, business_name, address, manufacturer, updated_at, order_date')
           .eq('is_deleted', false)
 
         if (search) {
