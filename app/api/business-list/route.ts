@@ -92,19 +92,26 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
       console.log(`✅ [BUSINESS-LIST] 전체 사업장 조회 완료: ${allBusinesses.length}개 (${page}페이지)`);
 
-      // 📷 사진 통계 추가
+      // 📷 사진 통계 추가 (RPC 함수로 Primary DB 강제 사용)
       const businessIdsForPhotos = allBusinesses.map((b: any) => b.id);
-      const { data: photoStatsAll, error: photoErrorAll } = await supabaseAdmin
-        .from('uploaded_files')
-        .select('business_id')
-        .in('business_id', businessIdsForPhotos);
+      console.log('🔍 [BUSINESS-LIST-ALL] 사진 개수 조회 시작 (RPC 함수 사용)');
+
+      const { data: photoCountsAll, error: photoErrorAll } = await supabaseAdmin.rpc(
+        'get_photo_counts',
+        { business_ids: businessIdsForPhotos }
+      );
 
       const photoCountMapAll = new Map<string, number>();
-      if (photoStatsAll && !photoErrorAll) {
-        photoStatsAll.forEach((photo: any) => {
-          const count = photoCountMapAll.get(photo.business_id) || 0;
-          photoCountMapAll.set(photo.business_id, count + 1);
+      if (photoCountsAll && !photoErrorAll) {
+        photoCountsAll.forEach((row: any) => {
+          photoCountMapAll.set(row.business_id, Number(row.photo_count));
         });
+        console.log('✅ [BUSINESS-LIST-ALL] RPC 함수로 사진 개수 조회 완료:', {
+          businesses_with_photos: photoCountMapAll.size,
+          total_photos: Array.from(photoCountMapAll.values()).reduce((sum, count) => sum + count, 0)
+        });
+      } else if (photoErrorAll) {
+        console.error('❌ [BUSINESS-LIST-ALL] RPC 함수 호출 실패:', photoErrorAll);
       }
 
       const allBusinessesWithPhotoStats = allBusinesses.map((business: any) => ({
@@ -278,18 +285,30 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     }
 
     // 📷 각 사업장의 사진 개수 조회
-    const { data: photoStats, error: photoError } = await supabaseAdmin
-      .from('uploaded_files')
-      .select('business_id')
-      .in('business_id', businessIds);
+    // ✅ CRITICAL FIX: Read Replica Lag 문제 해결
+    // - 기존: SELECT 쿼리 → Read Replica 사용 → 삭제 후 수십 초 지연
+    // - 수정: RPC 함수 사용 → Primary DB 강제 실행 → 즉시 반영
+    console.log('🔍 [BUSINESS-LIST] 사진 개수 조회 시작 (RPC 함수 사용)');
 
-    // 사업장별 사진 개수 계산
+    const { data: photoCounts, error: photoError } = await supabaseAdmin.rpc(
+      'get_photo_counts',
+      { business_ids: businessIds }
+    );
+
+    // 사업장별 사진 개수 매핑
     const photoCountMap = new Map<string, number>();
-    if (photoStats && !photoError) {
-      photoStats.forEach((photo: any) => {
-        const count = photoCountMap.get(photo.business_id) || 0;
-        photoCountMap.set(photo.business_id, count + 1);
+    if (photoCounts && !photoError) {
+      photoCounts.forEach((row: any) => {
+        photoCountMap.set(row.business_id, Number(row.photo_count));
       });
+      console.log('✅ [BUSINESS-LIST] RPC 함수로 사진 개수 조회 완료 (Primary DB):', {
+        businesses_with_photos: photoCountMap.size,
+        total_photos: Array.from(photoCountMap.values()).reduce((sum, count) => sum + count, 0),
+        sample: Array.from(photoCountMap.entries()).slice(0, 3).map(([id, count]) => `${id.slice(0, 8)}: ${count}`)
+      });
+    } else if (photoError) {
+      console.error('❌ [BUSINESS-LIST] RPC 함수 호출 실패 (Primary DB):', photoError);
+      console.log('⚠️ [BUSINESS-LIST] Fallback: 사진 개수를 0으로 설정');
     }
 
     // 사진 통계 및 phase 진행 상태를 각 사업장 객체에 추가

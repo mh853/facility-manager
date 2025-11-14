@@ -44,6 +44,7 @@ export const getSupabaseAdmin = () => {
             'Content-Type': 'application/json; charset=utf-8',
             'Accept-Charset': 'utf-8',
             'x-connection-pooling': 'true', // Connection pooling 활성화
+            'Prefer': 'return=representation', // Read-after-write consistency 보장
           }
         }
       }
