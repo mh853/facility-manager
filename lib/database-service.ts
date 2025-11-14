@@ -138,6 +138,11 @@ export interface AirPermitInfo {
   business_id: string
   created_at: string
   updated_at: string
+
+  // 허가 상세 정보 (필수 필드)
+  permit_number?: string | null
+  permit_date?: string | null
+  permit_classification?: string | null
   business_type: string | null
   annual_emission_amount: number | null
   first_report_date?: string | null // 최초신고일
