@@ -423,191 +423,158 @@ function BusinessManagementPage() {
   const [showRevenueModal, setShowRevenueModal] = useState(false)
   const [selectedRevenueBusiness, setSelectedRevenueBusiness] = useState<UnifiedBusinessInfo | null>(null)
 
-  // 영업점별 수수료 정보 로드
+  // ⚡ 성능 최적화: 초기 데이터 병렬 로딩 (4개 API 동시 호출)
   useEffect(() => {
-    const loadSalesOfficeCommissions = async () => {
-      console.log('🔄 영업점 수수료 로드 시작...')
+    const loadInitialData = async () => {
+      console.log('⚡ [PERFORMANCE] 초기 데이터 병렬 로딩 시작...')
+      const startTime = performance.now()
+
+      // 로딩 상태 일괄 설정
       setCommissionsLoading(true)
-      try {
-        const { data, error } = await supabase
-          .from('sales_office_cost_settings')
-          .select('sales_office, commission_percentage, is_active, effective_from')
-          .eq('is_active', true)
-          .order('effective_from', { ascending: false })
-
-        console.log('📊 Supabase 응답:', { data, error })
-
-        if (error) {
-          console.error('❌ 영업점 수수료 로드 실패:', error)
-          return
-        }
-
-        if (data && data.length > 0) {
-          console.log('✅ 조회된 데이터 개수:', data.length)
-          console.log('📋 조회된 원본 데이터:', data)
-
-          // 영업점별로 가장 최신 수수료 정보만 저장
-          const commissionMap: { [key: string]: number } = {}
-          data.forEach((item: any) => {
-            if (!commissionMap[item.sales_office]) {
-              commissionMap[item.sales_office] = item.commission_percentage || 10.0
-              console.log(`  → ${item.sales_office}: ${item.commission_percentage}%`)
-            }
-          })
-          setSalesOfficeCommissions(commissionMap)
-          console.log('✅ 영업점별 수수료 로드 완료:', commissionMap)
-        } else {
-          console.warn('⚠️ 조회된 데이터가 없습니다')
-        }
-      } catch (error) {
-        console.error('❌ 영업점 수수료 로드 오류:', error)
-      } finally {
-        setCommissionsLoading(false)
-      }
-    }
-
-    loadSalesOfficeCommissions()
-  }, [])
-
-  // 영업점 목록 로드 (자동완성용)
-  useEffect(() => {
-    const loadSalesOfficeList = async () => {
-      console.log('🔄 영업점 목록 로드 시작...')
       setSalesOfficeLoading(true)
-      try {
-        const response = await fetch('/api/sales-office-list')
-        const result = await response.json()
-
-        if (result.success && result.data.sales_offices) {
-          const officeNames = result.data.sales_offices.map((office: any) => office.name)
-          setSalesOfficeList(officeNames)
-          console.log('✅ 영업점 목록 로드 완료:', officeNames)
-        } else {
-          console.error('❌ 영업점 목록 로드 실패:', result.message)
-        }
-      } catch (error) {
-        console.error('❌ 영업점 목록 로드 오류:', error)
-      } finally {
-        setSalesOfficeLoading(false)
-      }
-    }
-
-    loadSalesOfficeList()
-  }, [])
-
-  // 실사비용 정보 로드
-  useEffect(() => {
-    const loadSurveyCosts = async () => {
-      console.log('🔄 실사비용 로드 시작...')
       setSurveyCostsLoading(true)
-      try {
-        const { data, error } = await supabase
-          .from('survey_cost_settings')
-          .select('survey_type, base_cost, is_active')
-          .eq('is_active', true)
-          .order('effective_from', { ascending: false })
-
-        console.log('📊 실사비용 Supabase 응답:', { data, error })
-
-        if (error) {
-          console.error('❌ 실사비용 로드 실패:', error)
-          return
-        }
-
-        if (data && data.length > 0) {
-          console.log('✅ 조회된 실사비용 데이터:', data)
-
-          // 실사 유형별로 최신 비용 저장
-          const costs = {
-            estimate: 100000,
-            pre_construction: 150000,
-            completion: 200000,
-            total: 450000
-          }
-
-          data.forEach((item: any) => {
-            const baseCost = Number(item.base_cost) || 0
-            if (item.survey_type === 'estimate') {
-              costs.estimate = baseCost
-            } else if (item.survey_type === 'pre_construction') {
-              costs.pre_construction = baseCost
-            } else if (item.survey_type === 'completion') {
-              costs.completion = baseCost
-            }
-          })
-
-          costs.total = costs.estimate + costs.pre_construction + costs.completion
-
-          setSurveyCosts(costs)
-          console.log('✅ 실사비용 로드 완료:', costs)
-        } else {
-          console.warn('⚠️ 실사비용 데이터가 없습니다 - 기본값 사용')
-        }
-      } catch (error) {
-        console.error('❌ 실사비용 로드 오류:', error)
-      } finally {
-        setSurveyCostsLoading(false)
-      }
-    }
-
-    loadSurveyCosts()
-  }, [])
-
-  // 제조사별 원가 정보 로드
-  useEffect(() => {
-    const loadManufacturerCosts = async () => {
-      console.log('🔄 제조사별 원가 로드 시작...')
       setManufacturerCostsLoading(true)
+
       try {
-        const token = TokenManager.getToken()
-        if (!token) {
-          console.warn('⚠️ 인증 토큰이 없습니다')
-          return
-        }
+        // 병렬 실행: Promise.all로 동시 호출
+        const [
+          commissionsResult,
+          salesOfficeResult,
+          surveyCostsResult,
+          manufacturerCostsResult
+        ] = await Promise.allSettled([
+          // 1. 영업점별 수수료 정보 로드
+          (async () => {
+            console.log('🔄 영업점 수수료 로드 시작...')
+            const { data, error } = await supabase
+              .from('sales_office_cost_settings')
+              .select('sales_office, commission_percentage, is_active, effective_from')
+              .eq('is_active', true)
+              .order('effective_from', { ascending: false })
 
-        // API를 통해 제조사별 원가 조회 (영어 코드 → 한글 이름 변환)
-        const manufacturerName = getManufacturerName('cleanearth') // 'cleanearth' → '크린어스'
-        console.log('🔍 조회할 제조사:', manufacturerName)
-        const response = await fetch(`/api/revenue/manufacturer-pricing?manufacturer=${encodeURIComponent(manufacturerName)}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (!response.ok) {
-          console.error('❌ 제조사별 원가 API 호출 실패:', response.status)
-          return
-        }
-
-        const result = await response.json()
-        console.log('📊 제조사별 원가 API 응답:', result)
-
-        if (result.success && result.data?.pricing && result.data.pricing.length > 0) {
-          console.log('✅ 조회된 제조사별 원가 데이터:', result.data.pricing)
-
-          // 기기 타입별로 최신 원가 저장
-          const costsMap: { [key: string]: number } = {}
-          result.data.pricing.forEach((item: any) => {
-            if (!costsMap[item.equipment_type]) {
-              costsMap[item.equipment_type] = Number(item.cost_price) || 0
+            if (error) throw error
+            if (data && data.length > 0) {
+              const commissionMap: { [key: string]: number } = {}
+              data.forEach((item: any) => {
+                if (!commissionMap[item.sales_office]) {
+                  commissionMap[item.sales_office] = item.commission_percentage || 10.0
+                }
+              })
+              setSalesOfficeCommissions(commissionMap)
+              console.log('✅ 영업점별 수수료 로드 완료')
             }
-          })
+          })(),
 
-          setManufacturerCosts(costsMap)
-          console.log('✅ 제조사별 원가 로드 완료:', costsMap)
-        } else {
-          console.warn('⚠️ 제조사별 원가 데이터가 없습니다 - MANUFACTURER_COSTS 상수 사용')
+          // 2. 영업점 목록 로드 (자동완성용)
+          (async () => {
+            console.log('🔄 영업점 목록 로드 시작...')
+            const response = await fetch('/api/sales-office-list')
+            const result = await response.json()
+
+            if (result.success && result.data.sales_offices) {
+              const officeNames = result.data.sales_offices.map((office: any) => office.name)
+              setSalesOfficeList(officeNames)
+              console.log('✅ 영업점 목록 로드 완료')
+            }
+          })(),
+
+          // 3. 실사비용 정보 로드
+          (async () => {
+            console.log('🔄 실사비용 로드 시작...')
+            const { data, error } = await supabase
+              .from('survey_cost_settings')
+              .select('survey_type, base_cost, is_active')
+              .eq('is_active', true)
+              .order('effective_from', { ascending: false })
+
+            if (error) throw error
+            if (data && data.length > 0) {
+              const costs = {
+                estimate: 100000,
+                pre_construction: 150000,
+                completion: 200000,
+                total: 450000
+              }
+
+              data.forEach((item: any) => {
+                const baseCost = Number(item.base_cost) || 0
+                if (item.survey_type === 'estimate') {
+                  costs.estimate = baseCost
+                } else if (item.survey_type === 'pre_construction') {
+                  costs.pre_construction = baseCost
+                } else if (item.survey_type === 'completion') {
+                  costs.completion = baseCost
+                }
+              })
+
+              costs.total = costs.estimate + costs.pre_construction + costs.completion
+              setSurveyCosts(costs)
+              console.log('✅ 실사비용 로드 완료')
+            }
+          })(),
+
+          // 4. 제조사별 원가 정보 로드
+          (async () => {
+            console.log('🔄 제조사별 원가 로드 시작...')
+            const token = TokenManager.getToken()
+            if (!token) {
+              console.warn('⚠️ 인증 토큰이 없습니다')
+              return
+            }
+
+            const manufacturerName = getManufacturerName('cleanearth')
+            const response = await fetch(`/api/revenue/manufacturer-pricing?manufacturer=${encodeURIComponent(manufacturerName)}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+
+            if (!response.ok) throw new Error(`API 호출 실패: ${response.status}`)
+
+            const result = await response.json()
+            if (result.success && result.data?.pricing && result.data.pricing.length > 0) {
+              const costsMap: { [key: string]: number } = {}
+              result.data.pricing.forEach((item: any) => {
+                if (!costsMap[item.equipment_type]) {
+                  costsMap[item.equipment_type] = Number(item.cost_price) || 0
+                }
+              })
+              setManufacturerCosts(costsMap)
+              console.log('✅ 제조사별 원가 로드 완료')
+            }
+          })()
+        ])
+
+        // 개별 에러 처리
+        if (commissionsResult.status === 'rejected') {
+          console.error('❌ 영업점 수수료 로드 실패:', commissionsResult.reason)
         }
+        if (salesOfficeResult.status === 'rejected') {
+          console.error('❌ 영업점 목록 로드 실패:', salesOfficeResult.reason)
+        }
+        if (surveyCostsResult.status === 'rejected') {
+          console.error('❌ 실사비용 로드 실패:', surveyCostsResult.reason)
+        }
+        if (manufacturerCostsResult.status === 'rejected') {
+          console.error('❌ 제조사별 원가 로드 실패:', manufacturerCostsResult.reason)
+        }
+
+        const endTime = performance.now()
+        console.log(`⚡ [PERFORMANCE] 초기 데이터 병렬 로딩 완료 (${Math.round(endTime - startTime)}ms)`)
       } catch (error) {
-        console.error('❌ 제조사별 원가 로드 오류:', error)
+        console.error('❌ 초기 데이터 로딩 오류:', error)
       } finally {
+        // 로딩 상태 일괄 해제
+        setCommissionsLoading(false)
+        setSalesOfficeLoading(false)
+        setSurveyCostsLoading(false)
         setManufacturerCostsLoading(false)
       }
     }
 
-    loadManufacturerCosts()
+    loadInitialData()
   }, [])
 
   // 시설 통계 계산 함수
@@ -1115,8 +1082,8 @@ function BusinessManagementPage() {
     }
   }
   
-  // 메모 관리 함수들
-  const loadBusinessMemos = async (businessId: string) => {
+  // ⚡ 메모 관리 함수들 (useCallback 최적화)
+  const loadBusinessMemos = useCallback(async (businessId: string) => {
     console.log('🔧 [FRONTEND] loadBusinessMemos 시작 - businessId:', businessId)
     setIsLoadingMemos(true)
     try {
@@ -1147,10 +1114,10 @@ function BusinessManagementPage() {
     } finally {
       setIsLoadingMemos(false)
     }
-  }
+  }, [])
 
-  // 업무 조회 함수
-  const loadBusinessTasks = async (businessName: string) => {
+  // ⚡ 업무 조회 함수 (useCallback 최적화)
+  const loadBusinessTasks = useCallback(async (businessName: string) => {
     setIsLoadingTasks(true)
     try {
       // 토큰을 포함한 인증 헤더 추가 - TokenManager 사용
@@ -1194,7 +1161,7 @@ function BusinessManagementPage() {
     } finally {
       setIsLoadingTasks(false)
     }
-  }
+  }, [])
 
   const handleAddMemo = async () => {
     if (!selectedBusiness || !memoForm.title?.trim() || !memoForm.content?.trim()) {
