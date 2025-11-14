@@ -215,6 +215,50 @@ export async function POST(request: NextRequest) {
       name: newEmployee.name
     });
 
+    // 🔔 관리자에게 실시간 알림 전송 (permission_level >= 3)
+    try {
+      // 관리자 목록 조회
+      const { data: admins } = await supabaseAdmin
+        .from('employees')
+        .select('id, name, email, permission_level')
+        .gte('permission_level', 3)
+        .eq('is_active', true);
+
+      if (admins && admins.length > 0) {
+        // 전역 알림 생성 (Supabase Realtime으로 실시간 전송)
+        await supabaseAdmin
+          .from('notifications')
+          .insert({
+            title: '🔔 새로운 사용자 가입 승인 요청',
+            message: `${newEmployee.name}님(${newEmployee.email})이 회원가입을 요청했습니다. 승인이 필요합니다.`,
+            category: 'user_created',
+            priority: 'high',
+            related_resource_type: 'user',
+            related_resource_id: newEmployee.id,
+            related_url: '/admin/users',
+            metadata: {
+              user_id: newEmployee.id,
+              user_name: newEmployee.name,
+              user_email: newEmployee.email,
+              department: newEmployee.department,
+              position: newEmployee.position,
+              admin_count: admins.length,
+              requires_approval: true
+            },
+            created_by_name: 'System',
+            is_system_notification: true
+          });
+
+        console.log('📢 [SIGNUP] 관리자 알림 전송 완료:', {
+          admin_count: admins.length,
+          admins: admins.map(a => ({ name: a.name, level: a.permission_level }))
+        });
+      }
+    } catch (notificationError) {
+      // 알림 전송 실패는 회원가입 성공에 영향 없음
+      console.error('⚠️ [SIGNUP] 관리자 알림 전송 실패 (회원가입은 성공):', notificationError);
+    }
+
     // 성공 응답 (비밀번호 제외)
     return NextResponse.json({
       success: true,
