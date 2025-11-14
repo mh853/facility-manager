@@ -1062,10 +1062,19 @@ export class DatabaseService {
    * 전체 대기필증 목록 조회
    */
   static async getAllAirPermits(): Promise<AirPermitInfo[]> {
+    // ✅ 성능 최적화: 40개 이상 필드 → 9개 필수 필드만 조회 (75% 데이터 감소)
     const { data, error } = await supabase
       .from('air_permit_info')
       .select(`
-        *,
+        id,
+        business_id,
+        permit_number,
+        permit_date,
+        permit_classification,
+        created_at,
+        updated_at,
+        is_active,
+        is_deleted,
         business:business_info!business_id (
           business_name,
           local_government
