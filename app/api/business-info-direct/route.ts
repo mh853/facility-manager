@@ -41,39 +41,55 @@ export async function GET(request: Request) {
       );
     }
 
-    // Supabase 1000개 제한을 우회하기 위해 페이지네이션 방식으로 모든 데이터 가져오기
-    let allBusinesses: any[] = [];
-    let totalCount = 0;
-    const pageSize = 1000; // Supabase 최대 허용치
-    let page = 0;
-    let hasMore = true;
+    // ✅ 성능 최적화: limit이 1000 이하면 단일 쿼리, 초과 시에만 페이지네이션
+    let businesses: any[] = [];
+    let count = 0;
 
-    while (hasMore && allBusinesses.length < limit) {
-      const rangeStart = page * pageSize;
-      const rangeEnd = rangeStart + pageSize - 1;
-
-      const { data, error, count } = await query
+    if (limit <= 1000) {
+      // 단일 쿼리로 처리 (대부분의 경우)
+      const { data, error, count: totalCount } = await query
         .order('updated_at', { ascending: false })
-        .range(rangeStart, rangeEnd);
+        .limit(limit);
 
       if (error) {
-        logError('❌ [BUSINESS-INFO-DIRECT] 페이지', page, '조회 오류:', error);
-        break;
+        logError('❌ [BUSINESS-INFO-DIRECT] 조회 오류:', error);
+        throw error;
       }
 
-      if (data && data.length > 0) {
-        allBusinesses = allBusinesses.concat(data);
-        totalCount = count || 0;
-        log(`📄 [BUSINESS-INFO-DIRECT] 페이지 ${page} 로드: ${data.length}개 (누적: ${allBusinesses.length}개)`);
+      businesses = data || [];
+      count = totalCount || 0;
+      log(`✅ [BUSINESS-INFO-DIRECT] 단일 쿼리로 ${businesses.length}개 조회 완료`);
+    } else {
+      // 1000개 초과 시에만 페이지네이션 사용
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
+
+      while (hasMore && businesses.length < limit) {
+        const rangeStart = page * pageSize;
+        const rangeEnd = rangeStart + pageSize - 1;
+
+        const { data, error, count: totalCount } = await query
+          .order('updated_at', { ascending: false })
+          .range(rangeStart, rangeEnd);
+
+        if (error) {
+          logError('❌ [BUSINESS-INFO-DIRECT] 페이지', page, '조회 오류:', error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          businesses = businesses.concat(data);
+          count = totalCount || 0;
+          log(`📄 [BUSINESS-INFO-DIRECT] 페이지 ${page} 로드: ${data.length}개 (누적: ${businesses.length}개)`);
+        }
+
+        hasMore = data && data.length === pageSize;
+        page++;
       }
 
-      // 더 이상 데이터가 없거나, 요청한 limit에 도달하면 중단
-      hasMore = data && data.length === pageSize;
-      page++;
+      log(`✅ [BUSINESS-INFO-DIRECT] 페이지네이션으로 ${businesses.length}개 조회 완료 (${page}페이지)`);
     }
-
-    const businesses = allBusinesses;
-    const count = totalCount;
 
     log('🔍 [BUSINESS-INFO-DIRECT] Supabase 쿼리 완료:', {
       businessesLength: businesses?.length,

@@ -64,7 +64,9 @@
       "Bash(nul)",
       "Bash(dir:*)",
       "Bash(timeout 15 npm run dev:*)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(find:*)",
+      "Bash(timeout 30 npm run type-check:*)"
     ],
     "deny": [],
     "ask": [],

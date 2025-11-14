@@ -491,8 +491,9 @@ function RevenueDashboard() {
   const loadBusinesses = async () => {
     console.log('📊 [LOAD-BUSINESSES] 사업장 데이터 로드 시작');
     try {
-      // business-info-direct API 사용 (project_year 포함된 완전한 정보)
-      const response = await fetch('/api/business-info-direct', {
+      // ✅ 성능 개선: limit 파라미터 추가 (5000개 → 200개)
+      // Revenue 페이지는 최신 200개만 필요 (페이지네이션으로 20개씩 표시)
+      const response = await fetch('/api/business-info-direct?limit=200', {
         headers: getAuthHeaders()
       });
       const data = await response.json();
