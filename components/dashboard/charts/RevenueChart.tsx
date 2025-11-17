@@ -212,7 +212,7 @@ export default function RevenueChart({ filters }: RevenueChartProps) {
       </div>
 
       {summary && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
           <div className="bg-blue-50 p-3 rounded">
             <p className="text-xs text-gray-600">평균 순이익</p>
             <p className="text-base md:text-lg font-bold">{summary.avgProfit.toLocaleString()}원</p>
@@ -228,6 +228,14 @@ export default function RevenueChart({ filters }: RevenueChartProps) {
           <div className="bg-indigo-50 p-3 rounded">
             <p className="text-xs text-gray-600">총 순이익</p>
             <p className="text-base md:text-lg font-bold">{summary.totalProfit.toLocaleString()}원</p>
+          </div>
+          <div className="bg-orange-50 p-3 rounded">
+            <p className="text-xs text-gray-600">총 영업비용</p>
+            <p className="text-base md:text-lg font-bold">{(summary.totalSalesCommission || 0).toLocaleString()}원</p>
+          </div>
+          <div className="bg-rose-50 p-3 rounded">
+            <p className="text-xs text-gray-600">총 설치비용</p>
+            <p className="text-base md:text-lg font-bold">{(summary.totalInstallationCost || 0).toLocaleString()}원</p>
           </div>
         </div>
       )}

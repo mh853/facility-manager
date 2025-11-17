@@ -287,6 +287,10 @@ export async function GET(request: NextRequest) {
     ];
 
     // 6. 사업장별 실시간 매출 계산 및 집계
+    // 통계 집계 변수 초기화
+    let totalSalesCommissionSum = 0;
+    let totalInstallationCostSum = 0;
+
     for (const business of filteredBusinesses) {
       if (!business.installation_date) continue;
 
@@ -375,6 +379,10 @@ export async function GET(request: NextRequest) {
       // 순이익 = 총이익 - 영업비용 - 실사비용 - 기본설치비 - 추가설치비
       const netProfit = grossProfit - salesCommission - totalSurveyCosts - totalInstallationCosts - installationExtraCost;
 
+      // 통계 집계
+      totalSalesCommissionSum += salesCommission;
+      totalInstallationCostSum += totalInstallationCosts + installationExtraCost;
+
       // 월별 데이터 업데이트
       const current = aggregationData.get(aggregationKey);
       current.revenue += businessRevenue;
@@ -446,7 +454,9 @@ export async function GET(request: NextRequest) {
       avgProfit: Math.round(avgProfit),
       avgProfitRate: Math.round(avgProfitRate * 100) / 100,
       totalRevenue,
-      totalProfit
+      totalProfit,
+      totalSalesCommission: Math.round(totalSalesCommissionSum),
+      totalInstallationCost: Math.round(totalInstallationCostSum)
     });
 
     return NextResponse.json({
@@ -456,7 +466,9 @@ export async function GET(request: NextRequest) {
         avgProfit: Math.round(avgProfit),
         avgProfitRate: Math.round(avgProfitRate * 100) / 100,
         totalRevenue,
-        totalProfit
+        totalProfit,
+        totalSalesCommission: Math.round(totalSalesCommissionSum),
+        totalInstallationCost: Math.round(totalInstallationCostSum)
       }
     });
 
@@ -471,7 +483,9 @@ export async function GET(request: NextRequest) {
           avgProfit: 0,
           avgProfitRate: 0,
           totalRevenue: 0,
-          totalProfit: 0
+          totalProfit: 0,
+          totalSalesCommission: 0,
+          totalInstallationCost: 0
         }
       },
       { status: 500 }

@@ -230,7 +230,9 @@ export async function GET(request: NextRequest) {
     const totalInstallations = dataArray.reduce((sum, d) => sum + d.total, 0);
     const validCompletionRates = dataArray.filter(d => d.total > 0);
 
-    const avgMonthlyInstallations = Math.round((totalInstallations / months) * 100) / 100;
+    // 월평균 설치: 실제 집계된 월 수로 나누기 (months가 null일 수 있음)
+    const monthCount = months || dataArray.length || 1; // 0으로 나누기 방지
+    const avgMonthlyInstallations = Math.round((totalInstallations / monthCount) * 100) / 100;
     const avgCompletionRate = validCompletionRates.length > 0
       ? validCompletionRates.reduce((sum, d) => sum + d.completionRate, 0) / validCompletionRates.length
       : 0;

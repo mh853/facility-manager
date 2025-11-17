@@ -194,19 +194,19 @@ export default function InstallationChart({ filters }: InstallationChartProps) {
             <div className="bg-blue-50 p-3 rounded">
               <p className="text-xs text-gray-600">월평균 설치</p>
               <p className="text-base md:text-lg font-bold">
-                {summary.avgMonthlyInstallations}건
+                {summary.avgMonthlyInstallations || 0}건
               </p>
             </div>
             <div className="bg-green-50 p-3 rounded">
               <p className="text-xs text-gray-600">평균 완료율</p>
               <p className="text-base md:text-lg font-bold text-green-600">
-                {summary.avgCompletionRate}%
+                {summary.avgCompletionRate || 0}%
               </p>
             </div>
             <div className="bg-purple-50 p-3 rounded col-span-2 lg:col-span-1">
               <p className="text-xs text-gray-600">총 설치</p>
               <p className="text-base md:text-lg font-bold text-purple-600">
-                {summary.totalInstallations}건
+                {summary.totalInstallations || 0}건
               </p>
             </div>
           </div>
