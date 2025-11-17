@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { MessageSquare, Plus, Calendar, Trash2, Edit2 } from 'lucide-react';
+import MessageModal from '@/components/modals/MessageModal';
+import AllMessagesModal from '@/components/modals/AllMessagesModal';
 
 /**
  * 전달사항 데이터 타입
@@ -28,6 +30,15 @@ export default function MessageBoard() {
   const [error, setError] = useState<string | null>(null);
   const [userLevel, setUserLevel] = useState<number>(1); // TODO: 실제 사용자 권한 레벨 가져오기
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [modalMode, setModalMode] = useState<'view' | 'create' | 'edit'>('view');
+  const [isAllModalOpen, setIsAllModalOpen] = useState(false);
+
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 5;
 
   /**
    * 전달사항 목록 조회
@@ -35,11 +46,21 @@ export default function MessageBoard() {
   const fetchMessages = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/messages?limit=10');
+      const response = await fetch(`/api/messages?page=${currentPage}&limit=${itemsPerPage}`);
       const result = await response.json();
 
       if (result.success) {
+        const newTotal = result.pagination?.total || result.data.length;
+        const maxPage = Math.max(1, Math.ceil(newTotal / itemsPerPage));
+
+        // 현재 페이지가 유효하지 않으면 첫 페이지로
+        if (currentPage > maxPage && newTotal > 0) {
+          setCurrentPage(1);
+          return;
+        }
+
         setMessages(result.data);
+        setTotalCount(newTotal);
       } else {
         setError(result.error || '전달사항을 불러오는데 실패했습니다.');
       }
@@ -53,22 +74,24 @@ export default function MessageBoard() {
 
   useEffect(() => {
     fetchMessages();
-  }, []);
+  }, [currentPage]);
 
   /**
-   * 전달사항 클릭 핸들러
+   * 전달사항 클릭 핸들러 (바로 수정 모드로 열기)
    */
   const handleMessageClick = (message: Message) => {
-    // TODO: 모달 열기
-    console.log('전달사항 클릭:', message);
+    setSelectedMessage(message);
+    setModalMode('edit');
+    setIsModalOpen(true);
   };
 
   /**
    * 새 전달사항 작성 버튼 클릭
    */
   const handleCreateClick = () => {
-    // TODO: 작성 모달 열기
-    console.log('새 전달사항 작성');
+    setSelectedMessage(null);
+    setModalMode('create');
+    setIsModalOpen(true);
   };
 
   /**
@@ -76,8 +99,24 @@ export default function MessageBoard() {
    */
   const handleEditClick = (e: React.MouseEvent, message: Message) => {
     e.stopPropagation();
-    // TODO: 수정 모달 열기
-    console.log('전달사항 수정:', message);
+    setSelectedMessage(message);
+    setModalMode('edit');
+    setIsModalOpen(true);
+  };
+
+  /**
+   * 모달 닫기 및 목록 새로고침
+   */
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedMessage(null);
+  };
+
+  /**
+   * 모달 성공 처리 (생성/수정/삭제 후)
+   */
+  const handleModalSuccess = () => {
+    fetchMessages();
   };
 
   /**
@@ -98,8 +137,8 @@ export default function MessageBoard() {
       const result = await response.json();
 
       if (result.success) {
-        // 목록에서 제거
-        setMessages(messages.filter(m => m.id !== messageId));
+        // 목록 새로고침 (페이지 유효성 검사 포함)
+        fetchMessages();
       } else {
         alert(result.error || '삭제에 실패했습니다.');
       }
@@ -185,7 +224,7 @@ export default function MessageBoard() {
       </div>
 
       {/* 전달사항 목록 */}
-      <div className="p-6">
+      <div className="p-6 h-[400px] overflow-y-auto">
         {messages.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             등록된 전달사항이 없습니다.
@@ -245,14 +284,56 @@ export default function MessageBoard() {
         )}
       </div>
 
-      {/* 더보기 링크 */}
+      {/* 페이지네이션 */}
       {messages.length > 0 && (
-        <div className="p-4 border-t">
-          <button className="w-full text-sm text-green-600 hover:text-green-700 font-medium">
+        <div className="p-4 border-t space-y-3">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-sm text-green-600 hover:text-green-700 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              이전
+            </button>
+            <span className="text-sm text-gray-600">
+              {currentPage} / {Math.ceil(totalCount / itemsPerPage) || 1}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalCount / itemsPerPage), prev + 1))}
+              disabled={currentPage >= Math.ceil(totalCount / itemsPerPage)}
+              className="px-3 py-1.5 text-sm text-green-600 hover:text-green-700 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              다음
+            </button>
+          </div>
+          <button
+            onClick={() => setIsAllModalOpen(true)}
+            className="w-full text-sm text-green-600 hover:text-green-700 font-medium"
+          >
             전체 전달사항 보기
           </button>
         </div>
       )}
+
+      {/* 전달사항 모달 */}
+      <MessageModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        message={selectedMessage}
+        mode={modalMode}
+        onSuccess={handleModalSuccess}
+      />
+
+      {/* 전체 전달사항 모달 */}
+      <AllMessagesModal
+        isOpen={isAllModalOpen}
+        onClose={() => setIsAllModalOpen(false)}
+        onMessageClick={(message) => {
+          setSelectedMessage(message);
+          setModalMode('edit');
+          setIsModalOpen(true);
+        }}
+      />
     </div>
   );
 }

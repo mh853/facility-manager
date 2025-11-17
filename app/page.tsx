@@ -16,9 +16,9 @@ export default function HomePage() {
       title="시설관리 시스템"
       description="주요 공지사항 및 업무 일정을 확인하세요"
     >
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* 상단: 공지사항 및 전달사항 (2열) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           <AnnouncementBoard />
           <MessageBoard />
         </div>

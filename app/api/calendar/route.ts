@@ -1,6 +1,6 @@
 // app/api/calendar/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 /**
  * GET /api/calendar
@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
 
     // 쿼리 파라미터
@@ -61,11 +61,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: data || [],
       total: count || 0
     });
+
+    // 캐시 비활성화 (실시간 업데이트 필요)
+    response.headers.set('Cache-Control', 'no-store, must-revalidate');
+
+    return response;
   } catch (error) {
     console.error('[캘린더 API 오류]', error);
     return NextResponse.json(
@@ -82,7 +87,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = getSupabaseAdmin();
     const body = await request.json();
 
     const { title, description, event_date, event_type, is_completed, author_id, author_name } = body;
@@ -126,10 +131,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data
     }, { status: 201 });
+
+    // 캐시 비활성화 (실시간 업데이트 필요)
+    response.headers.set('Cache-Control', 'no-store, must-revalidate');
+
+    return response;
   } catch (error) {
     console.error('[캘린더 생성 API 오류]', error);
     return NextResponse.json(

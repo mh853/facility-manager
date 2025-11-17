@@ -264,7 +264,11 @@ export default function AdminLayout({ children, title, description, actions }: A
           <div className="flex flex-col h-full lg:p-2">
             {/* Logo/Header - Integrated with main design */}
             <div className="flex items-center justify-between lg:h-20 h-16 px-6 lg:px-4 bg-gray-800 lg:bg-white/80 lg:backdrop-blur-sm lg:rounded-xl lg:border lg:border-gray-100/50 lg:mb-4">
-              <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity duration-200 cursor-pointer"
+                onClick={() => setSidebarOpen(false)}
+              >
                 <div className="w-8 h-8 bg-white lg:bg-blue-100 rounded-lg flex items-center justify-center lg:shadow-sm">
                   <Building2 className="w-5 h-5 text-blue-600" />
                 </div>
@@ -272,7 +276,7 @@ export default function AdminLayout({ children, title, description, actions }: A
                   <h1 className="text-lg font-bold text-white lg:text-gray-800">시설관리</h1>
                   <p className="text-xs text-blue-100 lg:text-gray-500">주식회사 블루온</p>
                 </div>
-              </div>
+              </Link>
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="lg:hidden text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-1"

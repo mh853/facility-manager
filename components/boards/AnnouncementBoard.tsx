@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Bell, Pin, Plus, Calendar } from 'lucide-react';
+import AnnouncementModal from '@/components/modals/AnnouncementModal';
+import AllAnnouncementsModal from '@/components/modals/AllAnnouncementsModal';
 
 /**
  * 공지사항 데이터 타입
@@ -28,7 +30,16 @@ export default function AnnouncementBoard() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userLevel, setUserLevel] = useState<number>(0); // TODO: 실제 사용자 권한 레벨 가져오기
+  const [userLevel, setUserLevel] = useState<number>(3); // TODO: 실제 사용자 권한 레벨 가져오기
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
+  const [modalMode, setModalMode] = useState<'view' | 'create' | 'edit'>('view');
+  const [isAllModalOpen, setIsAllModalOpen] = useState(false);
+
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 3;
 
   /**
    * 공지사항 목록 조회
@@ -36,11 +47,21 @@ export default function AnnouncementBoard() {
   const fetchAnnouncements = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/announcements?limit=5');
+      const response = await fetch(`/api/announcements?page=${currentPage}&limit=${itemsPerPage}`);
       const result = await response.json();
 
       if (result.success) {
+        const newTotal = result.pagination?.total || result.data.length;
+        const maxPage = Math.max(1, Math.ceil(newTotal / itemsPerPage));
+
+        // 현재 페이지가 유효하지 않으면 첫 페이지로
+        if (currentPage > maxPage && newTotal > 0) {
+          setCurrentPage(1);
+          return;
+        }
+
         setAnnouncements(result.data);
+        setTotalCount(newTotal);
       } else {
         setError(result.error || '공지사항을 불러오는데 실패했습니다.');
       }
@@ -54,22 +75,39 @@ export default function AnnouncementBoard() {
 
   useEffect(() => {
     fetchAnnouncements();
-  }, []);
+  }, [currentPage]);
 
   /**
-   * 공지사항 클릭 핸들러
+   * 공지사항 클릭 핸들러 (바로 수정 모드로 열기)
    */
   const handleAnnouncementClick = (announcement: Announcement) => {
-    // TODO: 모달 열기
-    console.log('공지사항 클릭:', announcement);
+    setSelectedAnnouncement(announcement);
+    setModalMode('edit');
+    setIsModalOpen(true);
   };
 
   /**
    * 새 공지사항 작성 버튼 클릭
    */
   const handleCreateClick = () => {
-    // TODO: 작성 모달 열기
-    console.log('새 공지사항 작성');
+    setSelectedAnnouncement(null);
+    setModalMode('create');
+    setIsModalOpen(true);
+  };
+
+  /**
+   * 모달 닫기 및 목록 새로고침
+   */
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedAnnouncement(null);
+  };
+
+  /**
+   * 모달 성공 처리 (생성/수정/삭제 후)
+   */
+  const handleModalSuccess = () => {
+    fetchAnnouncements();
   };
 
   /**
@@ -148,7 +186,7 @@ export default function AnnouncementBoard() {
       </div>
 
       {/* 공지사항 목록 */}
-      <div className="p-6">
+      <div className="p-6 h-[400px] overflow-y-auto">
         {announcements.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             등록된 공지사항이 없습니다.
@@ -197,14 +235,56 @@ export default function AnnouncementBoard() {
         )}
       </div>
 
-      {/* 더보기 링크 */}
+      {/* 페이지네이션 */}
       {announcements.length > 0 && (
-        <div className="p-4 border-t">
-          <button className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium">
+        <div className="p-4 border-t space-y-3">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              이전
+            </button>
+            <span className="text-sm text-gray-600">
+              {currentPage} / {Math.ceil(totalCount / itemsPerPage) || 1}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalCount / itemsPerPage), prev + 1))}
+              disabled={currentPage >= Math.ceil(totalCount / itemsPerPage)}
+              className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              다음
+            </button>
+          </div>
+          <button
+            onClick={() => setIsAllModalOpen(true)}
+            className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
             전체 공지사항 보기
           </button>
         </div>
       )}
+
+      {/* 공지사항 모달 */}
+      <AnnouncementModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        announcement={selectedAnnouncement}
+        mode={modalMode}
+        onSuccess={handleModalSuccess}
+      />
+
+      {/* 전체 공지사항 모달 */}
+      <AllAnnouncementsModal
+        isOpen={isAllModalOpen}
+        onClose={() => setIsAllModalOpen(false)}
+        onAnnouncementClick={(announcement) => {
+          setSelectedAnnouncement(announcement);
+          setModalMode('edit');
+          setIsModalOpen(true);
+        }}
+      />
     </div>
   );
 }

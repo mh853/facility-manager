@@ -1,6 +1,6 @@
 // app/api/calendar/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 /**
  * GET /api/calendar/[id]
@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createClient();
+    const supabase = getSupabaseAdmin();
     const { id } = params;
 
     const { data, error } = await supabase
@@ -52,7 +52,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createClient();
+    const supabase = getSupabaseAdmin();
     const { id } = params;
     const body = await request.json();
 
@@ -121,7 +121,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createClient();
+    const supabase = getSupabaseAdmin();
     const { id } = params;
 
     // Soft delete
@@ -130,8 +130,7 @@ export async function DELETE(
       .update({ is_deleted: true })
       .eq('id', id)
       .eq('is_deleted', false)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('[캘린더 이벤트 삭제 실패]', error);
@@ -141,10 +140,18 @@ export async function DELETE(
       );
     }
 
+    // 삭제할 항목이 없는 경우 (이미 삭제되었거나 존재하지 않음)
+    if (!data || data.length === 0) {
+      return NextResponse.json(
+        { error: '이미 삭제되었거나 존재하지 않는 캘린더 이벤트입니다.' },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       message: '캘린더 이벤트가 삭제되었습니다.',
-      data
+      data: data[0]
     });
   } catch (error) {
     console.error('[캘린더 삭제 API 오류]', error);

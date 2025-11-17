@@ -137,7 +137,13 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/air-permit',  // 대기필증 관리 API (JWT 인증 사용)
     '/api/outlet-facility',  // 배출구/시설 관리 API (JWT 인증 사용)
     '/api/facility-photos/*',  // 시설 사진 관리 API 전체 제외 (공개 사용)
-    '/api/uploaded-files-supabase/*'  // 업로드 파일 관리 API 전체 제외 (공개 사용)
+    '/api/uploaded-files-supabase/*',  // 업로드 파일 관리 API 전체 제외 (공개 사용)
+    '/api/announcements',  // 공지사항 목록 API (Supabase Admin 인증 사용)
+    '/api/announcements/*',  // 공지사항 개별 API (Supabase Admin 인증 사용)
+    '/api/messages',  // 전달사항 목록 API (Supabase Admin 인증 사용)
+    '/api/messages/*',  // 전달사항 개별 API (Supabase Admin 인증 사용)
+    '/api/calendar',  // 캘린더 이벤트 목록 API (Supabase Admin 인증 사용)
+    '/api/calendar/*'  // 캘린더 이벤트 개별 API (Supabase Admin 인증 사용)
   ];
 
   if (excludePaths.includes(request.nextUrl.pathname)) {

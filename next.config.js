@@ -108,6 +108,34 @@ const nextConfig = {
           }
         ],
       },
+      // 🔥 커뮤니케이션 보드 API - 캐싱 비활성화 (실시간 업데이트 필요)
+      {
+        source: '/api/announcements',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate, max-age=0'
+          }
+        ],
+      },
+      {
+        source: '/api/messages',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate, max-age=0'
+          }
+        ],
+      },
+      {
+        source: '/api/calendar',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate, max-age=0'
+          }
+        ],
+      },
       // 🔥 일반 API - 적당한 캐싱
       {
         source: '/api/(.*)',
