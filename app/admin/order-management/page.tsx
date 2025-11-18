@@ -3,7 +3,7 @@
 // app/admin/order-management/page.tsx
 // 발주 관리 메인 페이지
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import AdminLayout from '@/components/ui/AdminLayout'
 import { Search, Filter, Calendar, TrendingUp, Package, AlertCircle } from 'lucide-react'
 import type {
@@ -13,8 +13,10 @@ import type {
   OrderStatus
 } from '@/types/order-management'
 import { MANUFACTURERS } from '@/types/order-management'
-import OrderDetailModal from './components/OrderDetailModal'
-import RouterInventoryList from './components/RouterInventoryList'
+
+// Lazy load heavy components for better initial load performance
+const OrderDetailModal = lazy(() => import('./components/OrderDetailModal'))
+const RouterInventoryList = lazy(() => import('./components/RouterInventoryList'))
 
 export default function OrderManagementPage() {
   // 상태 관리
@@ -50,20 +52,19 @@ export default function OrderManagementPage() {
   )
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // 데이터 로드
+  // 검색어 debounce 처리
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadOrders()
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  // 필터, 탭, 정렬, 페이지 변경 시 즉시 로드
   useEffect(() => {
     loadOrders()
-  }, [searchTerm, manufacturerFilter, activeTab, sortBy, currentPage])
-
-  // 페이지 포커스 시 데이터 새로고침
-  useEffect(() => {
-    const handleFocus = () => {
-      loadOrders()
-    }
-
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [activeTab])
+  }, [manufacturerFilter, activeTab, sortBy, currentPage])
 
   const loadOrders = async () => {
     // 라우터 관리 탭에서는 발주 목록을 로드하지 않음
@@ -322,7 +323,17 @@ export default function OrderManagementPage() {
 
       {/* 라우터 관리 탭 컨텐츠 */}
       {activeTab === 'router_management' ? (
-        <RouterInventoryList onSummaryChange={setRouterSummary} />
+        <Suspense fallback={
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+              <div className="h-4 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+          </div>
+        }>
+          <RouterInventoryList onSummaryChange={setRouterSummary} />
+        </Suspense>
       ) : (
         <>
       {/* 필터 및 검색 */}
@@ -616,13 +627,15 @@ export default function OrderManagementPage() {
         )}
       </div>
 
-      {/* 발주 상세 모달 */}
+      {/* 발주 상세 모달 - Lazy loaded */}
       {isModalOpen && selectedBusinessId && (
-        <OrderDetailModal
-          businessId={selectedBusinessId}
-          onClose={handleCloseModal}
-          showPurchaseOrderButton={activeTab === 'in_progress'}
-        />
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50" />}>
+          <OrderDetailModal
+            businessId={selectedBusinessId}
+            onClose={handleCloseModal}
+            showPurchaseOrderButton={activeTab === 'in_progress'}
+          />
+        </Suspense>
       )}
       </>
       )}
