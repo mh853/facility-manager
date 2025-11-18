@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, CheckSquare, Square } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, CheckSquare, Square, Search, X } from 'lucide-react';
 import { getLabelColor } from '@/lib/label-colors';
 
 // Lazy load modals for better initial load performance
 const CalendarModal = lazy(() => import('@/components/modals/CalendarModal'));
 const DayEventsModal = lazy(() => import('@/components/modals/DayEventsModal'));
+const FilteredEventsListModal = lazy(() => import('@/components/modals/FilteredEventsListModal'));
 
 /**
  * 첨부 파일 메타데이터 타입
@@ -59,6 +60,14 @@ export default function CalendarBoard() {
   // 일별 이벤트 목록 모달
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  // 필터 결과 리스트 모달
+  const [isListViewOpen, setIsListViewOpen] = useState(false);
+
+  // 검색 및 필터 상태
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [availableLabels, setAvailableLabels] = useState<string[]>([]);
 
   // 스크롤 요청 추적용 ref
   const scrollToBottomRef = React.useRef(false);
@@ -124,6 +133,27 @@ export default function CalendarBoard() {
   useEffect(() => {
     fetchEvents();
   }, [currentDate]);
+
+  /**
+   * 사용 가능한 라벨 목록 가져오기
+   */
+  const fetchAvailableLabels = async () => {
+    try {
+      // 캐시 방지를 위한 타임스탬프 추가
+      const response = await fetch(`/api/calendar/labels?t=${Date.now()}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setAvailableLabels(result.labels || []);
+      }
+    } catch (err) {
+      console.error('[라벨 목록 조회 오류]', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAvailableLabels();
+  }, []);
 
   /**
    * 이벤트 목록이 업데이트된 후 스크롤 처리
@@ -229,8 +259,33 @@ export default function CalendarBoard() {
   /**
    * 모달 성공 처리 (생성/수정/삭제 후)
    */
-  const handleModalSuccess = () => {
+  const handleModalSuccess = async () => {
     fetchEvents(true); // 페이지 하단으로 스크롤
+
+    // 데이터베이스 트랜잭션 완료를 위해 짧은 지연 후 라벨 갱신
+    // Supabase 트랜잭션 커밋 및 복제 시간 고려
+    setTimeout(() => {
+      fetchAvailableLabels();
+    }, 200);
+  };
+
+  /**
+   * 라벨 필터 토글
+   */
+  const handleToggleLabel = (label: string) => {
+    setSelectedLabels(prev =>
+      prev.includes(label)
+        ? prev.filter(l => l !== label)
+        : [...prev, label]
+    );
+  };
+
+  /**
+   * 모든 필터 초기화
+   */
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedLabels([]);
   };
 
   /**
@@ -284,6 +339,11 @@ export default function CalendarBoard() {
         // 목록에서 제거
         setEvents(events.filter(event => event.id !== eventId));
 
+        // 데이터베이스 트랜잭션 완료를 위해 짧은 지연 후 라벨 갱신
+        setTimeout(() => {
+          fetchAvailableLabels();
+        }, 200);
+
         console.log(`✅ [캘린더] 일정 삭제 완료: ${eventTitle}`);
       } else {
         alert(result.error || '일정 삭제에 실패했습니다.');
@@ -295,6 +355,31 @@ export default function CalendarBoard() {
   };
 
   /**
+   * 검색 및 라벨 필터링된 이벤트 목록 (메모이제이션)
+   */
+  const filteredEvents = useMemo(() => {
+    let filtered = events;
+
+    // 검색어 필터링
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(event =>
+        event.title.toLowerCase().includes(query) ||
+        (event.description && event.description.toLowerCase().includes(query))
+      );
+    }
+
+    // 라벨 필터링 (선택된 라벨 중 하나라도 포함하면 표시)
+    if (selectedLabels.length > 0) {
+      filtered = filtered.filter(event =>
+        event.labels && event.labels.some(label => selectedLabels.includes(label))
+      );
+    }
+
+    return filtered;
+  }, [events, searchQuery, selectedLabels]);
+
+  /**
    * 이벤트를 날짜별로 인덱싱 (메모이제이션으로 성능 최적화)
    * 각 날짜마다 해당하는 이벤트 배열을 미리 계산하여 Map으로 저장
    * 이를 통해 42개 셀에서 매번 필터링하는 대신 O(1) 조회 가능
@@ -302,7 +387,7 @@ export default function CalendarBoard() {
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
 
-    events.forEach(event => {
+    filteredEvents.forEach(event => {
       const startDate = new Date(event.event_date);
       const endDate = new Date(event.end_date || event.event_date);
 
@@ -318,7 +403,7 @@ export default function CalendarBoard() {
     });
 
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   /**
    * 특정 날짜의 이벤트 가져오기 (O(1) 조회)
@@ -418,7 +503,7 @@ export default function CalendarBoard() {
   return (
     <div ref={calendarRef} className="bg-white rounded-lg shadow">
       {/* 헤더 */}
-      <div className="p-4 md:p-6 border-b space-y-3 md:space-y-0">
+      <div className="p-4 md:p-6 border-b space-y-3">
         {/* 모바일: 세로 레이아웃, 데스크톱: 가로 레이아웃 */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           {/* 타이틀 */}
@@ -470,6 +555,86 @@ export default function CalendarBoard() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* 검색 및 필터 섹션 */}
+        <div className="space-y-2">
+          {/* 검색 입력 */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="일정 검색 (제목, 설명)..."
+              className="w-full pl-10 pr-10 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded transition-colors"
+                aria-label="검색어 지우기"
+              >
+                <X className="w-4 h-4 text-gray-400" />
+              </button>
+            )}
+          </div>
+
+          {/* 라벨 필터 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-600 font-medium">라벨:</span>
+            {availableLabels.length > 0 ? (
+              <>
+                {availableLabels.map(label => {
+                  const isSelected = selectedLabels.includes(label);
+                  const labelColors = getLabelColor(label);
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => handleToggleLabel(label)}
+                      className={`
+                        px-2.5 py-1 rounded-full text-xs font-medium transition-all
+                        ${isSelected
+                          ? `${labelColors.bg} ${labelColors.text} ring-2 ring-offset-1 ring-purple-500`
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }
+                      `}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+                {(searchQuery || selectedLabels.length > 0) && (
+                  <button
+                    onClick={handleClearFilters}
+                    className="ml-2 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                  >
+                    필터 초기화
+                  </button>
+                )}
+              </>
+            ) : (
+              <span className="text-xs text-gray-400 italic">라벨이 없습니다. 일정에 라벨을 추가해보세요.</span>
+            )}
+          </div>
+
+          {/* 필터 결과 표시 */}
+          {(searchQuery || selectedLabels.length > 0) && (
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-gray-500">
+                {filteredEvents.length}개의 일정이 표시되고 있습니다
+                {events.length !== filteredEvents.length && ` (전체 ${events.length}개 중)`}
+              </div>
+              {filteredEvents.length > 0 && (
+                <button
+                  onClick={() => setIsListViewOpen(true)}
+                  className="px-2.5 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded transition-colors font-medium whitespace-nowrap"
+                >
+                  📋 리스트 보기
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -734,6 +899,50 @@ export default function CalendarBoard() {
               setIsModalOpen(true);
             }}
             onDelete={handleDeleteEvent}
+          />
+        </Suspense>
+      )}
+
+      {/* 필터 결과 리스트 모달 - Lazy loading with Suspense */}
+      {isListViewOpen && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50" />}>
+          <FilteredEventsListModal
+            isOpen={isListViewOpen}
+            onClose={() => setIsListViewOpen(false)}
+            events={filteredEvents}
+            onEventClick={(event) => {
+              setIsListViewOpen(false);
+              setSelectedEvent(event);
+              setModalMode('edit');
+              setIsModalOpen(true);
+            }}
+            onToggleComplete={async (eventId, currentStatus) => {
+              try {
+                const response = await fetch(`/api/calendar/${eventId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ is_completed: !currentStatus })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                  setEvents(events.map(event =>
+                    event.id === eventId ? { ...event, is_completed: !currentStatus } : event
+                  ));
+
+                  // 스크롤 요청 표시
+                  scrollToBottomRef.current = true;
+                } else {
+                  alert(result.error || '상태 변경에 실패했습니다.');
+                }
+              } catch (err) {
+                console.error('[완료 상태 변경 오류]', err);
+                alert('상태 변경 중 오류가 발생했습니다.');
+              }
+            }}
+            searchQuery={searchQuery}
+            selectedLabels={selectedLabels}
           />
         </Suspense>
       )}
