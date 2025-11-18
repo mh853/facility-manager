@@ -56,7 +56,7 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
 
-    const { title, description, event_date, event_type, is_completed } = body;
+    const { title, description, event_date, event_type, is_completed, attached_files } = body;
 
     // 수정할 필드만 업데이트
     const updateData: any = {};
@@ -74,6 +74,7 @@ export async function PUT(
       updateData.event_type = event_type;
     }
     if (is_completed !== undefined) updateData.is_completed = is_completed;
+    if (attached_files !== undefined) updateData.attached_files = attached_files;
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(

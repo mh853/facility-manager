@@ -8,8 +8,8 @@ function setSecurityHeaders(response: NextResponse): void {
   // XSS 보호
   response.headers.set('X-XSS-Protection', '1; mode=block');
 
-  // 클릭재킹 방지
-  response.headers.set('X-Frame-Options', 'DENY');
+  // 클릭재킹 방지 (SAMEORIGIN으로 변경 - 캘린더 파일 미리보기 iframe 허용)
+  response.headers.set('X-Frame-Options', 'SAMEORIGIN');
 
   // MIME 타입 스니핑 방지
   response.headers.set('X-Content-Type-Options', 'nosniff');
@@ -34,7 +34,8 @@ function setSecurityHeaders(response: NextResponse): void {
     "img-src 'self' data: blob: https:", // 이미지 업로드 지원
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co", // Supabase 연결
     "font-src 'self' data:",
-    "object-src 'none'",
+    "frame-src 'self' https://*.supabase.co", // Supabase Storage iframe 허용 (캘린더 파일 미리보기)
+    "object-src 'self' https://*.supabase.co", // PDF embed 태그 허용 (캘린더 파일 미리보기)
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
@@ -239,6 +240,11 @@ export async function middleware(request: NextRequest) {
 
   // API 경로 보호
   if (pathname.startsWith('/api/')) {
+    // 파일 프록시 API는 자체 CSP 헤더 사용 (iframe 허용)
+    if (pathname.startsWith('/api/calendar/file-proxy')) {
+      return NextResponse.next(); // 헤더를 추가하지 않고 그대로 통과
+    }
+
     const protectionResult = await protectAPIRoute(request);
     if (protectionResult) {
       setSecurityHeaders(protectionResult);

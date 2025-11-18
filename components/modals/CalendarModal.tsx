@@ -1,7 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, CheckSquare, Square, Calendar as CalendarIcon } from 'lucide-react';
+import { X, CheckSquare, Square, Calendar as CalendarIcon, Paperclip, Upload, FileText, Trash2, Download, Eye, Image as ImageIcon, FileIcon, ExternalLink } from 'lucide-react';
+
+/**
+ * 첨부 파일 메타데이터 타입
+ */
+interface AttachedFile {
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  uploaded_at: string;
+}
 
 /**
  * 캘린더 이벤트 데이터 타입
@@ -11,10 +22,12 @@ interface CalendarEvent {
   title: string;
   description: string | null;
   event_date: string;
+  end_date?: string | null; // 기간 설정용 (nullable)
   event_type: 'todo' | 'schedule';
   is_completed: boolean;
   author_id: string;
   author_name: string;
+  attached_files?: AttachedFile[]; // 첨부 파일 배열
   created_at: string;
   updated_at: string;
 }
@@ -50,6 +63,11 @@ export default function CalendarModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [internalMode, setInternalMode] = useState<'view' | 'create' | 'edit'>(mode);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [previewFile, setPreviewFile] = useState<AttachedFile | null>(null);
+  const [preloadedFiles, setPreloadedFiles] = useState<Set<string>>(new Set());
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   /**
    * 로컬 타임존에서 날짜를 YYYY-MM-DD 형식으로 변환
@@ -71,18 +89,244 @@ export default function CalendarModal({
         setEventDate(event.event_date);
         setEventType(event.event_type);
         setIsCompleted(event.is_completed);
+        setAttachedFiles(event.attached_files || []);
       } else if (mode === 'create') {
         setTitle('');
         setDescription('');
         setEventDate(initialDate || formatLocalDate(new Date()));
         setEventType('schedule');
         setIsCompleted(false);
+        setAttachedFiles([]);
       }
       setError(null);
     }
   }, [isOpen, event, mode, initialDate]);
 
+  // Preview file 상태 변경 디버깅
+  useEffect(() => {
+    if (previewFile) {
+      console.log('📂 [PREVIEW-STATE] Preview file set:', previewFile.name);
+      console.log('📂 [PREVIEW-STATE] Preview modal should now be visible');
+    } else {
+      console.log('📂 [PREVIEW-STATE] Preview file cleared');
+    }
+  }, [previewFile]);
+
   if (!isOpen) return null;
+
+  /**
+   * 파일 크기 포맷팅
+   */
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  /**
+   * 파일 타입 확인
+   */
+  const getFileType = (file: AttachedFile): 'image' | 'pdf' | 'document' | 'other' => {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type === 'application/pdf') return 'pdf';
+    if (
+      file.type.includes('word') ||
+      file.type.includes('excel') ||
+      file.type.includes('powerpoint') ||
+      file.type.includes('text')
+    ) return 'document';
+    return 'other';
+  };
+
+  /**
+   * 파일 타입별 아이콘 반환
+   */
+  const getFileIcon = (file: AttachedFile) => {
+    const type = getFileType(file);
+    switch (type) {
+      case 'image':
+        return <ImageIcon className="w-5 h-5 text-purple-600 flex-shrink-0" />;
+      case 'pdf':
+        return <FileText className="w-5 h-5 text-red-600 flex-shrink-0" />;
+      case 'document':
+        return <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />;
+      default:
+        return <FileIcon className="w-5 h-5 text-gray-600 flex-shrink-0" />;
+    }
+  };
+
+  /**
+   * Supabase Storage URL을 프록시 URL로 변환
+   * PDF 파일은 private bucket에서도 접근 가능하도록 서버 프록시 사용
+   */
+  const getProxyUrl = (file: AttachedFile): string => {
+    try {
+      // Supabase Storage URL에서 파일 경로 추출
+      // 예: https://xxx.supabase.co/storage/v1/object/public/facility-files/calendar/temp/xxx.pdf
+      // -> calendar/temp/xxx.pdf
+      const url = new URL(file.url);
+      const pathParts = url.pathname.split('/');
+
+      // 'facility-files' 이후의 경로 추출
+      const bucketIndex = pathParts.findIndex(part => part === 'facility-files');
+      if (bucketIndex !== -1 && bucketIndex < pathParts.length - 1) {
+        const filePath = pathParts.slice(bucketIndex + 1).join('/');
+        const proxyUrl = `/api/calendar/file-proxy?path=${encodeURIComponent(filePath)}`;
+        console.log('🔄 [PROXY] Converting URL:', { original: file.url, proxy: proxyUrl });
+        return proxyUrl;
+      }
+
+      // 경로 추출 실패 시 원본 URL 반환
+      console.warn('⚠️ [PROXY] Failed to extract path from URL:', file.url);
+      return file.url;
+    } catch (error) {
+      console.error('❌ [PROXY] URL parsing error:', error);
+      return file.url;
+    }
+  };
+
+  /**
+   * 파일 프리로딩 (호버 시 백그라운드에서 파일 캐싱)
+   * - 이미지/PDF 파일만 프리로드
+   * - 중복 프리로드 방지
+   * - 브라우저 캐시에 파일 미리 로드하여 클릭 시 즉시 표시
+   */
+  const handleFilePreload = (file: AttachedFile) => {
+    const fileType = getFileType(file);
+
+    // 이미지와 PDF만 프리로드 (다른 파일 타입은 다운로드되므로 불필요)
+    if (fileType !== 'image' && fileType !== 'pdf') {
+      return;
+    }
+
+    // 이미 프리로드된 파일은 스킵
+    if (preloadedFiles.has(file.url)) {
+      console.log('⏭️ [PRELOAD] Already preloaded:', file.name);
+      return;
+    }
+
+    console.log('🚀 [PRELOAD] Starting preload:', file.name);
+    const startTime = Date.now();
+
+    // 프록시 URL 생성 (PDF용)
+    const preloadUrl = fileType === 'pdf' ? getProxyUrl(file) : file.url;
+
+    // fetch로 브라우저 캐시에 저장
+    fetch(preloadUrl, {
+      method: 'GET',
+      cache: 'force-cache', // 강제 캐싱
+      priority: 'low', // 낮은 우선순위 (백그라운드 작업)
+    } as RequestInit)
+      .then((response) => {
+        if (response.ok) {
+          const loadTime = Date.now() - startTime;
+          console.log(`✅ [PRELOAD] Preloaded successfully: ${file.name} (${loadTime}ms)`);
+          setPreloadedFiles(prev => new Set(prev).add(file.url));
+        } else {
+          console.warn(`⚠️ [PRELOAD] Failed to preload: ${file.name} (${response.status})`);
+        }
+      })
+      .catch((error) => {
+        console.error('❌ [PRELOAD] Error:', file.name, error);
+      });
+  };
+
+  /**
+   * 파일 다운로드
+   */
+  const handleDownload = async (file: AttachedFile) => {
+    try {
+      const response = await fetch(file.url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('파일 다운로드 실패:', error);
+      setError('파일 다운로드 중 오류가 발생했습니다.');
+    }
+  };
+
+  /**
+   * 파일 미리보기
+   */
+  const handlePreview = (file: AttachedFile) => {
+    console.log('🔍 [PREVIEW] Preview button clicked:', file.name);
+    console.log('🔍 [PREVIEW] File type:', file.type);
+    console.log('🔍 [PREVIEW] File URL:', file.url);
+
+    const type = getFileType(file);
+    console.log('🔍 [PREVIEW] Detected type:', type);
+
+    if (type === 'image' || type === 'pdf') {
+      console.log('✅ [PREVIEW] Opening preview modal');
+      setPreviewLoading(true); // 로딩 시작
+      setPreviewFile(file);
+    } else {
+      // 다른 파일 타입은 새 탭에서 열기
+      console.log('🔗 [PREVIEW] Opening in new tab');
+      window.open(file.url, '_blank');
+    }
+  };
+
+  /**
+   * 파일 업로드 처리
+   */
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        // eventId는 생성 시에는 없으므로 나중에 이벤트 생성 후 파일 경로 업데이트가 필요할 수 있음
+        if (event?.id) {
+          formData.append('eventId', event.id);
+        }
+
+        const response = await fetch('/api/calendar/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.message || '파일 업로드 실패');
+        }
+
+        return result.data as AttachedFile;
+      });
+
+      const uploadedFiles = await Promise.all(uploadPromises);
+      setAttachedFiles(prev => [...prev, ...uploadedFiles]);
+
+      console.log('✅ 파일 업로드 성공:', uploadedFiles);
+    } catch (err) {
+      console.error('❌ 파일 업로드 실패:', err);
+      setError('파일 업로드 중 오류가 발생했습니다: ' + (err instanceof Error ? err.message : '알 수 없는 오류'));
+    } finally {
+      setUploading(false);
+      // 입력 초기화 (같은 파일을 다시 선택할 수 있도록)
+      e.target.value = '';
+    }
+  };
+
+  /**
+   * 파일 제거 처리
+   */
+  const handleFileRemove = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   /**
    * 저장 처리
@@ -115,7 +359,8 @@ export default function CalendarModal({
             event_type: eventType,
             is_completed: eventType === 'todo' ? isCompleted : false,
             author_id: authorId,
-            author_name: authorName
+            author_name: authorName,
+            attached_files: attachedFiles
           })
         });
 
@@ -135,7 +380,8 @@ export default function CalendarModal({
             description: description || null,
             event_date: eventDate,
             event_type: eventType,
-            is_completed: eventType === 'todo' ? isCompleted : false
+            is_completed: eventType === 'todo' ? isCompleted : false,
+            attached_files: attachedFiles
           })
         });
 
@@ -193,6 +439,7 @@ export default function CalendarModal({
   };
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       {/* 배경 오버레이 */}
       <div
@@ -277,6 +524,51 @@ export default function CalendarModal({
                   </p>
                 </div>
               )}
+
+              {/* 첨부 파일 목록 (보기 모드) */}
+              {event.attached_files && event.attached_files.length > 0 && (
+                <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Paperclip className="w-4 h-4 text-purple-600" />
+                    <p className="text-sm font-semibold text-gray-600">
+                      첨부 파일 ({event.attached_files.length})
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {event.attached_files.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-purple-50 rounded-lg transition-colors group cursor-pointer"
+                        onMouseEnter={() => handleFilePreload(file)}
+                        onClick={() => handlePreview(file)}
+                      >
+                        {getFileIcon(file)}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(file.size)} · {new Date(file.uploaded_at).toLocaleDateString('ko-KR')}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {/* 다운로드 버튼 */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // 파일 항목 클릭 이벤트 방지
+                              handleDownload(file);
+                            }}
+                            className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-blue-600"
+                            title="다운로드"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             // 작성/수정 모드
@@ -307,6 +599,92 @@ export default function CalendarModal({
                   placeholder="일정 설명을 입력하세요 (선택사항)"
                   disabled={loading}
                 />
+              </div>
+
+              {/* 파일 첨부 섹션 (작성/수정 모드) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="w-4 h-4" />
+                    <span>파일 첨부</span>
+                  </div>
+                </label>
+
+                {/* 파일 업로드 버튼 */}
+                <div className="relative">
+                  <input
+                    type="file"
+                    id="fileUpload"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                    onChange={handleFileUpload}
+                    disabled={loading || uploading}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="fileUpload"
+                    className={`flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all cursor-pointer ${
+                      uploading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <Upload className="w-5 h-5 text-gray-500" />
+                    <span className="text-sm text-gray-600">
+                      {uploading ? '업로드 중...' : '파일 선택 (최대 10MB)'}
+                    </span>
+                  </label>
+                </div>
+
+                {/* 첨부된 파일 목록 */}
+                {attachedFiles.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {attachedFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 p-3 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors group cursor-pointer"
+                        onMouseEnter={() => handleFilePreload(file)}
+                        onClick={() => handlePreview(file)}
+                      >
+                        {getFileIcon(file)}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(file.size)}
+                            {file.uploaded_at && ` · ${new Date(file.uploaded_at).toLocaleDateString('ko-KR')}`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {/* 다운로드 버튼 */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(file);
+                            }}
+                            className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-blue-600"
+                            title="다운로드"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          {/* 제거 버튼 */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFileRemove(index);
+                            }}
+                            disabled={loading}
+                            className="p-2 hover:bg-red-100 rounded-lg transition-colors text-red-600 hover:text-red-700"
+                            title="파일 제거"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -411,5 +789,112 @@ export default function CalendarModal({
         </div>
       </div>
     </div>
+
+    {/* 파일 미리보기 모달 - 메인 모달 외부에 렌더링 */}
+    {previewFile && (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+        <div className="relative bg-white rounded-2xl max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl">
+          {/* 모달 헤더 */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center gap-3">
+              {getFileIcon(previewFile)}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{previewFile.name}</h3>
+                <p className="text-sm text-gray-500">
+                  {formatFileSize(previewFile.size)} · {getFileType(previewFile).toUpperCase()}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setPreviewFile(null)}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+              title="닫기"
+            >
+              <X className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+
+          {/* 미리보기 콘텐츠 */}
+          <div className="overflow-auto max-h-[calc(90vh-80px)]">
+            {getFileType(previewFile) === 'image' ? (
+              <div className="flex items-center justify-center p-8 bg-gray-100 relative">
+                {/* 로딩 스피너 */}
+                {previewLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
+                      <p className="text-sm text-gray-600 font-medium">이미지 로딩 중...</p>
+                    </div>
+                  </div>
+                )}
+                <img
+                  src={previewFile.url}
+                  alt={previewFile.name}
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+                  onLoad={() => {
+                    console.log('✅ [PREVIEW] Image loaded successfully');
+                    setPreviewLoading(false);
+                  }}
+                  onError={(e) => {
+                    console.error('❌ [PREVIEW] Image load error:', previewFile.url);
+                    setPreviewLoading(false);
+                    e.currentTarget.onerror = null;
+                  }}
+                />
+              </div>
+            ) : getFileType(previewFile) === 'pdf' ? (
+              <div className="bg-gray-100 relative">
+                {/* 로딩 스피너 */}
+                {previewLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
+                      <p className="text-sm text-gray-600 font-medium">PDF 로딩 중...</p>
+                    </div>
+                  </div>
+                )}
+                <iframe
+                  src={`${getProxyUrl(previewFile)}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                  className="w-full h-[70vh] border-0"
+                  title={previewFile.name}
+                  onLoad={() => {
+                    console.log('✅ [PREVIEW] PDF loaded successfully via proxy');
+                    setTimeout(() => setPreviewLoading(false), 500); // PDF는 렌더링 시간 고려
+                  }}
+                  onError={(e) => {
+                    console.error('❌ [PREVIEW] PDF load error via proxy:', getProxyUrl(previewFile));
+                    setPreviewLoading(false);
+                  }}
+                />
+                {/* PDF 로딩 실패 시 대체 옵션 */}
+                <div className="absolute bottom-4 right-4 z-10">
+                  <button
+                    onClick={() => window.open(getProxyUrl(previewFile), '_blank')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg flex items-center gap-2"
+                    title="새 탭에서 열기"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    새 탭에서 열기
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-12 text-gray-500">
+                <FileIcon className="w-16 h-16 mb-4" />
+                <p className="text-lg font-medium mb-2">미리보기를 지원하지 않는 파일 형식입니다</p>
+                <button
+                  onClick={() => handleDownload(previewFile)}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  다운로드
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }

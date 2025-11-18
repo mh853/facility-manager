@@ -1,7 +1,18 @@
 'use client';
 
 import React from 'react';
-import { X, Calendar as CalendarIcon, CheckSquare, Square, Plus } from 'lucide-react';
+import { X, Calendar as CalendarIcon, CheckSquare, Square, Plus, Trash2 } from 'lucide-react';
+
+/**
+ * 첨부 파일 메타데이터 타입
+ */
+interface AttachedFile {
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  uploaded_at: string;
+}
 
 /**
  * 캘린더 이벤트 데이터 타입
@@ -11,10 +22,12 @@ interface CalendarEvent {
   title: string;
   description: string | null;
   event_date: string;
+  end_date?: string | null; // 기간 설정용 (nullable)
   event_type: 'todo' | 'schedule';
   is_completed: boolean;
   author_id: string;
   author_name: string;
+  attached_files?: AttachedFile[]; // 첨부 파일 배열
   created_at: string;
   updated_at: string;
 }
@@ -27,6 +40,7 @@ interface DayEventsModalProps {
   onEventClick: (event: CalendarEvent) => void;
   onToggleComplete: (eventId: string, currentStatus: boolean) => void;
   onCreateEvent: () => void;
+  onDelete: (eventId: string, eventTitle: string) => void;
 }
 
 /**
@@ -39,7 +53,8 @@ export default function DayEventsModal({
   events,
   onEventClick,
   onToggleComplete,
-  onCreateEvent
+  onCreateEvent,
+  onDelete
 }: DayEventsModalProps) {
   if (!isOpen || !date) return null;
 
@@ -111,7 +126,7 @@ export default function DayEventsModal({
                     {incompleteTodos.map(event => (
                       <div
                         key={event.id}
-                        className="bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg p-4 cursor-pointer transition-colors"
+                        className="group bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg p-4 cursor-pointer transition-colors"
                         onClick={() => onEventClick(event)}
                       >
                         <div className="flex items-start gap-3">
@@ -137,6 +152,16 @@ export default function DayEventsModal({
                               {event.author_name} · {new Date(event.created_at).toLocaleString('ko-KR')}
                             </div>
                           </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(event.id, event.title);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-100 rounded-lg transition-all text-red-600 hover:text-red-700 flex-shrink-0"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -157,21 +182,33 @@ export default function DayEventsModal({
                     {scheduleEvents.map(event => (
                       <div
                         key={event.id}
-                        className="bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg p-4 cursor-pointer transition-colors"
+                        className="group bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg p-4 cursor-pointer transition-colors"
                         onClick={() => onEventClick(event)}
                       >
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-900 mb-1">
-                            {event.title}
-                          </h4>
-                          {event.description && (
-                            <p className="text-sm text-gray-600 line-clamp-2">
-                              {event.description}
-                            </p>
-                          )}
-                          <div className="text-xs text-gray-500 mt-2">
-                            {event.author_name} · {new Date(event.created_at).toLocaleString('ko-KR')}
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-gray-900 mb-1">
+                              {event.title}
+                            </h4>
+                            {event.description && (
+                              <p className="text-sm text-gray-600 line-clamp-2">
+                                {event.description}
+                              </p>
+                            )}
+                            <div className="text-xs text-gray-500 mt-2">
+                              {event.author_name} · {new Date(event.created_at).toLocaleString('ko-KR')}
+                            </div>
                           </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(event.id, event.title);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-100 rounded-lg transition-all text-red-600 hover:text-red-700 flex-shrink-0"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -192,7 +229,7 @@ export default function DayEventsModal({
                     {completedTodos.map(event => (
                       <div
                         key={event.id}
-                        className="bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer transition-colors opacity-75"
+                        className="group bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer transition-colors opacity-75"
                         onClick={() => onEventClick(event)}
                       >
                         <div className="flex items-start gap-3">
@@ -218,6 +255,16 @@ export default function DayEventsModal({
                               {event.author_name} · {new Date(event.created_at).toLocaleString('ko-KR')}
                             </div>
                           </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(event.id, event.title);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-100 rounded-lg transition-all text-red-600 hover:text-red-700 flex-shrink-0"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     ))}

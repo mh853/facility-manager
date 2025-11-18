@@ -6,6 +6,17 @@ import CalendarModal from '@/components/modals/CalendarModal';
 import DayEventsModal from '@/components/modals/DayEventsModal';
 
 /**
+ * 첨부 파일 메타데이터 타입
+ */
+interface AttachedFile {
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  uploaded_at: string;
+}
+
+/**
  * 캘린더 이벤트 데이터 타입
  */
 interface CalendarEvent {
@@ -13,10 +24,12 @@ interface CalendarEvent {
   title: string;
   description: string | null;
   event_date: string;
+  end_date?: string | null; // 기간 설정용 (nullable)
   event_type: 'todo' | 'schedule';
   is_completed: boolean;
   author_id: string;
   author_name: string;
+  attached_files?: AttachedFile[]; // 첨부 파일 배열
   created_at: string;
   updated_at: string;
 }
@@ -240,6 +253,35 @@ export default function CalendarBoard() {
     } catch (err) {
       console.error('[완료 상태 변경 오류]', err);
       alert('상태 변경 중 오류가 발생했습니다.');
+    }
+  };
+
+  /**
+   * 이벤트 삭제 (일별 모달에서 호출)
+   */
+  const handleDeleteEvent = async (eventId: string, eventTitle: string) => {
+    if (!confirm(`"${eventTitle}" 일정을 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/calendar/${eventId}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // 목록에서 제거
+        setEvents(events.filter(event => event.id !== eventId));
+
+        console.log(`✅ [캘린더] 일정 삭제 완료: ${eventTitle}`);
+      } else {
+        alert(result.error || '일정 삭제에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('[일정 삭제 오류]', err);
+      alert('일정 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -566,6 +608,7 @@ export default function CalendarBoard() {
           setInitialDate(selectedDate ? formatLocalDate(selectedDate) : undefined);
           setIsModalOpen(true);
         }}
+        onDelete={handleDeleteEvent}
       />
     </div>
   );
