@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { MessageSquare, Plus, Calendar, Trash2, Edit2 } from 'lucide-react';
-import MessageModal from '@/components/modals/MessageModal';
-import AllMessagesModal from '@/components/modals/AllMessagesModal';
+
+// Lazy load modals for better performance
+const MessageModal = lazy(() => import('@/components/modals/MessageModal'));
+const AllMessagesModal = lazy(() => import('@/components/modals/AllMessagesModal'));
 
 /**
  * 전달사항 데이터 타입
@@ -315,25 +317,33 @@ export default function MessageBoard() {
         </div>
       )}
 
-      {/* 전달사항 모달 */}
-      <MessageModal
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
-        message={selectedMessage}
-        mode={modalMode}
-        onSuccess={handleModalSuccess}
-      />
+      {/* 전달사항 모달 - Lazy loaded */}
+      {isModalOpen && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50" />}>
+          <MessageModal
+            isOpen={isModalOpen}
+            onClose={handleModalClose}
+            message={selectedMessage}
+            mode={modalMode}
+            onSuccess={handleModalSuccess}
+          />
+        </Suspense>
+      )}
 
-      {/* 전체 전달사항 모달 */}
-      <AllMessagesModal
-        isOpen={isAllModalOpen}
-        onClose={() => setIsAllModalOpen(false)}
-        onMessageClick={(message) => {
-          setSelectedMessage(message);
-          setModalMode('edit');
-          setIsModalOpen(true);
-        }}
-      />
+      {/* 전체 전달사항 모달 - Lazy loaded */}
+      {isAllModalOpen && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50" />}>
+          <AllMessagesModal
+            isOpen={isAllModalOpen}
+            onClose={() => setIsAllModalOpen(false)}
+            onMessageClick={(message) => {
+              setSelectedMessage(message);
+              setModalMode('edit');
+              setIsModalOpen(true);
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
