@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseAdmin();
     const body = await request.json();
 
-    const { title, description, event_date, event_type, is_completed, author_id, author_name, attached_files } = body;
+    const { title, description, event_date, end_date, event_type, is_completed, author_id, author_name, attached_files, labels } = body;
 
     // 필수 필드 검증
     if (!title || !event_date || !event_type || !author_id || !author_name) {
@@ -108,6 +108,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 종료일 유효성 검증
+    if (end_date && end_date < event_date) {
+      return NextResponse.json(
+        { error: '종료일은 시작일보다 이전일 수 없습니다.' },
+        { status: 400 }
+      );
+    }
+
     // 캘린더 이벤트 생성
     const { data, error } = await supabase
       .from('calendar_events')
@@ -115,11 +123,13 @@ export async function POST(request: NextRequest) {
         title,
         description: description || null,
         event_date,
+        end_date: end_date || null,
         event_type,
         is_completed: event_type === 'todo' ? (is_completed || false) : false,
         author_id,
         author_name,
-        attached_files: attached_files || []
+        attached_files: attached_files || [],
+        labels: labels || []
       })
       .select()
       .single();

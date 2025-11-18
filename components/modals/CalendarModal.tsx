@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, CheckSquare, Square, Calendar as CalendarIcon, Paperclip, Upload, FileText, Trash2, Download, Eye, Image as ImageIcon, FileIcon, ExternalLink } from 'lucide-react';
+import { getLabelColor } from '@/lib/label-colors';
 
 /**
  * 첨부 파일 메타데이터 타입
@@ -28,6 +29,7 @@ interface CalendarEvent {
   author_id: string;
   author_name: string;
   attached_files?: AttachedFile[]; // 첨부 파일 배열
+  labels?: string[]; // 라벨 배열 (예: ["착공실사", "준공실사"])
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +60,7 @@ export default function CalendarModal({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [eventType, setEventType] = useState<'todo' | 'schedule'>('schedule');
   const [isCompleted, setIsCompleted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -68,6 +71,11 @@ export default function CalendarModal({
   const [previewFile, setPreviewFile] = useState<AttachedFile | null>(null);
   const [preloadedFiles, setPreloadedFiles] = useState<Set<string>>(new Set());
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [labels, setLabels] = useState<string[]>([]);
+  const [newLabel, setNewLabel] = useState('');
+  const [availableLabels, setAvailableLabels] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
 
   /**
    * 로컬 타임존에서 날짜를 YYYY-MM-DD 형식으로 변환
@@ -87,18 +95,23 @@ export default function CalendarModal({
         setTitle(event.title);
         setDescription(event.description || '');
         setEventDate(event.event_date);
+        setEndDate(event.end_date || '');
         setEventType(event.event_type);
         setIsCompleted(event.is_completed);
         setAttachedFiles(event.attached_files || []);
+        setLabels(event.labels || []);
       } else if (mode === 'create') {
         setTitle('');
         setDescription('');
         setEventDate(initialDate || formatLocalDate(new Date()));
+        setEndDate('');
         setEventType('schedule');
         setIsCompleted(false);
         setAttachedFiles([]);
+        setLabels([]);
       }
       setError(null);
+      setNewLabel('');
     }
   }, [isOpen, event, mode, initialDate]);
 
@@ -112,7 +125,45 @@ export default function CalendarModal({
     }
   }, [previewFile]);
 
+  // 사용 가능한 라벨 목록 가져오기
+  useEffect(() => {
+    if (isOpen) {
+      fetchAvailableLabels();
+    }
+  }, [isOpen]);
+
+  // newLabel 변경 시 자동완성 필터링
+  useEffect(() => {
+    if (newLabel.trim()) {
+      const filtered = availableLabels.filter(label =>
+        label.toLowerCase().includes(newLabel.toLowerCase()) &&
+        !labels.includes(label)
+      );
+      setFilteredSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setShowSuggestions(false);
+      setFilteredSuggestions([]);
+    }
+  }, [newLabel, availableLabels, labels]);
+
   if (!isOpen) return null;
+
+  /**
+   * 사용 가능한 라벨 목록 가져오기
+   */
+  const fetchAvailableLabels = async () => {
+    try {
+      const response = await fetch('/api/calendar/labels');
+      const result = await response.json();
+
+      if (result.success) {
+        setAvailableLabels(result.labels || []);
+      }
+    } catch (err) {
+      console.error('[라벨 목록 조회 오류]', err);
+    }
+  };
 
   /**
    * 파일 크기 포맷팅
@@ -329,6 +380,48 @@ export default function CalendarModal({
   };
 
   /**
+   * 라벨 추가 처리
+   */
+  const handleAddLabel = () => {
+    const trimmedLabel = newLabel.trim();
+    if (trimmedLabel && !labels.includes(trimmedLabel)) {
+      setLabels(prev => [...prev, trimmedLabel]);
+      setNewLabel('');
+      setShowSuggestions(false);
+    }
+  };
+
+  /**
+   * 라벨 제거 처리
+   */
+  const handleRemoveLabel = (labelToRemove: string) => {
+    setLabels(prev => prev.filter(label => label !== labelToRemove));
+  };
+
+  /**
+   * 자동완성 제안 선택 처리
+   */
+  const handleSelectSuggestion = (label: string) => {
+    if (!labels.includes(label)) {
+      setLabels(prev => [...prev, label]);
+    }
+    setNewLabel('');
+    setShowSuggestions(false);
+  };
+
+  /**
+   * 라벨 입력에서 Enter 키 처리
+   */
+  const handleLabelKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddLabel();
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
+
+  /**
    * 저장 처리
    */
   const handleSubmit = async (e: React.FormEvent) => {
@@ -336,6 +429,12 @@ export default function CalendarModal({
 
     if (!title.trim() || !eventDate) {
       setError('제목과 날짜를 입력해주세요.');
+      return;
+    }
+
+    // 종료일 유효성 검증
+    if (endDate && endDate < eventDate) {
+      setError('종료일은 시작일보다 이전일 수 없습니다.');
       return;
     }
 
@@ -356,11 +455,13 @@ export default function CalendarModal({
             title,
             description: description || null,
             event_date: eventDate,
+            end_date: endDate || null,
             event_type: eventType,
             is_completed: eventType === 'todo' ? isCompleted : false,
             author_id: authorId,
             author_name: authorName,
-            attached_files: attachedFiles
+            attached_files: attachedFiles,
+            labels: labels
           })
         });
 
@@ -379,9 +480,11 @@ export default function CalendarModal({
             title,
             description: description || null,
             event_date: eventDate,
+            end_date: endDate || null,
             event_type: eventType,
             is_completed: eventType === 'todo' ? isCompleted : false,
-            attached_files: attachedFiles
+            attached_files: attachedFiles,
+            labels: labels
           })
         });
 
@@ -477,7 +580,7 @@ export default function CalendarModal({
         </div>
 
         {/* 본문 */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] bg-gradient-to-b from-white to-gray-50/30">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)] bg-gradient-to-b from-white to-gray-50/30">
           {internalMode === 'view' && event ? (
             // 보기 모드
             <div className="space-y-6">
@@ -495,7 +598,12 @@ export default function CalendarModal({
                 <div className="flex flex-wrap items-center gap-3 text-sm">
                   <span className="flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg border border-purple-100">
                     <CalendarIcon className="w-4 h-4 text-purple-600" />
-                    <span className="font-medium text-gray-700">{new Date(event.event_date).toLocaleDateString('ko-KR')}</span>
+                    <span className="font-medium text-gray-700">
+                      {new Date(event.event_date).toLocaleDateString('ko-KR')}
+                      {event.end_date && event.end_date !== event.event_date && (
+                        <> ~ {new Date(event.end_date).toLocaleDateString('ko-KR')}</>
+                      )}
+                    </span>
                   </span>
                   <span className={`px-3 py-1.5 rounded-lg font-medium ${
                     event.event_type === 'todo' ? 'bg-blue-500 text-white' : 'bg-purple-500 text-white'
@@ -566,6 +674,26 @@ export default function CalendarModal({
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 라벨 표시 (보기 모드) */}
+              {event.labels && event.labels.length > 0 && (
+                <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-600 mb-3">라벨</p>
+                  <div className="flex flex-wrap gap-2">
+                    {event.labels.map((label, index) => {
+                      const labelColors = getLabelColor(label);
+                      return (
+                        <span
+                          key={index}
+                          className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium ${labelColors.bg} ${labelColors.text}`}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -687,19 +815,113 @@ export default function CalendarModal({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    날짜 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={eventDate}
-                    onChange={(e) => setEventDate(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
-                    required
-                    disabled={loading}
-                  />
+              {/* 라벨 입력 (작성/수정 모드) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  라벨
+                </label>
+
+                {/* 기존 라벨 표시 */}
+                {labels.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {labels.map((label, index) => {
+                      const labelColors = getLabelColor(label);
+                      return (
+                        <span
+                          key={index}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${labelColors.bg} ${labelColors.text}`}
+                        >
+                          {label}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLabel(label)}
+                            disabled={loading}
+                            className="hover:opacity-70 rounded-full p-0.5 transition-opacity"
+                            title="라벨 제거"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* 라벨 입력 필드 */}
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newLabel}
+                      onChange={(e) => setNewLabel(e.target.value)}
+                      onKeyPress={handleLabelKeyPress}
+                      onFocus={() => {
+                        if (newLabel.trim() && filteredSuggestions.length > 0) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      placeholder="라벨 입력 후 Enter (예: 착공실사, 준공실사)"
+                      disabled={loading}
+                      className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddLabel}
+                      disabled={loading || !newLabel.trim()}
+                      className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      추가
+                    </button>
+                  </div>
+
+                  {/* 자동완성 드롭다운 */}
+                  {showSuggestions && filteredSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border-2 border-purple-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => handleSelectSuggestion(suggestion)}
+                          className="w-full text-left px-4 py-2 hover:bg-purple-50 transition-colors text-sm text-gray-700 first:rounded-t-lg last:rounded-b-lg"
+                        >
+                          <span className="font-medium text-purple-700">{suggestion}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 날짜 설정 섹션 */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      시작일 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      종료일 <span className="text-xs text-gray-500 font-normal">(선택)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      min={eventDate}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
+                      disabled={loading}
+                    />
+                  </div>
                 </div>
 
                 <div>

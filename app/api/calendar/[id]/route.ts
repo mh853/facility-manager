@@ -56,13 +56,25 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
 
-    const { title, description, event_date, event_type, is_completed, attached_files } = body;
+    const { title, description, event_date, end_date, event_type, is_completed, attached_files, labels } = body;
+
+    // 종료일 유효성 검증 (event_date와 end_date가 모두 있는 경우)
+    const finalEventDate = event_date !== undefined ? event_date : null;
+    const finalEndDate = end_date !== undefined ? end_date : null;
+
+    if (finalEndDate && finalEventDate && finalEndDate < finalEventDate) {
+      return NextResponse.json(
+        { error: '종료일은 시작일보다 이전일 수 없습니다.' },
+        { status: 400 }
+      );
+    }
 
     // 수정할 필드만 업데이트
     const updateData: any = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (event_date !== undefined) updateData.event_date = event_date;
+    if (end_date !== undefined) updateData.end_date = end_date;
     if (event_type !== undefined) {
       // 이벤트 타입 검증
       if (event_type !== 'todo' && event_type !== 'schedule') {
@@ -75,6 +87,7 @@ export async function PUT(
     }
     if (is_completed !== undefined) updateData.is_completed = is_completed;
     if (attached_files !== undefined) updateData.attached_files = attached_files;
+    if (labels !== undefined) updateData.labels = labels;
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(

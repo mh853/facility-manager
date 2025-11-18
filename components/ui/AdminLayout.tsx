@@ -23,7 +23,8 @@ import {
   Sliders,
   DollarSign,
   Users,
-  Package
+  Package,
+  Calendar
 } from 'lucide-react'
 
 interface AdminLayoutProps {
@@ -75,6 +76,13 @@ const navigationItems: NavigationItem[] = [
     href: '/admin/tasks',
     icon: ClipboardList,
     description: '업무 흐름 및 진행 상황 관리',
+    requiredLevel: 1
+  },
+  {
+    name: '일정 관리',
+    href: '/schedule',
+    icon: Calendar,
+    description: '업무 일정 및 파일 첨부 관리',
     requiredLevel: 1
   },
   {

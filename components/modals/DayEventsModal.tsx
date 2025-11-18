@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { X, Calendar as CalendarIcon, CheckSquare, Square, Plus, Trash2 } from 'lucide-react';
+import { getLabelColor } from '@/lib/label-colors';
 
 /**
  * 첨부 파일 메타데이터 타입
@@ -28,6 +29,7 @@ interface CalendarEvent {
   author_id: string;
   author_name: string;
   attached_files?: AttachedFile[]; // 첨부 파일 배열
+  labels?: string[]; // 라벨 배열 (예: ["착공실사", "준공실사"])
   created_at: string;
   updated_at: string;
 }
@@ -148,6 +150,26 @@ export default function DayEventsModal({
                                 {event.description}
                               </p>
                             )}
+                            {event.labels && event.labels.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {event.labels.map((label, idx) => {
+                                  const labelColors = getLabelColor(label);
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${labelColors.bg} ${labelColors.text}`}
+                                    >
+                                      {label}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {event.end_date && event.end_date !== event.event_date && (
+                              <div className="text-xs text-blue-600 font-medium mt-2">
+                                📅 {new Date(event.event_date).toLocaleDateString('ko-KR')} ~ {new Date(event.end_date).toLocaleDateString('ko-KR')}
+                              </div>
+                            )}
                             <div className="text-xs text-gray-500 mt-2">
                               {event.author_name} · {new Date(event.created_at).toLocaleString('ko-KR')}
                             </div>
@@ -194,6 +216,26 @@ export default function DayEventsModal({
                               <p className="text-sm text-gray-600 line-clamp-2">
                                 {event.description}
                               </p>
+                            )}
+                            {event.labels && event.labels.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {event.labels.map((label, idx) => {
+                                  const labelColors = getLabelColor(label);
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${labelColors.bg} ${labelColors.text}`}
+                                    >
+                                      {label}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {event.end_date && event.end_date !== event.event_date && (
+                              <div className="text-xs text-purple-600 font-medium mt-2">
+                                📅 {new Date(event.event_date).toLocaleDateString('ko-KR')} ~ {new Date(event.end_date).toLocaleDateString('ko-KR')}
+                              </div>
                             )}
                             <div className="text-xs text-gray-500 mt-2">
                               {event.author_name} · {new Date(event.created_at).toLocaleString('ko-KR')}
@@ -250,6 +292,26 @@ export default function DayEventsModal({
                               <p className="text-sm text-gray-500 line-clamp-2">
                                 {event.description}
                               </p>
+                            )}
+                            {event.labels && event.labels.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {event.labels.map((label, idx) => {
+                                  const labelColors = getLabelColor(label);
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${labelColors.bg} ${labelColors.text}`}
+                                    >
+                                      {label}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {event.end_date && event.end_date !== event.event_date && (
+                              <div className="text-xs text-gray-500 font-medium mt-2">
+                                📅 {new Date(event.event_date).toLocaleDateString('ko-KR')} ~ {new Date(event.end_date).toLocaleDateString('ko-KR')}
+                              </div>
                             )}
                             <div className="text-xs text-gray-400 mt-2">
                               {event.author_name} · {new Date(event.created_at).toLocaleString('ko-KR')}

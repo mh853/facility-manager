@@ -77,7 +77,7 @@ const nextConfig = {
         headers: [
           {
             key: 'X-Frame-Options',
-            value: 'DENY'
+            value: 'SAMEORIGIN' // DENY → SAMEORIGIN (캘린더 파일 미리보기 iframe 허용)
           },
           {
             key: 'X-Content-Type-Options',
@@ -86,6 +86,10 @@ const nextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin'
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; frame-src 'self' https://*.supabase.co; object-src 'self' https://*.supabase.co; img-src 'self' data: https:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" // Supabase Storage iframe/embed 허용
           }
         ],
       },

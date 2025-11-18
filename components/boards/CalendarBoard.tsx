@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, CheckSquare, Square } from 'lucide-react';
-import CalendarModal from '@/components/modals/CalendarModal';
-import DayEventsModal from '@/components/modals/DayEventsModal';
+import { getLabelColor } from '@/lib/label-colors';
+
+// Lazy load modals for better initial load performance
+const CalendarModal = lazy(() => import('@/components/modals/CalendarModal'));
+const DayEventsModal = lazy(() => import('@/components/modals/DayEventsModal'));
 
 /**
  * 첨부 파일 메타데이터 타입
@@ -30,6 +33,7 @@ interface CalendarEvent {
   author_id: string;
   author_name: string;
   attached_files?: AttachedFile[]; // 첨부 파일 배열
+  labels?: string[]; // 라벨 배열 (예: ["착공실사", "준공실사"])
   created_at: string;
   updated_at: string;
 }
@@ -71,6 +75,11 @@ export default function CalendarBoard() {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  /**
+   * 오늘 날짜 문자열 (메모이제이션)
+   */
+  const today = useMemo(() => formatLocalDate(new Date()), []);
 
   /**
    * 현재 월의 시작/종료일 계산
@@ -286,21 +295,79 @@ export default function CalendarBoard() {
   };
 
   /**
-   * 특정 날짜의 이벤트 가져오기
+   * 이벤트를 날짜별로 인덱싱 (메모이제이션으로 성능 최적화)
+   * 각 날짜마다 해당하는 이벤트 배열을 미리 계산하여 Map으로 저장
+   * 이를 통해 42개 셀에서 매번 필터링하는 대신 O(1) 조회 가능
    */
-  const getEventsForDate = (date: Date) => {
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+
+    events.forEach(event => {
+      const startDate = new Date(event.event_date);
+      const endDate = new Date(event.end_date || event.event_date);
+
+      // 이벤트 기간의 모든 날짜에 대해 매핑
+      const current = new Date(startDate);
+      while (current <= endDate) {
+        const dateKey = formatLocalDate(current);
+        const existing = map.get(dateKey) || [];
+        existing.push(event);
+        map.set(dateKey, existing);
+        current.setDate(current.getDate() + 1);
+      }
+    });
+
+    return map;
+  }, [events]);
+
+  /**
+   * 특정 날짜의 이벤트 가져오기 (O(1) 조회)
+   */
+  const getEventsForDate = (date: Date): CalendarEvent[] => {
     const dateString = formatLocalDate(date);
-    return events.filter(event => event.event_date === dateString);
+    return eventsByDate.get(dateString) || [];
   };
 
   /**
-   * 캘린더 날짜 배열 생성
+   * 기간 이벤트인지 확인
    */
-  const getCalendarDays = () => {
+  const isPeriodEvent = (event: CalendarEvent) => {
+    return event.end_date && event.end_date !== event.event_date;
+  };
+
+  /**
+   * 해당 날짜가 기간 이벤트의 어느 위치인지 확인
+   */
+  const getPeriodPosition = (event: CalendarEvent, date: Date): 'start' | 'middle' | 'end' | 'single' => {
+    if (!isPeriodEvent(event)) return 'single';
+
+    const dateString = formatLocalDate(date);
+    if (dateString === event.event_date) return 'start';
+    if (dateString === event.end_date) return 'end';
+    return 'middle';
+  };
+
+  /**
+   * 기간 이벤트의 총 일수 계산
+   */
+  const getPeriodDays = (event: CalendarEvent): number => {
+    if (!isPeriodEvent(event)) return 1;
+
+    const start = new Date(event.event_date);
+    const end = new Date(event.end_date!);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
+  };
+
+  /**
+   * 캘린더 날짜 배열 생성 (메모이제이션)
+   * currentDate가 변경될 때만 재계산
+   */
+  const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay()); // 일요일부터 시작
 
@@ -314,10 +381,7 @@ export default function CalendarBoard() {
     }
 
     return days;
-  };
-
-  const calendarDays = getCalendarDays();
-  const today = formatLocalDate(new Date());
+  }, [currentDate]);
 
   if (loading) {
     return (
@@ -433,6 +497,13 @@ export default function CalendarBoard() {
             const isToday = dateString === today;
             const dayEvents = getEventsForDate(day);
 
+            // 기간 이벤트 우선 정렬 (기간 이벤트를 먼저 표시)
+            const sortedDayEvents = [...dayEvents].sort((a, b) => {
+              const aPeriod = isPeriodEvent(a) ? 1 : 0;
+              const bPeriod = isPeriodEvent(b) ? 1 : 0;
+              return bPeriod - aPeriod;
+            });
+
             return (
               <div
                 key={index}
@@ -444,7 +515,7 @@ export default function CalendarBoard() {
                   transition-colors
                 `}
               >
-                <div className={`text-xs md:text-sm font-medium mb-0.5 md:mb-1 flex-shrink-0 ${
+                <div className={`text-xs md:text-sm font-medium mb-0.5 flex-shrink-0 ${
                   !isCurrentMonth ? 'text-gray-400' :
                   index % 7 === 0 ? 'text-red-600' :
                   index % 7 === 6 ? 'text-blue-600' :
@@ -454,42 +525,71 @@ export default function CalendarBoard() {
                 </div>
 
                 {/* 데스크톱: 이벤트 박스 표시 */}
-                <div className="hidden md:flex flex-1 flex-col overflow-hidden space-y-1">
-                  {dayEvents.slice(0, 2).map(event => (
-                    <div
-                      key={event.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEventClick(event);
-                      }}
-                      className={`
-                        text-xs p-1 rounded cursor-pointer truncate
-                        ${event.event_type === 'todo'
-                          ? event.is_completed
-                            ? 'bg-gray-100 text-gray-500 line-through'
-                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                          : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                        }
-                      `}
-                    >
-                      {event.event_type === 'todo' && (
-                        <span
-                          onClick={(e) => handleToggleComplete(e, event.id, event.is_completed)}
-                          className="inline-block mr-1"
-                        >
-                          {event.is_completed ? (
-                            <CheckSquare className="w-3 h-3 inline" />
-                          ) : (
-                            <Square className="w-3 h-3 inline" />
+                <div className="hidden md:flex flex-1 flex-col overflow-hidden space-y-0">
+                  {sortedDayEvents.slice(0, 2).map(event => {
+                    const position = getPeriodPosition(event, day);
+                    const periodDays = getPeriodDays(event);
+                    const isPeriod = isPeriodEvent(event);
+
+                    return (
+                      <div
+                        key={event.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEventClick(event);
+                        }}
+                        className={`
+                          text-xs px-1 py-px rounded cursor-pointer relative
+                          ${event.event_type === 'todo'
+                            ? event.is_completed
+                              ? 'bg-gray-100 text-gray-500 line-through'
+                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                            : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                          }
+                          ${isPeriod && position === 'start' ? 'border-l-2 border-l-orange-400' : ''}
+                          ${isPeriod && position === 'middle' ? 'border-l-2 border-l-orange-300 opacity-75' : ''}
+                          ${isPeriod && position === 'end' ? 'border-l-2 border-l-orange-400 opacity-75' : ''}
+                        `}
+                      >
+                        <div className="flex items-center gap-1">
+                          {event.event_type === 'todo' && (
+                            <span
+                              onClick={(e) => handleToggleComplete(e, event.id, event.is_completed)}
+                              className="inline-block flex-shrink-0"
+                            >
+                              {event.is_completed ? (
+                                <CheckSquare className="w-3 h-3 inline" />
+                              ) : (
+                                <Square className="w-3 h-3 inline" />
+                              )}
+                            </span>
                           )}
-                        </span>
-                      )}
-                      {event.title}
-                    </div>
-                  ))}
-                  {dayEvents.length > 2 && (
-                    <div className="text-xs text-gray-500 pl-1">
-                      +{dayEvents.length - 2}개 더
+                          <span className="truncate flex-1">
+                            {event.title}
+                            {isPeriod && position === 'start' && (
+                              <span className="ml-1 text-[10px] text-orange-600 font-semibold">
+                                📅{periodDays}일
+                              </span>
+                            )}
+                          </span>
+                          {event.labels && event.labels.length > 0 && (() => {
+                            const labelColors = getLabelColor(event.labels[0]);
+                            return (
+                              <span className={`
+                                flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium
+                                ${labelColors.bg} ${labelColors.text}
+                              `}>
+                                {event.labels[0]}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {sortedDayEvents.length > 2 && (
+                    <div className="text-xs text-gray-600 font-semibold pl-1">
+                      +{sortedDayEvents.length - 2}
                     </div>
                   )}
                 </div>
@@ -498,19 +598,30 @@ export default function CalendarBoard() {
                 <div className="md:hidden flex flex-1 items-center justify-center gap-0.5">
                   {dayEvents.length > 0 && (
                     <div className="flex flex-wrap gap-0.5 justify-center">
-                      {dayEvents.slice(0, 3).map((event) => (
-                        <div
-                          key={event.id}
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            event.event_type === 'todo'
-                              ? event.is_completed
-                                ? 'bg-gray-400'
-                                : 'bg-blue-500'
-                              : 'bg-purple-500'
-                          }`}
-                          title={event.title}
-                        />
-                      ))}
+                      {dayEvents.slice(0, 3).map((event) => {
+                        const isPeriod = isPeriodEvent(event);
+                        const position = getPeriodPosition(event, day);
+
+                        return (
+                          <div
+                            key={event.id}
+                            className={`
+                              ${isPeriod ? 'w-2 h-1.5 rounded-sm' : 'w-1.5 h-1.5 rounded-full'}
+                              ${event.event_type === 'todo'
+                                ? event.is_completed
+                                  ? 'bg-gray-400'
+                                  : isPeriod && position === 'start'
+                                    ? 'bg-blue-500 ring-1 ring-orange-400'
+                                    : 'bg-blue-500'
+                                : isPeriod && position === 'start'
+                                  ? 'bg-purple-500 ring-1 ring-orange-400'
+                                  : 'bg-purple-500'
+                              }
+                            `}
+                            title={event.title}
+                          />
+                        );
+                      })}
                       {dayEvents.length > 3 && (
                         <span className="text-[10px] text-gray-600 ml-0.5">
                           +{dayEvents.length - 3}
@@ -539,6 +650,10 @@ export default function CalendarBoard() {
             <div className="w-3 h-3 bg-gray-100 rounded"></div>
             <span>완료</span>
           </div>
+          <div className="hidden md:flex items-center gap-1">
+            <div className="w-3 h-3 bg-blue-100 rounded border-l-2 border-l-orange-400"></div>
+            <span>기간 이벤트</span>
+          </div>
 
           {/* 모바일: 도트 표시 */}
           <div className="md:hidden flex items-center gap-1">
@@ -553,63 +668,75 @@ export default function CalendarBoard() {
             <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
             <span>완료</span>
           </div>
+          <div className="md:hidden flex items-center gap-1">
+            <div className="w-2 h-1.5 bg-blue-500 rounded-sm ring-1 ring-orange-400"></div>
+            <span>기간</span>
+          </div>
         </div>
       </div>
 
-      {/* 캘린더 모달 */}
-      <CalendarModal
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
-        event={selectedEvent}
-        mode={modalMode}
-        initialDate={initialDate}
-        onSuccess={handleModalSuccess}
-      />
+      {/* 캘린더 모달 - Lazy loading with Suspense */}
+      {isModalOpen && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50" />}>
+          <CalendarModal
+            isOpen={isModalOpen}
+            onClose={handleModalClose}
+            event={selectedEvent}
+            mode={modalMode}
+            initialDate={initialDate}
+            onSuccess={handleModalSuccess}
+          />
+        </Suspense>
+      )}
 
-      {/* 일별 이벤트 목록 모달 */}
-      <DayEventsModal
-        isOpen={isDayModalOpen}
-        onClose={handleDayModalClose}
-        date={selectedDate}
-        events={selectedDate ? getEventsForDate(selectedDate) : []}
-        onEventClick={handleDayModalEventClick}
-        onToggleComplete={async (eventId, currentStatus) => {
-          try {
-            const response = await fetch(`/api/calendar/${eventId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ is_completed: !currentStatus })
-            });
+      {/* 일별 이벤트 목록 모달 - Lazy loading with Suspense */}
+      {isDayModalOpen && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50" />}>
+          <DayEventsModal
+            isOpen={isDayModalOpen}
+            onClose={handleDayModalClose}
+            date={selectedDate}
+            events={selectedDate ? getEventsForDate(selectedDate) : []}
+            onEventClick={handleDayModalEventClick}
+            onToggleComplete={async (eventId, currentStatus) => {
+              try {
+                const response = await fetch(`/api/calendar/${eventId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ is_completed: !currentStatus })
+                });
 
-            const result = await response.json();
+                const result = await response.json();
 
-            if (result.success) {
-              setEvents(events.map(event =>
-                event.id === eventId ? { ...event, is_completed: !currentStatus } : event
-              ));
+                if (result.success) {
+                  setEvents(events.map(event =>
+                    event.id === eventId ? { ...event, is_completed: !currentStatus } : event
+                  ));
 
-              // 스크롤 요청 표시
-              scrollToBottomRef.current = true;
-            } else {
-              alert(result.error || '상태 변경에 실패했습니다.');
-            }
-          } catch (err) {
-            console.error('[완료 상태 변경 오류]', err);
-            alert('상태 변경 중 오류가 발생했습니다.');
-          }
-        }}
-        onCreateEvent={() => {
-          // 일별 모달 닫기
-          setIsDayModalOpen(false);
+                  // 스크롤 요청 표시
+                  scrollToBottomRef.current = true;
+                } else {
+                  alert(result.error || '상태 변경에 실패했습니다.');
+                }
+              } catch (err) {
+                console.error('[완료 상태 변경 오류]', err);
+                alert('상태 변경 중 오류가 발생했습니다.');
+              }
+            }}
+            onCreateEvent={() => {
+              // 일별 모달 닫기
+              setIsDayModalOpen(false);
 
-          // 캘린더 모달을 생성 모드로 열기 (선택된 날짜로)
-          setSelectedEvent(null);
-          setModalMode('create');
-          setInitialDate(selectedDate ? formatLocalDate(selectedDate) : undefined);
-          setIsModalOpen(true);
-        }}
-        onDelete={handleDeleteEvent}
-      />
+              // 캘린더 모달을 생성 모드로 열기 (선택된 날짜로)
+              setSelectedEvent(null);
+              setModalMode('create');
+              setInitialDate(selectedDate ? formatLocalDate(selectedDate) : undefined);
+              setIsModalOpen(true);
+            }}
+            onDelete={handleDeleteEvent}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
