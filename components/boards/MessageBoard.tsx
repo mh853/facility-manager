@@ -40,7 +40,7 @@ export default function MessageBoard() {
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const itemsPerPage = 5;
+  const itemsPerPage = 4; // 페이지당 4개 고정
 
   /**
    * 전달사항 목록 조회
@@ -226,13 +226,13 @@ export default function MessageBoard() {
       </div>
 
       {/* 전달사항 목록 */}
-      <div className="p-6 h-[400px] overflow-y-auto">
+      <div className="p-6 h-[calc(100vh-400px)] overflow-y-auto">
         {messages.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             등록된 전달사항이 없습니다.
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -240,7 +240,7 @@ export default function MessageBoard() {
                 onMouseEnter={() => setHoveredId(message.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 className="
-                  p-3 rounded-lg border border-gray-200 cursor-pointer
+                  p-4 rounded-lg border border-gray-200 cursor-pointer
                   hover:bg-gray-50 hover:border-green-200 transition-all
                   flex items-center justify-between gap-3
                 "
@@ -251,6 +251,9 @@ export default function MessageBoard() {
                       {message.title}
                     </h3>
                   </div>
+                  <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                    {message.content}
+                  </p>
                   <div className="flex items-center gap-3 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />

@@ -23,7 +23,7 @@ interface Announcement {
 
 /**
  * 공지사항 보드 컴포넌트
- * - 카드 스타일로 최근 5개 표시
+ * - 카드 스타일로 동적 개수 표시 (컨테이너 높이 기반)
  * - 상단 고정 게시물 우선 표시
  * - Level 3+ (SUPER_ADMIN) 작성/수정/삭제 가능
  * - Level 1+ (AUTHENTICATED) 읽기 가능
@@ -41,7 +41,7 @@ export default function AnnouncementBoard() {
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const itemsPerPage = 3;
+  const itemsPerPage = 4; // 페이지당 4개 고정
 
   /**
    * 공지사항 목록 조회
@@ -188,7 +188,7 @@ export default function AnnouncementBoard() {
       </div>
 
       {/* 공지사항 목록 */}
-      <div className="p-6 h-[400px] overflow-y-auto">
+      <div className="p-6 h-[calc(100vh-400px)] overflow-y-auto">
         {announcements.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             등록된 공지사항이 없습니다.
