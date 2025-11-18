@@ -1,13 +1,14 @@
 // app/admin/business/page.tsx - 사업장 관리 페이지
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { BusinessInfo } from '@/lib/database-service'
 import type { BusinessMemo, CreateBusinessMemoInput, UpdateBusinessMemoInput } from '@/types/database'
 import { getBusinessTaskStatus, getBatchBusinessTaskStatuses, getTaskSummary } from '@/lib/business-task-utils'
 import { supabase } from '@/lib/supabase'
-import BusinessRevenueModal from '@/components/business/BusinessRevenueModal'
+// Lazy load heavy modals for better initial load performance
+const BusinessRevenueModal = lazy(() => import('@/components/business/BusinessRevenueModal'))
 import { useAuth } from '@/contexts/AuthContext'
 import { TokenManager } from '@/lib/api-client'
 import { getManufacturerName } from '@/constants/manufacturers'
@@ -233,12 +234,12 @@ interface UnifiedBusinessInfo {
   hasFiles: boolean;
   fileCount: number;
 }
-import * as XLSX from 'xlsx'
+// XLSX library will be dynamically imported when needed (Excel upload/download)
 import AdminLayout from '@/components/ui/AdminLayout'
 import { withAuth, usePermission } from '@/contexts/AuthContext'
 import StatsCard from '@/components/ui/StatsCard'
 import DataTable, { commonActions } from '@/components/ui/DataTable'
-import { ConfirmModal } from '@/components/ui/Modal'
+const ConfirmModal = lazy(() => import('@/components/ui/Modal').then(m => ({ default: m.ConfirmModal })))
 import TaskProgressMiniBoard from '@/components/business/TaskProgressMiniBoard'
 import { InvoiceDisplay } from '@/components/business/InvoiceDisplay'
 import { InvoiceFormInput } from '@/components/business/InvoiceFormInput'
@@ -2261,14 +2262,17 @@ function BusinessManagementPage() {
     try {
       setIsUploading(true)
       setUploadProgress(0)
-      
+
+      // 동적 import: XLSX 라이브러리 로딩 (성능 최적화)
+      const XLSX = await import('xlsx')
+
       // 파일 읽기 진행률 10%
       setUploadProgress(10)
       const data = await file.arrayBuffer()
       const workbook = XLSX.read(data, { type: 'array' })
       const sheetName = workbook.SheetNames[0]
       const worksheet = workbook.Sheets[sheetName]
-      
+
       // 데이터 파싱 진행률 20%
       setUploadProgress(20)
       const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[]
@@ -5753,20 +5757,24 @@ function BusinessManagementPage() {
       )}
 
 
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={deleteConfirmOpen}
-        onClose={() => {
-          setDeleteConfirmOpen(false)
-          setBusinessToDelete(null)
-        }}
-        onConfirm={handleDelete}
-        title="사업장 삭제 확인"
-        message={`'${businessToDelete?.business_name}' 사업장을 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
-        confirmText="삭제"
-        cancelText="취소"
-        variant="danger"
-      />
+      {/* Delete Confirmation Modal - Lazy loaded */}
+      {deleteConfirmOpen && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50" />}>
+          <ConfirmModal
+            isOpen={deleteConfirmOpen}
+            onClose={() => {
+              setDeleteConfirmOpen(false)
+              setBusinessToDelete(null)
+            }}
+            onConfirm={handleDelete}
+            title="사업장 삭제 확인"
+            message={`'${businessToDelete?.business_name}' 사업장을 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+            confirmText="삭제"
+            cancelText="취소"
+            variant="danger"
+          />
+        </Suspense>
+      )}
 
       {/* Excel Upload Modal */}
       {isUploadModalOpen && (
@@ -6025,16 +6033,20 @@ function BusinessManagementPage() {
         </div>
       )}
 
-      {/* Revenue Detail Modal */}
-      <BusinessRevenueModal
-        business={selectedRevenueBusiness}
-        isOpen={showRevenueModal}
-        onClose={() => {
-          setShowRevenueModal(false)
-          setSelectedRevenueBusiness(null)
-        }}
-        userPermission={userPermission}
-      />
+      {/* Revenue Detail Modal - Lazy loaded */}
+      {showRevenueModal && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50" />}>
+          <BusinessRevenueModal
+            business={selectedRevenueBusiness}
+            isOpen={showRevenueModal}
+            onClose={() => {
+              setShowRevenueModal(false)
+              setSelectedRevenueBusiness(null)
+            }}
+            userPermission={userPermission}
+          />
+        </Suspense>
+      )}
     </AdminLayout>
   )
 }
