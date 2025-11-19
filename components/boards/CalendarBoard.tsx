@@ -156,6 +156,20 @@ export default function CalendarBoard() {
   }, []);
 
   /**
+   * 사용 가능한 라벨 변경 시 선택된 라벨 정리
+   * - 더 이상 존재하지 않는 라벨을 선택 목록에서 제거
+   */
+  useEffect(() => {
+    if (selectedLabels.length > 0) {
+      const validLabels = selectedLabels.filter(label => availableLabels.includes(label));
+      if (validLabels.length !== selectedLabels.length) {
+        setSelectedLabels(validLabels);
+        console.log('[캘린더] 존재하지 않는 라벨 제거:', selectedLabels.filter(l => !availableLabels.includes(l)));
+      }
+    }
+  }, [availableLabels]);
+
+  /**
    * 이벤트 목록이 업데이트된 후 스크롤 처리
    */
   useEffect(() => {
@@ -262,11 +276,14 @@ export default function CalendarBoard() {
   const handleModalSuccess = async () => {
     fetchEvents(true); // 페이지 하단으로 스크롤
 
-    // 데이터베이스 트랜잭션 완료를 위해 짧은 지연 후 라벨 갱신
+    // 즉시 라벨 갱신 시도 (빠른 피드백)
+    fetchAvailableLabels();
+
+    // 데이터베이스 트랜잭션 완료를 위해 지연 후 재갱신 (이중 안전장치)
     // Supabase 트랜잭션 커밋 및 복제 시간 고려
     setTimeout(() => {
       fetchAvailableLabels();
-    }, 200);
+    }, 500);
   };
 
   /**
@@ -339,10 +356,13 @@ export default function CalendarBoard() {
         // 목록에서 제거
         setEvents(events.filter(event => event.id !== eventId));
 
-        // 데이터베이스 트랜잭션 완료를 위해 짧은 지연 후 라벨 갱신
+        // 즉시 라벨 갱신 시도 (빠른 피드백)
+        fetchAvailableLabels();
+
+        // 데이터베이스 트랜잭션 완료를 위해 지연 후 재갱신 (이중 안전장치)
         setTimeout(() => {
           fetchAvailableLabels();
-        }, 200);
+        }, 500);
 
         console.log(`✅ [캘린더] 일정 삭제 완료: ${eventTitle}`);
       } else {

@@ -40,11 +40,16 @@ export async function GET() {
     // Set을 배열로 변환하고 정렬
     const uniqueLabels = Array.from(allLabels).sort();
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       labels: uniqueLabels,
       total: uniqueLabels.length
     });
+
+    // 캐시 비활성화 (실시간 업데이트 필요)
+    response.headers.set('Cache-Control', 'no-store, must-revalidate');
+
+    return response;
   } catch (error) {
     console.error('[라벨 API 오류]', error);
     return NextResponse.json(
