@@ -371,9 +371,11 @@ export default function CalendarBoard() {
 
     // 라벨 필터링 (선택된 라벨 중 하나라도 포함하면 표시)
     if (selectedLabels.length > 0) {
-      filtered = filtered.filter(event =>
-        event.labels && event.labels.some(label => selectedLabels.includes(label))
-      );
+      filtered = filtered.filter(event => {
+        // NULL 또는 undefined 방어: labels가 없으면 빈 배열로 처리
+        const eventLabels = event.labels || [];
+        return eventLabels.some(label => selectedLabels.includes(label));
+      });
     }
 
     return filtered;
