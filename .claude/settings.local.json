@@ -67,7 +67,8 @@
       "Bash(xargs kill:*)",
       "Bash(find:*)",
       "Bash(timeout 30 npm run type-check:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": [],

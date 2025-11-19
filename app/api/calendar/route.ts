@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseAdmin();
     const body = await request.json();
 
-    const { title, description, event_date, end_date, event_type, is_completed, author_id, author_name, attached_files, labels } = body;
+    const { title, description, event_date, end_date, event_type, is_completed, author_id, author_name, attached_files, labels, business_id, business_name } = body;
 
     // 필수 필드 검증
     if (!title || !event_date || !event_type || !author_id || !author_name) {
@@ -133,7 +133,9 @@ export async function POST(request: NextRequest) {
         author_id,
         author_name,
         attached_files: attached_files || [],
-        labels: labels || []
+        labels: labels || [],
+        business_id: business_id || null,
+        business_name: business_name || null
       })
       .select()
       .single();

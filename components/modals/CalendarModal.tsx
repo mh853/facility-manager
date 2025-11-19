@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckSquare, Square, Calendar as CalendarIcon, Paperclip, Upload, FileText, Trash2, Download, Eye, Image as ImageIcon, FileIcon, ExternalLink } from 'lucide-react';
 import { getLabelColor } from '@/lib/label-colors';
+import BusinessAutocomplete from '@/components/inputs/BusinessAutocomplete';
+import BusinessInfoPanel from '@/components/business/BusinessInfoPanel';
 
 /**
  * 첨부 파일 메타데이터 타입
@@ -30,8 +32,19 @@ interface CalendarEvent {
   author_name: string;
   attached_files?: AttachedFile[]; // 첨부 파일 배열
   labels?: string[]; // 라벨 배열 (예: ["착공실사", "준공실사"])
+  business_id?: string | null; // 연결된 사업장 ID (nullable)
+  business_name?: string | null; // 사업장명 (검색 최적화용)
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * 사업장 간단 정보 타입 (자동완성용)
+ */
+interface BusinessSummary {
+  id: string;
+  business_name: string;
+  address?: string;
 }
 
 interface CalendarModalProps {
@@ -74,8 +87,11 @@ export default function CalendarModal({
   const [labels, setLabels] = useState<string[]>([]);
   const [newLabel, setNewLabel] = useState('');
   const [availableLabels, setAvailableLabels] = useState<string[]>([]);
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+  const [showBusinessInfo, setShowBusinessInfo] = useState(false); // 사업장 정보 패널 표시 여부
 
   /**
    * 로컬 타임존에서 날짜를 YYYY-MM-DD 형식으로 변환
@@ -100,6 +116,8 @@ export default function CalendarModal({
         setIsCompleted(event.is_completed);
         setAttachedFiles(event.attached_files || []);
         setLabels(event.labels || []);
+        setBusinessId(event.business_id || null);
+        setBusinessName(event.business_name || null);
       } else if (mode === 'create') {
         setTitle('');
         setDescription('');
@@ -109,6 +127,8 @@ export default function CalendarModal({
         setIsCompleted(false);
         setAttachedFiles([]);
         setLabels([]);
+        setBusinessId(null);
+        setBusinessName(null);
       }
       setError(null);
       setNewLabel('');
@@ -146,6 +166,15 @@ export default function CalendarModal({
       setFilteredSuggestions([]);
     }
   }, [newLabel, availableLabels, labels]);
+
+  // 사업장 선택 시 자동으로 정보 패널 표시
+  useEffect(() => {
+    if (businessId) {
+      setShowBusinessInfo(true);
+    } else {
+      setShowBusinessInfo(false);
+    }
+  }, [businessId]);
 
   if (!isOpen) return null;
 
@@ -461,7 +490,9 @@ export default function CalendarModal({
             author_id: authorId,
             author_name: authorName,
             attached_files: attachedFiles,
-            labels: labels
+            labels: labels,
+            business_id: businessId,
+            business_name: businessName
           })
         });
 
@@ -484,7 +515,9 @@ export default function CalendarModal({
             event_type: eventType,
             is_completed: eventType === 'todo' ? isCompleted : false,
             attached_files: attachedFiles,
-            labels: labels
+            labels: labels,
+            business_id: businessId,
+            business_name: businessName
           })
         });
 
@@ -551,7 +584,7 @@ export default function CalendarModal({
       />
 
       {/* 모달 컨텐츠 */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden border border-purple-100/20">
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${showBusinessInfo ? 'max-w-6xl' : 'max-w-2xl'} max-h-[90vh] overflow-hidden border border-purple-100/20`}>
         {/* 헤더 */}
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-purple-500 to-blue-500 opacity-10"></div>
@@ -580,7 +613,9 @@ export default function CalendarModal({
         </div>
 
         {/* 본문 */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)] bg-gradient-to-b from-white to-gray-50/30">
+        <div className={`${showBusinessInfo ? 'grid grid-cols-[60%_40%]' : ''} max-h-[calc(90vh-200px)] bg-gradient-to-b from-white to-gray-50/30`}>
+          {/* 왼쪽: 캘린더 폼 영역 */}
+          <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
           {internalMode === 'view' && event ? (
             // 보기 모드
             <div className="space-y-6">
@@ -728,6 +763,18 @@ export default function CalendarModal({
                   disabled={loading}
                 />
               </div>
+
+              {/* 사업장 선택 */}
+              <BusinessAutocomplete
+                value={businessName}
+                businessId={businessId}
+                onChange={(id, name) => {
+                  setBusinessId(id);
+                  setBusinessName(name);
+                }}
+                disabled={loading}
+                placeholder="사업장을 선택하세요 (선택사항)"
+              />
 
               {/* 파일 첨부 섹션 (작성/수정 모드) */}
               <div>
@@ -966,6 +1013,18 @@ export default function CalendarModal({
                 </div>
               )}
             </form>
+          )}
+          </div>
+
+          {/* 오른쪽: 사업장 정보 패널 (조건부 렌더링) */}
+          {showBusinessInfo && businessId && businessName && (
+            <div className="border-l border-gray-200 overflow-hidden h-full max-h-[calc(90vh-200px)]">
+              <BusinessInfoPanel
+                businessId={businessId}
+                businessName={businessName}
+                onClose={() => setShowBusinessInfo(false)}
+              />
+            </div>
           )}
         </div>
 

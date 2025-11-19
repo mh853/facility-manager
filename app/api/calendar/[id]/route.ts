@@ -60,7 +60,7 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
 
-    const { title, description, event_date, end_date, event_type, is_completed, attached_files, labels } = body;
+    const { title, description, event_date, end_date, event_type, is_completed, attached_files, labels, business_id, business_name } = body;
 
     // 종료일 유효성 검증 (event_date와 end_date가 모두 있는 경우)
     const finalEventDate = event_date !== undefined ? event_date : null;
@@ -92,6 +92,8 @@ export async function PUT(
     if (is_completed !== undefined) updateData.is_completed = is_completed;
     if (attached_files !== undefined) updateData.attached_files = attached_files;
     if (labels !== undefined) updateData.labels = labels;
+    if (business_id !== undefined) updateData.business_id = business_id;
+    if (business_name !== undefined) updateData.business_name = business_name;
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
