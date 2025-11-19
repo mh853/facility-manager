@@ -2,6 +2,10 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
+// Next.js 캐싱 완전 비활성화 - 실시간 라벨 업데이트를 위해 필수
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /**
  * GET /api/calendar/labels
  * 모든 캘린더 이벤트에서 사용된 고유한 라벨 목록 조회
