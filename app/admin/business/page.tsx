@@ -764,6 +764,9 @@ function BusinessManagementPage() {
   }>({})
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
 
+  // 📊 전체 업무 통계 (통계카드용)
+  const [totalBusinessesWithTasks, setTotalBusinessesWithTasks] = useState(0)
+
   // 🔄 검색 로딩 상태 (검색시 현재 단계 로딩용)
   const [isSearchLoading, setIsSearchLoading] = useState(false)
 
@@ -1147,15 +1150,14 @@ function BusinessManagementPage() {
     const thisYearBusinesses = allBusinesses.filter(b => b.project_year === currentYear).length
     const subsidyBusinesses = allBusinesses.filter(b => b.progress_status === '보조금').length
     const selfFundedBusinesses = allBusinesses.filter(b => b.progress_status === '자비').length
-    const businessesWithTasks = Object.keys(businessTaskStatuses).length
 
     return {
       thisYear: thisYearBusinesses,
       subsidy: subsidyBusinesses,
       selfFunded: selfFundedBusinesses,
-      withTasks: businessesWithTasks
+      withTasks: totalBusinessesWithTasks // ✅ 전체 업무 통계 사용
     }
-  }, [allBusinesses, businessTaskStatuses])
+  }, [allBusinesses, totalBusinessesWithTasks])
 
 
   // ⚡ 기본 데이터 로딩 함수 - useBusinessData 훅의 refetch 사용 (Phase 2.1 성능 최적화)
@@ -1535,9 +1537,53 @@ function BusinessManagementPage() {
     }
   }, []) // 의존성 배열 제거 - setBusinessTaskStatuses는 함수형 업데이트(prev =>)를 사용하므로 안전
 
+  // 📊 전체 업무 통계 로딩 (통계카드용)
+  const loadTaskStatistics = useCallback(async () => {
+    try {
+      console.log('📊 [TASK-STATS] 전체 업무 통계 로딩 시작')
+
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch('/api/facility-tasks', {
+        method: 'GET',
+        headers
+      })
+
+      if (!response.ok) {
+        console.warn('⚠️ [TASK-STATS] API 응답 오류:', response.status)
+        return
+      }
+
+      const result = await response.json()
+
+      if (result.success && result.data?.tasks) {
+        // 활성 상태이고 삭제되지 않은 업무의 고유 사업장명 추출
+        const uniqueBusinessNames = new Set(
+          result.data.tasks
+            .filter((task: any) => task.is_active && !task.is_deleted)
+            .map((task: any) => task.business_name)
+            .filter((name: string) => name) // 빈 값 제외
+        )
+
+        setTotalBusinessesWithTasks(uniqueBusinessNames.size)
+        console.log(`✅ [TASK-STATS] 업무 진행 사업장: ${uniqueBusinessNames.size}개`)
+      }
+    } catch (error) {
+      console.error('❌ [TASK-STATS] 업무 통계 로딩 실패:', error)
+    }
+  }, [])
+
   // 초기 데이터 로딩 - 의존성 제거하여 무한루프 방지
   useEffect(() => {
     loadAllBusinesses()
+    loadTaskStatistics() // 전체 업무 통계도 함께 로딩
   }, [])
 
   // 🎯 초기 로딩: 첫 페이지(8개)만 현재 단계 로딩
