@@ -331,7 +331,7 @@ function RevenueDashboard() {
     let totalRevenue = 0;
     let totalCost = 0;
     let totalBaseInstallationCost = 0; // 기본 설치비 (비용)
-    let totalAdditionalInstallationRevenue = 0; // 추가 설치비 (매출)
+    let totalAdditionalInstallationCost = 0; // 추가 설치비 (비용)
 
     // 사업장의 제조사 정보 (한글 → 영문 코드 변환)
     const rawManufacturer = business.manufacturer || 'ecosense';
@@ -393,8 +393,8 @@ function RevenueDashboard() {
           : business.negotiation || 0)
       : 0;
 
-    // 추가 설치비 (DB에 저장된 값, 매출에 추가)
-    const additionalInstallationRevenue = business.installation_costs
+    // 추가 설치비 (DB에 저장된 값, 비용으로 차감)
+    const additionalInstallationCost = business.installation_costs
       ? (typeof business.installation_costs === 'string'
           ? parseInt(business.installation_costs.replace(/,/g, '')) || 0
           : business.installation_costs || 0)
@@ -403,8 +403,8 @@ function RevenueDashboard() {
     // 영업비용 계산 기준: 기본 매출 - 협의사항 (추가공사비, 추가설치비 제외)
     const commissionBaseRevenue = totalRevenue - negotiation;
 
-    // 최종 매출 = 기본 매출 + 추가공사비 + 추가설치비 - 협의사항
-    const adjustedRevenue = totalRevenue + additionalCost + additionalInstallationRevenue - negotiation;
+    // 최종 매출 = 기본 매출 + 추가공사비 - 협의사항
+    const adjustedRevenue = totalRevenue + additionalCost - negotiation;
 
     // 영업비용 계산 (제조사별 수수료율 우선, 없으면 영업점 설정, 최종 기본값 10%)
     let salesCommission = 0;
@@ -461,8 +461,8 @@ function RevenueDashboard() {
     // 총 이익 = 매출 - 매입
     const grossProfit = adjustedRevenue - totalCost;
 
-    // 순이익 = 총이익 - 영업비용 - 실사비용 - 기본설치비
-    const netProfit = grossProfit - salesCommission - surveyCosts - totalBaseInstallationCost;
+    // 순이익 = 총이익 - 영업비용 - 실사비용 - 기본설치비 - 추가설치비
+    const netProfit = grossProfit - salesCommission - surveyCosts - totalBaseInstallationCost - additionalInstallationCost;
 
     // 디버깅 로그 (필요시 활성화)
     // if (business.business_name && business.business_name.includes('특정사업장명')) {
@@ -481,7 +481,7 @@ function RevenueDashboard() {
       gross_profit: grossProfit,
       net_profit: netProfit,
       installation_costs: totalBaseInstallationCost, // 기본 설치비 (비용)
-      additional_installation_revenue: additionalInstallationRevenue, // 추가 설치비 (매출에 포함됨)
+      additional_installation_cost: additionalInstallationCost, // 추가 설치비 (비용)
       sales_commission: salesCommission,
       survey_costs: surveyCosts,
       has_calculation: true // 자동 계산되었음을 표시
@@ -1079,7 +1079,7 @@ function RevenueDashboard() {
 
           <StatsCard
             title="총 매출"
-            value={formatCurrency(businesses.reduce((sum, b) => sum + (b.total_revenue || 0), 0))}
+            value={formatCurrency(sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue || 0), 0))}
             icon={BarChart3}
             color="green"
             description="전체 사업장 매출 합계"
@@ -1087,19 +1087,28 @@ function RevenueDashboard() {
 
           <StatsCard
             title="총 순이익"
-            value={formatCurrency(businesses.reduce((sum, b) => sum + (b.net_profit || 0), 0))}
+            value={formatCurrency(sortedBusinesses.reduce((sum, b) => sum + (b.net_profit || 0), 0))}
             icon={TrendingUp}
             color="purple"
-            description={`평균 이익률: ${
-              businesses.reduce((sum, b) => sum + (b.total_revenue || 0), 0) > 0
-                ? ((businesses.reduce((sum, b) => sum + (b.net_profit || 0), 0) / businesses.reduce((sum, b) => sum + (b.total_revenue || 0), 0)) * 100).toFixed(1) + '%'
-                : '0%'
-            }`}
+            description={(() => {
+              const totals = sortedBusinesses.reduce(
+                (acc, b) => ({
+                  revenue: acc.revenue + (b.total_revenue || 0),
+                  profit: acc.profit + (b.net_profit || 0)
+                }),
+                { revenue: 0, profit: 0 }
+              );
+              return `전체 이익률: ${
+                totals.revenue > 0
+                  ? ((totals.profit / totals.revenue) * 100).toFixed(1) + '%'
+                  : '0%'
+              }`;
+            })()}
           />
 
           <StatsCard
             title="총 영업비용"
-            value={formatCurrency(businesses.reduce((sum, b) => {
+            value={formatCurrency(sortedBusinesses.reduce((sum, b) => {
               const salesCommission = b.adjusted_sales_commission || b.sales_commission || 0;
               return sum + salesCommission;
             }, 0))}
@@ -1110,7 +1119,7 @@ function RevenueDashboard() {
 
           <StatsCard
             title="총 설치비용"
-            value={formatCurrency(businesses.reduce((sum, b) => {
+            value={formatCurrency(sortedBusinesses.reduce((sum, b) => {
               const installationCosts = (b.installation_costs || 0) + (b.installation_extra_cost || 0);
               return sum + installationCosts;
             }, 0))}
@@ -1122,7 +1131,7 @@ function RevenueDashboard() {
           <StatsCard
             title="최고 수익 영업점"
             value={(() => {
-              const officeStats = businesses.reduce((acc: Record<string, number>, b) => {
+              const officeStats = sortedBusinesses.reduce((acc: Record<string, number>, b) => {
                 const office = b.sales_office || '미배정';
                 acc[office] = (acc[office] || 0) + (b.net_profit || 0);
                 return acc;
@@ -1409,7 +1418,7 @@ function RevenueDashboard() {
                 <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs font-medium text-gray-600">평균 이익률</p>
+                <p className="text-[10px] sm:text-xs font-medium text-gray-600">사업장 평균 이익률</p>
                 <p className="text-xs sm:text-sm font-bold text-indigo-600">
                   {sortedBusinesses.length > 0 ?
                     ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
@@ -1430,7 +1439,7 @@ function RevenueDashboard() {
               </h3>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 md:gap-4 w-full sm:w-auto">
                 <div className="text-xs sm:text-sm text-gray-500">
-                  평균 이익률: {sortedBusinesses.length > 0 ?
+                  사업장 평균 이익률: {sortedBusinesses.length > 0 ?
                     ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
                     : '0'}%
                 </div>
