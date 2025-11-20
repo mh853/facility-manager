@@ -984,10 +984,18 @@ function BusinessManagementPage() {
             return [payload.new, ...prev]
           })
         } else if (payload.eventType === 'UPDATE') {
-          console.log('📡 [REALTIME-MEMO] UPDATE: 메모 업데이트')
-          setBusinessMemos(prev =>
-            prev.map(m => m.id === payload.new.id ? payload.new : m)
-          )
+          // is_deleted가 true로 변경된 경우 삭제 처리 (소프트 삭제)
+          if (payload.new.is_deleted === true) {
+            console.log('📡 [REALTIME-MEMO] UPDATE: 소프트 삭제 감지 - UI에서 제거')
+            setBusinessMemos(prev =>
+              prev.filter(m => m.id !== payload.new.id)
+            )
+          } else {
+            console.log('📡 [REALTIME-MEMO] UPDATE: 메모 업데이트')
+            setBusinessMemos(prev =>
+              prev.map(m => m.id === payload.new.id ? payload.new : m)
+            )
+          }
         } else if (payload.eventType === 'DELETE') {
           console.log('📡 [REALTIME-MEMO] DELETE: 메모 삭제')
           setBusinessMemos(prev =>
