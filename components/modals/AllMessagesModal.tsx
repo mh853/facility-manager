@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { X, MessageSquare, Calendar } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { X, MessageSquare, Calendar, Search } from 'lucide-react';
 
 /**
  * 전달사항 데이터 타입
@@ -39,33 +39,78 @@ export default function AllMessagesModal({
   const [totalCount, setTotalCount] = useState(0);
   const itemsPerPage = 20;
 
+  // 검색 상태
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+  // AbortController ref for cancelling previous requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   /**
-   * 모달이 열릴 때 전체 전달사항 로드
+   * 검색어 디바운싱 (300ms)
+   */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  /**
+   * 모달이 열릴 때 검색어 초기화
+   * - 데이터 로드는 다른 useEffect에서 자동으로 처리됨 (중복 호출 방지)
    */
   useEffect(() => {
     if (isOpen) {
-      setCurrentPage(1); // 모달 열 때 페이지 초기화
-      fetchAllMessages();
+      setSearchQuery('');
+      setDebouncedSearchQuery('');
+      setCurrentPage(1);
+      // fetchAllMessages 호출 제거 - 아래 useEffect에서 자동 호출됨
     }
   }, [isOpen]);
 
   /**
-   * 페이지 변경 시 데이터 로드
+   * 디바운싱된 검색어나 페이지 변경 시 데이터 로드
    */
   useEffect(() => {
-    if (isOpen && currentPage > 1) {
-      fetchAllMessages();
+    if (isOpen) {
+      fetchAllMessages(debouncedSearchQuery, currentPage);
     }
-  }, [currentPage, isOpen]);
+  }, [debouncedSearchQuery, currentPage, isOpen, fetchAllMessages]);
 
   /**
    * 전체 전달사항 조회
+   * - AbortController로 이전 요청 취소
+   * - useCallback으로 안정성 확보
    */
-  const fetchAllMessages = async () => {
+  const fetchAllMessages = useCallback(async (search: string = '', page: number = 1) => {
+    // 이전 요청이 진행 중이면 취소
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // 새 AbortController 생성
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/messages?page=${currentPage}&limit=${itemsPerPage}`);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: itemsPerPage.toString(),
+      });
+
+      if (search.trim()) {
+        params.append('search', search.trim());
+      }
+
+      const response = await fetch(`/api/messages?${params.toString()}`, {
+        signal: controller.signal // AbortController 시그널 전달
+      });
+
       const result = await response.json();
 
       if (result.success) {
@@ -74,13 +119,18 @@ export default function AllMessagesModal({
       } else {
         setError(result.error || '전달사항을 불러오는데 실패했습니다.');
       }
-    } catch (err) {
+    } catch (err: any) {
+      // AbortError는 정상적인 취소이므로 무시
+      if (err.name === 'AbortError') {
+        console.log('[전달사항 조회] 이전 요청 취소됨');
+        return;
+      }
       console.error('[전달사항 조회 오류]', err);
       setError('전달사항을 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [itemsPerPage]);
 
   /**
    * 날짜 포맷팅
@@ -126,7 +176,10 @@ export default function AllMessagesModal({
                   전체 전달사항
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  총 {messages.length}개의 전달사항
+                  {debouncedSearchQuery
+                    ? `검색 결과 ${totalCount}개`
+                    : `총 ${totalCount}개의 전달사항`
+                  }
                 </p>
               </div>
             </div>
@@ -139,8 +192,38 @@ export default function AllMessagesModal({
           </div>
         </div>
 
+        {/* 검색 영역 */}
+        <div className="px-6 pt-4 pb-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="제목 또는 내용으로 검색..."
+              className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setDebouncedSearchQuery('');
+                }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {debouncedSearchQuery && (
+            <p className="text-xs text-gray-500 mt-2">
+              "{debouncedSearchQuery}" 검색 결과: {totalCount}개
+            </p>
+          )}
+        </div>
+
         {/* 본문 */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] bg-gradient-to-b from-white to-gray-50/30">
+        <div className="p-6 pt-3 overflow-y-auto max-h-[calc(90vh-200px)] bg-gradient-to-b from-white to-gray-50/30">
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -157,7 +240,12 @@ export default function AllMessagesModal({
           ) : messages.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-              <p>등록된 전달사항이 없습니다</p>
+              <p>
+                {debouncedSearchQuery
+                  ? `"${debouncedSearchQuery}" 검색 결과가 없습니다`
+                  : '등록된 전달사항이 없습니다'
+                }
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
