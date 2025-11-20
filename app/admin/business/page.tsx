@@ -21,6 +21,9 @@ import { formatMobilePhone, formatLandlinePhone } from '@/utils/phone-formatter'
 import { useBusinessData } from './hooks/useBusinessData'
 import { useFacilityStats } from './hooks/useFacilityStats'
 import { useRevenueData } from './hooks/useRevenueData'
+import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime'
+// 📱 모바일 카드 뷰 컴포넌트
+import BusinessCardList from './components/BusinessCardList'
 
 interface Contact {
   name: string;
@@ -776,6 +779,13 @@ function BusinessManagementPage() {
   const [filterCategory, setFilterCategory] = useState<string>('')
   const [filterProjectYear, setFilterProjectYear] = useState<string>('')
 
+  // 📱 무한 스크롤 상태 (모바일 전용)
+  const [displayedBusinesses, setDisplayedBusinesses] = useState<any[]>([])
+  const [currentIndex, setCurrentIndex] = useState(20) // 초기 20개 표시
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const LOAD_MORE_COUNT = 20 // 한 번에 로드할 개수
+
   // 업무 상태 매핑 유틸리티 함수들
   const getStatusDisplayName = (status: string): string => {
     const statusMap: { [key: string]: string } = {
@@ -925,6 +935,40 @@ function BusinessManagementPage() {
       setIsLoadingMemos(false)
     }
   }, [])
+
+  // 📡 실시간 메모 업데이트 (Supabase Realtime)
+  useSupabaseRealtime({
+    tableName: 'business_memos',
+    eventTypes: ['INSERT', 'UPDATE', 'DELETE'],
+    autoConnect: true,
+    onNotification: useCallback((payload) => {
+      console.log('📡 [REALTIME-MEMO] 메모 변경 감지:', payload)
+
+      // 현재 선택된 사업장이 있고, 변경된 메모가 해당 사업장의 것인지 확인
+      if (selectedBusiness && payload.new?.business_id) {
+        // INSERT 또는 UPDATE 이벤트이고, 현재 선택된 사업장의 메모인 경우
+        if (payload.new.business_id === selectedBusiness.id) {
+          console.log('📡 [REALTIME-MEMO] 현재 사업장의 메모 변경 감지 → 자동 새로고침')
+          loadBusinessMemos(selectedBusiness.id)
+        }
+      } else if (selectedBusiness && payload.old?.business_id) {
+        // DELETE 이벤트인 경우 payload.old에서 business_id 확인
+        if (payload.old.business_id === selectedBusiness.id) {
+          console.log('📡 [REALTIME-MEMO] 현재 사업장의 메모 삭제 감지 → 자동 새로고침')
+          loadBusinessMemos(selectedBusiness.id)
+        }
+      }
+    }, [selectedBusiness, loadBusinessMemos]),
+    onConnect: () => {
+      console.log('📡 [REALTIME-MEMO] Supabase Realtime 연결됨')
+    },
+    onDisconnect: () => {
+      console.log('📡 [REALTIME-MEMO] Supabase Realtime 연결 끊김')
+    },
+    onError: (error) => {
+      console.error('📡 [REALTIME-MEMO] Supabase Realtime 오류:', error)
+    }
+  })
 
   // ⚡ 업무 조회 함수 (useCallback 최적화)
   const loadBusinessTasks = useCallback(async (businessName: string) => {
@@ -3187,11 +3231,77 @@ function BusinessManagementPage() {
     }
   ]
 
-  const businessesWithId = useMemo(() => 
+  const businessesWithId = useMemo(() =>
     filteredBusinesses.map(business => ({
       ...business,
       id: business.id
     })), [filteredBusinesses])
+
+  // 📱 무한 스크롤: 초기 로드 및 검색/필터 변경 시 초기화
+  useEffect(() => {
+    if (businessesWithId.length > 0) {
+      // 초기 20개만 표시
+      setDisplayedBusinesses(businessesWithId.slice(0, 20))
+      setCurrentIndex(20)
+      setIsLoadingMore(false)
+      console.log('📱 무한 스크롤 초기화:', {
+        전체개수: businessesWithId.length,
+        초기표시: 20,
+        다음인덱스: 20
+      })
+    } else {
+      setDisplayedBusinesses([])
+      setCurrentIndex(0)
+    }
+  }, [businessesWithId])
+
+  // 📱 무한 스크롤: Intersection Observer로 자동 로딩
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0]
+        // 화면에 보이고, 더 로드할 데이터가 있고, 현재 로딩 중이 아닐 때
+        if (target.isIntersecting && currentIndex < businessesWithId.length && !isLoadingMore) {
+          console.log('📱 무한 스크롤 트리거:', {
+            현재인덱스: currentIndex,
+            전체개수: businessesWithId.length,
+            남은개수: businessesWithId.length - currentIndex
+          })
+
+          setIsLoadingMore(true)
+
+          // 다음 배치 로드 (약간의 딜레이로 자연스러운 로딩 효과)
+          setTimeout(() => {
+            const nextBatch = businessesWithId.slice(currentIndex, currentIndex + LOAD_MORE_COUNT)
+            setDisplayedBusinesses(prev => [...prev, ...nextBatch])
+            setCurrentIndex(prev => prev + LOAD_MORE_COUNT)
+            setIsLoadingMore(false)
+
+            console.log('📱 무한 스크롤 로드 완료:', {
+              로드된개수: nextBatch.length,
+              총표시개수: currentIndex + nextBatch.length,
+              다음인덱스: currentIndex + LOAD_MORE_COUNT
+            })
+          }, 300) // 300ms 딜레이로 자연스러운 로딩
+        }
+      },
+      {
+        threshold: 0.1, // 10%만 보여도 트리거
+        rootMargin: '100px' // 100px 전에 미리 로드 시작
+      }
+    )
+
+    const currentRef = loadMoreRef.current
+    if (currentRef) {
+      observer.observe(currentRef)
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef)
+      }
+    }
+  }, [currentIndex, businessesWithId, isLoadingMore])
 
   const actions = [
     {
@@ -3231,9 +3341,9 @@ function BusinessManagementPage() {
         </>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-3 md:space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-4 gap-1 sm:gap-2 md:gap-3 lg:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
           <StatsCard
             title="올해 진행 사업장"
             value={stats.thisYear.toString()}
@@ -3265,17 +3375,17 @@ function BusinessManagementPage() {
         </div>
 
         {/* Business List Panel - Single Column Layout */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 max-w-full overflow-hidden">
-          <div className="p-3 sm:p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+        <div className="bg-white rounded-md md:rounded-xl shadow-sm border border-gray-200 max-w-full overflow-hidden">
+          <div className="p-2 md:p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-3 md:mb-4">
+              <h2 className="text-sm md:text-base lg:text-lg font-semibold text-gray-900 flex items-center gap-1 md:gap-2">
+                <Building2 className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
                 사업장 목록
               </h2>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] sm:text-xs md:text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                  {searchQuery ? (
-                    `검색결과 ${filteredBusinesses.length}개 (전체 ${allBusinesses.length}개 중)`
+                  {(searchQuery || filterOffice || filterRegion || filterCategory || filterProjectYear) ? (
+                    `필터링 결과 ${filteredBusinesses.length}개 (전체 ${allBusinesses.length}개 중)`
                   ) : (
                     `전체 ${allBusinesses.length}개 사업장`
                   )}
@@ -3294,17 +3404,17 @@ function BusinessManagementPage() {
             </div>
             
             {/* 실시간 검색창 */}
-            <div className="space-y-3">
+            <div className="space-y-2 md:space-y-3">
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-2 md:pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
                 </div>
                 <input
                   type="text"
                   placeholder="콤마로 구분하여 다중 검색: 청주, 보조금, 에코센스 (사업장명, 주소, 담당자, 제조사, 진행상태 등)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full pl-8 sm:pl-10 pr-3 py-1.5 sm:py-2 text-[10px] sm:text-sm border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="block w-full pl-7 md:pl-10 pr-8 md:pr-10 py-1.5 md:py-2 text-xs md:text-sm border border-gray-300 rounded-md md:rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {searchQuery && (
                   <button
@@ -3318,12 +3428,12 @@ function BusinessManagementPage() {
 
               {/* 검색 태그 표시 */}
               {searchTerms.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="text-[10px] sm:text-xs md:text-sm text-gray-600 font-medium">활성 필터:</span>
+                <div className="flex flex-wrap gap-1.5 md:gap-2 mt-2">
+                  <span className="text-xs md:text-sm text-gray-600 font-medium">활성 필터:</span>
                   {searchTerms.map((term, index) => (
                     <span
                       key={index}
-                      className="inline-flex items-center px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs md:text-sm font-medium text-blue-700 bg-blue-100 border border-blue-200"
+                      className="inline-flex items-center px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-medium text-blue-700 bg-blue-100 border border-blue-200"
                     >
                       {term}
                       <button
@@ -3344,69 +3454,108 @@ function BusinessManagementPage() {
               )}
 
               {/* 필터 드롭다운 */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mt-3 pt-3 border-t border-gray-200">
-                <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">영업점</label>
-                  <select
-                    value={filterOffice}
-                    onChange={(e) => setFilterOffice(e.target.value)}
-                    className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">전체</option>
-                    {filterOptions.offices.map(office => (
-                      <option key={office} value={office}>{office}</option>
-                    ))}
-                  </select>
+              <div className="space-y-2 md:space-y-3 mt-2 md:mt-3 pt-2 md:pt-3 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs md:text-sm font-medium text-gray-700">필터</span>
+                  {(filterOffice || filterRegion || filterCategory || filterProjectYear) && (
+                    <button
+                      onClick={() => {
+                        setFilterOffice('')
+                        setFilterRegion('')
+                        setFilterCategory('')
+                        setFilterProjectYear('')
+                      }}
+                      className="text-xs md:text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      필터 초기화
+                    </button>
+                  )}
                 </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
+                      영업점
+                      {filterOffice && <span className="ml-1 text-blue-600">●</span>}
+                    </label>
+                    <select
+                      value={filterOffice}
+                      onChange={(e) => setFilterOffice(e.target.value)}
+                      className={`w-full px-2 py-1.5 text-xs md:text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        filterOffice ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="">전체</option>
+                      {filterOptions.offices.map(office => (
+                        <option key={office} value={office}>{office}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">지역</label>
-                  <select
-                    value={filterRegion}
-                    onChange={(e) => setFilterRegion(e.target.value)}
-                    className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">전체</option>
-                    {filterOptions.regions.map(region => (
-                      <option key={region} value={region}>{region}</option>
-                    ))}
-                  </select>
-                </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
+                      지역
+                      {filterRegion && <span className="ml-1 text-blue-600">●</span>}
+                    </label>
+                    <select
+                      value={filterRegion}
+                      onChange={(e) => setFilterRegion(e.target.value)}
+                      className={`w-full px-2 py-1.5 text-xs md:text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        filterRegion ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="">전체</option>
+                      {filterOptions.regions.map(region => (
+                        <option key={region} value={region}>{region}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">진행구분</label>
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">전체</option>
-                    {filterOptions.categories.map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
+                      진행구분
+                      {filterCategory && <span className="ml-1 text-blue-600">●</span>}
+                    </label>
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className={`w-full px-2 py-1.5 text-xs md:text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        filterCategory ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="">전체</option>
+                      {filterOptions.categories.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">사업 진행 연도</label>
-                  <select
-                    value={filterProjectYear}
-                    onChange={(e) => setFilterProjectYear(e.target.value)}
-                    className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">전체</option>
-                    {filterOptions.years.map(year => (
-                      <option key={year} value={year}>{year}년</option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
+                      사업 진행 연도
+                      {filterProjectYear && <span className="ml-1 text-blue-600">●</span>}
+                    </label>
+                    <select
+                      value={filterProjectYear}
+                      onChange={(e) => setFilterProjectYear(e.target.value)}
+                      className={`w-full px-2 py-1.5 text-xs md:text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        filterProjectYear ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="">전체</option>
+                      {filterOptions.years.map(year => (
+                        <option key={year} value={year}>{year}년</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
             
           </div>
 
-          {/* Data Table */}
-          <div className="p-2 sm:p-6 overflow-x-auto">
+          {/* Data Table - Desktop Only */}
+          <div className="hidden md:block p-2 md:p-6 overflow-x-auto">
             <div className="min-w-[1090px]">
               <DataTable
                 data={businessesWithId}
@@ -3419,6 +3568,50 @@ function BusinessManagementPage() {
                 onPageChange={handlePageChange}
               />
             </div>
+          </div>
+
+          {/* Card List - Mobile Only */}
+          <div className="md:hidden p-2">
+            <BusinessCardList
+              businesses={displayedBusinesses}
+              onBusinessClick={openDetailModal}
+              onBusinessDelete={confirmDelete}
+              taskStatuses={businessTaskStatuses}
+              isLoading={isLoading}
+              searchQuery={searchQuery}
+              highlightSearchTerm={highlightSearchTerm}
+            />
+
+            {/* 무한 스크롤: 로딩 인디케이터 */}
+            {!isLoading && displayedBusinesses.length > 0 && currentIndex < businessesWithId.length && (
+              <div
+                ref={loadMoreRef}
+                className="flex items-center justify-center py-4 mt-4"
+              >
+                {isLoadingMore ? (
+                  <div className="flex items-center gap-2 text-blue-600">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm font-medium">로딩 중...</span>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-400">
+                    스크롤하여 더보기
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 무한 스크롤: 모두 로드됨 메시지 */}
+            {!isLoading && displayedBusinesses.length > 0 && currentIndex >= businessesWithId.length && (
+              <div className="flex flex-col items-center justify-center py-6 mt-4 border-t border-gray-200">
+                <div className="text-sm text-gray-500 font-medium mb-1">
+                  모든 사업장을 표시했습니다
+                </div>
+                <div className="text-xs text-gray-400">
+                  총 {businessesWithId.length}개의 사업장
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -3974,7 +4167,7 @@ function BusinessManagementPage() {
                       <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">견적실사</h4>
                       <div className="space-y-2 sm:space-y-3">
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">담당자</label>
+                          <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">담당자</label>
                           <input
                             type="text"
                             value={formData.estimate_survey_manager || ''}
@@ -3984,7 +4177,7 @@ function BusinessManagementPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">실사일</label>
+                          <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">실사일</label>
                           <input
                             type="date"
                             value={formData.estimate_survey_date || ''}
@@ -4000,7 +4193,7 @@ function BusinessManagementPage() {
                       <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">착공전실사</h4>
                       <div className="space-y-2 sm:space-y-3">
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">담당자</label>
+                          <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">담당자</label>
                           <input
                             type="text"
                             value={formData.pre_construction_survey_manager || ''}
@@ -4010,7 +4203,7 @@ function BusinessManagementPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">실사일</label>
+                          <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">실사일</label>
                           <input
                             type="date"
                             value={formData.pre_construction_survey_date || ''}
@@ -4026,7 +4219,7 @@ function BusinessManagementPage() {
                       <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">준공실사</h4>
                       <div className="space-y-2 sm:space-y-3">
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">담당자</label>
+                          <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">담당자</label>
                           <input
                             type="text"
                             value={formData.completion_survey_manager || ''}
@@ -4036,7 +4229,7 @@ function BusinessManagementPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">실사일</label>
+                          <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">실사일</label>
                           <input
                             type="date"
                             value={formData.completion_survey_date || ''}
@@ -4409,7 +4602,7 @@ function BusinessManagementPage() {
                           <h4 className="text-xs sm:text-sm font-semibold text-blue-900 mb-3">1차 계산서</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">계산서 발행일</label>
                               <input
                                 type="date"
                                 value={formData.invoice_1st_date || ''}
@@ -4418,7 +4611,7 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.invoice_1st_amount ? formData.invoice_1st_amount.toLocaleString() : ''}
@@ -4431,7 +4624,7 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">입금일</label>
                               <input
                                 type="date"
                                 value={formData.payment_1st_date || ''}
@@ -4440,7 +4633,7 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">입금 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.payment_1st_amount ? formData.payment_1st_amount.toLocaleString() : ''}
@@ -4473,7 +4666,7 @@ function BusinessManagementPage() {
                           <h4 className="text-xs sm:text-sm font-semibold text-green-900 mb-3">2차 계산서</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">계산서 발행일</label>
                               <input
                                 type="date"
                                 value={formData.invoice_2nd_date || ''}
@@ -4482,7 +4675,7 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.invoice_2nd_amount ? formData.invoice_2nd_amount.toLocaleString() : ''}
@@ -4495,7 +4688,7 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">입금일</label>
                               <input
                                 type="date"
                                 value={formData.payment_2nd_date || ''}
@@ -4504,7 +4697,7 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">입금 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.payment_2nd_amount ? formData.payment_2nd_amount.toLocaleString() : ''}
@@ -4538,7 +4731,7 @@ function BusinessManagementPage() {
                             <h4 className="text-xs sm:text-sm font-semibold text-amber-900 mb-3">추가공사비 계산서</h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div>
-                                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 발행일</label>
+                                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">계산서 발행일</label>
                                 <input
                                   type="date"
                                   value={formData.invoice_additional_date || ''}
@@ -4547,7 +4740,7 @@ function BusinessManagementPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                                 <input
                                   type="text"
                                   value={Math.round(formData.additional_cost * 1.1).toLocaleString()}
@@ -4557,7 +4750,7 @@ function BusinessManagementPage() {
                                 <p className="text-[9px] text-gray-500 mt-1">※ 추가공사비 + 부가세 10% (공급가액: {formData.additional_cost.toLocaleString()}원)</p>
                               </div>
                               <div>
-                                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
+                                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">입금일</label>
                                 <input
                                   type="date"
                                   value={formData.payment_additional_date || ''}
@@ -4566,7 +4759,7 @@ function BusinessManagementPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">입금 금액 (원)</label>
                                 <input
                                   type="text"
                                   value={formData.payment_additional_amount ? formData.payment_additional_amount.toLocaleString() : ''}
@@ -4659,7 +4852,7 @@ function BusinessManagementPage() {
                           <h4 className="text-xs sm:text-sm font-semibold text-purple-900 mb-3">선금 계산서</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">계산서 발행일</label>
                               <input
                                 type="date"
                                 value={formData.invoice_advance_date || ''}
@@ -4668,7 +4861,7 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.invoice_advance_amount ? formData.invoice_advance_amount.toLocaleString() : ''}
@@ -4682,7 +4875,7 @@ function BusinessManagementPage() {
                               <p className="text-[9px] text-gray-500 mt-1">※ 기본 50%, 사업장에 따라 100%도 가능</p>
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">입금일</label>
                               <input
                                 type="date"
                                 value={formData.payment_advance_date || ''}
@@ -4691,7 +4884,7 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">입금 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.payment_advance_amount ? formData.payment_advance_amount.toLocaleString() : ''}
@@ -4724,7 +4917,7 @@ function BusinessManagementPage() {
                           <h4 className="text-xs sm:text-sm font-semibold text-cyan-900 mb-3">잔금 계산서</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">계산서 발행일</label>
                               <input
                                 type="date"
                                 value={formData.invoice_balance_date || ''}
@@ -4733,7 +4926,7 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.invoice_balance_amount ? formData.invoice_balance_amount.toLocaleString() : ''}
@@ -4747,7 +4940,7 @@ function BusinessManagementPage() {
                               <p className="text-[9px] text-gray-500 mt-1">※ 선금 100% 경우 0원 가능</p>
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금일</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">입금일</label>
                               <input
                                 type="date"
                                 value={formData.payment_balance_date || ''}
@@ -4756,7 +4949,7 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">입금 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.payment_balance_amount ? formData.payment_balance_amount.toLocaleString() : ''}
