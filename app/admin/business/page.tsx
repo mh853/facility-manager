@@ -942,31 +942,45 @@ function BusinessManagementPage() {
     eventTypes: ['INSERT', 'UPDATE', 'DELETE'],
     autoConnect: true,
     onNotification: useCallback((payload) => {
-      console.log('📡 [REALTIME-MEMO] 메모 변경 감지:', payload)
+      console.log('📡 [REALTIME-MEMO] 이벤트 수신:', {
+        eventType: payload.eventType,
+        table: payload.table,
+        newBusinessId: payload.new?.business_id,
+        oldBusinessId: payload.old?.business_id,
+        selectedBusinessId: selectedBusiness?.id,
+        timestamp: new Date().toISOString()
+      })
 
-      // 현재 선택된 사업장이 있고, 변경된 메모가 해당 사업장의 것인지 확인
-      if (selectedBusiness && payload.new?.business_id) {
-        // INSERT 또는 UPDATE 이벤트이고, 현재 선택된 사업장의 메모인 경우
-        if (payload.new.business_id === selectedBusiness.id) {
-          console.log('📡 [REALTIME-MEMO] 현재 사업장의 메모 변경 감지 → 자동 새로고침')
-          loadBusinessMemos(selectedBusiness.id)
-        }
-      } else if (selectedBusiness && payload.old?.business_id) {
-        // DELETE 이벤트인 경우 payload.old에서 business_id 확인
-        if (payload.old.business_id === selectedBusiness.id) {
-          console.log('📡 [REALTIME-MEMO] 현재 사업장의 메모 삭제 감지 → 자동 새로고침')
-          loadBusinessMemos(selectedBusiness.id)
-        }
+      // 현재 사업장이 선택되지 않은 경우 무시
+      if (!selectedBusiness?.id) {
+        console.log('📡 [REALTIME-MEMO] 선택된 사업장 없음 - 이벤트 무시')
+        return
+      }
+
+      // 이벤트와 관련된 business_id 추출
+      const eventBusinessId = payload.new?.business_id || payload.old?.business_id
+
+      if (!eventBusinessId) {
+        console.warn('📡 [REALTIME-MEMO] business_id 없음 - 이벤트 무시')
+        return
+      }
+
+      // 현재 선택된 사업장의 메모인 경우에만 처리
+      if (eventBusinessId === selectedBusiness.id) {
+        console.log(`✅ [REALTIME-MEMO] ${payload.eventType} 이벤트 처리 - 메모 목록 새로고침`)
+        loadBusinessMemos(selectedBusiness.id)
+      } else {
+        console.log('📡 [REALTIME-MEMO] 다른 사업장의 메모 - 이벤트 무시')
       }
     }, [selectedBusiness, loadBusinessMemos]),
     onConnect: () => {
-      console.log('📡 [REALTIME-MEMO] Supabase Realtime 연결됨')
+      console.log('✅ [REALTIME-MEMO] Supabase Realtime 연결 성공')
     },
     onDisconnect: () => {
-      console.log('📡 [REALTIME-MEMO] Supabase Realtime 연결 끊김')
+      console.warn('⚠️ [REALTIME-MEMO] Supabase Realtime 연결 끊김')
     },
     onError: (error) => {
-      console.error('📡 [REALTIME-MEMO] Supabase Realtime 오류:', error)
+      console.error('❌ [REALTIME-MEMO] Supabase Realtime 오류:', error)
     }
   })
 
@@ -1133,42 +1147,62 @@ function BusinessManagementPage() {
       return
     }
 
+    // 삭제 중 상태 표시를 위한 임시 메모 업데이트
+    setBusinessMemos(prev =>
+      prev.map(m => m.id === memo.id ? { ...m, _deleting: true } : m)
+    )
+
     try {
-      console.log('🔧 [FRONTEND] 메모 삭제 요청 시작:', memo.id)
+      console.log('🗑️ [MEMO-DELETE] 삭제 요청 시작:', {
+        memoId: memo.id,
+        businessId: selectedBusiness?.id
+      })
 
       const response = await fetch(`/api/business-memos?id=${memo.id}`, {
         method: 'DELETE'
       })
 
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
       const result = await response.json()
-      console.log('🔧 [FRONTEND] 메모 삭제 API 응답:', result)
+      console.log('🗑️ [MEMO-DELETE] API 응답:', result)
 
       if (result.success) {
-        console.log('🔧 [FRONTEND] 메모 삭제 성공')
-        console.log('🔧 [FRONTEND] 현재 businessMemos 개수:', businessMemos.length)
-        console.log('🔧 [FRONTEND] 삭제할 메모 ID:', memo.id)
-
-        // 즉시 UI에서 메모 제거 (낙관적 업데이트)
-        setBusinessMemos(prev => {
-          console.log('🔧 [FRONTEND] setBusinessMemos 콜백 실행 - 이전 개수:', prev.length)
-          const newMemos = prev.filter(m => m.id !== memo.id)
-          console.log('🔧 [FRONTEND] setBusinessMemos 콜백 - 새 개수:', newMemos.length)
-          console.log('🔧 [FRONTEND] 필터링된 메모들:', newMemos.map(m => m.id))
-          return newMemos
-        })
-
-        console.log('🔧 [FRONTEND] UI 상태 업데이트 완료 - 메모 삭제됨')
-
-        // 백그라운드에서 서버 데이터와 동기화
-        if (selectedBusiness?.id) {
-          loadBusinessMemos(selectedBusiness.id).catch(console.error)
-        }
+        console.log('✅ [MEMO-DELETE] 삭제 성공 - Realtime 이벤트 대기 중...')
+        // Realtime 이벤트가 자동으로 UI를 업데이트하므로 여기서는 아무것도 하지 않음
+        // 만약 3초 내에 Realtime 이벤트가 오지 않으면 수동 동기화
+        setTimeout(() => {
+          setBusinessMemos(prev => {
+            const stillExists = prev.some(m => m.id === memo.id)
+            if (stillExists) {
+              console.warn('⚠️ [MEMO-DELETE] Realtime 이벤트 미수신 - 수동 동기화')
+              if (selectedBusiness?.id) {
+                loadBusinessMemos(selectedBusiness.id)
+              }
+            }
+            return prev
+          })
+        }, 3000)
       } else {
-        alert(`메모 삭제 실패: ${result.error}`)
+        throw new Error(result.error || '삭제 실패')
       }
     } catch (error) {
-      console.error('❌ 메모 삭제 오류:', error)
-      alert('메모 삭제 중 오류가 발생했습니다.')
+      console.error('❌ [MEMO-DELETE] 삭제 오류:', error)
+
+      // 에러 발생 시 삭제 중 상태 복원
+      setBusinessMemos(prev =>
+        prev.map(m => m.id === memo.id ? { ...m, _deleting: undefined } : m)
+      )
+
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류'
+      alert(`메모 삭제 실패: ${errorMessage}`)
+
+      // 서버 상태와 동기화
+      if (selectedBusiness?.id) {
+        loadBusinessMemos(selectedBusiness.id)
+      }
     }
   }
 
