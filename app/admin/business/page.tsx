@@ -17,6 +17,7 @@ import { getManufacturerName } from '@/constants/manufacturers'
 import AutocompleteInput from '@/components/ui/AutocompleteInput'
 import DateInput from '@/components/ui/DateInput'
 import { formatMobilePhone, formatLandlinePhone } from '@/utils/phone-formatter'
+import { useToast } from '@/contexts/ToastContext'
 // ⚡ 커스텀 훅 임포트 (Phase 2.1 성능 최적화)
 import { useBusinessData } from './hooks/useBusinessData'
 import { useFacilityStats } from './hooks/useFacilityStats'
@@ -330,6 +331,7 @@ function BusinessManagementPage() {
   const { canDeleteAutoMemos } = usePermission()
   const { user } = useAuth()
   const userPermission = user?.permission_level || 0
+  const toast = useToast()
 
   // URL 파라미터 처리
   const searchParams = useSearchParams()
@@ -1139,7 +1141,7 @@ function BusinessManagementPage() {
 
   const handleDeleteMemo = async (memo: BusinessMemo) => {
     if (!memo.id) {
-      alert('메모 ID가 없어 삭제할 수 없습니다.')
+      toast.error('메모 삭제 불가', '메모 ID가 없어 삭제할 수 없습니다.')
       return
     }
 
@@ -1171,6 +1173,8 @@ function BusinessManagementPage() {
 
       if (result.success) {
         console.log('✅ [MEMO-DELETE] 삭제 성공 - Realtime 이벤트 대기 중...')
+        // 삭제 성공 토스트 메시지 표시
+        toast.success('메모 삭제 완료', '메모가 성공적으로 삭제되었습니다.')
         // Realtime 이벤트가 자동으로 UI를 업데이트하므로 여기서는 아무것도 하지 않음
         // 만약 3초 내에 Realtime 이벤트가 오지 않으면 수동 동기화
         setTimeout(() => {
@@ -1197,7 +1201,7 @@ function BusinessManagementPage() {
       )
 
       const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류'
-      alert(`메모 삭제 실패: ${errorMessage}`)
+      toast.error('메모 삭제 실패', errorMessage)
 
       // 서버 상태와 동기화
       if (selectedBusiness?.id) {

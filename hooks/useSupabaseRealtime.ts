@@ -52,6 +52,21 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
   const isComponentMountedRef = useRef(true);
+  const isSubscribingRef = useRef(false); // 중복 구독 방지 플래그
+
+  // 콜백 함수들을 ref로 저장하여 의존성 문제 해결
+  const onNotificationRef = useRef(onNotification);
+  const onConnectRef = useRef(onConnect);
+  const onDisconnectRef = useRef(onDisconnect);
+  const onErrorRef = useRef(onError);
+
+  // 콜백이 변경되면 ref 업데이트
+  useEffect(() => {
+    onNotificationRef.current = onNotification;
+    onConnectRef.current = onConnect;
+    onDisconnectRef.current = onDisconnect;
+    onErrorRef.current = onError;
+  }, [onNotification, onConnect, onDisconnect, onError]);
 
   // 연결 상태 업데이트 함수
   const updateState = useCallback((updates: Partial<RealtimeState>) => {
@@ -63,6 +78,14 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
   const subscribe = useCallback(async () => {
     if (!isComponentMountedRef.current) return;
 
+    // 이미 구독 중이면 중복 실행 방지
+    if (isSubscribingRef.current) {
+      console.log('⚠️ [REALTIME] 이미 구독 진행 중 - 중복 구독 방지');
+      return;
+    }
+
+    isSubscribingRef.current = true;
+
     try {
       updateState({ isConnecting: true, connectionError: null });
 
@@ -73,22 +96,13 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
       }
 
       // 새 채널 생성 - 고유한 채널명으로 충돌 방지
+      // postgres_changes만 사용하므로 최소한의 설정으로 단순화
       const channelName = `realtime:${tableName}:${Date.now()}`;
-      const channel = supabase.channel(channelName, {
-        config: {
-          presence: {
-            key: 'user_id'
-          },
-          broadcast: {
-            ack: true,
-            self: false
-          }
-        }
-      });
+      const channel = supabase.channel(channelName);
 
       // 데이터베이스 변경 사항 구독
       eventTypes.forEach(eventType => {
-        (channel as any).on(
+        channel.on(
           'postgres_changes',
           {
             event: eventType,
@@ -110,22 +124,9 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
               subscriptionCount: state.subscriptionCount + 1
             });
 
-            onNotification?.(payload);
+            onNotificationRef.current?.(payload);
           }
         );
-      });
-
-      // 브로드캐스트 메시지 구독 (실시간 알림용)
-      channel.on('broadcast', { event: 'notification' }, (payload) => {
-        if (!isComponentMountedRef.current) return;
-
-        console.log('📡 [REALTIME] 브로드캐스트 알림 수신:', payload);
-        updateState({
-          lastEvent: new Date(),
-          subscriptionCount: state.subscriptionCount + 1
-        });
-
-        onNotification?.(payload as any);
       });
 
       // 채널 구독 및 상태 관리
@@ -137,23 +138,25 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
         switch (status) {
           case 'SUBSCRIBED':
             reconnectAttemptsRef.current = 0;
+            isSubscribingRef.current = false; // 구독 완료
             updateState({
               isConnected: true,
               isConnecting: false,
               connectionError: null
             });
-            onConnect?.();
+            onConnectRef.current?.();
             break;
 
           case 'CHANNEL_ERROR':
           case 'TIMED_OUT':
           case 'CLOSED':
+            isSubscribingRef.current = false; // 구독 실패 - 플래그 해제
             updateState({
               isConnected: false,
               isConnecting: false,
               connectionError: error?.message || `연결 오류: ${status}`
             });
-            onDisconnect?.();
+            onDisconnectRef.current?.();
 
             // 자동 재연결 시도
             if (autoConnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
@@ -170,7 +173,7 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
             } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
               const errorMessage = `최대 재연결 시도 횟수 초과 (${maxReconnectAttempts}회)`;
               updateState({ connectionError: errorMessage });
-              onError?.(new Error(errorMessage));
+              onErrorRef.current?.(new Error(errorMessage));
             }
             break;
         }
@@ -187,19 +190,23 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
 
     } catch (error) {
       console.error('❌ [REALTIME] 구독 오류:', error);
+      isSubscribingRef.current = false; // 오류 발생 - 플래그 해제
       const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
       updateState({
         isConnected: false,
         isConnecting: false,
         connectionError: errorMessage
       });
-      onError?.(error instanceof Error ? error : new Error(errorMessage));
+      onErrorRef.current?.(error instanceof Error ? error : new Error(errorMessage));
     }
-  }, [tableName, eventTypes, onNotification, onConnect, onDisconnect, onError, autoConnect, reconnectDelay, updateState]);
+  }, [tableName, eventTypes, autoConnect, reconnectDelay, updateState]);
 
   // 구독 해제
   const unsubscribe = useCallback(async () => {
     console.log('📡 [REALTIME] 구독 해제 시작');
+
+    // 구독 플래그 해제
+    isSubscribingRef.current = false;
 
     // 재연결 타이머 정리
     if (reconnectTimeoutRef.current) {
@@ -229,30 +236,10 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
   const reconnect = useCallback(() => {
     console.log('🔄 [REALTIME] 수동 재연결 시도');
     reconnectAttemptsRef.current = 0;
+    isSubscribingRef.current = false; // 플래그 초기화
     subscribe();
   }, [subscribe]);
 
-  // 브로드캐스트 메시지 전송 (다른 클라이언트에게 알림)
-  const sendBroadcast = useCallback(async (event: string, payload: any) => {
-    if (!channelRef.current || !state.isConnected) {
-      console.warn('⚠️ [REALTIME] 연결되지 않아 브로드캐스트 전송 불가');
-      return false;
-    }
-
-    try {
-      await channelRef.current.send({
-        type: 'broadcast',
-        event,
-        payload
-      });
-
-      console.log('📤 [REALTIME] 브로드캐스트 전송 성공:', { event, payload });
-      return true;
-    } catch (error) {
-      console.error('❌ [REALTIME] 브로드캐스트 전송 실패:', error);
-      return false;
-    }
-  }, [state.isConnected]);
 
   // 연결 상태 확인
   const checkConnection = useCallback(() => {
@@ -265,15 +252,20 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
 
   // 초기 연결
   useEffect(() => {
-    if (autoConnect && isComponentMountedRef.current) {
+    let mounted = true;
+    isComponentMountedRef.current = true;
+
+    if (autoConnect) {
       subscribe();
     }
 
     return () => {
+      mounted = false;
       isComponentMountedRef.current = false;
       unsubscribe();
     };
-  }, [autoConnect, subscribe, unsubscribe]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect]); // subscribe/unsubscribe 의존성 제거 - 안정적인 참조 유지
 
   // 페이지 가시성 변경 시 자동 재연결
   useEffect(() => {
@@ -286,7 +278,8 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [autoConnect, state.isConnected, reconnect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect, state.isConnected]); // reconnect 의존성 제거
 
   // 온라인/오프라인 상태 감지
   useEffect(() => {
@@ -309,7 +302,8 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [autoConnect, state.isConnected, reconnect, updateState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect, state.isConnected]); // reconnect, updateState 의존성 제거
 
   return {
     // 상태
@@ -323,7 +317,6 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
     subscribe,
     unsubscribe,
     reconnect,
-    sendBroadcast,
     checkConnection,
 
     // 채널 참조 (고급 사용)
