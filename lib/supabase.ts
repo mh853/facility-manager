@@ -1,10 +1,10 @@
 // lib/supabase.ts - Supabase 클라이언트 설정
 import { createClient } from '@supabase/supabase-js';
 
-// 환경변수 가져오기
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+// 환경변수 가져오기 (trim()으로 공백/개행 제거)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || '';
 
 // 클라이언트용 (브라우저) - Realtime 활성화
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
