@@ -1195,10 +1195,14 @@ function BusinessManagementPage() {
       console.log('🗑️ [MEMO-DELETE] API 응답:', result)
 
       if (result.success) {
-        console.log('✅ [MEMO-DELETE] 삭제 성공 - Realtime 이벤트가 자동으로 UI 업데이트')
+        console.log('✅ [MEMO-DELETE] 삭제 성공 - UI에서 즉시 제거 (낙관적 업데이트)')
+
+        // 낙관적 업데이트: 즉시 UI에서 제거 (INSERT와 동일한 패턴)
+        setBusinessMemos(prev => prev.filter(m => m.id !== memo.id))
+
         // 삭제 성공 토스트 메시지 표시
         toast.success('메모 삭제 완료', '메모가 성공적으로 삭제되었습니다.')
-        // Realtime DELETE 이벤트가 자동으로 UI를 업데이트함 (개별 상태 업데이트)
+        // Realtime DELETE 이벤트는 다른 디바이스 동기화용 (중복 제거는 filter로 자동 처리)
       } else {
         throw new Error(result.error || '삭제 실패')
       }
