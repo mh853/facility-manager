@@ -24,12 +24,16 @@ interface CalendarEvent {
   description: string | null;
   event_date: string;
   end_date?: string | null;
+  start_time?: string | null; // 시작 시간 (HH:MM 형식, nullable)
+  end_time?: string | null; // 종료 시간 (HH:MM 형식, nullable)
   event_type: 'todo' | 'schedule';
   is_completed: boolean;
   author_id: string;
   author_name: string;
   attached_files?: AttachedFile[];
   labels?: string[];
+  business_id?: string | null; // 연결된 사업장 ID (nullable)
+  business_name?: string | null; // 사업장명 (검색 최적화용)
   created_at: string;
   updated_at: string;
 }
@@ -215,6 +219,25 @@ export default function FilteredEventsListModal({
                           )}
                         </span>
                       </div>
+
+                      {/* 시간 및 사업장 정보 */}
+                      {(event.start_time || event.business_name) && (
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 mb-2">
+                          {event.start_time && (
+                            <span className="flex items-center gap-1 font-medium">
+                              🕐 {event.start_time.substring(0, 5)}
+                              {event.end_time && ` ~ ${event.end_time.substring(0, 5)}`}
+                            </span>
+                          )}
+                          {event.business_name && (
+                            <span className={`flex items-center gap-1 ${
+                              event.event_type === 'todo' ? 'text-blue-600' : 'text-purple-600'
+                            }`}>
+                              🏢 {event.business_name}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* 설명 */}
                       {event.description && (
