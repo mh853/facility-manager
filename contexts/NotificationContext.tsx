@@ -920,28 +920,66 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   // 알림 소리 재생
   const playNotificationSound = useCallback((priority: NotificationPriority) => {
     try {
-      const audio = new Audio();
+      // Web Audio API를 사용하여 프로그래밍 방식으로 알림 소리 생성
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
-      // 우선순위별 다른 소리
+      // 우선순위별 다른 주파수와 패턴
+      let frequencies: number[];
+      let duration: number;
+
       switch (priority) {
         case 'critical':
-          audio.src = '/sounds/critical-notification.mp3';
+          // 긴급: 높은 음 3번 연속 (1000Hz, 1200Hz, 1000Hz)
+          frequencies = [1000, 1200, 1000];
+          duration = 0.15;
           break;
         case 'high':
-          audio.src = '/sounds/high-notification.mp3';
+          // 높음: 높은 음 2번 (800Hz, 1000Hz)
+          frequencies = [800, 1000];
+          duration = 0.15;
           break;
         case 'medium':
-          audio.src = '/sounds/medium-notification.mp3';
+          // 보통: 중간 음 1번 (600Hz)
+          frequencies = [600];
+          duration = 0.2;
           break;
         case 'low':
-          audio.src = '/sounds/low-notification.mp3';
+          // 낮음: 낮은 음 1번 (400Hz)
+          frequencies = [400];
+          duration = 0.2;
           break;
         default:
-          audio.src = '/sounds/default-notification.mp3';
+          frequencies = [500];
+          duration = 0.2;
       }
 
-      audio.volume = 0.3; // 적당한 볼륨
-      audio.play().catch(err => logger.error('NOTIFICATIONS', '알림 소리 재생 실패', err));
+      const volume = 0.3; // 적당한 볼륨
+      let currentTime = audioContext.currentTime;
+
+      // 각 주파수 음을 순차적으로 재생
+      frequencies.forEach((frequency) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.value = frequency;
+        oscillator.type = 'sine'; // 부드러운 사인파
+
+        // 볼륨 페이드 인/아웃 (클릭 소리 방지)
+        gainNode.gain.setValueAtTime(0, currentTime);
+        gainNode.gain.linearRampToValueAtTime(volume, currentTime + 0.01);
+        gainNode.gain.linearRampToValueAtTime(volume, currentTime + duration - 0.01);
+        gainNode.gain.linearRampToValueAtTime(0, currentTime + duration);
+
+        oscillator.start(currentTime);
+        oscillator.stop(currentTime + duration);
+
+        currentTime += duration + 0.05; // 각 음 사이에 50ms 간격
+      });
+
+      logger.debug('NOTIFICATIONS', '알림 소리 재생 시작', { priority, frequencies });
     } catch (error) {
       logger.error('NOTIFICATIONS', '알림 소리 재생 오류', error);
     }
