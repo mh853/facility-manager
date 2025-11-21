@@ -57,6 +57,12 @@ export default function BusinessAutocomplete({
 
   // 입력값 변경 시 필터링
   useEffect(() => {
+    // 사업장이 이미 선택된 상태면 자동완성 표시하지 않음
+    if (businessId) {
+      setShowSuggestions(false);
+      return;
+    }
+
     if (inputValue.trim()) {
       const filtered = businesses.filter(business =>
         business.business_name.toLowerCase().includes(inputValue.toLowerCase())
@@ -67,7 +73,7 @@ export default function BusinessAutocomplete({
       setFilteredBusinesses([]);
       setShowSuggestions(false);
     }
-  }, [inputValue, businesses]);
+  }, [inputValue, businesses, businessId]);
 
   // 외부 클릭 감지
   useEffect(() => {
@@ -168,7 +174,9 @@ export default function BusinessAutocomplete({
           value={inputValue}
           onChange={handleInputChange}
           onFocus={() => {
-            if (inputValue.trim() && filteredBusinesses.length > 0) {
+            // Only show suggestions on focus if no business is currently selected
+            // This prevents autocomplete from showing when editing an existing event
+            if (!businessId && inputValue.trim() && filteredBusinesses.length > 0) {
               setShowSuggestions(true);
             }
           }}

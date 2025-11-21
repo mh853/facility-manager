@@ -24,12 +24,16 @@ interface CalendarEvent {
   description: string | null;
   event_date: string;
   end_date?: string | null; // 기간 설정용 (nullable)
+  start_time?: string | null; // 시작 시간 (HH:MM 형식, nullable)
+  end_time?: string | null; // 종료 시간 (HH:MM 형식, nullable)
   event_type: 'todo' | 'schedule';
   is_completed: boolean;
   author_id: string;
   author_name: string;
   attached_files?: AttachedFile[]; // 첨부 파일 배열
   labels?: string[]; // 라벨 배열 (예: ["착공실사", "준공실사"])
+  business_id?: string | null; // 연결된 사업장 ID (nullable)
+  business_name?: string | null; // 사업장명 (검색 최적화용)
   created_at: string;
   updated_at: string;
 }
@@ -145,6 +149,21 @@ export default function DayEventsModal({
                             <h4 className="font-medium text-gray-900 mb-1">
                               {event.title}
                             </h4>
+                            {(event.start_time || event.business_name) && (
+                              <div className="flex items-center gap-2 text-xs text-gray-600 mb-1">
+                                {event.start_time && (
+                                  <span className="font-medium">
+                                    🕐 {event.start_time.substring(0, 5)}
+                                    {event.end_time && ` ~ ${event.end_time.substring(0, 5)}`}
+                                  </span>
+                                )}
+                                {event.business_name && (
+                                  <span className="text-blue-600">
+                                    🏢 {event.business_name}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {event.description && (
                               <p className="text-sm text-gray-600 line-clamp-2">
                                 {event.description}
@@ -212,6 +231,21 @@ export default function DayEventsModal({
                             <h4 className="font-medium text-gray-900 mb-1">
                               {event.title}
                             </h4>
+                            {(event.start_time || event.business_name) && (
+                              <div className="flex items-center gap-2 text-xs text-gray-600 mb-1">
+                                {event.start_time && (
+                                  <span className="font-medium">
+                                    🕐 {event.start_time.substring(0, 5)}
+                                    {event.end_time && ` ~ ${event.end_time.substring(0, 5)}`}
+                                  </span>
+                                )}
+                                {event.business_name && (
+                                  <span className="text-purple-600">
+                                    🏢 {event.business_name}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {event.description && (
                               <p className="text-sm text-gray-600 line-clamp-2">
                                 {event.description}
@@ -288,6 +322,21 @@ export default function DayEventsModal({
                             <h4 className="font-medium text-gray-600 line-through mb-1">
                               {event.title}
                             </h4>
+                            {(event.start_time || event.business_name) && (
+                              <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                                {event.start_time && (
+                                  <span className="font-medium">
+                                    🕐 {event.start_time.substring(0, 5)}
+                                    {event.end_time && ` ~ ${event.end_time.substring(0, 5)}`}
+                                  </span>
+                                )}
+                                {event.business_name && (
+                                  <span>
+                                    🏢 {event.business_name}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {event.description && (
                               <p className="text-sm text-gray-500 line-clamp-2">
                                 {event.description}

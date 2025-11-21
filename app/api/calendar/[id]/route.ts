@@ -60,7 +60,7 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
 
-    const { title, description, event_date, end_date, event_type, is_completed, attached_files, labels, business_id, business_name } = body;
+    const { title, description, event_date, end_date, start_time, end_time, event_type, is_completed, attached_files, labels, business_id, business_name } = body;
 
     // 종료일 유효성 검증 (event_date와 end_date가 모두 있는 경우)
     const finalEventDate = event_date !== undefined ? event_date : null;
@@ -79,6 +79,8 @@ export async function PUT(
     if (description !== undefined) updateData.description = description;
     if (event_date !== undefined) updateData.event_date = event_date;
     if (end_date !== undefined) updateData.end_date = end_date;
+    if (start_time !== undefined) updateData.start_time = start_time;
+    if (end_time !== undefined) updateData.end_time = end_time;
     if (event_type !== undefined) {
       // 이벤트 타입 검증
       if (event_type !== 'todo' && event_type !== 'schedule') {

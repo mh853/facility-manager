@@ -29,12 +29,16 @@ interface CalendarEvent {
   description: string | null;
   event_date: string;
   end_date?: string | null; // 기간 설정용 (nullable)
+  start_time?: string | null; // 시작 시간 (HH:MM 형식, nullable)
+  end_time?: string | null; // 종료 시간 (HH:MM 형식, nullable)
   event_type: 'todo' | 'schedule';
   is_completed: boolean;
   author_id: string;
   author_name: string;
   attached_files?: AttachedFile[]; // 첨부 파일 배열
   labels?: string[]; // 라벨 배열 (예: ["착공실사", "준공실사"])
+  business_id?: string | null; // 연결된 사업장 ID (nullable)
+  business_name?: string | null; // 사업장명 (검색 최적화용)
   created_at: string;
   updated_at: string;
 }
@@ -751,7 +755,17 @@ export default function CalendarBoard() {
                               )}
                             </span>
                           )}
-                          <span className="truncate flex-1">
+                          <span className="truncate flex-1" title={event.business_name ? `${event.business_name}` : undefined}>
+                            {event.start_time && (
+                              <span className="text-[10px] font-medium text-gray-700 mr-1">
+                                {event.start_time.substring(0, 5)}
+                              </span>
+                            )}
+                            {event.business_name && (
+                              <span className="text-[10px] mr-0.5" title={event.business_name}>
+                                🏢
+                              </span>
+                            )}
                             {event.title}
                             {isPeriod && position === 'start' && (
                               <span className="ml-1 text-[10px] text-orange-600 font-semibold">

@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseAdmin();
     const body = await request.json();
 
-    const { title, description, event_date, end_date, event_type, is_completed, author_id, author_name, attached_files, labels, business_id, business_name } = body;
+    const { title, description, event_date, end_date, start_time, end_time, event_type, is_completed, author_id, author_name, attached_files, labels, business_id, business_name } = body;
 
     // 필수 필드 검증
     if (!title || !event_date || !event_type || !author_id || !author_name) {
@@ -128,6 +128,8 @@ export async function POST(request: NextRequest) {
         description: description || null,
         event_date,
         end_date: end_date || null,
+        start_time: start_time || null,
+        end_time: end_time || null,
         event_type,
         is_completed: event_type === 'todo' ? (is_completed || false) : false,
         author_id,

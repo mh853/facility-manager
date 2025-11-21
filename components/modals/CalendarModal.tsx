@@ -26,6 +26,8 @@ interface CalendarEvent {
   description: string | null;
   event_date: string;
   end_date?: string | null; // 기간 설정용 (nullable)
+  start_time?: string | null; // 시작 시간 (HH:MM 형식, nullable)
+  end_time?: string | null; // 종료 시간 (HH:MM 형식, nullable)
   event_type: 'todo' | 'schedule';
   is_completed: boolean;
   author_id: string;
@@ -74,6 +76,8 @@ export default function CalendarModal({
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [eventType, setEventType] = useState<'todo' | 'schedule'>('schedule');
   const [isCompleted, setIsCompleted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -112,6 +116,8 @@ export default function CalendarModal({
         setDescription(event.description || '');
         setEventDate(event.event_date);
         setEndDate(event.end_date || '');
+        setStartTime(event.start_time || '');
+        setEndTime(event.end_time || '');
         setEventType(event.event_type);
         setIsCompleted(event.is_completed);
         setAttachedFiles(event.attached_files || []);
@@ -123,6 +129,8 @@ export default function CalendarModal({
         setDescription('');
         setEventDate(initialDate || formatLocalDate(new Date()));
         setEndDate('');
+        setStartTime('');
+        setEndTime('');
         setEventType('schedule');
         setIsCompleted(false);
         setAttachedFiles([]);
@@ -485,6 +493,8 @@ export default function CalendarModal({
             description: description || null,
             event_date: eventDate,
             end_date: endDate || null,
+            start_time: startTime || null,
+            end_time: endTime || null,
             event_type: eventType,
             is_completed: eventType === 'todo' ? isCompleted : false,
             author_id: authorId,
@@ -512,6 +522,8 @@ export default function CalendarModal({
             description: description || null,
             event_date: eventDate,
             end_date: endDate || null,
+            start_time: startTime || null,
+            end_time: endTime || null,
             event_type: eventType,
             is_completed: eventType === 'todo' ? isCompleted : false,
             attached_files: attachedFiles,
@@ -635,9 +647,11 @@ export default function CalendarModal({
                     <CalendarIcon className="w-4 h-4 text-purple-600" />
                     <span className="font-medium text-gray-700">
                       {new Date(event.event_date).toLocaleDateString('ko-KR')}
+                      {event.start_time && <> {event.start_time}</>}
                       {event.end_date && event.end_date !== event.event_date && (
                         <> ~ {new Date(event.end_date).toLocaleDateString('ko-KR')}</>
                       )}
+                      {event.end_time && <> {event.end_time}</>}
                     </span>
                   </span>
                   <span className={`px-3 py-1.5 rounded-lg font-medium ${
@@ -965,6 +979,35 @@ export default function CalendarModal({
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       min={eventDate}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                {/* 시간 설정 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      시작 시간 <span className="text-xs text-gray-500 font-normal">(선택)</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      종료 시간 <span className="text-xs text-gray-500 font-normal">(선택)</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
                       disabled={loading}
                     />
