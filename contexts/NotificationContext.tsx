@@ -205,6 +205,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
 
       if (eventType === 'INSERT' && newRecord) {
+        console.log('📥 [REALTIME-NOTIFICATION] INSERT: 새 알림 추가')
+
         // task_notifications 구조에 맞게 새 알림 추가
         const newNotification: Notification = {
           id: newRecord.id,
@@ -224,7 +226,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           isRead: newRecord.is_read
         };
 
-        setNotifications(prev => [newNotification, ...prev.slice(0, 49)]); // 최대 50개 유지
+        // 중복 방지: 이미 존재하는 알림인지 확인
+        setNotifications(prev => {
+          const exists = prev.some(n => n.id === newRecord.id);
+          if (exists) {
+            console.log('📡 [REALTIME-NOTIFICATION] INSERT: 중복 알림 감지 - 기존 알림 업데이트')
+            return prev.map(n => n.id === newRecord.id ? newNotification : n);
+          }
+          console.log('📡 [REALTIME-NOTIFICATION] INSERT: 새 알림 추가 완료')
+          return [newNotification, ...prev.slice(0, 49)]; // 최대 50개 유지
+        });
 
         // 브라우저 알림 표시
         if (settings?.pushNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
@@ -243,13 +254,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         }
 
       } else if (eventType === 'UPDATE' && newRecord) {
-        // 알림 상태 업데이트 (읽음 처리 등)
+        // is_deleted가 true로 변경된 경우 삭제 처리 (소프트 삭제)
+        if (newRecord.is_deleted === true) {
+          console.log('📡 [REALTIME-NOTIFICATION] UPDATE: 소프트 삭제 감지 - UI에서 제거')
+          setNotifications(prev =>
+            prev.filter(notification => notification.id !== newRecord.id)
+          );
+        } else {
+          // 일반 알림 상태 업데이트 (읽음 처리 등)
+          console.log('📡 [REALTIME-NOTIFICATION] UPDATE: 알림 상태 업데이트')
+          setNotifications(prev =>
+            prev.map(notification =>
+              notification.id === newRecord.id
+                ? { ...notification, isRead: newRecord.is_read }
+                : notification
+            )
+          );
+        }
+      } else if (eventType === 'DELETE' && oldRecord) {
+        // 실제 DELETE 이벤트 처리
+        console.log('📡 [REALTIME-NOTIFICATION] DELETE: 알림 삭제')
         setNotifications(prev =>
-          prev.map(notification =>
-            notification.id === newRecord.id
-              ? { ...notification, isRead: newRecord.is_read }
-              : notification
-          )
+          prev.filter(notification => notification.id !== oldRecord.id)
         );
       }
     } catch (error) {
@@ -513,10 +539,29 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const markAsRead = useCallback(async (notificationId: string) => {
     if (!user) return;
 
+    console.log('🔄 [NOTIFICATIONS] markAsRead 시작 - ID:', notificationId);
+
+    // 낙관적 업데이트: 즉시 UI에서 읽음 처리
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.id === notificationId
+          ? { ...notification, isRead: true }
+          : notification
+      )
+    );
+
     try {
       const token = TokenManager.getToken();
       if (!token || !TokenManager.isTokenValid(token)) {
         console.warn('⚠️ [NOTIFICATIONS] markAsRead: 토큰이 유효하지 않음');
+        // 낙관적 업데이트 롤백
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.id === notificationId
+              ? { ...notification, isRead: false }
+              : notification
+          )
+        );
         return;
       }
 
@@ -529,19 +574,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
+        console.error('❌ [NOTIFICATIONS] markAsRead API 실패 - 롤백');
+        // 실패 시 롤백
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.id === notificationId
+              ? { ...notification, isRead: false }
+              : notification
+          )
+        );
         throw new Error('알림 읽음 처리에 실패했습니다.');
       }
 
-      // 로컬 상태 업데이트
-      setNotifications(prev =>
-        prev.map(notification =>
-          notification.id === notificationId
-            ? { ...notification, isRead: true }
-            : notification
-        )
-      );
+      console.log('✅ [NOTIFICATIONS] markAsRead 완료');
     } catch (error) {
-      console.error('알림 읽음 처리 오류:', error);
+      console.error('❌ [NOTIFICATIONS] 알림 읽음 처리 오류:', error);
     }
   }, [user]);
 
@@ -606,6 +653,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const deleteNotification = useCallback(async (notificationId: string) => {
     if (!user) return;
 
+    console.log('🗑️ [NOTIFICATIONS] deleteNotification 시작 - ID:', notificationId);
+
+    // 삭제 전 알림 백업 (롤백용)
+    let deletedNotification: Notification | undefined;
+    setNotifications(prev => {
+      deletedNotification = prev.find(n => n.id === notificationId);
+      return prev;
+    });
+
+    // 낙관적 업데이트: 즉시 UI에서 제거
+    setNotifications(prev =>
+      prev.filter(notification => notification.id !== notificationId)
+    );
+
     try {
       const response = await fetch(`/api/notifications/${notificationId}`, {
         method: 'DELETE',
@@ -615,15 +676,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
+        console.error('❌ [NOTIFICATIONS] deleteNotification API 실패 - 롤백');
+        // 실패 시 롤백: 삭제된 알림을 다시 추가
+        if (deletedNotification) {
+          setNotifications(prev => [deletedNotification!, ...prev]);
+        }
         throw new Error('알림 삭제에 실패했습니다.');
       }
 
-      // 로컬 상태 업데이트
-      setNotifications(prev =>
-        prev.filter(notification => notification.id !== notificationId)
-      );
+      console.log('✅ [NOTIFICATIONS] deleteNotification 완료');
     } catch (error) {
-      console.error('알림 삭제 오류:', error);
+      console.error('❌ [NOTIFICATIONS] 알림 삭제 오류:', error);
     }
   }, [user]);
 

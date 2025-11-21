@@ -184,19 +184,19 @@ export default function NotificationButton({ className = '' }: NotificationButto
         )}
       </button>
 
-      {/* 알림 드롭다운 - 부드러운 애니메이션 */}
+      {/* 알림 드롭다운 - 부드러운 애니메이션 + 모바일 최적화 */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[80vh] overflow-hidden animate-in slide-in-from-top-2 duration-200">
-          {/* 헤더 */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50">
+        <div className="absolute right-0 top-full mt-2 w-screen max-w-[calc(100vw-2rem)] sm:w-96 sm:max-w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[80vh] overflow-hidden animate-in slide-in-from-top-2 duration-200">
+          {/* 헤더 - 모바일 최적화 */}
+          <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 bg-gray-50">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-gray-600" />
-                <h3 className="font-semibold text-gray-900">알림</h3>
+                <h3 className="font-semibold text-sm sm:text-base text-gray-900">알림</h3>
               </div>
 
-              {/* 상태 정보 */}
-              <div className="flex items-center gap-2 text-xs text-gray-500">
+              {/* 상태 정보 - 모바일에서 숨김 */}
+              <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500">
                 {loading && (
                   <div className="flex items-center gap-1">
                     <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -222,11 +222,11 @@ export default function NotificationButton({ className = '' }: NotificationButto
               </div>
             </div>
 
-            <div className="flex items-center gap-1">
-              {/* 읽음/전체 토글 */}
+            <div className="flex items-center gap-0.5 sm:gap-1">
+              {/* 읽음/전체 토글 - 모바일에서 숨김 */}
               <button
                 onClick={handleToggleShowAllRead}
-                className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                className="hidden sm:block px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
               >
                 {showAllRead ? '읽지 않음만' : '전체 보기'}
               </button>
@@ -236,21 +236,21 @@ export default function NotificationButton({ className = '' }: NotificationButto
                 <button
                   onClick={handleMarkAllAsRead}
                   disabled={loadingStates.markAll}
-                  className="px-2 py-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded flex items-center gap-1 transition-colors disabled:opacity-50"
+                  className="px-1.5 py-1 sm:px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded flex items-center gap-1 transition-colors disabled:opacity-50"
                 >
                   {loadingStates.markAll ? (
                     <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <Check className="w-3 h-3" />
                   )}
-                  모두 읽음
+                  <span className="hidden sm:inline">모두 읽음</span>
                 </button>
               )}
 
-              {/* 설정 */}
+              {/* 설정 - 모바일에서 숨김 */}
               <button
                 onClick={handleSettingsClick}
-                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                className="hidden sm:block p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
                 title="알림 설정"
               >
                 <Settings className="w-4 h-4" />
@@ -285,7 +285,7 @@ export default function NotificationButton({ className = '' }: NotificationButto
                 {recentNotifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`relative p-4 hover:bg-gray-50 cursor-pointer transition-all duration-200 group ${
+                    className={`relative p-3 sm:p-4 hover:bg-gray-50 cursor-pointer transition-all duration-200 group ${
                       !notification.isRead ? 'bg-blue-50/30' : ''
                     } ${loadingStates[notification.id] ? 'opacity-50 pointer-events-none' : ''}`}
                     onClick={() => handleNotificationClick(notification)}
@@ -297,63 +297,66 @@ export default function NotificationButton({ className = '' }: NotificationButto
                       </div>
                     )}
 
-                    <div className="flex items-start gap-3">
-                      {/* 카테고리 아이콘 */}
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors ${
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      {/* 카테고리 아이콘 - 모바일에서 작게 */}
+                      <div className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm transition-colors ${
                         notificationHelpers.getPriorityColor(notification.priority)
                       }`}>
                         {notificationHelpers.getCategoryIcon(notification.category)}
                       </div>
 
-                      {/* 알림 내용 */}
-                      <div className="flex-1 min-w-0">
+                      {/* 알림 내용 - 텍스트 줄바꿈 최적화 */}
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h4 className={`text-sm font-medium transition-colors ${
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <h4 className={`text-xs sm:text-sm font-medium transition-colors break-words ${
                               !notification.isRead ? 'text-gray-900' : 'text-gray-700'
                             }`}>
                               {notification.title}
                             </h4>
-                            <p className="text-xs text-gray-600 mt-1 line-clamp-2 leading-relaxed">
+                            <p className="text-xs text-gray-600 mt-1 line-clamp-2 leading-relaxed break-words">
                               {notification.message}
                             </p>
 
-                            {/* 발신자 및 시간 */}
-                            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                              {notification.createdByName && (
-                                <>
-                                  <span className="font-medium">{notification.createdByName}</span>
-                                  <span>•</span>
-                                </>
-                              )}
-                              <span>{notificationHelpers.getRelativeTime(notification.createdAt)}</span>
+                            {/* 발신자 및 시간 - 모바일 최적화 */}
+                            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-2 text-xs text-gray-500">
+                              {/* 모바일: 시간만, 데스크톱: 발신자 + 시간 */}
+                              <span className="hidden sm:inline">
+                                {notification.createdByName && (
+                                  <>
+                                    <span className="font-medium">{notification.createdByName}</span>
+                                    <span className="mx-1">•</span>
+                                  </>
+                                )}
+                              </span>
+                              <span className="truncate">{notificationHelpers.getRelativeTime(notification.createdAt)}</span>
 
                               {/* 우선순위 표시 */}
                               {notification.priority === 'critical' && (
                                 <>
                                   <span>•</span>
-                                  <span className="text-red-600 font-medium">긴급</span>
+                                  <span className="text-red-600 font-medium whitespace-nowrap">긴급</span>
                                 </>
                               )}
                               {notification.priority === 'high' && (
                                 <>
                                   <span>•</span>
-                                  <span className="text-orange-600 font-medium">중요</span>
+                                  <span className="text-orange-600 font-medium whitespace-nowrap">중요</span>
                                 </>
                               )}
                             </div>
                           </div>
 
-                          {/* 액션 버튼들 */}
-                          <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {/* 외부 링크 */}
+                          {/* 액션 버튼들 - 모바일에서 항상 보이도록 */}
+                          <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            {/* 외부 링크 - 모바일에서 숨김 */}
                             {notification.relatedUrl && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleNotificationClick(notification);
                                 }}
-                                className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                                className="hidden sm:block p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-100 transition-colors"
                                 title="상세 보기"
                               >
                                 <ExternalLink className="w-3 h-3" />
@@ -370,7 +373,7 @@ export default function NotificationButton({ className = '' }: NotificationButto
                               {loadingStates[notification.id] ? (
                                 <div className="w-3 h-3 border border-red-500 border-t-transparent rounded-full animate-spin" />
                               ) : (
-                                <Trash2 className="w-3 h-3" />
+                                <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                               )}
                             </button>
                           </div>
