@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useNotification, notificationHelpers, NotificationCategory, NotificationPriority } from '@/contexts/NotificationContext';
-import { withAuth } from '@/contexts/AuthContext';
+import { withAuth, useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/ui/AdminLayout';
 import {
   Bell,
@@ -54,6 +54,7 @@ const priorityLabels: Record<NotificationPriority, string> = {
 };
 
 function NotificationsPage() {
+  const { user } = useAuth();
   const {
     notifications,
     unreadCount,
@@ -62,6 +63,9 @@ function NotificationsPage() {
     markAllAsRead,
     deleteNotification
   } = useNotification();
+
+  // 권한 레벨 4(슈퍼 관리자)만 삭제 가능
+  const canDeleteNotifications = user?.permission_level === 4;
 
   // 필터 상태
   const [searchTerm, setSearchTerm] = useState('');
@@ -468,17 +472,19 @@ function NotificationsPage() {
                             </button>
                           )}
 
-                          {/* 삭제 */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteNotification(notification.id);
-                            }}
-                            className="p-0.5 sm:p-1 text-gray-400 hover:text-red-600 rounded"
-                            title="삭제"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </button>
+                          {/* 삭제 - 권한 레벨 4(슈퍼 관리자)만 표시 */}
+                          {canDeleteNotifications && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNotification(notification.id);
+                              }}
+                              className="p-0.5 sm:p-1 text-gray-400 hover:text-red-600 rounded"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
