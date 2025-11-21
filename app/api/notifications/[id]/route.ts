@@ -137,6 +137,75 @@ export async function DELETE(
 
     const notificationId = params.id;
 
+    // 🔧 FIX: task_notifications 테이블 지원
+    // ID가 'task-'로 시작하면 업무 알림 (task_notifications 테이블)
+    if (notificationId.startsWith('task-')) {
+      const realTaskNotificationId = notificationId.substring(5); // 'task-' 제거
+
+      console.log('🗑️ [TASK-NOTIFICATION-DELETE] 업무 알림 삭제 시도:', {
+        frontendId: notificationId,
+        dbId: realTaskNotificationId,
+        userId: user.id
+      });
+
+      // task_notifications 테이블에서 알림 확인
+      const { data: taskNotification, error: checkError } = await supabase
+        .from('task_notifications')
+        .select('id, user_id, business_name, message')
+        .eq('id', realTaskNotificationId)
+        .single();
+
+      if (checkError || !taskNotification) {
+        console.error('❌ [TASK-NOTIFICATION-DELETE] 업무 알림을 찾을 수 없음:', checkError);
+        return NextResponse.json(
+          { success: false, error: { message: '알림을 찾을 수 없습니다.' } },
+          { status: 404 }
+        );
+      }
+
+      // 권한 확인: 본인의 알림만 삭제 가능 (또는 관리자 권한)
+      const hasPermission =
+        taskNotification.user_id === user.id ||
+        user.permission_level === 'admin' ||
+        user.permission_level === 'super_admin';
+
+      if (!hasPermission) {
+        console.warn('⚠️ [TASK-NOTIFICATION-DELETE] 권한 없음:', {
+          notificationUserId: taskNotification.user_id,
+          currentUserId: user.id,
+          permissionLevel: user.permission_level
+        });
+        return NextResponse.json(
+          { success: false, error: { message: '알림을 삭제할 권한이 없습니다.' } },
+          { status: 403 }
+        );
+      }
+
+      // task_notifications 삭제
+      const { error: deleteError } = await supabase
+        .from('task_notifications')
+        .delete()
+        .eq('id', realTaskNotificationId);
+
+      if (deleteError) {
+        console.error('❌ [TASK-NOTIFICATION-DELETE] 삭제 실패:', deleteError);
+        return NextResponse.json(
+          { success: false, error: { message: '알림 삭제에 실패했습니다.' } },
+          { status: 500 }
+        );
+      }
+
+      console.log('✅ [TASK-NOTIFICATION-DELETE] 업무 알림 삭제 완료:', realTaskNotificationId);
+      return NextResponse.json({
+        success: true,
+        data: {
+          message: '업무 알림이 성공적으로 삭제되었습니다.',
+          isDeleted: true
+        }
+      });
+    }
+
+    // 일반 알림 (notifications 테이블) 처리
     // 알림 존재 확인
     const { data: notification, error: checkError } = await supabase
       .from('notifications')
