@@ -224,14 +224,42 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         });
 
         // 브라우저 알림 표시
+        logger.debug('BROWSER-NOTIFICATION', '브라우저 알림 조건 확인:', {
+          pushEnabled: settings?.pushNotificationsEnabled,
+          notificationSupported: 'Notification' in window,
+          permission: typeof Notification !== 'undefined' ? Notification.permission : 'undefined',
+          title: newNotification.title
+        });
+
         if (settings?.pushNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
-          new Notification(newNotification.title, {
-            body: newNotification.message,
-            icon: '/icon.png',
-            badge: '/icon.png',
-            tag: newNotification.id,
-            requireInteraction: newNotification.priority === 'critical' || newNotification.priority === 'high',
-            silent: false
+          try {
+            const notification = new Notification(newNotification.title, {
+              body: newNotification.message,
+              icon: '/icon.png',
+              badge: '/icon.png',
+              tag: newNotification.id,
+              requireInteraction: newNotification.priority === 'critical' || newNotification.priority === 'high',
+              silent: false
+            });
+
+            logger.info('BROWSER-NOTIFICATION', '브라우저 알림 생성 성공');
+
+            notification.onclick = () => {
+              logger.debug('BROWSER-NOTIFICATION', '브라우저 알림 클릭됨');
+              if (newNotification.relatedUrl) {
+                window.focus();
+                window.open(newNotification.relatedUrl, '_blank');
+              }
+              notification.close();
+            };
+          } catch (error) {
+            logger.error('BROWSER-NOTIFICATION', '브라우저 알림 생성 실패', error);
+          }
+        } else {
+          logger.warn('BROWSER-NOTIFICATION', '브라우저 알림 조건 미충족', {
+            pushEnabled: settings?.pushNotificationsEnabled,
+            hasNotificationAPI: 'Notification' in window,
+            permission: typeof Notification !== 'undefined' ? Notification.permission : 'undefined'
           });
         }
 
