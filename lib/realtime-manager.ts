@@ -56,6 +56,7 @@ class RealtimeManager {
 
   /**
    * 실제 Supabase 연결 설정
+   * IMPORTANT: 모든 .on() 리스너를 추가한 후에 .subscribe()를 호출해야 함
    */
   private async establishConnection(): Promise<void> {
     try {
@@ -82,7 +83,10 @@ class RealtimeManager {
         }
       });
 
-      // 채널 구독
+      // 🔧 FIX: 구독하기 전에 모든 리스너를 먼저 등록
+      this.addAllTableSubscriptions();
+
+      // 채널 구독 (리스너 등록 후)
       const subscriptionStatus = await this.channel.subscribe((status, error) => {
         logger.debug('REALTIME', `상태 변경: ${status}`, error ? { error } : undefined);
 
@@ -117,8 +121,38 @@ class RealtimeManager {
   }
 
   /**
+   * 모든 등록된 구독의 리스너를 채널에 추가
+   */
+  private addAllTableSubscriptions(): void {
+    if (!this.channel) return;
+
+    this.subscriptions.forEach(subscription => {
+      subscription.eventTypes.forEach(eventType => {
+        this.channel!.on(
+          'postgres_changes',
+          {
+            event: eventType,
+            schema: 'public',
+            table: subscription.tableName
+          },
+          (payload: RealtimePostgresChangesPayload<any>) => {
+            logger.debug('REALTIME', `${eventType} 이벤트 수신`, {
+              table: subscription.tableName,
+              subscriptionId: subscription.id,
+              recordId: payload.new?.id || payload.old?.id
+            });
+            subscription.callback(payload);
+          }
+        );
+      });
+
+      logger.debug('REALTIME', `리스너 등록: ${subscription.tableName} (${subscription.id})`);
+    });
+  }
+
+  /**
    * 테이블별 구독 등록
-   * 이미 연결된 채널에 새로운 테이블 구독만 추가
+   * 🔧 FIX: 새 구독 추가 시 채널을 재연결하여 리스너를 올바르게 등록
    */
   subscribe(
     id: string,
@@ -136,52 +170,47 @@ class RealtimeManager {
     };
 
     this.subscriptions.set(id, subscription);
+    logger.info('REALTIME', `구독 등록: ${tableName} (${id})`);
 
-    // 이미 연결된 경우 즉시 구독 추가
+    // 🔧 FIX: 이미 연결된 경우, 채널을 재연결하여 새 리스너 추가
     if (this.channel && this.connectionState === 'connected') {
-      this.addTableSubscription(subscription);
-      statusCallback?.('connected');
+      logger.debug('REALTIME', '새 구독 추가로 인한 채널 재연결');
+      statusCallback?.('connecting');
+
+      // 채널 재연결 (기존 구독 + 새 구독 모두 포함)
+      this.reconnect().then(() => {
+        statusCallback?.('connected');
+      }).catch((error) => {
+        statusCallback?.('disconnected', error.message);
+      });
     } else {
-      // 연결 대기 중인 경우 연결 완료 후 구독
+      // 아직 연결 안 된 경우 초기 연결
       statusCallback?.('connecting');
       this.initializeConnection().then(() => {
-        if (this.channel && this.connectionState === 'connected') {
-          this.addTableSubscription(subscription);
-          statusCallback?.('connected');
-        }
+        statusCallback?.('connected');
       }).catch((error) => {
         statusCallback?.('disconnected', error.message);
       });
     }
-
-    logger.info('REALTIME', `구독 등록: ${tableName} (${id})`);
   }
 
   /**
-   * 채널에 테이블 구독 추가
+   * 채널 재연결 (모든 리스너 재등록)
+   */
+  private async reconnect(): Promise<void> {
+    logger.info('REALTIME', '채널 재연결 시작');
+    this.connectionPromise = this.establishConnection();
+    return this.connectionPromise;
+  }
+
+  /**
+   * 채널에 테이블 구독 추가 (단일)
+   * ⚠️ DEPRECATED: addAllTableSubscriptions()를 사용하세요
+   * 이 메서드는 호환성을 위해 유지되지만, 새 코드에서는 사용하지 마세요.
    */
   private addTableSubscription(subscription: Subscription): void {
-    if (!this.channel) return;
-
-    subscription.eventTypes.forEach(eventType => {
-      this.channel!.on(
-        'postgres_changes',
-        {
-          event: eventType,
-          schema: 'public',
-          table: subscription.tableName
-        },
-        (payload: RealtimePostgresChangesPayload<any>) => {
-          logger.debug('REALTIME', `${eventType} 이벤트 수신`, {
-            table: subscription.tableName,
-            subscriptionId: subscription.id,
-            recordId: payload.new?.id || payload.old?.id
-          });
-
-          subscription.callback(payload);
-        }
-      );
-    });
+    // 더 이상 사용되지 않음 - addAllTableSubscriptions()로 대체됨
+    logger.warn('REALTIME', 'addTableSubscription() is deprecated');
   }
 
   /**
