@@ -224,14 +224,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         });
 
         // 브라우저 알림 표시
+        // settings가 로드되지 않았을 때는 기본값 true 사용 (defaultSettings.pushNotificationsEnabled: true)
+        const pushEnabled = settings?.pushNotificationsEnabled ?? true;
+
         logger.debug('BROWSER-NOTIFICATION', '브라우저 알림 조건 확인:', {
-          pushEnabled: settings?.pushNotificationsEnabled,
+          pushEnabled,
+          settingsLoaded: settings !== null,
           notificationSupported: 'Notification' in window,
           permission: typeof Notification !== 'undefined' ? Notification.permission : 'undefined',
           title: newNotification.title
         });
 
-        if (settings?.pushNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
+        if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
           try {
             const notification = new Notification(newNotification.title, {
               body: newNotification.message,
@@ -257,7 +261,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           }
         } else {
           logger.warn('BROWSER-NOTIFICATION', '브라우저 알림 조건 미충족', {
-            pushEnabled: settings?.pushNotificationsEnabled,
+            pushEnabled,
+            settingsLoaded: settings !== null,
             hasNotificationAPI: 'Notification' in window,
             permission: typeof Notification !== 'undefined' ? Notification.permission : 'undefined'
           });
@@ -265,7 +270,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
         // 인앱 토스트 알림 표시 (Banner 모드 대응)
         // 브라우저 알림이 활성화되어 있으면 인앱 토스트도 함께 표시
-        if (settings?.pushNotificationsEnabled) {
+        if (pushEnabled) {
           // Priority 매핑: medium -> normal
           const toastPriority = newNotification.priority === 'medium' ? 'normal' : newNotification.priority;
 
@@ -282,8 +287,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           setInAppToasts(prev => [toastNotification, ...prev.slice(0, 4)]); // 최대 5개 유지
         }
 
-        // 소리 알림
-        if (settings?.soundNotificationsEnabled) {
+        // 소리 알림 (settings가 로드되지 않았을 때는 기본값 true 사용)
+        const soundEnabled = settings?.soundNotificationsEnabled ?? true;
+        if (soundEnabled) {
           playNotificationSound(newNotification.priority);
         }
 
