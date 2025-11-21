@@ -82,6 +82,9 @@ class Logger {
       'SUPABASE': '🗄️',
       'SECURITY': '🛡️',
       'RATE-LIMIT': '⏱️',
+      'REALTIME': '📡',
+      'NOTIFICATIONS': '🔔',
+      'OPTIMISTIC': '⚡'
     };
 
     for (const [key, emoji] of Object.entries(emojiMap)) {

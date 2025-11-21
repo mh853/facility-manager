@@ -1,11 +1,16 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { TokenManager } from '@/lib/api-client';
-import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
-import { subscribeToRealtime, unsubscribeFromRealtime, getRealtimeConnectionState } from '@/lib/realtime-manager';
+import {
+  subscribeToRealtime as subscribeToRealtimeManager,
+  unsubscribeFromRealtime as unsubscribeFromRealtimeManager,
+  reconnectRealtime as reconnectRealtimeManager
+} from '@/lib/realtime-manager';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
+import { InAppNotificationContainer, type InAppToastNotification } from '@/components/ui/InAppNotificationToast';
 
 // 알림 타입 정의
 export type NotificationCategory =
@@ -98,6 +103,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // 인앱 토스트 알림 상태 (Banner 모드 대응)
+  const [inAppToasts, setInAppToasts] = useState<InAppToastNotification[]>([]);
+
   // Supabase Realtime 실시간 알림 처리 - 테이블 미존재 시 graceful degradation
   const [realtimeConnectionState, setRealtimeConnectionState] = useState({
     isConnected: false,
@@ -112,9 +120,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     const subscriptionId = `notifications-${user.id}`;
 
-    console.log('📡 [NOTIFICATIONS] Global Realtime Manager 구독 시작');
+    logger.info('NOTIFICATIONS', 'Global Realtime Manager 구독 시작');
 
-    // 즉시 연결 상태 표시 (Optimistic UI)
+    // Optimistic UI: 즉시 연결 상태 표시
     setRealtimeConnectionState({
       isConnected: true,
       isConnecting: false,
@@ -123,89 +131,67 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
 
     // Global Manager를 통한 구독
-    subscribeToRealtime(
+    subscribeToRealtimeManager(
       subscriptionId,
       'task_notifications',
       ['INSERT', 'UPDATE'],
       handleRealtimeNotification,
-      (state, error) => {
-        console.log(`📡 [NOTIFICATIONS] 연결 상태 업데이트: ${state}`, error ? { error } : {});
+      (state: 'connected' | 'connecting' | 'disconnected', error?: string) => {
+        logger.debug('REALTIME', `연결 상태 업데이트: ${state}`, error ? { error } : undefined);
 
-        // 실제 연결 실패 시에만 상태 변경
-        if (state === 'disconnected' && error && !error.includes('relation')) {
+        // 연결 상태 업데이트
+        if (state === 'connected') {
+          setRealtimeConnectionState({
+            isConnected: true,
+            isConnecting: false,
+            connectionError: null,
+            lastEventTime: new Date()
+          });
+        } else if (state === 'connecting') {
           setRealtimeConnectionState(prev => ({
             ...prev,
-            isConnected: false,
-            connectionError: error
+            isConnecting: true,
+            connectionError: null
           }));
+        } else if (state === 'disconnected') {
+          // 테이블 미존재 오류는 무시 (graceful degradation)
+          if (error && !error.includes('relation')) {
+            setRealtimeConnectionState(prev => ({
+              ...prev,
+              isConnected: false,
+              isConnecting: false,
+              connectionError: error
+            }));
+          }
         }
       }
     );
 
     return () => {
-      console.log('📡 [NOTIFICATIONS] Global Realtime Manager 구독 해제');
-      unsubscribeFromRealtime(subscriptionId);
+      logger.info('NOTIFICATIONS', 'Global Realtime Manager 구독 해제');
+      unsubscribeFromRealtimeManager(subscriptionId);
     };
   }, [user]);
 
-  // 레거시 hook - 호환성을 위해 유지하되 비활성화
-  const realtimeHook = useSupabaseRealtime({
-    tableName: 'task_notifications',
-    eventTypes: ['INSERT', 'UPDATE'],
-    autoConnect: false, // Global Manager 사용으로 비활성화
-    onNotification: () => {}, // 빈 함수
-    onConnect: () => {},
-    onDisconnect: () => {},
-    onError: () => {}
-  });
-
-  // Optimistic UI: 사용자 로그인 시 즉시 연결 상태 표시
-  const [optimisticConnection, setOptimisticConnection] = useState(false);
-
-  useEffect(() => {
-    if (user && !optimisticConnection) {
-      // 사용자가 로그인하면 즉시 "연결됨" 상태 표시 (0.1초 지연으로 자연스러운 UI)
-      setTimeout(() => {
-        setOptimisticConnection(true);
-        console.log('⚡ [OPTIMISTIC] 즉시 연결 상태 활성화 - 사용자 경험 최적화');
-      }, 100);
-    } else if (!user) {
-      setOptimisticConnection(false);
-    }
-  }, [user, optimisticConnection]);
-
-  // 실제 연결 실패 시에만 optimistic 상태 해제
-  useEffect(() => {
-    if (realtimeConnectionState.connectionError && !realtimeConnectionState.connectionError.includes('relation')) {
-      setOptimisticConnection(false);
-    }
-  }, [realtimeConnectionState.connectionError]);
-
-  // 최종 연결 상태 결정 (optimistic + graceful degradation 적용)
-  const isConnected = optimisticConnection || realtimeConnectionState.isConnected || realtimeHook.isConnected;
-  const isConnecting = !optimisticConnection && (realtimeConnectionState.isConnecting || realtimeHook.isConnecting);
-  const connectionError = realtimeConnectionState.connectionError || realtimeHook.connectionError;
-  const lastEventTime = realtimeConnectionState.lastEventTime || realtimeHook.lastEvent;
-
-  // Realtime 액션들
-  const subscribe = realtimeHook.subscribe;
-  const unsubscribe = realtimeHook.unsubscribe;
-  const reconnect = realtimeHook.reconnect;
-  const sendBroadcast = realtimeHook.sendBroadcast;
+  // 단순화된 연결 상태 (Optimistic UI 적용)
+  const isConnected = realtimeConnectionState.isConnected;
+  const isConnecting = realtimeConnectionState.isConnecting;
+  const connectionError = realtimeConnectionState.connectionError;
+  const lastEventTime = realtimeConnectionState.lastEventTime;
 
   // 실시간 알림 처리 함수
   function handleRealtimeNotification(payload: RealtimePostgresChangesPayload<any>) {
     try {
       const { eventType, new: newRecord, old: oldRecord } = payload;
 
-      console.log('🔔 [REALTIME] 알림 이벤트 수신:', {
+      logger.debug('REALTIME', '알림 이벤트 수신', {
         eventType,
         recordId: (newRecord as any)?.id || (oldRecord as any)?.id,
         timestamp: new Date().toISOString()
       });
 
       if (eventType === 'INSERT' && newRecord) {
-        console.log('📥 [REALTIME-NOTIFICATION] INSERT: 새 알림 추가')
+        logger.debug('REALTIME', 'INSERT: 새 알림 추가');
 
         // task_notifications 구조에 맞게 새 알림 추가
         const newNotification: Notification = {
@@ -230,10 +216,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         setNotifications(prev => {
           const exists = prev.some(n => n.id === newRecord.id);
           if (exists) {
-            console.log('📡 [REALTIME-NOTIFICATION] INSERT: 중복 알림 감지 - 기존 알림 업데이트')
+            logger.debug('REALTIME', 'INSERT: 중복 알림 감지 - 기존 알림 업데이트');
             return prev.map(n => n.id === newRecord.id ? newNotification : n);
           }
-          console.log('📡 [REALTIME-NOTIFICATION] INSERT: 새 알림 추가 완료')
+          logger.debug('REALTIME', 'INSERT: 새 알림 추가 완료');
           return [newNotification, ...prev.slice(0, 49)]; // 최대 50개 유지
         });
 
@@ -241,11 +227,31 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         if (settings?.pushNotificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
           new Notification(newNotification.title, {
             body: newNotification.message,
-            icon: '/icon-192x192.png',
-            badge: '/icon-192x192.png',
+            icon: '/icon.png',
+            badge: '/icon.png',
             tag: newNotification.id,
-            requireInteraction: newNotification.priority === 'critical'
+            requireInteraction: newNotification.priority === 'critical' || newNotification.priority === 'high',
+            silent: false
           });
+        }
+
+        // 인앱 토스트 알림 표시 (Banner 모드 대응)
+        // 브라우저 알림이 활성화되어 있으면 인앱 토스트도 함께 표시
+        if (settings?.pushNotificationsEnabled) {
+          // Priority 매핑: medium -> normal
+          const toastPriority = newNotification.priority === 'medium' ? 'normal' : newNotification.priority;
+
+          const toastNotification: InAppToastNotification = {
+            id: newNotification.id,
+            title: newNotification.title,
+            message: newNotification.message,
+            priority: toastPriority as 'low' | 'normal' | 'high' | 'critical',
+            onClick: newNotification.relatedUrl ? () => {
+              window.open(newNotification.relatedUrl, '_blank');
+            } : undefined
+          };
+
+          setInAppToasts(prev => [toastNotification, ...prev.slice(0, 4)]); // 최대 5개 유지
         }
 
         // 소리 알림
@@ -256,13 +262,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       } else if (eventType === 'UPDATE' && newRecord) {
         // is_deleted가 true로 변경된 경우 삭제 처리 (소프트 삭제)
         if (newRecord.is_deleted === true) {
-          console.log('📡 [REALTIME-NOTIFICATION] UPDATE: 소프트 삭제 감지 - UI에서 제거')
+          logger.debug('REALTIME', 'UPDATE: 소프트 삭제 감지 - UI에서 제거');
           setNotifications(prev =>
             prev.filter(notification => notification.id !== newRecord.id)
           );
         } else {
           // 일반 알림 상태 업데이트 (읽음 처리 등)
-          console.log('📡 [REALTIME-NOTIFICATION] UPDATE: 알림 상태 업데이트')
+          logger.debug('REALTIME', 'UPDATE: 알림 상태 업데이트');
           setNotifications(prev =>
             prev.map(notification =>
               notification.id === newRecord.id
@@ -273,13 +279,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         }
       } else if (eventType === 'DELETE' && oldRecord) {
         // 실제 DELETE 이벤트 처리
-        console.log('📡 [REALTIME-NOTIFICATION] DELETE: 알림 삭제')
+        logger.debug('REALTIME', 'DELETE: 알림 삭제');
         setNotifications(prev =>
           prev.filter(notification => notification.id !== oldRecord.id)
         );
       }
     } catch (error) {
-      console.error('❌ [REALTIME] 알림 처리 오류:', error);
+      logger.error('REALTIME', '알림 처리 오류', error);
     }
   }
 
@@ -292,7 +298,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       const token = TokenManager.getToken();
       if (!token || token === 'null' || token === 'undefined' || token.trim() === '') {
-        console.warn('⚠️ [NOTIFICATIONS] 토큰이 없음 - 알림 조회 스킵');
+        logger.warn('NOTIFICATIONS', '토큰이 없음 - 알림 조회 스킵');
         setLoading(false);
         return;
       }
@@ -300,19 +306,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       // 토큰 형식 검증 (JWT 기본 구조 체크)
       const tokenParts = token.split('.');
       if (tokenParts.length !== 3) {
-        console.warn('⚠️ [NOTIFICATIONS] JWT 토큰 형식이 잘못됨 - 알림 조회 스킵');
+        logger.warn('NOTIFICATIONS', 'JWT 토큰 형식이 잘못됨 - 알림 조회 스킵');
         setLoading(false);
         return;
       }
 
       // 토큰 유효성 검사
       if (!TokenManager.isTokenValid(token)) {
-        console.warn('⚠️ [NOTIFICATIONS] 토큰이 만료됨 - 알림 조회 스킵');
+        logger.warn('NOTIFICATIONS', '토큰이 만료됨 - 알림 조회 스킵');
         setLoading(false);
         return;
       }
 
-      console.log('🔑 [NOTIFICATIONS] 토큰 확인됨, 알림 조회 시작');
+      logger.debug('NOTIFICATIONS', '토큰 확인됨, 알림 조회 시작');
 
       // 일반 알림과 업무 알림을 동시에 조회
       const [generalResponse, taskResponse] = await Promise.all([
@@ -332,13 +338,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       // 인증 오류인 경우 토큰 정리
       if (generalResponse.status === 401 || taskResponse.status === 401) {
-        console.warn('⚠️ [NOTIFICATIONS] 인증 만료됨 - 토큰 정리');
+        logger.warn('NOTIFICATIONS', '인증 만료됨 - 토큰 정리');
         TokenManager.removeTokens();
         setLoading(false);
         return;
       }
 
-      console.log('📊 [NOTIFICATIONS] API 응답 상태:', {
+      logger.debug('NOTIFICATIONS', 'API 응답 상태', {
         generalStatus: generalResponse.status,
         taskStatus: taskResponse.status,
         generalOk: generalResponse.ok,
@@ -354,13 +360,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         try {
           generalData = await generalResponse.json();
           const generalCount = generalData?.data?.notifications?.length || generalData?.notifications?.length || 0;
-          console.log('✅ [NOTIFICATIONS] 일반 알림 조회 성공:', generalCount, '개');
+          logger.info('NOTIFICATIONS', `일반 알림 조회 성공: ${generalCount}개`);
         } catch (error) {
-          console.error('❌ [NOTIFICATIONS] 일반 알림 JSON 파싱 실패:', error);
+          logger.error('NOTIFICATIONS', '일반 알림 JSON 파싱 실패', error);
           generalData = { success: false, data: [] };
         }
       } else {
-        console.warn('⚠️ [NOTIFICATIONS] 일반 알림 API 실패:', generalResponse.status, generalResponse.statusText);
+        logger.warn('NOTIFICATIONS', `일반 알림 API 실패: ${generalResponse.status} ${generalResponse.statusText}`);
       }
 
       // 업무 알림 처리 (500 오류 허용)
@@ -368,26 +374,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         try {
           taskData = await taskResponse.json();
           const taskCount = taskData?.data?.taskNotifications?.length || taskData?.taskNotifications?.length || 0;
-          console.log('✅ [NOTIFICATIONS] 업무 알림 조회 성공:', taskCount, '개');
+          logger.info('NOTIFICATIONS', `업무 알림 조회 성공: ${taskCount}개`);
         } catch (error) {
-          console.error('❌ [NOTIFICATIONS] 업무 알림 JSON 파싱 실패:', error);
+          logger.error('NOTIFICATIONS', '업무 알림 JSON 파싱 실패', error);
           taskData = { success: false, taskNotifications: [] };
         }
       } else if (taskResponse.status === 500) {
-        console.warn('⚠️ [NOTIFICATIONS] 업무 알림 API 500 오류 - task_notifications 테이블 미존재로 예상됨');
+        logger.warn('NOTIFICATIONS', '업무 알림 API 500 오류 - task_notifications 테이블 미존재로 예상됨');
         // 500 오류인 경우에도 빈 데이터로 처리하여 일반 알림은 정상 동작하도록 함
         try {
           const errorData = await taskResponse.json();
-          console.log('📄 [NOTIFICATIONS] 500 오류 상세:', errorData);
+          logger.debug('NOTIFICATIONS', '500 오류 상세', errorData);
           if (errorData.success === false && errorData.taskNotifications) {
             // API에서 graceful degradation 응답을 준 경우
             taskData = errorData;
           }
         } catch (error) {
-          console.warn('⚠️ [NOTIFICATIONS] 500 오류 응답 파싱 불가 - 빈 데이터 사용');
+          logger.warn('NOTIFICATIONS', '500 오류 응답 파싱 불가 - 빈 데이터 사용');
         }
       } else {
-        console.warn('⚠️ [NOTIFICATIONS] 업무 알림 API 기타 오류:', taskResponse.status, taskResponse.statusText);
+        logger.warn('NOTIFICATIONS', `업무 알림 API 기타 오류: ${taskResponse.status} ${taskResponse.statusText}`);
       }
 
       const allNotifications: Notification[] = [];
@@ -449,7 +455,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       setNotifications(allNotifications);
 
-      console.log('✅ [NOTIFICATIONS] 초기 알림 로드 완료:', {
+      logger.info('NOTIFICATIONS', '초기 알림 로드 완료', {
         total: allNotifications.length,
         unread: allNotifications.filter((n: any) => !n.isRead).length,
         general: generalData.success ? (generalData.data?.length || 0) : 0,
@@ -458,7 +464,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         taskApiOk: taskResponse.ok
       });
     } catch (error) {
-      console.error('❌ [NOTIFICATIONS] 알림 조회 오류:', error);
+      logger.error('NOTIFICATIONS', '알림 조회 오류', error);
     } finally {
       setLoading(false);
     }
@@ -477,7 +483,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         if (response.status === 401) {
-          console.warn('⚠️ [NOTIFICATIONS] 인증 실패 - 캐시된 설정 확인 후 기본 설정 사용');
+          logger.warn('NOTIFICATIONS', '인증 실패 - 캐시된 설정 확인 후 기본 설정 사용');
 
           // 먼저 캐시된 설정이 있는지 확인
           const cachedSettings = localStorage.getItem('notification-settings');
@@ -485,10 +491,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             try {
               const parsed = JSON.parse(cachedSettings);
               setSettings(parsed);
-              console.log('✅ [NOTIFICATIONS] 캐시된 설정 로드 성공');
+              logger.info('NOTIFICATIONS', '캐시된 설정 로드 성공');
               return;
             } catch (error) {
-              console.warn('⚠️ [NOTIFICATIONS] 캐시된 설정 파싱 실패:', error);
+              logger.warn('NOTIFICATIONS', '캐시된 설정 파싱 실패', error);
             }
           }
 
@@ -517,7 +523,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
           // 기본 설정을 캐시에 저장
           localStorage.setItem('notification-settings', JSON.stringify(defaultSettings));
-          console.log('✅ [NOTIFICATIONS] 기본 설정 적용 및 캐시 저장');
+          logger.info('NOTIFICATIONS', '기본 설정 적용 및 캐시 저장');
           return;
         }
         throw new Error('알림 설정을 불러오는데 실패했습니다.');
@@ -528,10 +534,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         setSettings(data.data);
         // 성공적으로 로드된 설정을 캐시에 저장
         localStorage.setItem('notification-settings', JSON.stringify(data.data));
-        console.log('✅ [NOTIFICATIONS] 설정 로드 성공 및 캐시 저장');
+        logger.info('NOTIFICATIONS', '설정 로드 성공 및 캐시 저장');
       }
     } catch (error) {
-      console.error('알림 설정 조회 오류:', error);
+      logger.error('NOTIFICATIONS', '알림 설정 조회 오류', error);
     }
   }, [user]);
 
@@ -539,7 +545,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const markAsRead = useCallback(async (notificationId: string) => {
     if (!user) return;
 
-    console.log('🔄 [NOTIFICATIONS] markAsRead 시작 - ID:', notificationId);
+    logger.debug('OPTIMISTIC', `markAsRead 시작 - ID: ${notificationId}`);
 
     // 낙관적 업데이트: 즉시 UI에서 읽음 처리
     setNotifications(prev =>
@@ -553,7 +559,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       const token = TokenManager.getToken();
       if (!token || !TokenManager.isTokenValid(token)) {
-        console.warn('⚠️ [NOTIFICATIONS] markAsRead: 토큰이 유효하지 않음');
+        logger.warn('OPTIMISTIC', 'markAsRead: 토큰이 유효하지 않음 - 롤백');
         // 낙관적 업데이트 롤백
         setNotifications(prev =>
           prev.map(notification =>
@@ -574,7 +580,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        console.error('❌ [NOTIFICATIONS] markAsRead API 실패 - 롤백');
+        logger.error('OPTIMISTIC', 'markAsRead API 실패 - 롤백');
         // 실패 시 롤백
         setNotifications(prev =>
           prev.map(notification =>
@@ -586,22 +592,37 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         throw new Error('알림 읽음 처리에 실패했습니다.');
       }
 
-      console.log('✅ [NOTIFICATIONS] markAsRead 완료');
+      logger.info('NOTIFICATIONS', 'markAsRead 완료');
     } catch (error) {
-      console.error('❌ [NOTIFICATIONS] 알림 읽음 처리 오류:', error);
+      logger.error('NOTIFICATIONS', '알림 읽음 처리 오류', error);
     }
   }, [user]);
 
-  // 모든 알림 읽음 처리
+  // 모든 알림 읽음 처리 (낙관적 업데이트 + 롤백)
   const markAllAsRead = useCallback(async () => {
     if (!user) return;
 
-    try {
-      console.log('🔄 [NOTIFICATIONS] 모든 알림 읽음 처리 시작');
+    logger.debug('OPTIMISTIC', '모든 알림 읽음 처리 시작');
 
+    // 이전 상태 백업 (롤백용)
+    const previousNotifications = [...notifications];
+
+    // 낙관적 업데이트: 즉시 UI 업데이트
+    setNotifications(prev => {
+      const updated = prev.map(notification => ({ ...notification, isRead: true }));
+      logger.debug('OPTIMISTIC', '낙관적 UI 업데이트', {
+        before: prev.filter(n => !n.isRead).length,
+        after: 0
+      });
+      return updated;
+    });
+
+    try {
       const token = TokenManager.getToken();
       if (!token || !TokenManager.isTokenValid(token)) {
-        console.warn('⚠️ [NOTIFICATIONS] markAllAsRead: 토큰이 유효하지 않음');
+        logger.warn('OPTIMISTIC', 'markAllAsRead: 토큰이 유효하지 않음 - 롤백');
+        // 롤백
+        setNotifications(previousNotifications);
         return;
       }
 
@@ -613,47 +634,42 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      console.log('📊 [NOTIFICATIONS] markAllAsRead API 응답:', {
+      logger.debug('NOTIFICATIONS', 'markAllAsRead API 응답', {
         status: response.status,
         ok: response.ok
       });
 
       if (!response.ok) {
+        // 실패 시 롤백
+        logger.error('OPTIMISTIC', 'markAllAsRead API 실패 - 롤백');
+        setNotifications(previousNotifications);
         throw new Error(`모든 알림 읽음 처리에 실패했습니다. Status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ [NOTIFICATIONS] 서버 응답:', data);
+      logger.info('NOTIFICATIONS', '서버 응답', data);
 
-      // 로컬 상태 업데이트
-      setNotifications(prev => {
-        const updated = prev.map(notification => ({ ...notification, isRead: true }));
-        console.log('📱 [NOTIFICATIONS] 로컬 상태 업데이트:', {
-          before: prev.filter(n => !n.isRead).length,
-          after: updated.filter(n => !n.isRead).length
-        });
-        return updated;
-      });
-
-      // Realtime 연결이 실패한 상황이므로, 서버 상태 재확인을 위해 데이터 다시 가져오기
+      // Realtime 연결이 없는 경우에만 서버 상태 재확인
       if (!isConnected) {
-        console.log('⚠️ [NOTIFICATIONS] Realtime 연결 없음 - 서버에서 최신 상태 확인');
+        logger.warn('NOTIFICATIONS', 'Realtime 연결 없음 - 서버에서 최신 상태 확인');
         setTimeout(() => {
           fetchNotifications();
         }, 1000);
       }
 
     } catch (error) {
-      console.error('❌ [NOTIFICATIONS] 모든 알림 읽음 처리 오류:', error);
+      logger.error('NOTIFICATIONS', '모든 알림 읽음 처리 오류', error);
+      // 오류 발생 시 롤백 (이미 위에서 롤백했지만 안전을 위해 재확인)
+      setNotifications(previousNotifications);
       throw error;
     }
-  }, [user, isConnected, fetchNotifications]);
+  }, [user, notifications, isConnected, fetchNotifications]);
 
   // 알림 삭제
   const deleteNotification = useCallback(async (notificationId: string) => {
     if (!user) return;
 
-    console.log('🗑️ [NOTIFICATIONS] deleteNotification 시작 - ID:', notificationId);
+    logger.debug('OPTIMISTIC', `deleteNotification 시작 - ID: ${notificationId}`);
 
     // 삭제 전 알림 백업 (롤백용)
     let deletedNotification: Notification | undefined;
@@ -676,7 +692,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        console.error('❌ [NOTIFICATIONS] deleteNotification API 실패 - 롤백');
+        logger.error('OPTIMISTIC', 'deleteNotification API 실패 - 롤백');
         // 실패 시 롤백: 삭제된 알림을 다시 추가
         if (deletedNotification) {
           setNotifications(prev => [deletedNotification!, ...prev]);
@@ -684,9 +700,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         throw new Error('알림 삭제에 실패했습니다.');
       }
 
-      console.log('✅ [NOTIFICATIONS] deleteNotification 완료');
+      logger.info('NOTIFICATIONS', 'deleteNotification 완료');
     } catch (error) {
-      console.error('❌ [NOTIFICATIONS] 알림 삭제 오류:', error);
+      logger.error('NOTIFICATIONS', '알림 삭제 오류', error);
     }
   }, [user]);
 
@@ -697,7 +713,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       const token = TokenManager.getToken();
       if (!token || !TokenManager.isTokenValid(token)) {
-        console.warn('⚠️ [NOTIFICATIONS] deleteAllNotifications: 토큰이 유효하지 않음');
+        logger.warn('NOTIFICATIONS', 'deleteAllNotifications: 토큰이 유효하지 않음');
         return;
       }
 
@@ -713,13 +729,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json();
-      console.log('✅ [NOTIFICATIONS] 모든 알림 삭제 완료:', data.data);
+      logger.info('NOTIFICATIONS', '모든 알림 삭제 완료', data.data);
 
       // 로컬 상태 초기화
       setNotifications([]);
 
     } catch (error) {
-      console.error('❌ [NOTIFICATIONS] 모든 알림 삭제 오류:', error);
+      logger.error('NOTIFICATIONS', '모든 알림 삭제 오류', error);
       throw error;
     }
   }, [user]);
@@ -745,7 +761,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json();
-      console.log('✅ [NOTIFICATIONS] 읽은 알림 삭제 완료:', data.data);
+      logger.info('NOTIFICATIONS', '읽은 알림 삭제 완료', data.data);
 
       // 로컬 상태 업데이트 (읽은 알림만 제거)
       setNotifications(prev =>
@@ -753,7 +769,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       );
 
     } catch (error) {
-      console.error('❌ [NOTIFICATIONS] 읽은 알림 삭제 오류:', error);
+      logger.error('NOTIFICATIONS', '읽은 알림 삭제 오류', error);
       throw error;
     }
   }, [user]);
@@ -781,10 +797,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       if (data.success) {
         // 실시간으로 알림이 추가되므로 여기서는 별도 처리 불필요
-        console.log('알림이 생성되었습니다:', data.data);
+        logger.info('NOTIFICATIONS', '알림이 생성되었습니다', data.data);
       }
     } catch (error) {
-      console.error('알림 생성 오류:', error);
+      logger.error('NOTIFICATIONS', '알림 생성 오류', error);
     }
   }, [user]);
 
@@ -815,29 +831,32 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         // 업데이트된 설정을 캐시에 저장
         if (newSettingsData) {
           localStorage.setItem('notification-settings', JSON.stringify(newSettingsData));
-          console.log('✅ [NOTIFICATIONS] 설정 업데이트 성공 및 캐시 갱신');
+          logger.info('NOTIFICATIONS', '설정 업데이트 성공 및 캐시 갱신');
         }
       }
     } catch (error) {
-      console.error('알림 설정 업데이트 오류:', error);
+      logger.error('NOTIFICATIONS', '알림 설정 업데이트 오류', error);
     }
   }, [user]);
 
-  // 실시간 구독 관리 - Supabase Realtime 사용
+  // 실시간 구독 관리 - Global Realtime Manager 사용
   const subscribeToRealtime = useCallback(() => {
-    console.log('📡 [REALTIME] 실시간 구독 시작');
-    subscribe();
-  }, [subscribe]);
+    logger.debug('REALTIME', '수동 구독 요청 (자동 연결로 인해 이미 구독됨)');
+    // Global Manager는 자동으로 연결되므로 별도 작업 불필요
+  }, []);
 
   const unsubscribeFromRealtime = useCallback(() => {
-    console.log('📡 [REALTIME] 실시간 구독 해제');
-    unsubscribe();
-  }, [unsubscribe]);
+    logger.debug('REALTIME', '수동 구독 해제 요청');
+    if (user) {
+      const subscriptionId = `notifications-${user.id}`;
+      unsubscribeFromRealtimeManager(subscriptionId);
+    }
+  }, [user]);
 
   const reconnectRealtime = useCallback(() => {
-    console.log('🔄 [REALTIME] 수동 재연결');
-    reconnect();
-  }, [reconnect]);
+    logger.debug('REALTIME', '수동 재연결');
+    reconnectRealtimeManager();
+  }, []);
 
   // 알림 소리 재생
   const playNotificationSound = useCallback((priority: NotificationPriority) => {
@@ -863,9 +882,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
 
       audio.volume = 0.3; // 적당한 볼륨
-      audio.play().catch(console.error);
+      audio.play().catch(err => logger.error('NOTIFICATIONS', '알림 소리 재생 실패', err));
     } catch (error) {
-      console.error('알림 소리 재생 오류:', error);
+      logger.error('NOTIFICATIONS', '알림 소리 재생 오류', error);
     }
   }, []);
 
@@ -887,33 +906,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       fetchNotifications();
       fetchSettings();
       requestNotificationPermission();
-      // Supabase Realtime은 useSupabaseRealtime 훅에서 자동 관리됨
+      // Realtime 연결은 Global Manager에서 자동 관리
     } else {
       setNotifications([]);
       setSettings(null);
-      // 로그아웃 시 실시간 구독 해제는 useSupabaseRealtime 훅에서 자동 처리됨
+      // 로그아웃 시 구독 해제는 Global Manager에서 자동 처리
     }
   }, [user, fetchNotifications, fetchSettings, requestNotificationPermission]);
-
-  // Realtime 연결 상태 fallback - 테이블이 없어서 연결에 실패하는 경우 대비
-  useEffect(() => {
-    if (!user) return;
-
-    // 5초 후에도 연결되지 않으면 graceful degradation 적용
-    const fallbackTimeout = setTimeout(() => {
-      if (!isConnected && !isConnecting) {
-        console.warn('⚠️ [NOTIFICATIONS] Realtime 연결 실패 - 테이블 미존재로 인한 것으로 추정, graceful degradation 적용');
-        setRealtimeConnectionState({
-          isConnected: true, // graceful degradation
-          isConnecting: false,
-          connectionError: null,
-          lastEventTime: new Date()
-        });
-      }
-    }, 5000);
-
-    return () => clearTimeout(fallbackTimeout);
-  }, [user, isConnected, isConnecting]);
 
   const value: NotificationContextType = {
     notifications,
@@ -937,9 +936,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     reconnectRealtime
   };
 
+  // 인앱 토스트 닫기 핸들러
+  const handleCloseToast = useCallback((id: string) => {
+    setInAppToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
+
   return (
     <NotificationContext.Provider value={value}>
       {children}
+      <InAppNotificationContainer
+        notifications={inAppToasts}
+        onClose={handleCloseToast}
+      />
     </NotificationContext.Provider>
   );
 }

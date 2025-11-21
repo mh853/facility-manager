@@ -2,6 +2,7 @@
 
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 
 type ConnectionState = 'connected' | 'connecting' | 'disconnected';
 type EventCallback = (payload: RealtimePostgresChangesPayload<any>) => void;
@@ -47,7 +48,7 @@ class RealtimeManager {
     }
 
     this.isInitialized = true;
-    console.log('🚀 [REALTIME-MANAGER] 백그라운드 연결 초기화 시작');
+    logger.info('REALTIME', '백그라운드 연결 초기화 시작');
 
     this.connectionPromise = this.establishConnection();
     return this.connectionPromise;
@@ -83,14 +84,14 @@ class RealtimeManager {
 
       // 채널 구독
       const subscriptionStatus = await this.channel.subscribe((status, error) => {
-        console.log(`📡 [REALTIME-MANAGER] 상태 변경: ${status}`, error ? { error } : {});
+        logger.debug('REALTIME', `상태 변경: ${status}`, error ? { error } : undefined);
 
         switch (status) {
           case 'SUBSCRIBED':
             this.connectionState = 'connected';
             this.connectionError = null;
             this.notifyStatusSubscribers('connected');
-            console.log('✅ [REALTIME-MANAGER] 전역 연결 성공');
+            logger.info('REALTIME', '전역 연결 성공');
             break;
 
           case 'CHANNEL_ERROR':
@@ -99,15 +100,15 @@ class RealtimeManager {
             this.connectionState = 'disconnected';
             this.connectionError = error?.message || `연결 오류: ${status}`;
             this.notifyStatusSubscribers('disconnected', this.connectionError);
-            console.error('❌ [REALTIME-MANAGER] 연결 실패:', this.connectionError);
+            logger.error('REALTIME', '연결 실패', this.connectionError);
             break;
         }
       });
 
-      console.log('📡 [REALTIME-MANAGER] 전역 채널 구독 시작:', subscriptionStatus);
+      logger.debug('REALTIME', '전역 채널 구독 시작', subscriptionStatus);
 
     } catch (error) {
-      console.error('❌ [REALTIME-MANAGER] 연결 설정 오류:', error);
+      logger.error('REALTIME', '연결 설정 오류', error);
       this.connectionState = 'disconnected';
       this.connectionError = error instanceof Error ? error.message : '알 수 없는 오류';
       this.notifyStatusSubscribers('disconnected', this.connectionError);
@@ -153,7 +154,7 @@ class RealtimeManager {
       });
     }
 
-    console.log(`📋 [REALTIME-MANAGER] 구독 등록: ${tableName} (${id})`);
+    logger.info('REALTIME', `구독 등록: ${tableName} (${id})`);
   }
 
   /**
@@ -171,7 +172,7 @@ class RealtimeManager {
           table: subscription.tableName
         },
         (payload: RealtimePostgresChangesPayload<any>) => {
-          console.log(`📨 [REALTIME-MANAGER] ${eventType} 이벤트 수신:`, {
+          logger.debug('REALTIME', `${eventType} 이벤트 수신`, {
             table: subscription.tableName,
             subscriptionId: subscription.id,
             recordId: payload.new?.id || payload.old?.id
@@ -184,13 +185,37 @@ class RealtimeManager {
   }
 
   /**
+   * 채널에서 테이블 구독 제거
+   */
+  private removeTableSubscription(subscription: Subscription): void {
+    if (!this.channel) return;
+
+    // postgres_changes 이벤트 리스너 제거
+    subscription.eventTypes.forEach(eventType => {
+      // Supabase Realtime의 off 메서드를 사용하여 이벤트 리스너 제거
+      // 주의: 실제로 이벤트 리스너를 완전히 제거하려면 채널을 재생성해야 할 수 있음
+      logger.debug('REALTIME', `${eventType} 이벤트 리스너 제거 시도`, {
+        table: subscription.tableName,
+        subscriptionId: subscription.id
+      });
+    });
+
+    // 참고: Supabase Realtime은 개별 postgres_changes 리스너를 제거하는 API가 없으므로,
+    // 구독 목록에서만 제거하고 실제 채널 정리는 모든 구독이 해제될 때 수행
+  }
+
+  /**
    * 구독 해제
    */
   unsubscribe(id: string): void {
     const subscription = this.subscriptions.get(id);
     if (subscription) {
+      // 채널에서 구독 제거
+      this.removeTableSubscription(subscription);
+
+      // 구독 목록에서 제거
       this.subscriptions.delete(id);
-      console.log(`📋 [REALTIME-MANAGER] 구독 해제: ${subscription.tableName} (${id})`);
+      logger.info('REALTIME', `구독 해제: ${subscription.tableName} (${id})`);
     }
 
     // 모든 구독이 해제되면 채널 정리
@@ -200,7 +225,7 @@ class RealtimeManager {
       this.connectionState = 'disconnected';
       this.isInitialized = false;
       this.connectionPromise = null;
-      console.log('🧹 [REALTIME-MANAGER] 전역 채널 정리 완료');
+      logger.info('REALTIME', '전역 채널 정리 완료');
     }
   }
 
@@ -232,7 +257,7 @@ class RealtimeManager {
    * 강제 재연결
    */
   async reconnect(): Promise<void> {
-    console.log('🔄 [REALTIME-MANAGER] 강제 재연결 시작');
+    logger.info('REALTIME', '강제 재연결 시작');
     this.isInitialized = false;
     this.connectionPromise = null;
 

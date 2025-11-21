@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Bell, BellRing, Settings, MoreHorizontal, Check, Trash2, ExternalLink, X, Wifi, WifiOff } from 'lucide-react';
+import { Bell, BellRing, Settings, MoreHorizontal, Check, Trash2, ExternalLink, X } from 'lucide-react';
 import { useNotification, notificationHelpers, Notification } from '@/contexts/NotificationContext';
 import { useRouter } from 'next/navigation';
 
@@ -16,27 +16,16 @@ export default function NotificationButton({ className = '' }: NotificationButto
     loading,
     markAsRead,
     markAllAsRead,
-    deleteNotification,
-    isConnected
+    deleteNotification
   } = useNotification();
 
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [showAllRead, setShowAllRead] = useState(false);
-  const [connectionState, setConnectionState] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const previousUnreadCount = useRef(unreadCount);
-
-  // 연결 상태 업데이트
-  useEffect(() => {
-    if (isConnected && connectionState !== 'connected') {
-      setConnectionState('connected');
-    } else if (!isConnected && connectionState !== 'disconnected') {
-      setConnectionState('disconnected');
-    }
-  }, [isConnected, connectionState]);
 
   // 메모이제이션된 이벤트 핸들러들
   const handleClickOutside = useCallback((event: MouseEvent) => {
@@ -146,7 +135,7 @@ export default function NotificationButton({ className = '' }: NotificationButto
             ? 'bg-blue-50 text-blue-600 shadow-md'
             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
         }`}
-        aria-label={`알림 ${unreadCount}개${isConnected ? ', 실시간 연결됨' : ', 연결 끊김'}`}
+        aria-label={`알림 ${unreadCount}개`}
         disabled={loading}
       >
         {/* 아이콘 애니메이션 */}
@@ -165,17 +154,6 @@ export default function NotificationButton({ className = '' }: NotificationButto
           </span>
         )}
 
-        {/* 개선된 연결 상태 표시 */}
-        <div className="absolute bottom-0 right-0 flex items-center justify-center">
-          {connectionState === 'connected' ? (
-            <Wifi className="w-2 h-2 text-green-400" />
-          ) : connectionState === 'connecting' ? (
-            <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-          ) : (
-            <WifiOff className="w-2 h-2 text-gray-400" />
-          )}
-        </div>
-
         {/* 로딩 인디케이터 */}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 rounded-lg">
@@ -189,37 +167,9 @@ export default function NotificationButton({ className = '' }: NotificationButto
         <div className="absolute right-0 top-full mt-2 w-screen max-w-[calc(100vw-2rem)] sm:w-96 sm:max-w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[80vh] overflow-hidden animate-in slide-in-from-top-2 duration-200">
           {/* 헤더 - 모바일 최적화 */}
           <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 bg-gray-50">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-gray-600" />
-                <h3 className="font-semibold text-sm sm:text-base text-gray-900">알림</h3>
-              </div>
-
-              {/* 상태 정보 - 모바일에서 숨김 */}
-              <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500">
-                {loading && (
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                    <span>동기화 중...</span>
-                  </div>
-                )}
-
-                {!loading && (
-                  <div className="flex items-center gap-1">
-                    {connectionState === 'connected' ? (
-                      <>
-                        <Wifi className="w-3 h-3 text-green-500" />
-                        <span className="text-green-600">실시간</span>
-                      </>
-                    ) : (
-                      <>
-                        <WifiOff className="w-3 h-3 text-gray-400" />
-                        <span>오프라인</span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4 text-gray-600" />
+              <h3 className="font-semibold text-sm sm:text-base text-gray-900">알림</h3>
             </div>
 
             <div className="flex items-center gap-0.5 sm:gap-1">

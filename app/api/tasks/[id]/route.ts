@@ -43,65 +43,161 @@ export async function GET(
       );
     }
 
-    // 업무 상세 정보 조회
+    // 업무 상세 정보 조회 - 먼저 일반 tasks 테이블에서 검색
     const { data: task, error } = await supabaseAdmin
       .from('task_details')
       .select('*')
       .eq('id', params.id)
       .single();
 
+    let taskData = task;
+    let taskHistory: any[] = [];
+    let isFacilityTask = false;
+
+    // task_details에서 찾지 못한 경우, facility_tasks 테이블 확인
     if (error || !task) {
-      return NextResponse.json(
-        { success: false, message: '업무를 찾을 수 없습니다.' },
-        { status: 404 }
-      );
-    }
+      console.log('🔍 [TASK-DETAIL] task_details에 없음, facility_tasks 확인');
 
-    // 접근 권한 확인
-    const hasAccess =
-      task.assigned_to === decodedToken.userId ||
-      task.created_by === decodedToken.userId ||
-      decodedToken.permissionLevel >= 1;
+      // is_deleted 필터 제거 - 삭제된 업무도 조회 가능하도록
+      const { data: facilityTask, error: facilityError } = await supabaseAdmin
+        .from('facility_tasks')
+        .select('*')
+        .eq('id', params.id)
+        .single();
 
-    if (!hasAccess) {
-      return NextResponse.json(
-        { success: false, message: '업무에 접근할 권한이 없습니다.' },
-        { status: 403 }
-      );
-    }
+      console.log('🔍 [FACILITY-TASK-QUERY] facilityError:', facilityError);
+      console.log('🔍 [FACILITY-TASK-QUERY] facilityTask:', facilityTask);
+      console.log('🔍 [FACILITY-TASK-QUERY] is_deleted:', facilityTask?.is_deleted);
 
-    // 업무 히스토리 조회
-    const { data: history, error: historyError } = await supabaseAdmin
-      .from('task_history')
-      .select(`
-        id,
-        action,
-        field_name,
-        old_value,
-        new_value,
-        change_reason,
-        created_at,
-        changed_by,
-        changer:employees!task_history_changed_by_fkey(name, email)
-      `)
-      .eq('task_id', params.id)
-      .order('created_at', { ascending: false });
+      if (facilityError || !facilityTask) {
+        console.log('❌ [FACILITY-TASK-QUERY] 업무를 찾을 수 없음');
+        return NextResponse.json(
+          { success: false, message: '업무를 찾을 수 없습니다.' },
+          { status: 404 }
+        );
+      }
 
-    if (historyError) {
-      console.warn('히스토리 조회 오류:', historyError);
+      isFacilityTask = true;
+
+      // facility_task를 task_details 형식으로 변환
+      const priorityMap: Record<string, number> = { low: 1, medium: 2, high: 3 };
+      const statusMap: Record<string, { name: string; color: string; icon: string; type: string }> = {
+        pending: { name: '대기중', color: '#6B7280', icon: 'clock', type: 'pending' },
+        in_progress: { name: '진행중', color: '#3B82F6', icon: 'play-circle', type: 'in_progress' },
+        completed: { name: '완료', color: '#10B981', icon: 'check-circle', type: 'completed' }
+      };
+
+      const status = statusMap[facilityTask.status] || statusMap.pending;
+
+      // 담당자 정보 조회
+      let assigneeName = '미배정';
+      let assigneeEmail = '';
+      let assigneeDept = '';
+      let assigneePosition = '';
+
+      if (facilityTask.primary_assignee_id) {
+        const { data: assigneeData } = await supabaseAdmin
+          .from('employees')
+          .select('name, email, department, position')
+          .eq('id', facilityTask.primary_assignee_id)
+          .single();
+
+        if (assigneeData) {
+          assigneeName = assigneeData.name;
+          assigneeEmail = assigneeData.email || '';
+          assigneeDept = assigneeData.department || '';
+          assigneePosition = assigneeData.position || '';
+        }
+      }
+
+      // 삭제된 업무인 경우 제목에 표시
+      const isDeleted = facilityTask.is_deleted === true;
+      const displayTitle = isDeleted ? `[삭제됨] ${facilityTask.title}` : facilityTask.title;
+      const displayDescription = isDeleted
+        ? `⚠️ 이 업무는 삭제되었습니다.\n\n${facilityTask.description || ''}`.trim()
+        : (facilityTask.description || '');
+
+      taskData = {
+        id: facilityTask.id,
+        title: displayTitle,
+        description: displayDescription,
+        priority: priorityMap[facilityTask.priority] || 2,
+        start_date: null,
+        due_date: facilityTask.due_date,
+        estimated_hours: null,
+        actual_hours: null,
+        progress_percentage: facilityTask.status === 'completed' ? 100 : facilityTask.status === 'in_progress' ? 50 : 0,
+        is_urgent: facilityTask.priority === 'high',
+        created_at: facilityTask.created_at,
+        updated_at: facilityTask.updated_at,
+        category_name: facilityTask.task_type === 'self' ? '자체' : '보조금',
+        category_color: isDeleted ? '#9CA3AF' : (facilityTask.task_type === 'self' ? '#3B82F6' : '#10B981'),
+        category_icon: 'briefcase',
+        status_name: isDeleted ? '삭제됨' : status.name,
+        status_color: isDeleted ? '#6B7280' : status.color,
+        status_icon: isDeleted ? 'trash' : status.icon,
+        status_type: isDeleted ? 'deleted' : status.type,
+        created_by_name: '시스템',
+        created_by_email: '',
+        assigned_to_name: assigneeName,
+        assigned_to_email: assigneeEmail,
+        assigned_to_department: assigneeDept,
+        assigned_to_position: assigneePosition,
+        tags: isDeleted ? ['삭제된 업무'] : [],
+        attachment_count: 0,
+        subtask_count: 0,
+        is_deleted: isDeleted  // 삭제 상태 추가
+      };
+    } else {
+      // 일반 업무의 경우 접근 권한 확인
+      const hasAccess =
+        task.assigned_to === decodedToken.userId ||
+        task.created_by === decodedToken.userId ||
+        decodedToken.permissionLevel >= 1;
+
+      if (!hasAccess) {
+        return NextResponse.json(
+          { success: false, message: '업무에 접근할 권한이 없습니다.' },
+          { status: 403 }
+        );
+      }
+
+      // 일반 업무 히스토리 조회
+      const { data: history, error: historyError } = await supabaseAdmin
+        .from('task_history')
+        .select(`
+          id,
+          action,
+          field_name,
+          old_value,
+          new_value,
+          change_reason,
+          created_at,
+          changed_by,
+          changer:employees!task_history_changed_by_fkey(name, email)
+        `)
+        .eq('task_id', params.id)
+        .order('created_at', { ascending: false });
+
+      if (historyError) {
+        console.warn('히스토리 조회 오류:', historyError);
+      }
+
+      taskHistory = history || [];
     }
 
     console.log('✅ [TASK-DETAIL] 조회 성공:', {
-      taskId: task.id,
-      title: task.title,
-      hasHistory: !!history?.length
+      taskId: taskData.id,
+      title: taskData.title,
+      isFacilityTask,
+      hasHistory: taskHistory.length > 0
     });
 
     return NextResponse.json({
       success: true,
       data: {
-        task,
-        history: history || []
+        task: taskData,
+        history: taskHistory
       }
     });
 

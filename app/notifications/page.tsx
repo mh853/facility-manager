@@ -16,7 +16,6 @@ import {
   User,
   AlertCircle,
   Settings,
-  RefreshCw,
   Calendar,
   Tag,
   ChevronDown,
@@ -59,11 +58,9 @@ function NotificationsPage() {
     notifications,
     unreadCount,
     loading,
-    fetchNotifications,
     markAsRead,
     markAllAsRead,
-    deleteNotification,
-    isConnected
+    deleteNotification
   } = useNotification();
 
   // 필터 상태
@@ -205,27 +202,6 @@ function NotificationsPage() {
       description="시스템 알림 및 업무 관련 알림을 관리합니다"
       actions={
         <div className="flex items-center gap-3">
-          {/* 연결 상태 */}
-          <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-            isConnected
-              ? 'bg-green-100 text-green-700'
-              : 'bg-red-100 text-red-700'
-          }`}>
-            <div className={`w-2 h-2 rounded-full ${
-              isConnected ? 'bg-green-500' : 'bg-red-500'
-            }`} />
-            {isConnected ? '실시간 연결됨' : '연결 끊김'}
-          </div>
-
-          {/* 새로고침 */}
-          <button
-            onClick={fetchNotifications}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
-            title="새로고침"
-          >
-            <RefreshCw className="w-5 h-5" />
-          </button>
-
           {/* 설정 */}
           <Link
             href="/notifications/settings"
@@ -237,33 +213,33 @@ function NotificationsPage() {
         </div>
       }
     >
-      {/* 통계 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-blue-600">{notifications.length}</div>
-            <div className="text-sm text-blue-600">전체 알림</div>
+      {/* 통계 - 모바일 최적화 */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-6 mb-4 sm:mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-blue-50 rounded-lg p-3 sm:p-4">
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">{notifications.length}</div>
+            <div className="text-xs sm:text-sm text-blue-600">전체 알림</div>
           </div>
-          <div className="bg-orange-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-orange-600">{unreadCount}</div>
-            <div className="text-sm text-orange-600">읽지 않음</div>
+          <div className="bg-orange-50 rounded-lg p-3 sm:p-4">
+            <div className="text-xl sm:text-2xl font-bold text-orange-600">{unreadCount}</div>
+            <div className="text-xs sm:text-sm text-orange-600">읽지 않음</div>
           </div>
-          <div className="bg-green-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-green-600">{notifications.length - unreadCount}</div>
-            <div className="text-sm text-green-600">읽음</div>
+          <div className="bg-green-50 rounded-lg p-3 sm:p-4">
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{notifications.length - unreadCount}</div>
+            <div className="text-xs sm:text-sm text-green-600">읽음</div>
           </div>
-          <div className="bg-purple-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-purple-600">
+          <div className="bg-purple-50 rounded-lg p-3 sm:p-4">
+            <div className="text-xl sm:text-2xl font-bold text-purple-600">
               {notifications.filter(n => n.priority === 'high' || n.priority === 'critical').length}
             </div>
-            <div className="text-sm text-purple-600">높은 우선순위</div>
+            <div className="text-xs sm:text-sm text-purple-600">높은 우선순위</div>
           </div>
         </div>
       </div>
 
-        {/* 필터 및 액션 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4">
+        {/* 필터 및 액션 - 모바일 최적화 */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex flex-col lg:flex-row gap-2 sm:gap-4">
             {/* 검색 */}
             <div className="flex-1">
               <div className="relative">
@@ -273,7 +249,7 @@ function NotificationsPage() {
                   placeholder="제목, 내용, 발신자로 검색..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -281,10 +257,10 @@ function NotificationsPage() {
             {/* 필터 토글 */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               <Filter className="w-4 h-4" />
-              필터
+              <span className="hidden sm:inline">필터</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
             </button>
 
@@ -293,10 +269,11 @@ function NotificationsPage() {
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
-                  <CheckCheck className="w-4 h-4" />
-                  모두 읽음
+                  <CheckCheck className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">모두 읽음</span>
+                  <span className="sm:hidden">읽음</span>
                 </button>
               )}
             </div>
@@ -304,15 +281,15 @@ function NotificationsPage() {
 
           {/* 필터 옵션 */}
           {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4">
                 {/* 카테고리 필터 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">카테고리</label>
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value as NotificationCategory | 'all')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">전체 카테고리</option>
                     {Object.entries(categoryLabels).map(([key, label]) => (
@@ -325,11 +302,11 @@ function NotificationsPage() {
 
                 {/* 우선순위 필터 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">우선순위</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">우선순위</label>
                   <select
                     value={selectedPriority}
                     onChange={(e) => setSelectedPriority(e.target.value as NotificationPriority | 'all')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">전체 우선순위</option>
                     {Object.entries(priorityLabels).map(([key, label]) => (
@@ -340,11 +317,11 @@ function NotificationsPage() {
 
                 {/* 읽음 상태 필터 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">읽음 상태</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">읽음 상태</label>
                   <select
                     value={showReadStatus}
                     onChange={(e) => setShowReadStatus(e.target.value as 'all' | 'unread' | 'read')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">전체</option>
                     <option value="unread">읽지 않음</option>
@@ -354,11 +331,11 @@ function NotificationsPage() {
 
                 {/* 기간 필터 (히스토리 통합) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">기간</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">기간</label>
                   <select
                     value={daysFilter}
                     onChange={(e) => setDaysFilter(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value={0}>전체 기간</option>
                     <option value={7}>7일</option>
@@ -370,11 +347,11 @@ function NotificationsPage() {
 
                 {/* 정렬 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">정렬</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">정렬</label>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'priority')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="newest">최신순</option>
                     <option value="oldest">오래된순</option>
@@ -383,12 +360,12 @@ function NotificationsPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end mt-4">
+              <div className="flex justify-end mt-3 sm:mt-4">
                 <button
                   onClick={resetFilters}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100"
+                  className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3 h-3 sm:w-4 sm:h-4" />
                   필터 초기화
                 </button>
               </div>
@@ -396,27 +373,27 @@ function NotificationsPage() {
           )}
         </div>
 
-        {/* 알림 목록 */}
+        {/* 알림 목록 - 모바일 최적화 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           {paginatedNotifications.length === 0 ? (
-            <div className="p-12 text-center">
-              <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">알림이 없습니다</h3>
-              <p className="text-gray-500">조건에 맞는 알림이 없습니다.</p>
+            <div className="p-8 sm:p-12 text-center">
+              <Bell className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
+              <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">알림이 없습니다</h3>
+              <p className="text-sm sm:text-base text-gray-500">조건에 맞는 알림이 없습니다.</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
               {paginatedNotifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-6 hover:bg-gray-50 cursor-pointer transition-colors ${
+                  className={`p-3 sm:p-6 hover:bg-gray-50 cursor-pointer transition-colors ${
                     !notification.isRead ? 'bg-blue-50/30' : ''
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-2 sm:gap-4">
                     {/* 아이콘 */}
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
+                    <div className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-base sm:text-lg ${
                       notificationHelpers.getPriorityColor(notification.priority)
                     }`}>
                       {notificationHelpers.getCategoryIcon(notification.category)}
@@ -424,25 +401,25 @@ function NotificationsPage() {
 
                     {/* 내용 */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start justify-between gap-2 sm:gap-4">
                         <div className="flex-1 min-w-0">
-                          <h3 className={`text-base font-medium ${
+                          <h3 className={`text-sm sm:text-base font-medium ${
                             !notification.isRead ? 'text-gray-900' : 'text-gray-700'
                           }`}>
                             {notification.title}
                           </h3>
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                          <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">
                             {notification.message}
                           </p>
 
-                          {/* 메타데이터 */}
-                          <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                          {/* 메타데이터 - 모바일에서 간소화 */}
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-3 text-xs text-gray-500">
                             <div className="flex items-center gap-1">
                               <Tag className="w-3 h-3" />
-                              {categoryLabels[notification.category]}
+                              <span className="hidden sm:inline">{categoryLabels[notification.category]}</span>
                             </div>
                             {notification.createdByName && (
-                              <div className="flex items-center gap-1">
+                              <div className="hidden sm:flex items-center gap-1">
                                 <User className="w-3 h-3" />
                                 {notification.createdByName}
                               </div>
@@ -454,26 +431,26 @@ function NotificationsPage() {
                           </div>
                         </div>
 
-                        {/* 액션 */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {/* 우선순위 배지 */}
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        {/* 액션 - 모바일 최적화 */}
+                        <div className="flex items-start gap-0.5 sm:gap-2 flex-shrink-0">
+                          {/* 우선순위 배지 - 모바일에서 숨김 */}
+                          <span className={`hidden sm:inline-block px-2 py-1 rounded-full text-xs font-medium ${
                             notificationHelpers.getPriorityColor(notification.priority)
                           }`}>
                             {priorityLabels[notification.priority]}
                           </span>
 
-                          {/* 외부 링크 */}
+                          {/* 외부 링크 - 모바일에서 숨김 */}
                           {notification.relatedUrl && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleNotificationClick(notification);
                               }}
-                              className="p-1 text-gray-400 hover:text-blue-600 rounded"
+                              className="hidden sm:block p-1 text-gray-400 hover:text-blue-600 rounded"
                               title="상세 보기"
                             >
-                              <ExternalLink className="w-4 h-4" />
+                              <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
                           )}
 
@@ -484,10 +461,10 @@ function NotificationsPage() {
                                 e.stopPropagation();
                                 markAsRead(notification.id);
                               }}
-                              className="p-1 text-gray-400 hover:text-green-600 rounded"
+                              className="p-0.5 sm:p-1 text-gray-400 hover:text-green-600 rounded"
                               title="읽음 처리"
                             >
-                              <Check className="w-4 h-4" />
+                              <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
                           )}
 
@@ -497,17 +474,17 @@ function NotificationsPage() {
                               e.stopPropagation();
                               deleteNotification(notification.id);
                             }}
-                            className="p-1 text-gray-400 hover:text-red-600 rounded"
+                            className="p-0.5 sm:p-1 text-gray-400 hover:text-red-600 rounded"
                             title="삭제"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </button>
                         </div>
                       </div>
 
                       {/* 읽지 않음 표시 */}
                       {!notification.isRead && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-3" />
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 sm:mt-3" />
                       )}
                     </div>
                   </div>
@@ -516,31 +493,31 @@ function NotificationsPage() {
             </div>
           )}
 
-          {/* 페이지네이션 */}
+          {/* 페이지네이션 - 모바일 최적화 */}
           {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-700">
+            <div className="px-3 sm:px-6 py-3 sm:py-4 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0">
+                <div className="text-xs sm:text-sm text-gray-700 order-2 sm:order-1">
                   {filteredNotifications.length}개 중 {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredNotifications.length)}개 표시
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 sm:px-3 py-1 text-xs sm:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     이전
                   </button>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5 sm:gap-1">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       const pageNum = i + 1;
                       return (
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1 text-sm rounded-lg ${
+                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-lg ${
                             currentPage === pageNum
                               ? 'bg-blue-600 text-white'
                               : 'border border-gray-300 hover:bg-gray-50'
@@ -555,7 +532,7 @@ function NotificationsPage() {
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 sm:px-3 py-1 text-xs sm:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     다음
                   </button>
