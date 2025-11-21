@@ -697,8 +697,33 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         if (deletedNotification) {
           setNotifications(prev => [deletedNotification!, ...prev]);
         }
+
+        // 403 오류 시 권한 부족 메시지 표시
+        if (response.status === 403) {
+          const errorData = await response.json();
+          const errorMessage = errorData.error?.message || '알림을 삭제할 권한이 없습니다.';
+
+          setInAppToasts(prev => [{
+            id: `delete-error-${Date.now()}`,
+            title: '❌ 삭제 실패',
+            message: errorMessage,
+            priority: 'high'
+          }, ...prev.slice(0, 4)]);
+        }
+
         throw new Error('알림 삭제에 실패했습니다.');
       }
+
+      // 삭제 성공 토스트 메시지 표시
+      const result = await response.json();
+      const successMessage = result.data?.message || '알림이 삭제되었습니다.';
+
+      setInAppToasts(prev => [{
+        id: `delete-success-${Date.now()}`,
+        title: '✅ 삭제 완료',
+        message: successMessage,
+        priority: 'normal'
+      }, ...prev.slice(0, 4)]);
 
       logger.info('NOTIFICATIONS', 'deleteNotification 완료');
     } catch (error) {

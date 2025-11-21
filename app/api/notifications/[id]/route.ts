@@ -163,20 +163,15 @@ export async function DELETE(
         );
       }
 
-      // 권한 확인: 본인의 알림만 삭제 가능 (또는 관리자 권한)
-      const hasPermission =
-        taskNotification.user_id === user.id ||
-        user.permission_level === 'admin' ||
-        user.permission_level === 'super_admin';
-
-      if (!hasPermission) {
-        console.warn('⚠️ [TASK-NOTIFICATION-DELETE] 권한 없음:', {
+      // 권한 확인: 권한 레벨 4(슈퍼 관리자)만 삭제 가능
+      if (user.permission_level !== 4) {
+        console.warn('⚠️ [TASK-NOTIFICATION-DELETE] 권한 없음 - 레벨 4 필요:', {
           notificationUserId: taskNotification.user_id,
           currentUserId: user.id,
           permissionLevel: user.permission_level
         });
         return NextResponse.json(
-          { success: false, error: { message: '알림을 삭제할 권한이 없습니다.' } },
+          { success: false, error: { message: '알림 삭제는 슈퍼 관리자(권한 레벨 4)만 가능합니다.' } },
           { status: 403 }
         );
       }
@@ -249,42 +244,41 @@ export async function DELETE(
       });
     }
 
-    // 사용자가 직접 생성한 알림이거나 권한이 있는 경우 실제 삭제
-    if (notification.created_by_id === user.id) {
-      // 관련된 읽음 기록도 함께 삭제
-      await supabase
-        .from('user_notification_reads')
-        .delete()
-        .eq('notification_id', notificationId);
-
-      // 알림 삭제
-      const { error: deleteError } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
-
-      if (deleteError) {
-        console.error('알림 삭제 오류:', deleteError);
-        return NextResponse.json(
-          { success: false, error: { message: '알림 삭제에 실패했습니다.' } },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          message: '알림이 성공적으로 삭제되었습니다.',
-          isDeleted: true
-        }
-      });
+    // 권한 확인: 권한 레벨 4(슈퍼 관리자)만 삭제 가능
+    if (user.permission_level !== 4) {
+      return NextResponse.json(
+        { success: false, error: { message: '알림 삭제는 슈퍼 관리자(권한 레벨 4)만 가능합니다.' } },
+        { status: 403 }
+      );
     }
 
-    // 권한이 없는 경우
-    return NextResponse.json(
-      { success: false, error: { message: '알림을 삭제할 권한이 없습니다.' } },
-      { status: 403 }
-    );
+    // 관련된 읽음 기록도 함께 삭제
+    await supabase
+      .from('user_notification_reads')
+      .delete()
+      .eq('notification_id', notificationId);
+
+    // 알림 삭제
+    const { error: deleteError } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', notificationId);
+
+    if (deleteError) {
+      console.error('알림 삭제 오류:', deleteError);
+      return NextResponse.json(
+        { success: false, error: { message: '알림 삭제에 실패했습니다.' } },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        message: '알림이 성공적으로 삭제되었습니다.',
+        isDeleted: true
+      }
+    });
 
   } catch (error) {
     console.error('알림 삭제 API 오류:', error);
