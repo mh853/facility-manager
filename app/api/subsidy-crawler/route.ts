@@ -26,7 +26,7 @@ const SUPPORT_PORTALS = {
 // Phase 2: 환경 관련 기관 크롤링 소스
 // ============================================================
 
-type Phase2SourceType = 'ggeea' | 'keci' | 'gec';
+type Phase2SourceType = 'ggeea' | 'keci' | 'gec' | 'geca';
 
 interface Phase2Source {
   id: string;
@@ -38,8 +38,35 @@ interface Phase2Source {
   detail_base_url?: string;
 }
 
+// IoT/소규모 대기배출시설 관련 키워드 (관련성 필터링용)
+const IOT_KEYWORDS = [
+  // 핵심 키워드
+  '사물인터넷', 'IoT', 'iot', 'IOT',
+  '소규모 대기배출', '소규모대기배출', '소규모 대기오염',
+  '방지시설', '대기방지시설', '대기오염방지',
+  // 관련 키워드
+  '대기배출시설', '배출시설', '대기오염',
+  '굴뚝', 'TMS', '자동측정', '측정기기',
+  '환경IoT', '스마트환경', '원격감시',
+  '미세먼지', '대기관리', '환경모니터링',
+  // 지원사업 키워드
+  '설치지원', '지원사업', '보조금', '설치비',
+];
+
 // Phase 2 크롤링 대상: 환경 관련 기관
 const PHASE2_SOURCES: Phase2Source[] = [
+  // ============================================================
+  // 녹색환경지원센터연합회 (GECA) - 전국 18개 센터 통합 포털
+  // ============================================================
+  {
+    id: 'geca',
+    name: '녹색환경지원센터연합회',
+    type: 'geca',
+    region_code: '00',
+    region_name: '전국',
+    announcement_url: 'http://www.geca.or.kr/home/board/list.do?menuId=30&boardMasterId=2',
+    detail_base_url: 'http://www.geca.or.kr/home/board/read.do?menuId=30&boardMasterId=2&boardId=',
+  },
   // 경기환경에너지진흥원 (GGEEA)
   {
     id: 'ggeea',
@@ -60,26 +87,6 @@ const PHASE2_SOURCES: Phase2Source[] = [
     announcement_url: 'https://www.keci.or.kr/web/board/BD_board.list.do?bbsCd=1001',
     detail_base_url: 'https://www.keci.or.kr/web/board/BD_board.view.do?bbsCd=1001&seq=',
   },
-  // 경북녹색환경지원센터 (GBGEC)
-  {
-    id: 'gbgec',
-    name: '경북녹색환경지원센터',
-    type: 'gec',
-    region_code: '47',
-    region_name: '경상북도',
-    announcement_url: 'http://www.gbgec.or.kr/bbs/board.php?bo_table=sub5_1',
-    detail_base_url: 'http://www.gbgec.or.kr/bbs/board.php?bo_table=sub5_1&wr_id=',
-  },
-  // 울산녹색환경지원센터 (UGEC) - 2024.11 기준 사이트 접속 불가로 비활성화
-  // {
-  //   id: 'ugec',
-  //   name: '울산녹색환경지원센터',
-  //   type: 'gec',
-  //   region_code: '31',
-  //   region_name: '울산광역시',
-  //   announcement_url: 'http://www.ugec.or.kr/bbs/board.php?bo_table=sub0401',
-  //   detail_base_url: 'http://www.ugec.or.kr/bbs/board.php?bo_table=sub0401&wr_id=',
-  // },
 ];
 
 // 크롤링 대상 지자체 목록 (기업마당 지역 검색 URL 사용)
@@ -244,10 +251,13 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // 키워드 기반 관련성 판단
-          const keywords = ['대기배출', 'IoT', '사물인터넷', '방지시설', '환경', '미세먼지', '소규모'];
+          // IOT_KEYWORDS 기반 관련성 판단
           const text = `${announcement.title} ${announcement.content}`.toLowerCase();
-          const matchedKeywords = keywords.filter(k => text.includes(k.toLowerCase()));
+          const matchedKeywords = IOT_KEYWORDS.filter(k => text.includes(k.toLowerCase()));
+
+          // 관련성 점수 계산 (매칭된 키워드가 많을수록 높은 점수)
+          const isRelevant = matchedKeywords.length >= 1;
+          const relevanceScore = Math.min(0.5 + matchedKeywords.length * 0.1, 1.0);
 
           const insertData = {
             region_code: source.region_code,
@@ -257,9 +267,9 @@ export async function POST(request: NextRequest) {
             content: announcement.content,
             source_url: announcement.source_url,
             published_at: announcement.published_at,
-            is_relevant: true,
-            relevance_score: Math.min(0.6 + matchedKeywords.length * 0.1, 1.0),
-            keywords_matched: matchedKeywords.length > 0 ? matchedKeywords : ['환경'],
+            is_relevant: isRelevant,
+            relevance_score: relevanceScore,
+            keywords_matched: matchedKeywords.length > 0 ? matchedKeywords : ['녹색환경'],
           };
 
           const { error } = await supabase
@@ -745,6 +755,109 @@ async function crawlGEC(source: Phase2Source): Promise<CrawledAnnouncement[]> {
   }
 }
 
+// 녹색환경지원센터연합회 (GECA) 크롤링 - 전국 18개 센터 통합
+async function crawlGECA(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작 (전국 18개 센터 통합)`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-P2] ${source.name} HTTP 오류: ${response.status}`);
+      return [{
+        title: `[${source.name}] 사업공고`,
+        content: `전국 녹색환경지원센터 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      }];
+    }
+
+    const html = await response.text();
+
+    // GECA 게시판 패턴: /home/board/read.do?menuId=30&boardId=XXX&boardMasterId=2
+    // 또는 boardId=XXX 파라미터
+    const linkPatterns = [
+      /boardId=(\d+)[^>]*>([^<]+)</gi,
+      /read\.do\?[^"]*boardId=(\d+)[^"]*"[^>]*>([^<]+)</gi,
+    ];
+
+    const items: { id: string; title: string }[] = [];
+
+    for (const pattern of linkPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        const id = match[1];
+        const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
+
+        // 중복 체크 및 유효성 검사
+        if (id && title.length > 3 && !items.find(i => i.id === id)) {
+          // IoT/소규모 대기배출 관련 키워드 필터링
+          const hasRelevantKeyword = IOT_KEYWORDS.some(k =>
+            title.toLowerCase().includes(k.toLowerCase())
+          );
+
+          // 관련 키워드가 있거나 일반 공고면 추가
+          items.push({ id, title });
+        }
+      }
+    }
+
+    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 공고 발견`);
+
+    // 최대 20개 공고 저장 (전국 통합이므로 더 많이)
+    const maxItems = Math.min(items.length, 20);
+    for (let i = 0; i < maxItems; i++) {
+      const { id, title } = items[i];
+
+      // 키워드 매칭 확인
+      const matchedKeywords = IOT_KEYWORDS.filter(k =>
+        title.toLowerCase().includes(k.toLowerCase())
+      );
+
+      const keywordInfo = matchedKeywords.length > 0
+        ? `\n\n매칭 키워드: ${matchedKeywords.join(', ')}`
+        : '';
+
+      announcements.push({
+        title: `[녹색환경지원센터] ${title}`,
+        content: `녹색환경지원센터연합회에서 게시한 공고입니다.${keywordInfo}\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`,
+        source_url: `${source.detail_base_url}${id}`,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    // 공고가 없으면 기본 링크 제공
+    if (announcements.length === 0) {
+      announcements.push({
+        title: `[녹색환경지원센터] 사업공고`,
+        content: `전국 녹색환경지원센터 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-P2] ${source.name} 크롤링 오류:`, error);
+    return [{
+      title: `[녹색환경지원센터] 사업공고`,
+      content: `크롤링 중 오류가 발생했습니다.\n원문보기를 클릭하여 직접 확인해주세요.`,
+      source_url: source.announcement_url,
+      published_at: new Date().toISOString(),
+    }];
+  }
+}
+
 // Phase 2 소스 크롤링 라우터
 async function crawlPhase2Source(source: Phase2Source): Promise<CrawledAnnouncement[]> {
   switch (source.type) {
@@ -754,6 +867,8 @@ async function crawlPhase2Source(source: Phase2Source): Promise<CrawledAnnouncem
       return crawlKECI(source);
     case 'gec':
       return crawlGEC(source);
+    case 'geca':
+      return crawlGECA(source);
     default:
       return [];
   }
