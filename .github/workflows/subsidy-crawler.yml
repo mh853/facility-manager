@@ -1,0 +1,113 @@
+# 지자체 보조금 공고 크롤러 스케줄러
+# 매일 오전 9시, 오후 2시, 오후 6시 (KST) 실행
+
+name: Subsidy Announcement Crawler
+
+on:
+  # 스케줄 (UTC 기준 - KST는 +9시간)
+  schedule:
+    - cron: '0 0 * * *'   # 매일 00:00 UTC = 09:00 KST
+    - cron: '0 5 * * *'   # 매일 05:00 UTC = 14:00 KST
+    - cron: '0 9 * * *'   # 매일 09:00 UTC = 18:00 KST
+
+  # 수동 실행 가능
+  workflow_dispatch:
+    inputs:
+      region_codes:
+        description: '특정 지자체 코드 (쉼표 구분, 비우면 전체)'
+        required: false
+        default: ''
+      force:
+        description: '이미 수집된 공고도 다시 처리'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  # Vercel 배포 URL (프로덕션)
+  API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://facility.blueon-iot.com' }}
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 🕐 현재 시간 표시
+        run: |
+          echo "⏰ 실행 시각: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+
+      - name: 🔍 크롤러 상태 확인
+        run: |
+          echo "📡 크롤러 상태 확인 중..."
+          curl -s "${{ env.API_BASE_URL }}/api/subsidy-crawler" | jq '.'
+
+      - name: 🚀 크롤링 실행
+        id: crawl
+        run: |
+          echo "🤖 지자체 공고 크롤링 시작..."
+
+          # 입력 파라미터 처리
+          REGION_CODES="${{ github.event.inputs.region_codes || '' }}"
+          FORCE="${{ github.event.inputs.force || 'false' }}"
+
+          # JSON 요청 본문 생성
+          if [ -n "$REGION_CODES" ]; then
+            BODY="{\"region_codes\": [\"${REGION_CODES//,/\",\"}\"], \"force\": $FORCE}"
+          else
+            BODY="{\"force\": $FORCE}"
+          fi
+
+          echo "📤 요청 본문: $BODY"
+
+          # 크롤러 API 호출
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
+            -d "$BODY" \
+            "${{ env.API_BASE_URL }}/api/subsidy-crawler")
+
+          echo "📥 응답: $RESPONSE"
+
+          # 결과 파싱
+          SUCCESS=$(echo $RESPONSE | jq -r '.success // false')
+          NEW_COUNT=$(echo $RESPONSE | jq -r '.new_announcements // 0')
+          RELEVANT_COUNT=$(echo $RESPONSE | jq -r '.relevant_announcements // 0')
+
+          echo "success=$SUCCESS" >> $GITHUB_OUTPUT
+          echo "new_count=$NEW_COUNT" >> $GITHUB_OUTPUT
+          echo "relevant_count=$RELEVANT_COUNT" >> $GITHUB_OUTPUT
+
+          if [ "$SUCCESS" != "true" ]; then
+            echo "❌ 크롤링 실패"
+            exit 1
+          fi
+
+          echo "✅ 크롤링 완료"
+          echo "📊 신규 공고: $NEW_COUNT건"
+          echo "🎯 관련 공고: $RELEVANT_COUNT건"
+
+      - name: 📬 알림 발송 (관련 공고 발견 시)
+        if: steps.crawl.outputs.relevant_count > 0
+        run: |
+          echo "🔔 새로운 관련 공고 발견!"
+          echo "📊 관련 공고 수: ${{ steps.crawl.outputs.relevant_count }}건"
+
+          # Slack 웹훅 (선택사항)
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"🚨 *지자체 보조금 공고 알림*\n새로운 IoT 지원사업 관련 공고 ${{ steps.crawl.outputs.relevant_count }}건이 발견되었습니다.\n👉 확인하기: ${{ env.API_BASE_URL }}/admin/subsidy\"}" \
+              ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi
+
+      - name: 📋 실행 요약
+        if: always()
+        run: |
+          echo "=================================="
+          echo "📋 크롤링 실행 요약"
+          echo "=================================="
+          echo "⏰ 완료 시각: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+          echo "✅ 성공 여부: ${{ steps.crawl.outputs.success }}"
+          echo "📊 신규 공고: ${{ steps.crawl.outputs.new_count }}건"
+          echo "🎯 관련 공고: ${{ steps.crawl.outputs.relevant_count }}건"
+          echo "=================================="

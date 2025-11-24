@@ -17,6 +17,7 @@
     "migrate:photos": "node --experimental-modules scripts/migrate-existing-photos.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.56.0",
     "@tanstack/react-query": "^5.90.7",
