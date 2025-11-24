@@ -26,7 +26,7 @@ const SUPPORT_PORTALS = {
 // Phase 2: 환경 관련 기관 크롤링 소스
 // ============================================================
 
-type Phase2SourceType = 'ggeea' | 'keci' | 'gec' | 'geca';
+type Phase2SourceType = 'ggeea' | 'keci' | 'gec' | 'geca' | 'gec_gnuboard' | 'gec_cms';
 
 interface Phase2Source {
   id: string;
@@ -36,6 +36,10 @@ interface Phase2Source {
   region_name: string;
   announcement_url: string;
   detail_base_url?: string;
+  // 그누보드용 추가 필드
+  bo_table?: string;
+  // CMS용 추가 필드
+  menu_id?: string;
 }
 
 // IoT/소규모 대기배출시설 관련 키워드 (관련성 필터링용)
@@ -56,17 +60,106 @@ const IOT_KEYWORDS = [
 // Phase 2 크롤링 대상: 환경 관련 기관
 const PHASE2_SOURCES: Phase2Source[] = [
   // ============================================================
-  // 녹색환경지원센터연합회 (GECA) - 전국 18개 센터 통합 포털
+  // 개별 녹색환경지원센터 (전국 18개 센터)
   // ============================================================
+
+  // --- CMS 패턴 사용 센터 (부산, 대전 등) ---
   {
-    id: 'geca',
-    name: '녹색환경지원센터연합회',
-    type: 'geca',
-    region_code: '00',
-    region_name: '전국',
-    announcement_url: 'http://www.geca.or.kr/home/board/list.do?menuId=30&boardMasterId=2',
-    detail_base_url: 'http://www.geca.or.kr/home/board/read.do?menuId=30&boardMasterId=2&boardId=',
+    id: 'bgec',
+    name: '부산녹색환경지원센터',
+    type: 'gec_cms',
+    region_code: '26',
+    region_name: '부산광역시',
+    announcement_url: 'http://www.bgec.or.kr/ko/23',
+    detail_base_url: 'http://www.bgec.or.kr/ko/23/view?SEQ=',
+    menu_id: '23',
   },
+  {
+    id: 'djgec',
+    name: '대전녹색환경지원센터',
+    type: 'gec_cms',
+    region_code: '30',
+    region_name: '대전광역시',
+    announcement_url: 'https://www.djgec.or.kr/ko/19',
+    detail_base_url: 'https://www.djgec.or.kr/ko/19/view?SEQ=',
+    menu_id: '19',
+  },
+  {
+    id: 'gjgec',
+    name: '광주녹색환경지원센터',
+    type: 'gec_cms',
+    region_code: '29',
+    region_name: '광주광역시',
+    announcement_url: 'http://www.gjgec.or.kr/ko/23',
+    detail_base_url: 'http://www.gjgec.or.kr/ko/23/view?SEQ=',
+    menu_id: '23',
+  },
+  {
+    id: 'degec',
+    name: '대구녹색환경지원센터',
+    type: 'gec_cms',
+    region_code: '27',
+    region_name: '대구광역시',
+    announcement_url: 'http://www.degec.or.kr/ko/23',
+    detail_base_url: 'http://www.degec.or.kr/ko/23/view?SEQ=',
+    menu_id: '23',
+  },
+  {
+    id: 'gngec',
+    name: '경남녹색환경지원센터',
+    type: 'gec_cms',
+    region_code: '48',
+    region_name: '경상남도',
+    announcement_url: 'https://www.gngec.or.kr/ko/23',
+    detail_base_url: 'https://www.gngec.or.kr/ko/23/view?SEQ=',
+    menu_id: '23',
+  },
+  {
+    id: 'jbgec',
+    name: '전북녹색환경지원센터',
+    type: 'gec_cms',
+    region_code: '45',
+    region_name: '전북특별자치도',
+    announcement_url: 'http://www.jbgec.or.kr/ko/23',
+    detail_base_url: 'http://www.jbgec.or.kr/ko/23/view?SEQ=',
+    menu_id: '23',
+  },
+  {
+    id: 'cbgec',
+    name: '충북녹색환경지원센터',
+    type: 'gec_cms',
+    region_code: '43',
+    region_name: '충청북도',
+    announcement_url: 'http://www.cbgec.or.kr/ko/23',
+    detail_base_url: 'http://www.cbgec.or.kr/ko/23/view?SEQ=',
+    menu_id: '23',
+  },
+  {
+    id: 'jgec',
+    name: '제주녹색환경지원센터',
+    type: 'gec_cms',
+    region_code: '50',
+    region_name: '제주특별자치도',
+    announcement_url: 'http://www.jgec.kr/ko/23',
+    detail_base_url: 'http://www.jgec.kr/ko/23/view?SEQ=',
+    menu_id: '23',
+  },
+
+  // --- 그누보드 패턴 사용 센터 (경북 등) ---
+  {
+    id: 'gbgec',
+    name: '경북녹색환경지원센터',
+    type: 'gec_gnuboard',
+    region_code: '47',
+    region_name: '경상북도',
+    announcement_url: 'http://www.gbgec.or.kr/bbs/board.php?bo_table=sub5_1',
+    detail_base_url: 'http://www.gbgec.or.kr/bbs/board.php?bo_table=sub5_1&wr_id=',
+    bo_table: 'sub5_1',
+  },
+
+  // ============================================================
+  // 기타 환경 기관
+  // ============================================================
   // 경기환경에너지진흥원 (GGEEA)
   {
     id: 'ggeea',
@@ -858,6 +951,188 @@ async function crawlGECA(source: Phase2Source): Promise<CrawledAnnouncement[]> {
   }
 }
 
+// 녹색환경지원센터 - 그누보드 패턴 (경북 등)
+async function crawlGEC_Gnuboard(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작 (그누보드)`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-P2] ${source.name} HTTP 오류: ${response.status}`);
+      return [{
+        title: `[${source.name}] 사업공고`,
+        content: `${source.name}의 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      }];
+    }
+
+    const html = await response.text();
+
+    // 그누보드 패턴: wr_id=XXX 파라미터와 제목 추출
+    // <a href="...wr_id=682">제목</a>
+    const linkPattern = /wr_id=(\d+)[^>]*>([^<]+)</gi;
+    const items: { id: string; title: string }[] = [];
+    let match;
+
+    while ((match = linkPattern.exec(html)) !== null) {
+      const id = match[1];
+      const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
+
+      if (id && title.length > 3 && !items.find(i => i.id === id)) {
+        items.push({ id, title });
+      }
+    }
+
+    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 공고 발견`);
+
+    // 최대 15개 공고 저장
+    const maxItems = Math.min(items.length, 15);
+    for (let i = 0; i < maxItems; i++) {
+      const { id, title } = items[i];
+
+      const matchedKeywords = IOT_KEYWORDS.filter(k =>
+        title.toLowerCase().includes(k.toLowerCase())
+      );
+
+      const keywordInfo = matchedKeywords.length > 0
+        ? `\n\n매칭 키워드: ${matchedKeywords.join(', ')}`
+        : '';
+
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: `${source.name}에서 게시한 공고입니다.${keywordInfo}\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`,
+        source_url: `${source.detail_base_url}${id}`,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    if (announcements.length === 0) {
+      announcements.push({
+        title: `[${source.name}] 사업공고`,
+        content: `${source.name}의 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-P2] ${source.name} 크롤링 오류:`, error);
+    return [{
+      title: `[${source.name}] 사업공고`,
+      content: `크롤링 중 오류가 발생했습니다.\n원문보기를 클릭하여 직접 확인해주세요.`,
+      source_url: source.announcement_url,
+      published_at: new Date().toISOString(),
+    }];
+  }
+}
+
+// 녹색환경지원센터 - CMS 패턴 (부산, 대전, 광주 등)
+async function crawlGEC_CMS(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작 (CMS)`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-P2] ${source.name} HTTP 오류: ${response.status}`);
+      return [{
+        title: `[${source.name}] 사업공고`,
+        content: `${source.name}의 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      }];
+    }
+
+    const html = await response.text();
+
+    // CMS 패턴: /ko/XX/view?SEQ=YYY 또는 SEQ=YYY
+    // <a href="/ko/23/view?SEQ=348">제목</a>
+    const linkPatterns = [
+      /view\?SEQ=(\d+)[^>]*>([^<]+)</gi,
+      /SEQ=(\d+)[^>]*>([^<]+)</gi,
+    ];
+
+    const items: { id: string; title: string }[] = [];
+
+    for (const pattern of linkPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        const id = match[1];
+        const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
+
+        if (id && title.length > 3 && !items.find(i => i.id === id)) {
+          items.push({ id, title });
+        }
+      }
+    }
+
+    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 공고 발견`);
+
+    // 최대 15개 공고 저장
+    const maxItems = Math.min(items.length, 15);
+    for (let i = 0; i < maxItems; i++) {
+      const { id, title } = items[i];
+
+      const matchedKeywords = IOT_KEYWORDS.filter(k =>
+        title.toLowerCase().includes(k.toLowerCase())
+      );
+
+      const keywordInfo = matchedKeywords.length > 0
+        ? `\n\n매칭 키워드: ${matchedKeywords.join(', ')}`
+        : '';
+
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: `${source.name}에서 게시한 공고입니다.${keywordInfo}\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`,
+        source_url: `${source.detail_base_url}${id}`,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    if (announcements.length === 0) {
+      announcements.push({
+        title: `[${source.name}] 사업공고`,
+        content: `${source.name}의 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-P2] ${source.name} 크롤링 오류:`, error);
+    return [{
+      title: `[${source.name}] 사업공고`,
+      content: `크롤링 중 오류가 발생했습니다.\n원문보기를 클릭하여 직접 확인해주세요.`,
+      source_url: source.announcement_url,
+      published_at: new Date().toISOString(),
+    }];
+  }
+}
+
 // Phase 2 소스 크롤링 라우터
 async function crawlPhase2Source(source: Phase2Source): Promise<CrawledAnnouncement[]> {
   switch (source.type) {
@@ -869,6 +1144,10 @@ async function crawlPhase2Source(source: Phase2Source): Promise<CrawledAnnouncem
       return crawlGEC(source);
     case 'geca':
       return crawlGECA(source);
+    case 'gec_gnuboard':
+      return crawlGEC_Gnuboard(source);
+    case 'gec_cms':
+      return crawlGEC_CMS(source);
     default:
       return [];
   }
