@@ -19,6 +19,13 @@ export default function SubsidyAnnouncementsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<SubsidyAnnouncement | null>(null);
 
+  // 페이지네이션 상태
+  const [pagination, setPagination] = useState({
+    total: 0,
+    hasMore: false,
+    pageSize: 20,
+  });
+
   // 필터 상태 (기본값: 관련 공고만 표시 - 75% 이상)
   const [filter, setFilter] = useState({
     status: 'all',
@@ -45,6 +52,11 @@ export default function SubsidyAnnouncementsPage() {
 
       if (data.success) {
         setAnnouncements(data.data.announcements);
+        setPagination({
+          total: data.data.total,
+          hasMore: data.data.hasMore,
+          pageSize: data.data.pageSize,
+        });
       }
     } catch (error) {
       console.error('공고 로드 실패:', error);
@@ -375,6 +387,38 @@ export default function SubsidyAnnouncementsPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* 페이지네이션 */}
+          {pagination.total > 0 && (
+            <div className="flex items-center justify-between border-t pt-4 mt-4">
+              <div className="text-sm text-gray-600">
+                총 <span className="font-medium">{pagination.total}</span>건 중{' '}
+                <span className="font-medium">
+                  {(filter.page - 1) * pagination.pageSize + 1}-
+                  {Math.min(filter.page * pagination.pageSize, pagination.total)}
+                </span>건 표시
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setFilter(f => ({ ...f, page: f.page - 1 }))}
+                  disabled={filter.page <= 1}
+                  className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ← 이전
+                </button>
+                <span className="text-sm text-gray-600">
+                  {filter.page} / {Math.ceil(pagination.total / pagination.pageSize)}
+                </span>
+                <button
+                  onClick={() => setFilter(f => ({ ...f, page: f.page + 1 }))}
+                  disabled={!pagination.hasMore}
+                  className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  다음 →
+                </button>
+              </div>
             </div>
           )}
         </div>
