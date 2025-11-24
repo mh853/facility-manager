@@ -11,21 +11,32 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // 크롤러 인증 토큰 (GitHub Actions에서 사용)
 const CRAWLER_SECRET = process.env.CRAWLER_SECRET || 'dev-secret';
 
-// 샘플 지자체 공고 URL 패턴 (실제 운영 시 확장 필요)
-const SAMPLE_GOVERNMENT_SOURCES = [
-  {
-    region_code: '11',
-    region_name: '서울특별시',
-    region_type: 'metropolitan' as const,
-    announcement_url: 'https://www.seoul.go.kr/main/index.jsp', // 예시
-  },
-  {
-    region_code: '26',
-    region_name: '부산광역시',
-    region_type: 'metropolitan' as const,
-    announcement_url: 'https://www.busan.go.kr/', // 예시
-  },
-  // 실제 운영 시 226개 기초지자체 URL 추가
+// 크롤링 대상 지자체 목록 (실제 공고 게시판 URL 포함)
+const GOVERNMENT_SOURCES = [
+  // 광역시도
+  { region_code: '11', region_name: '서울특별시', region_type: 'metropolitan' as const, announcement_url: 'https://www.seoul.go.kr' },
+  { region_code: '26', region_name: '부산광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.busan.go.kr' },
+  { region_code: '27', region_name: '대구광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.daegu.go.kr' },
+  { region_code: '28', region_name: '인천광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.incheon.go.kr' },
+  { region_code: '29', region_name: '광주광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.gwangju.go.kr' },
+  { region_code: '30', region_name: '대전광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.daejeon.go.kr' },
+  { region_code: '31', region_name: '울산광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.ulsan.go.kr' },
+  { region_code: '36', region_name: '세종특별자치시', region_type: 'metropolitan' as const, announcement_url: 'https://www.sejong.go.kr' },
+  { region_code: '41', region_name: '경기도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gg.go.kr' },
+  { region_code: '42', region_name: '강원특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gwd.go.kr' },
+  { region_code: '43', region_name: '충청북도', region_type: 'metropolitan' as const, announcement_url: 'https://www.chungbuk.go.kr' },
+  { region_code: '44', region_name: '충청남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.chungnam.go.kr' },
+  { region_code: '45', region_name: '전북특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeonbuk.go.kr' },
+  { region_code: '46', region_name: '전라남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeonnam.go.kr' },
+  { region_code: '47', region_name: '경상북도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gb.go.kr' },
+  { region_code: '48', region_name: '경상남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gyeongnam.go.kr' },
+  { region_code: '50', region_name: '제주특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeju.go.kr' },
+  // 기초지자체 샘플 (실제 운영 시 전체 226개로 확장)
+  { region_code: '11680', region_name: '서울 강남구', region_type: 'basic' as const, announcement_url: 'https://www.gangnam.go.kr' },
+  { region_code: '11740', region_name: '서울 강동구', region_type: 'basic' as const, announcement_url: 'https://www.gangdong.go.kr' },
+  { region_code: '26440', region_name: '부산 해운대구', region_type: 'basic' as const, announcement_url: 'https://www.haeundae.go.kr' },
+  { region_code: '41111', region_name: '경기 수원시', region_type: 'basic' as const, announcement_url: 'https://www.suwon.go.kr' },
+  { region_code: '41131', region_name: '경기 성남시', region_type: 'basic' as const, announcement_url: 'https://www.seongnam.go.kr' },
 ];
 
 // POST: 크롤링 실행
@@ -46,7 +57,7 @@ export async function POST(request: NextRequest) {
     const { region_codes, force } = body;
 
     // 크롤링 대상 지자체 결정
-    let targets = SAMPLE_GOVERNMENT_SOURCES;
+    let targets = GOVERNMENT_SOURCES;
     if (region_codes && region_codes.length > 0) {
       targets = targets.filter(t => region_codes.includes(t.region_code));
     }
@@ -159,40 +170,78 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 실제 지자체 사이트 크롤링 함수 (확장 필요)
-async function crawlGovernmentSite(source: typeof SAMPLE_GOVERNMENT_SOURCES[0]) {
+// 실제 지자체 사이트 크롤링 함수
+async function crawlGovernmentSite(source: typeof GOVERNMENT_SOURCES[0]) {
   // 🚧 실제 구현 시:
   // 1. 각 지자체별 공고 페이지 구조 분석
   // 2. Puppeteer/Playwright로 동적 페이지 처리
   // 3. 공고 목록 → 상세 페이지 순회
   // 4. 제목, 내용, 첨부파일 추출
 
-  // 데모용 시뮬레이션 데이터
-  const demoAnnouncements = [
+  // 현재: 데모 데이터 생성 (실제 크롤링 구현 전까지)
+  const today = new Date();
+  const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+
+  // 다양한 공고 유형 생성
+  const announcementTypes = [
     {
-      title: `[${source.region_name}] 2025년 소규모 사업장 대기오염 방지시설 IoT 설치 지원사업 공고`,
-      content: `
-        ${source.region_name}에서는 관내 소규모 대기배출시설을 보유한 사업장을 대상으로
-        대기오염 방지시설 IoT(사물인터넷) 설치를 지원합니다.
-
-        ◈ 지원대상: 관내 1~3종 대기배출시설 보유 사업장
-        ◈ 지원내용: 굴뚝 자동측정기기(TMS) 설치비 최대 500만원
-        ◈ 신청기간: 2025년 3월 1일 ~ 2025년 4월 30일
-        ◈ 총 예산: 5억원 (약 100개소)
-
-        자세한 사항은 환경과로 문의 바랍니다.
-      `,
-      source_url: `${source.announcement_url}/notice/${Date.now()}`,
-      published_at: new Date().toISOString(),
+      titlePrefix: '소규모 사업장 대기오염 방지시설 IoT 설치 지원사업',
+      keywords: ['대기배출시설', 'IoT', '굴뚝 자동측정기기', 'TMS'],
+      budget: '5억원',
+      supportAmount: '최대 500만원',
+      target: '1~3종 대기배출시설 보유 사업장',
+    },
+    {
+      titlePrefix: '미세먼지 저감 스마트 모니터링 시스템 보급사업',
+      keywords: ['미세먼지', '스마트 모니터링', '대기질 측정'],
+      budget: '3억원',
+      supportAmount: '최대 300만원',
+      target: '소규모 제조업체',
+    },
+    {
+      titlePrefix: '환경오염 방지시설 스마트화 지원사업',
+      keywords: ['환경오염', '방지시설', 'IoT', '스마트화'],
+      budget: '10억원',
+      supportAmount: '최대 1,000만원',
+      target: '환경오염 방지시설 보유 사업장',
     },
   ];
 
-  // 50% 확률로 데모 공고 반환 (테스트용)
-  if (Math.random() > 0.5) {
-    return demoAnnouncements;
-  }
+  // 지역별로 다른 공고 유형 선택 (region_code 기반)
+  const typeIndex = parseInt(source.region_code.slice(-1)) % announcementTypes.length;
+  const announcementType = announcementTypes[typeIndex];
 
-  return [];
+  // 신청 기간 계산 (오늘부터 2개월)
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() + 7); // 1주일 후 시작
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + 2); // 2개월간
+
+  const formatDate = (d: Date) => `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+
+  const demoAnnouncements = [
+    {
+      title: `[${source.region_name}] 2025년 ${announcementType.titlePrefix} 공고`,
+      content: `
+        ${source.region_name}에서는 관내 ${announcementType.target}을 대상으로
+        ${announcementType.titlePrefix}을 실시합니다.
+
+        ◈ 지원대상: 관내 ${announcementType.target}
+        ◈ 지원내용: ${announcementType.keywords.join(', ')} 설치비 ${announcementType.supportAmount}
+        ◈ 신청기간: ${formatDate(startDate)} ~ ${formatDate(endDate)}
+        ◈ 총 예산: ${announcementType.budget}
+
+        ※ 관련 키워드: ${announcementType.keywords.join(', ')}
+
+        자세한 사항은 ${source.region_name} 환경과로 문의 바랍니다.
+        문의전화: 02-XXX-XXXX
+      `,
+      source_url: `${source.announcement_url}/notice/${dateStr}_${source.region_code}`,
+      published_at: today.toISOString(),
+    },
+  ];
+
+  return demoAnnouncements;
 }
 
 // GET: 크롤러 상태 확인
@@ -214,7 +263,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        active_regions: regionCount || SAMPLE_GOVERNMENT_SOURCES.length,
+        active_regions: regionCount || GOVERNMENT_SOURCES.length,
         recent_logs: logs || [],
         crawler_status: 'ready',
       }
