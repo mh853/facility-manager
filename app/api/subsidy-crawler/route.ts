@@ -11,32 +11,32 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // 크롤러 인증 토큰 (GitHub Actions에서 사용)
 const CRAWLER_SECRET = process.env.CRAWLER_SECRET || 'dev-secret';
 
-// 크롤링 대상 지자체 목록 (실제 공고 게시판 URL 포함)
+// 크롤링 대상 지자체 목록 (메인 홈페이지 URL - 안정적인 링크)
 const GOVERNMENT_SOURCES = [
-  // 광역시도 - 실제 공고 게시판 URL
-  { region_code: '11', region_name: '서울특별시', region_type: 'metropolitan' as const, announcement_url: 'https://news.seoul.go.kr/env/archives/category/notice' },
-  { region_code: '26', region_name: '부산광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.busan.go.kr/depart/bsnotice01' },
-  { region_code: '27', region_name: '대구광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.daegu.go.kr/Environment/index.do?menu_id=00001654' },
-  { region_code: '28', region_name: '인천광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.incheon.go.kr/IC010205' },
-  { region_code: '29', region_name: '광주광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.gwangju.go.kr/BD_0000000002/boardList.do' },
-  { region_code: '30', region_name: '대전광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.daejeon.go.kr/drh/drhContentsHtmlView.do?menuSeq=1698' },
-  { region_code: '31', region_name: '울산광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.ulsan.go.kr/u/rep/bbs/list.do?bbsId=BBS_0000000000000003' },
-  { region_code: '36', region_name: '세종특별자치시', region_type: 'metropolitan' as const, announcement_url: 'https://www.sejong.go.kr/bbs/R0079/list.do' },
-  { region_code: '41', region_name: '경기도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gg.go.kr/bbs/boardList.do?menuId=1534&bbsId=search' },
-  { region_code: '42', region_name: '강원특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gwd.go.kr/gw/portal/bbs/selectBoardList.do?bbsId=BBS_0000000000000007' },
-  { region_code: '43', region_name: '충청북도', region_type: 'metropolitan' as const, announcement_url: 'https://www.chungbuk.go.kr/www/selectBbsNttList.do?key=210&bbsNo=41' },
-  { region_code: '44', region_name: '충청남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.chungnam.go.kr/cnnet/board.do?mnu_cd=CNNMENU00061' },
-  { region_code: '45', region_name: '전북특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeonbuk.go.kr/board/list.jeonbuk?boardId=BBS_0000045' },
-  { region_code: '46', region_name: '전라남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeonnam.go.kr/M6010000/boardList.do' },
-  { region_code: '47', region_name: '경상북도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gb.go.kr/Main/open_contents/section/etc/page.do?mnu_uid=2287' },
-  { region_code: '48', region_name: '경상남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gyeongnam.go.kr/index.gyeong?menuCd=DOM_000000102001001000' },
-  { region_code: '50', region_name: '제주특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeju.go.kr/news/bodo/list.htm' },
+  // 광역시도 - 메인 홈페이지 (게시판 URL은 자주 변경되므로 안정적인 메인 페이지 사용)
+  { region_code: '11', region_name: '서울특별시', region_type: 'metropolitan' as const, announcement_url: 'https://www.seoul.go.kr' },
+  { region_code: '26', region_name: '부산광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.busan.go.kr' },
+  { region_code: '27', region_name: '대구광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.daegu.go.kr' },
+  { region_code: '28', region_name: '인천광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.incheon.go.kr' },
+  { region_code: '29', region_name: '광주광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.gwangju.go.kr' },
+  { region_code: '30', region_name: '대전광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.daejeon.go.kr' },
+  { region_code: '31', region_name: '울산광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.ulsan.go.kr' },
+  { region_code: '36', region_name: '세종특별자치시', region_type: 'metropolitan' as const, announcement_url: 'https://www.sejong.go.kr' },
+  { region_code: '41', region_name: '경기도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gg.go.kr' },
+  { region_code: '42', region_name: '강원특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.provin.gangwon.kr' },
+  { region_code: '43', region_name: '충청북도', region_type: 'metropolitan' as const, announcement_url: 'https://www.chungbuk.go.kr' },
+  { region_code: '44', region_name: '충청남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.chungnam.go.kr' },
+  { region_code: '45', region_name: '전북특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeonbuk.go.kr' },
+  { region_code: '46', region_name: '전라남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeonnam.go.kr' },
+  { region_code: '47', region_name: '경상북도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gb.go.kr' },
+  { region_code: '48', region_name: '경상남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gyeongnam.go.kr' },
+  { region_code: '50', region_name: '제주특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeju.go.kr' },
   // 기초지자체 샘플
-  { region_code: '11680', region_name: '서울 강남구', region_type: 'basic' as const, announcement_url: 'https://www.gangnam.go.kr/board/B_000008/list.do' },
-  { region_code: '11740', region_name: '서울 강동구', region_type: 'basic' as const, announcement_url: 'https://www.gangdong.go.kr/web/newPortal/bbs/B_000003/list.do' },
-  { region_code: '26440', region_name: '부산 해운대구', region_type: 'basic' as const, announcement_url: 'https://www.haeundae.go.kr/board/view/announce/announcelist.do' },
-  { region_code: '41111', region_name: '경기 수원시', region_type: 'basic' as const, announcement_url: 'https://www.suwon.go.kr/sw-www/deptHome/dep_env/env_02/env_02_01.jsp' },
-  { region_code: '41131', region_name: '경기 성남시', region_type: 'basic' as const, announcement_url: 'https://www.seongnam.go.kr/city/1000060/30001/bbsList.do' },
+  { region_code: '11680', region_name: '서울 강남구', region_type: 'basic' as const, announcement_url: 'https://www.gangnam.go.kr' },
+  { region_code: '11740', region_name: '서울 강동구', region_type: 'basic' as const, announcement_url: 'https://www.gangdong.go.kr' },
+  { region_code: '26440', region_name: '부산 해운대구', region_type: 'basic' as const, announcement_url: 'https://www.haeundae.go.kr' },
+  { region_code: '41111', region_name: '경기 수원시', region_type: 'basic' as const, announcement_url: 'https://www.suwon.go.kr' },
+  { region_code: '41131', region_name: '경기 성남시', region_type: 'basic' as const, announcement_url: 'https://www.seongnam.go.kr' },
 ];
 
 // POST: 크롤링 실행
@@ -257,8 +257,11 @@ async function crawlGovernmentSite(source: typeof GOVERNMENT_SOURCES[0]): Promis
 
         ※ 관련 키워드: ${announcementType.keywords.join(', ')}
 
-        자세한 사항은 ${source.region_name} 환경과로 문의 바랍니다.
-        (실제 공고 확인은 아래 원문보기 링크를 클릭하세요)
+        ■ 공고 확인 방법
+        아래 '원문보기' 클릭 → ${source.region_name} 홈페이지 접속 →
+        '고시/공고' 또는 '환경' 메뉴에서 해당 지원사업 공고 확인
+
+        문의: ${source.region_name} 환경과
       `,
       // 실제 지자체 공고 게시판 URL로 연결
       source_url: source.announcement_url,
