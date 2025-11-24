@@ -19,10 +19,10 @@ export default function SubsidyAnnouncementsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<SubsidyAnnouncement | null>(null);
 
-  // 필터 상태
+  // 필터 상태 (기본값: 전체 공고 표시)
   const [filter, setFilter] = useState({
     status: 'all',
-    isRelevant: 'true',
+    isRelevant: 'all',  // 'true'에서 'all'로 변경 - 모든 공고 표시
     search: '',
     page: 1,
   });

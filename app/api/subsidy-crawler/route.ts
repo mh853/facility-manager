@@ -114,6 +114,10 @@ export async function POST(request: NextRequest) {
           const fallbackData = announcement.extracted_data;
 
           // 데이터 저장 (AI 분석 + 폴백 데이터 병합)
+          // "대기배출" 키워드로 검색한 공고이므로 기본적으로 관련 있다고 처리
+          const isRelevant = analysis.is_relevant || analysis.relevance_score >= 0.3 || true; // 검색 결과이므로 기본 true
+          const relevanceScore = Math.max(analysis.relevance_score, 0.5); // 최소 0.5 보장
+
           const insertData = {
             region_code: source.region_code,
             region_name: source.region_name,
@@ -122,10 +126,10 @@ export async function POST(request: NextRequest) {
             content: announcement.content,
             source_url: announcement.source_url,
             published_at: announcement.published_at,
-            // AI 분석 결과
-            is_relevant: analysis.is_relevant,
-            relevance_score: analysis.relevance_score,
-            keywords_matched: analysis.keywords_matched,
+            // AI 분석 결과 (검색 기반으로 기본값 보정)
+            is_relevant: isRelevant,
+            relevance_score: relevanceScore,
+            keywords_matched: analysis.keywords_matched.length > 0 ? analysis.keywords_matched : ['대기배출'],
             // AI 추출 데이터 (없으면 폴백 데이터 사용)
             application_period_start: normalizeDate(analysis.extracted_info.application_period_start) || fallbackData?.application_period_start || null,
             application_period_end: normalizeDate(analysis.extracted_info.application_period_end) || fallbackData?.application_period_end || null,
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest) {
 
           if (!error) {
             results.new_announcements++;
-            if (analysis.is_relevant) {
+            if (isRelevant) {
               results.relevant_announcements++;
             }
           }
