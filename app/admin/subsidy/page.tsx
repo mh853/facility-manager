@@ -19,10 +19,10 @@ export default function SubsidyAnnouncementsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<SubsidyAnnouncement | null>(null);
 
-  // 필터 상태 (기본값: 전체 공고 표시)
+  // 필터 상태 (기본값: 관련 공고만 표시 - 75% 이상)
   const [filter, setFilter] = useState({
     status: 'all',
-    isRelevant: 'all',  // 'true'에서 'all'로 변경 - 모든 공고 표시
+    isRelevant: 'true',  // 관련도 75% 이상만 표시
     search: '',
     page: 1,
   });
@@ -103,19 +103,56 @@ export default function SubsidyAnnouncementsPage() {
     if (announcement.is_read) return;
 
     try {
-      await fetch('/api/subsidy-announcements', {
+      const response = await fetch('/api/subsidy-announcements', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: announcement.id, is_read: true }),
       });
 
-      setAnnouncements(prev =>
-        prev.map(a => (a.id === announcement.id ? { ...a, is_read: true } : a))
-      );
-      loadStats();
+      const result = await response.json();
+
+      if (result.success) {
+        setAnnouncements(prev =>
+          prev.map(a => (a.id === announcement.id ? { ...a, is_read: true } : a))
+        );
+        loadStats();
+      } else {
+        console.error('읽음 처리 실패:', result.error);
+      }
     } catch (error) {
       console.error('읽음 처리 실패:', error);
     }
+  };
+
+  // 제목에서 지역명 추출 (예: [전북], [경기] 등)
+  const extractRegionFromTitle = (title: string, fallback: string): string => {
+    // 대괄호 패턴 매칭: [전북], [경기], [서울] 등
+    const bracketMatch = title.match(/\[([^\]]+)\]/);
+    if (bracketMatch) {
+      const region = bracketMatch[1];
+      // 지역명 매핑 (약어 → 전체 지역명)
+      const regionMap: Record<string, string> = {
+        '서울': '서울특별시',
+        '부산': '부산광역시',
+        '대구': '대구광역시',
+        '인천': '인천광역시',
+        '광주': '광주광역시',
+        '대전': '대전광역시',
+        '울산': '울산광역시',
+        '세종': '세종특별자치시',
+        '경기': '경기도',
+        '강원': '강원특별자치도',
+        '충북': '충청북도',
+        '충남': '충청남도',
+        '전북': '전북특별자치도',
+        '전남': '전라남도',
+        '경북': '경상북도',
+        '경남': '경상남도',
+        '제주': '제주특별자치도',
+      };
+      return regionMap[region] || region;
+    }
+    return fallback;
   };
 
   // 날짜 포맷
@@ -233,7 +270,7 @@ export default function SubsidyAnnouncementsPage() {
                 onChange={e => setFilter(f => ({ ...f, isRelevant: e.target.value, page: 1 }))}
                 className="border rounded px-3 py-1.5 text-sm"
               >
-                <option value="true">관련 공고만</option>
+                <option value="true">관련 공고만 (75%↑)</option>
                 <option value="all">전체</option>
                 <option value="false">무관</option>
               </select>
@@ -300,7 +337,7 @@ export default function SubsidyAnnouncementsPage() {
                             {statusColors[announcement.status].label}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {announcement.region_name}
+                            {extractRegionFromTitle(announcement.title, announcement.region_name)}
                           </span>
                           {isUrgent && (
                             <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 font-medium">
@@ -362,7 +399,7 @@ export default function SubsidyAnnouncementsPage() {
                     {statusColors[selectedAnnouncement.status].label}
                   </span>
                   <span className="text-sm text-gray-500 ml-2">
-                    {selectedAnnouncement.region_name}
+                    {extractRegionFromTitle(selectedAnnouncement.title, selectedAnnouncement.region_name)}
                   </span>
                 </div>
 

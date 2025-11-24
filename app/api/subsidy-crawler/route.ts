@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { CrawlResult, CrawlRequest } from '@/types/subsidy';
+import { analyzeAnnouncement } from '@/lib/gemini';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -26,7 +27,7 @@ const SUPPORT_PORTALS = {
 // Phase 2: 환경 관련 기관 크롤링 소스
 // ============================================================
 
-type Phase2SourceType = 'ggeea' | 'keci' | 'gec' | 'geca' | 'gec_gnuboard' | 'gec_cms';
+type Phase2SourceType = 'ggeea' | 'keci' | 'gec' | 'geca' | 'gec_gnuboard' | 'gec_cms' | 'gec_igec' | 'gec_jngec' | 'metro_daegu' | 'metro_gyeongbuk' | 'metro_chungnam' | 'metro_generic';
 
 interface Phase2Source {
   id: string;
@@ -175,7 +176,7 @@ const PHASE2_SOURCES: Phase2Source[] = [
     menu_id: '23',
   },
 
-  // --- 그누보드 패턴 사용 센터 (경북 등) ---
+  // --- 그누보드 패턴 사용 센터 (경북, 충남, 시흥 등) ---
   {
     id: 'gbgec',
     name: '경북녹색환경지원센터',
@@ -185,6 +186,46 @@ const PHASE2_SOURCES: Phase2Source[] = [
     announcement_url: 'http://www.gbgec.or.kr/bbs/board.php?bo_table=sub5_1',
     detail_base_url: 'http://www.gbgec.or.kr/bbs/board.php?bo_table=sub5_1&wr_id=',
     bo_table: 'sub5_1',
+  },
+  {
+    id: 'cngec',
+    name: '충남녹색환경지원센터',
+    type: 'gec_gnuboard',
+    region_code: '44',
+    region_name: '충청남도',
+    announcement_url: 'http://www.cngec.or.kr/bbs/board.php?bo_table=notice',
+    detail_base_url: 'http://www.cngec.or.kr/bbs/board.php?bo_table=notice&wr_id=',
+    bo_table: 'notice',
+  },
+  {
+    id: 'shgec',
+    name: '시흥녹색환경지원센터',
+    type: 'gec_gnuboard',
+    region_code: '41390',
+    region_name: '경기도 시흥시',
+    announcement_url: 'http://www.shgec.or.kr/bbs/board.php?bo_table=g81',
+    detail_base_url: 'http://www.shgec.or.kr/bbs/board.php?bo_table=g81&wr_id=',
+    bo_table: 'g81',
+  },
+
+  // --- 커스텀 CMS 패턴 센터 (인천, 전남) ---
+  {
+    id: 'igec',
+    name: '인천녹색환경지원센터',
+    type: 'gec_igec',
+    region_code: '28',
+    region_name: '인천광역시',
+    announcement_url: 'https://www.igec.re.kr/notice',
+    detail_base_url: 'https://www.igec.re.kr/notice/',
+  },
+  {
+    id: 'jngec',
+    name: '전남녹색환경지원센터',
+    type: 'gec_jngec',
+    region_code: '46',
+    region_name: '전라남도',
+    announcement_url: 'http://www.jngec.or.kr/rpm.php?rpm=mobile&mode=bbs&doit=list&&id=menu6_1',
+    detail_base_url: 'http://www.jngec.or.kr/rpm.php?rpm=mobile&mode=bbs&doit=view&&id=menu6_1&no=',
   },
 
   // ============================================================
@@ -209,6 +250,98 @@ const PHASE2_SOURCES: Phase2Source[] = [
     region_name: '전국',
     announcement_url: 'https://www.keci.or.kr/web/board/BD_board.list.do?bbsCd=1001',
     detail_base_url: 'https://www.keci.or.kr/web/board/BD_board.view.do?bbsCd=1001&seq=',
+  },
+
+  // ============================================================
+  // 광역시도 환경국/환경과 공지사항
+  // ============================================================
+
+  // 대구광역시 환경 분야
+  {
+    id: 'metro_daegu',
+    name: '대구광역시 환경국',
+    type: 'metro_daegu',
+    region_code: '27',
+    region_name: '대구광역시',
+    announcement_url: 'https://www.daegu.go.kr/env/index.do?menu_id=00001230&menu_link=/icms/bbs/selectBoardList.do&bbsId=BBS_00029',
+    detail_base_url: 'https://www.daegu.go.kr/env/index.do?menu_id=00001230&menu_link=/icms/bbs/selectBoardArticle.do&bbsId=BBS_00029&nttId=',
+  },
+
+  // 경상북도 환경 분야
+  {
+    id: 'metro_gyeongbuk',
+    name: '경상북도 환경안전과',
+    type: 'metro_gyeongbuk',
+    region_code: '47',
+    region_name: '경상북도',
+    announcement_url: 'https://www.gb.go.kr/Main/open_contents/section/env/page.do?mnu_uid=6292&BD_CODE=environ_notice&cmd=1',
+    detail_base_url: 'https://www.gb.go.kr/Main/open_contents/section/env/page.do?mnu_uid=6292&BD_CODE=environ_notice&cmd=2&B_NUM=',
+  },
+
+  // 충청남도 환경소식
+  {
+    id: 'metro_chungnam',
+    name: '충청남도 환경산림국',
+    type: 'metro_chungnam',
+    region_code: '44',
+    region_name: '충청남도',
+    announcement_url: 'https://www.chungnam.go.kr/cnportal/bbs/B0000243/list.do?menuNo=500346',
+    detail_base_url: 'https://www.chungnam.go.kr/cnportal/bbs/B0000243/view.do?menuNo=500346&nttId=',
+  },
+
+  // 인천광역시 환경 분야
+  {
+    id: 'metro_incheon',
+    name: '인천광역시 환경국',
+    type: 'metro_generic',
+    region_code: '28',
+    region_name: '인천광역시',
+    announcement_url: 'https://www.incheon.go.kr/env/ENV020901',
+    detail_base_url: 'https://www.incheon.go.kr/env/ENV020901/',
+  },
+
+  // 광주광역시 환경 분야
+  {
+    id: 'metro_gwangju',
+    name: '광주광역시 환경국',
+    type: 'metro_generic',
+    region_code: '29',
+    region_name: '광주광역시',
+    announcement_url: 'https://www.gwangju.go.kr/envi/',
+    detail_base_url: 'https://www.gwangju.go.kr/envi/',
+  },
+
+  // 대전광역시 환경국
+  {
+    id: 'metro_daejeon',
+    name: '대전광역시 환경국',
+    type: 'metro_generic',
+    region_code: '30',
+    region_name: '대전광역시',
+    announcement_url: 'https://www.daejeon.go.kr/env/index.do?menuSeq=2673',
+    detail_base_url: 'https://www.daejeon.go.kr/drh/depart/board/boardNormalView.do?boardId=normal_0106&menuSeq=2684&ntatcSeq=',
+  },
+
+  // 울산광역시 환경녹지국
+  {
+    id: 'metro_ulsan',
+    name: '울산광역시 환경녹지국',
+    type: 'metro_generic',
+    region_code: '31',
+    region_name: '울산광역시',
+    announcement_url: 'https://www.ulsan.go.kr/u/envi/contents.ulsan?mId=001002002001000000',
+    detail_base_url: 'https://www.ulsan.go.kr/u/envi/',
+  },
+
+  // 제주특별자치도 기후환경국
+  {
+    id: 'metro_jeju',
+    name: '제주특별자치도 기후환경국',
+    type: 'metro_generic',
+    region_code: '50',
+    region_name: '제주특별자치도',
+    announcement_url: 'https://www.jeju.go.kr/group/part8.htm',
+    detail_base_url: 'https://www.jeju.go.kr/group/part8/',
   },
 ];
 
@@ -298,10 +431,28 @@ export async function POST(request: NextRequest) {
                 continue;
               }
 
-              // 간단한 키워드 기반 관련성 판단 (AI 분석 생략으로 속도 향상)
-              const keywords = ['대기배출', 'IoT', '사물인터넷', '방지시설', '환경', '미세먼지'];
-              const text = `${announcement.title} ${announcement.content}`.toLowerCase();
-              const matchedKeywords = keywords.filter(k => text.includes(k.toLowerCase()));
+              // Gemini AI를 사용한 관련성 분석
+              let analysisResult;
+              try {
+                console.log(`[CRAWLER] Gemini 분석 시작: ${announcement.title.substring(0, 50)}...`);
+                analysisResult = await analyzeAnnouncement(
+                  announcement.title,
+                  announcement.content || ''
+                );
+                console.log(`[CRAWLER] Gemini 분석 완료: 관련도 ${Math.round(analysisResult.relevance_score * 100)}%`);
+              } catch (geminiError) {
+                console.warn(`[CRAWLER] Gemini 분석 실패, 키워드 폴백 사용:`, geminiError);
+                // 폴백: 키워드 기반 관련성 판단
+                const keywords = ['대기배출', 'IoT', '사물인터넷', '방지시설', '환경', '미세먼지'];
+                const text = `${announcement.title} ${announcement.content}`.toLowerCase();
+                const matchedKeywords = keywords.filter(k => text.includes(k.toLowerCase()));
+                analysisResult = {
+                  is_relevant: matchedKeywords.length >= 2,
+                  relevance_score: Math.min(0.5 + matchedKeywords.length * 0.1, 1.0),
+                  keywords_matched: matchedKeywords.length > 0 ? matchedKeywords : ['대기배출'],
+                  extracted_info: {},
+                };
+              }
 
               const insertData = {
                 region_code: source.region_code,
@@ -311,10 +462,16 @@ export async function POST(request: NextRequest) {
                 content: announcement.content,
                 source_url: announcement.source_url,
                 published_at: announcement.published_at,
-                // 키워드 기반 관련성 (AI 분석 대신)
-                is_relevant: true,  // 대기배출 검색 결과이므로 기본 true
-                relevance_score: Math.min(0.5 + matchedKeywords.length * 0.1, 1.0),
-                keywords_matched: matchedKeywords.length > 0 ? matchedKeywords : ['대기배출'],
+                // Gemini AI 또는 크롤러에서 추출된 상세 정보 (우선순위: Gemini > 크롤러)
+                application_period_start: analysisResult.extracted_info?.application_period_start || announcement.application_period_start || null,
+                application_period_end: analysisResult.extracted_info?.application_period_end || announcement.application_period_end || null,
+                budget: analysisResult.extracted_info?.budget || announcement.budget || null,
+                target_description: analysisResult.extracted_info?.target_description || announcement.target_description || null,
+                support_amount: analysisResult.extracted_info?.support_amount || announcement.support_amount || null,
+                // Gemini AI 관련성 분석 결과
+                is_relevant: analysisResult.is_relevant,
+                relevance_score: analysisResult.relevance_score,
+                keywords_matched: analysisResult.keywords_matched,
               };
 
               const { error } = await supabase
@@ -378,10 +535,26 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // 크롤러에서 이미 필터링된 관련 공고만 저장
-          // 관련성 점수는 매칭된 키워드 수에 기반
-          const keywordsCount = announcement.keywords_matched?.length || 0;
-          const relevanceScore = Math.min(0.7 + keywordsCount * 0.1, 1.0);
+          // Gemini AI를 사용한 관련성 분석 (Phase 2)
+          let analysisResult;
+          try {
+            console.log(`[CRAWLER-P2] Gemini 분석 시작: ${announcement.title.substring(0, 50)}...`);
+            analysisResult = await analyzeAnnouncement(
+              announcement.title,
+              announcement.content || ''
+            );
+            console.log(`[CRAWLER-P2] Gemini 분석 완료: 관련도 ${Math.round(analysisResult.relevance_score * 100)}%`);
+          } catch (geminiError) {
+            console.warn(`[CRAWLER-P2] Gemini 분석 실패, 키워드 폴백 사용:`, geminiError);
+            // 폴백: 키워드 기반 관련성 점수
+            const keywordsCount = announcement.keywords_matched?.length || 0;
+            analysisResult = {
+              is_relevant: true,  // 키워드 필터링 통과한 공고
+              relevance_score: Math.min(0.7 + keywordsCount * 0.1, 1.0),
+              keywords_matched: announcement.keywords_matched || [],
+              extracted_info: {},
+            };
+          }
 
           const insertData = {
             region_code: source.region_code,
@@ -391,16 +564,16 @@ export async function POST(request: NextRequest) {
             content: announcement.content,
             source_url: announcement.source_url,
             published_at: announcement.published_at,
-            // 추출된 상세 정보 포함
-            application_period_start: announcement.application_period_start || null,
-            application_period_end: announcement.application_period_end || null,
-            budget: announcement.budget || null,
-            target_description: announcement.target_description || null,
-            support_amount: announcement.support_amount || null,
-            // 관련성 정보
-            is_relevant: true,  // 키워드 필터링 통과한 공고만 저장
-            relevance_score: relevanceScore,
-            keywords_matched: announcement.keywords_matched || [],
+            // Gemini AI 또는 크롤러에서 추출된 상세 정보 (우선순위: Gemini > 크롤러)
+            application_period_start: analysisResult.extracted_info?.application_period_start || announcement.application_period_start || null,
+            application_period_end: analysisResult.extracted_info?.application_period_end || announcement.application_period_end || null,
+            budget: analysisResult.extracted_info?.budget || announcement.budget || null,
+            target_description: analysisResult.extracted_info?.target_description || announcement.target_description || null,
+            support_amount: analysisResult.extracted_info?.support_amount || announcement.support_amount || null,
+            // Gemini AI 관련성 분석 결과
+            is_relevant: analysisResult.is_relevant,
+            relevance_score: analysisResult.relevance_score,
+            keywords_matched: analysisResult.keywords_matched,
           };
 
           const { error } = await supabase
@@ -538,13 +711,37 @@ async function crawlGovernmentSite(source: typeof GOVERNMENT_SOURCES[0]): Promis
       const title = titles[i] || `지원사업 공고`;
       const detailUrl = `${BIZINFO_DETAIL_URL}${pblancId}`;
 
-      // 상세 페이지 조회 생략 (타임아웃 방지)
-      // 사용자가 원문보기 클릭 시 직접 상세 페이지 확인
+      // 상세 페이지에서 신청기간, 예산 등 추출 (최대 3개만 상세 조회)
+      let detailContent = `${source.region_name} 지역 지원사업 공고입니다.\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`;
+      let extractedData: {
+        application_period_start?: string;
+        application_period_end?: string;
+        budget?: string;
+        target_description?: string;
+        support_amount?: string;
+      } | undefined;
+
+      if (i < 3) {  // 처음 3개 공고만 상세 페이지 조회 (타임아웃 방지)
+        try {
+          const detail = await fetchAnnouncementDetail(detailUrl);
+          detailContent = detail.content;
+          extractedData = detail.extractedData;
+        } catch (e) {
+          console.warn(`[CRAWLER] ${source.region_name} 상세 페이지 조회 실패:`, e);
+        }
+      }
+
       announcements.push({
         title: `[${source.region_name}] ${title}`,
-        content: `${source.region_name} 지역 지원사업 공고입니다.\n\n원문보기를 클릭하여 상세 내용(지원대상, 신청기간, 지원금액 등)을 확인하세요.`,
-        source_url: detailUrl,  // 실제 공고 상세 페이지 URL
+        content: detailContent,
+        source_url: detailUrl,
         published_at: new Date().toISOString(),
+        // 추출된 데이터 추가
+        application_period_start: extractedData?.application_period_start,
+        application_period_end: extractedData?.application_period_end,
+        budget: extractedData?.budget,
+        target_description: extractedData?.target_description,
+        support_amount: extractedData?.support_amount,
       });
     }
 
@@ -1315,6 +1512,497 @@ async function crawlGEC_CMS(source: Phase2Source): Promise<CrawledAnnouncement[]
   }
 }
 
+// 인천녹색환경지원센터 (IGEC) 크롤링 - 커스텀 CMS 패턴
+// URL 패턴: /notice/{slug}
+async function crawlGEC_IGEC(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작 (커스텀 CMS, 키워드 필터링 적용)`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-P2] ${source.name} HTTP 오류: ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+
+    // IGEC 링크 패턴: href="/notice/slug-title-here" 또는 /notice/123
+    const linkPatterns = [
+      /<a[^>]*href="\/notice\/([^"]+)"[^>]*>([^<]+)<\/a>/gi,
+      /href="\/notice\/([^"]+)"[^>]*>[\s\S]*?<[^>]*>([^<]+)</gi,
+    ];
+
+    const items: { slug: string; title: string }[] = [];
+
+    for (const pattern of linkPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        const slug = match[1].trim();
+        const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
+
+        // 🔑 핵심: 관련 키워드가 제목에 포함된 경우만 추가
+        if (slug && title.length > 3 && !items.find(i => i.slug === slug) && isRelevantTitle(title)) {
+          items.push({ slug, title });
+          console.log(`[CRAWLER-P2] ✅ 관련 공고 발견: ${title}`);
+        }
+      }
+    }
+
+    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 관련 공고 발견 (키워드 필터링 후)`);
+
+    // 관련 공고에 대해 상세 페이지 조회 및 정보 추출
+    for (const { slug, title } of items) {
+      const detailUrl = `${source.detail_base_url}${slug}`;
+
+      // 매칭된 키워드 확인
+      const matchedKeywords = REQUIRED_KEYWORDS.filter(k =>
+        title.toLowerCase().includes(k.toLowerCase())
+      );
+
+      // 상세 페이지에서 정보 추출
+      const detailInfo = await fetchGECDetail(detailUrl);
+
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: detailInfo.content,
+        source_url: detailUrl,
+        published_at: new Date().toISOString(),
+        application_period_start: detailInfo.application_period_start,
+        application_period_end: detailInfo.application_period_end,
+        budget: detailInfo.budget,
+        target_description: detailInfo.target_description,
+        support_amount: detailInfo.support_amount,
+        keywords_matched: matchedKeywords,
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-P2] ${source.name} 크롤링 오류:`, error);
+    return [];
+  }
+}
+
+// 전남녹색환경지원센터 (JNGEC) 크롤링 - RPM CMS 패턴
+// URL 패턴: rpm.php?...&no={ID}
+async function crawlGEC_JNGEC(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작 (RPM CMS, 키워드 필터링 적용)`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-P2] ${source.name} HTTP 오류: ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+
+    // JNGEC 링크 패턴: no=XXX 파라미터
+    const linkPatterns = [
+      /no=(\d+)[^>]*>([^<]+)</gi,
+      /doit=view[^>]*no=(\d+)[^>]*>([^<]+)</gi,
+    ];
+
+    const items: { id: string; title: string }[] = [];
+
+    for (const pattern of linkPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        const id = match[1];
+        const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
+
+        // 🔑 핵심: 관련 키워드가 제목에 포함된 경우만 추가
+        if (id && title.length > 3 && !items.find(i => i.id === id) && isRelevantTitle(title)) {
+          items.push({ id, title });
+          console.log(`[CRAWLER-P2] ✅ 관련 공고 발견: ${title}`);
+        }
+      }
+    }
+
+    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 관련 공고 발견 (키워드 필터링 후)`);
+
+    // 관련 공고에 대해 상세 페이지 조회 및 정보 추출
+    for (const { id, title } of items) {
+      const detailUrl = `${source.detail_base_url}${id}`;
+
+      // 매칭된 키워드 확인
+      const matchedKeywords = REQUIRED_KEYWORDS.filter(k =>
+        title.toLowerCase().includes(k.toLowerCase())
+      );
+
+      // 상세 페이지에서 정보 추출
+      const detailInfo = await fetchGECDetail(detailUrl);
+
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: detailInfo.content,
+        source_url: detailUrl,
+        published_at: new Date().toISOString(),
+        application_period_start: detailInfo.application_period_start,
+        application_period_end: detailInfo.application_period_end,
+        budget: detailInfo.budget,
+        target_description: detailInfo.target_description,
+        support_amount: detailInfo.support_amount,
+        keywords_matched: matchedKeywords,
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-P2] ${source.name} 크롤링 오류:`, error);
+    return [];
+  }
+}
+
+// ============================================================
+// 광역시도 환경과 공지사항 크롤링 함수들
+// ============================================================
+
+// 대구광역시 환경국 크롤링 (ICMS CMS 패턴)
+async function crawlMetroDaegu(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-METRO] ${source.name} 크롤링 시작 (키워드 필터링 적용)`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-METRO] ${source.name} HTTP 오류: ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+
+    // 대구시 ICMS 패턴: nttId=XXX 파라미터
+    const linkPatterns = [
+      /nttId=(\d+)[^>]*>([^<]+)</gi,
+      /<a[^>]*href="[^"]*nttId=(\d+)[^"]*"[^>]*>([^<]+)<\/a>/gi,
+    ];
+
+    const items: { id: string; title: string }[] = [];
+
+    for (const pattern of linkPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        const id = match[1];
+        const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
+
+        // 🔑 관련 키워드가 제목에 포함된 경우만 추가
+        if (id && title.length > 3 && !items.find(i => i.id === id) && isRelevantTitle(title)) {
+          items.push({ id, title });
+          console.log(`[CRAWLER-METRO] ✅ 관련 공고 발견: ${title}`);
+        }
+      }
+    }
+
+    console.log(`[CRAWLER-METRO] ${source.name}: ${items.length}개 관련 공고 발견`);
+
+    for (const { id, title } of items) {
+      const detailUrl = `${source.detail_base_url}${id}`;
+      const matchedKeywords = REQUIRED_KEYWORDS.filter(k =>
+        title.toLowerCase().includes(k.toLowerCase())
+      );
+      const detailInfo = await fetchGECDetail(detailUrl);
+
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: detailInfo.content,
+        source_url: detailUrl,
+        published_at: new Date().toISOString(),
+        application_period_start: detailInfo.application_period_start,
+        application_period_end: detailInfo.application_period_end,
+        budget: detailInfo.budget,
+        target_description: detailInfo.target_description,
+        support_amount: detailInfo.support_amount,
+        keywords_matched: matchedKeywords,
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-METRO] ${source.name} 크롤링 오류:`, error);
+    return [];
+  }
+}
+
+// 경상북도 환경안전과 크롤링
+async function crawlMetroGyeongbuk(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-METRO] ${source.name} 크롤링 시작 (키워드 필터링 적용)`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-METRO] ${source.name} HTTP 오류: ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+
+    // 경북도 패턴: B_NUM=XXX 파라미터
+    const linkPatterns = [
+      /B_NUM=(\d+)[^>]*>([^<]+)</gi,
+      /<a[^>]*href="[^"]*B_NUM=(\d+)[^"]*"[^>]*>([^<]+)<\/a>/gi,
+    ];
+
+    const items: { id: string; title: string }[] = [];
+
+    for (const pattern of linkPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        const id = match[1];
+        const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
+
+        if (id && title.length > 3 && !items.find(i => i.id === id) && isRelevantTitle(title)) {
+          items.push({ id, title });
+          console.log(`[CRAWLER-METRO] ✅ 관련 공고 발견: ${title}`);
+        }
+      }
+    }
+
+    console.log(`[CRAWLER-METRO] ${source.name}: ${items.length}개 관련 공고 발견`);
+
+    for (const { id, title } of items) {
+      const detailUrl = `${source.detail_base_url}${id}`;
+      const matchedKeywords = REQUIRED_KEYWORDS.filter(k =>
+        title.toLowerCase().includes(k.toLowerCase())
+      );
+      const detailInfo = await fetchGECDetail(detailUrl);
+
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: detailInfo.content,
+        source_url: detailUrl,
+        published_at: new Date().toISOString(),
+        application_period_start: detailInfo.application_period_start,
+        application_period_end: detailInfo.application_period_end,
+        budget: detailInfo.budget,
+        target_description: detailInfo.target_description,
+        support_amount: detailInfo.support_amount,
+        keywords_matched: matchedKeywords,
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-METRO] ${source.name} 크롤링 오류:`, error);
+    return [];
+  }
+}
+
+// 충청남도 환경산림국 크롤링
+async function crawlMetroChungnam(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-METRO] ${source.name} 크롤링 시작 (키워드 필터링 적용)`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-METRO] ${source.name} HTTP 오류: ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+
+    // 충남도 패턴: nttId=XXX 파라미터
+    const linkPatterns = [
+      /nttId=(\d+)[^>]*>([^<]+)</gi,
+      /<a[^>]*href="[^"]*nttId=(\d+)[^"]*"[^>]*>([^<]+)<\/a>/gi,
+    ];
+
+    const items: { id: string; title: string }[] = [];
+
+    for (const pattern of linkPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        const id = match[1];
+        const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
+
+        if (id && title.length > 3 && !items.find(i => i.id === id) && isRelevantTitle(title)) {
+          items.push({ id, title });
+          console.log(`[CRAWLER-METRO] ✅ 관련 공고 발견: ${title}`);
+        }
+      }
+    }
+
+    console.log(`[CRAWLER-METRO] ${source.name}: ${items.length}개 관련 공고 발견`);
+
+    for (const { id, title } of items) {
+      const detailUrl = `${source.detail_base_url}${id}`;
+      const matchedKeywords = REQUIRED_KEYWORDS.filter(k =>
+        title.toLowerCase().includes(k.toLowerCase())
+      );
+      const detailInfo = await fetchGECDetail(detailUrl);
+
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: detailInfo.content,
+        source_url: detailUrl,
+        published_at: new Date().toISOString(),
+        application_period_start: detailInfo.application_period_start,
+        application_period_end: detailInfo.application_period_end,
+        budget: detailInfo.budget,
+        target_description: detailInfo.target_description,
+        support_amount: detailInfo.support_amount,
+        keywords_matched: matchedKeywords,
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-METRO] ${source.name} 크롤링 오류:`, error);
+    return [];
+  }
+}
+
+// 범용 광역시도 환경과 크롤링 (기본 링크 제공용)
+async function crawlMetroGeneric(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-METRO] ${source.name} 크롤링 시작 (범용)`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-METRO] ${source.name} HTTP 오류: ${response.status}`);
+      // HTTP 오류여도 기본 링크 제공
+      return [{
+        title: `[${source.name}] 환경 공지사항`,
+        content: `${source.name}의 환경 관련 공지사항입니다.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      }];
+    }
+
+    const html = await response.text();
+
+    // 다양한 CMS 패턴 시도
+    const linkPatterns = [
+      // 일반 nttId 패턴
+      /nttId=(\d+)[^>]*>([^<]+)</gi,
+      // seq 패턴
+      /seq=(\d+)[^>]*>([^<]+)</gi,
+      // idx 패턴
+      /idx=(\d+)[^>]*>([^<]+)</gi,
+      // dataSid 패턴
+      /dataSid=(\d+)[^>]*>([^<]+)</gi,
+    ];
+
+    const items: { id: string; title: string }[] = [];
+
+    for (const pattern of linkPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        const id = match[1];
+        const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
+
+        // 관련 키워드가 제목에 포함된 경우만 추가
+        if (id && title.length > 3 && !items.find(i => i.id === id) && isRelevantTitle(title)) {
+          items.push({ id, title });
+          console.log(`[CRAWLER-METRO] ✅ 관련 공고 발견: ${title}`);
+        }
+      }
+    }
+
+    console.log(`[CRAWLER-METRO] ${source.name}: ${items.length}개 관련 공고 발견`);
+
+    // 관련 공고가 없으면 기본 링크 제공
+    if (items.length === 0) {
+      return [{
+        title: `[${source.name}] 환경 공지사항`,
+        content: `${source.name}의 환경 관련 공지사항입니다.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      }];
+    }
+
+    for (const { id, title } of items) {
+      const matchedKeywords = REQUIRED_KEYWORDS.filter(k =>
+        title.toLowerCase().includes(k.toLowerCase())
+      );
+
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: `${source.name}에서 게시한 환경 관련 공고입니다.\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`,
+        source_url: `${source.detail_base_url}${id}`,
+        published_at: new Date().toISOString(),
+        keywords_matched: matchedKeywords,
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-METRO] ${source.name} 크롤링 오류:`, error);
+    // 오류 시에도 기본 링크 제공
+    return [{
+      title: `[${source.name}] 환경 공지사항`,
+      content: `크롤링 중 오류가 발생했습니다.\n원문보기를 클릭하여 직접 확인해주세요.`,
+      source_url: source.announcement_url,
+      published_at: new Date().toISOString(),
+    }];
+  }
+}
+
 // Phase 2 소스 크롤링 라우터
 async function crawlPhase2Source(source: Phase2Source): Promise<CrawledAnnouncement[]> {
   switch (source.type) {
@@ -1330,6 +2018,19 @@ async function crawlPhase2Source(source: Phase2Source): Promise<CrawledAnnouncem
       return crawlGEC_Gnuboard(source);
     case 'gec_cms':
       return crawlGEC_CMS(source);
+    case 'gec_igec':
+      return crawlGEC_IGEC(source);
+    case 'gec_jngec':
+      return crawlGEC_JNGEC(source);
+    // 광역시도 환경과 크롤러
+    case 'metro_daegu':
+      return crawlMetroDaegu(source);
+    case 'metro_gyeongbuk':
+      return crawlMetroGyeongbuk(source);
+    case 'metro_chungnam':
+      return crawlMetroChungnam(source);
+    case 'metro_generic':
+      return crawlMetroGeneric(source);
     default:
       return [];
   }

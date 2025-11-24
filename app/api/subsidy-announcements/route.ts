@@ -35,7 +35,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (isRelevant !== null && isRelevant !== undefined) {
-      query = query.eq('is_relevant', isRelevant === 'true');
+      if (isRelevant === 'true') {
+        // 관련 공고만 표시: relevance_score >= 0.75 (75% 이상)
+        query = query.eq('is_relevant', true).gte('relevance_score', 0.75);
+      } else if (isRelevant === 'false') {
+        query = query.eq('is_relevant', false);
+      }
+      // 'all'인 경우 필터링 없음
     }
 
     if (isRead !== null && isRead !== undefined) {
