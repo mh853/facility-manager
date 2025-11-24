@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { analyzeAnnouncement, normalizeDate } from '@/lib/gemini';
 import type { CrawlResult, CrawlRequest } from '@/types/subsidy';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -85,79 +84,82 @@ export async function POST(request: NextRequest) {
       errors: [],
     };
 
-    // 각 지자체 크롤링 (실제 구현 시 병렬 처리)
-    for (const source of targets) {
-      try {
-        // 실제 크롤링 로직 (데모용 시뮬레이션)
-        const announcements = await crawlGovernmentSite(source);
+    // 병렬 크롤링 (5개씩 배치 처리로 타임아웃 방지)
+    const BATCH_SIZE = 5;
 
-        for (const announcement of announcements) {
-          // 중복 체크 (region_code + title 조합으로 변경 - 공고 게시판 URL이 같을 수 있음)
-          const { data: existing } = await supabase
-            .from('subsidy_announcements')
-            .select('id')
-            .eq('region_code', source.region_code)
-            .eq('title', announcement.title)
-            .single();
+    for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+      const batch = targets.slice(i, i + BATCH_SIZE);
 
-          if (existing && !force) {
-            continue; // 이미 존재하는 공고 스킵
-          }
+      // 배치 내 병렬 처리
+      const batchResults = await Promise.allSettled(
+        batch.map(async (source) => {
+          try {
+            const announcements = await crawlGovernmentSite(source);
 
-          // AI 분석
-          const analysis = await analyzeAnnouncement(
-            announcement.title,
-            announcement.content || ''
-          );
+            for (const announcement of announcements) {
+              // 중복 체크
+              const { data: existing } = await supabase
+                .from('subsidy_announcements')
+                .select('id')
+                .eq('source_url', announcement.source_url)
+                .single();
 
-          // 직접 추출 데이터 (폴백용)
-          const fallbackData = announcement.extracted_data;
+              if (existing && !force) {
+                continue;
+              }
 
-          // 데이터 저장 (AI 분석 + 폴백 데이터 병합)
-          // "대기배출" 키워드로 검색한 공고이므로 기본적으로 관련 있다고 처리
-          const isRelevant = analysis.is_relevant || analysis.relevance_score >= 0.3 || true; // 검색 결과이므로 기본 true
-          const relevanceScore = Math.max(analysis.relevance_score, 0.5); // 최소 0.5 보장
+              // 간단한 키워드 기반 관련성 판단 (AI 분석 생략으로 속도 향상)
+              const keywords = ['대기배출', 'IoT', '사물인터넷', '방지시설', '환경', '미세먼지'];
+              const text = `${announcement.title} ${announcement.content}`.toLowerCase();
+              const matchedKeywords = keywords.filter(k => text.includes(k.toLowerCase()));
 
-          const insertData = {
-            region_code: source.region_code,
-            region_name: source.region_name,
-            region_type: source.region_type,
-            title: announcement.title,
-            content: announcement.content,
-            source_url: announcement.source_url,
-            published_at: announcement.published_at,
-            // AI 분석 결과 (검색 기반으로 기본값 보정)
-            is_relevant: isRelevant,
-            relevance_score: relevanceScore,
-            keywords_matched: analysis.keywords_matched.length > 0 ? analysis.keywords_matched : ['대기배출'],
-            // AI 추출 데이터 (없으면 폴백 데이터 사용)
-            application_period_start: normalizeDate(analysis.extracted_info.application_period_start) || fallbackData?.application_period_start || null,
-            application_period_end: normalizeDate(analysis.extracted_info.application_period_end) || fallbackData?.application_period_end || null,
-            budget: analysis.extracted_info.budget || fallbackData?.budget || null,
-            target_description: analysis.extracted_info.target_description || fallbackData?.target_description || null,
-            support_amount: analysis.extracted_info.support_amount || fallbackData?.support_amount || null,
-          };
+              const insertData = {
+                region_code: source.region_code,
+                region_name: source.region_name,
+                region_type: source.region_type,
+                title: announcement.title,
+                content: announcement.content,
+                source_url: announcement.source_url,
+                published_at: announcement.published_at,
+                // 키워드 기반 관련성 (AI 분석 대신)
+                is_relevant: true,  // 대기배출 검색 결과이므로 기본 true
+                relevance_score: Math.min(0.5 + matchedKeywords.length * 0.1, 1.0),
+                keywords_matched: matchedKeywords.length > 0 ? matchedKeywords : ['대기배출'],
+              };
 
-          const { error } = await supabase
-            .from('subsidy_announcements')
-            .upsert(insertData, { onConflict: 'source_url' });
+              const { error } = await supabase
+                .from('subsidy_announcements')
+                .upsert(insertData, { onConflict: 'source_url' });
 
-          if (!error) {
-            results.new_announcements++;
-            if (isRelevant) {
-              results.relevant_announcements++;
+              if (!error) {
+                results.new_announcements++;
+                results.relevant_announcements++;
+              }
             }
+
+            return { success: true, region_code: source.region_code };
+          } catch (error) {
+            return {
+              success: false,
+              region_code: source.region_code,
+              error: error instanceof Error ? error.message : '알 수 없는 오류'
+            };
           }
+        })
+      );
+
+      // 배치 결과 집계
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled' && result.value.success) {
+          results.successful_regions++;
+        } else {
+          results.failed_regions++;
+          const errorInfo = result.status === 'fulfilled' ? result.value : { region_code: 'unknown', error: 'Promise rejected' };
+          results.errors?.push({
+            region_code: errorInfo.region_code || 'unknown',
+            error: (errorInfo as any).error || 'Unknown error',
+          });
         }
-
-        results.successful_regions++;
-
-      } catch (error) {
-        results.failed_regions++;
-        results.errors?.push({
-          region_code: source.region_code,
-          error: error instanceof Error ? error.message : '알 수 없는 오류',
-        });
       }
     }
 
@@ -262,28 +264,16 @@ async function crawlGovernmentSite(source: typeof GOVERNMENT_SOURCES[0]): Promis
 
     for (let i = 0; i < maxAnnouncements; i++) {
       const pblancId = pblancIds[i];
-      const title = titles[i] || `[${source.region_name}] 지원사업 공고`;
+      const title = titles[i] || `지원사업 공고`;
       const detailUrl = `${BIZINFO_DETAIL_URL}${pblancId}`;
 
-      // 공고 상세 정보 가져오기 (선택적)
-      let content = '';
-      let extractedData: CrawledAnnouncement['extracted_data'] = undefined;
-
-      try {
-        const detailInfo = await fetchAnnouncementDetail(detailUrl);
-        content = detailInfo.content;
-        extractedData = detailInfo.extractedData;
-      } catch (detailError) {
-        console.warn(`[CRAWLER] 상세 정보 조회 실패 (${pblancId}):`, detailError);
-        content = `${source.region_name} 지원사업 공고입니다.\n원문보기를 클릭하여 상세 내용을 확인하세요.`;
-      }
-
+      // 상세 페이지 조회 생략 (타임아웃 방지)
+      // 사용자가 원문보기 클릭 시 직접 상세 페이지 확인
       announcements.push({
         title: `[${source.region_name}] ${title}`,
-        content,
+        content: `${source.region_name} 지역 지원사업 공고입니다.\n\n원문보기를 클릭하여 상세 내용(지원대상, 신청기간, 지원금액 등)을 확인하세요.`,
         source_url: detailUrl,  // 실제 공고 상세 페이지 URL
         published_at: new Date().toISOString(),
-        extracted_data: extractedData,
       });
     }
 
