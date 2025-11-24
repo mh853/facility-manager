@@ -187,109 +187,207 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 데모 공고 데이터 인터페이스
-interface DemoAnnouncement {
+// 크롤링된 공고 데이터 인터페이스
+interface CrawledAnnouncement {
   title: string;
   content: string;
-  source_url: string;
+  source_url: string;  // 실제 공고 상세 페이지 URL
   published_at: string;
   // 직접 추출된 데이터 (AI 분석 폴백용)
-  extracted_data: {
-    application_period_start: string;
-    application_period_end: string;
-    budget: string;
-    target_description: string;
-    support_amount: string;
+  extracted_data?: {
+    application_period_start?: string;
+    application_period_end?: string;
+    budget?: string;
+    target_description?: string;
+    support_amount?: string;
   };
 }
 
-// 실제 지자체 사이트 크롤링 함수
-async function crawlGovernmentSite(source: typeof GOVERNMENT_SOURCES[0]): Promise<DemoAnnouncement[]> {
-  // 🚧 실제 구현 시:
-  // 1. 각 지자체별 공고 페이지 구조 분석
-  // 2. Puppeteer/Playwright로 동적 페이지 처리
-  // 3. 공고 목록 → 상세 페이지 순회
-  // 4. 제목, 내용, 첨부파일 추출
+// 기업마당 공고 상세 URL 생성
+const BIZINFO_DETAIL_URL = 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/view.do?pblancId=';
 
-  // 현재: 데모 데이터 생성 (실제 크롤링 구현 전까지)
-  const today = new Date();
+// 실제 기업마당 크롤링 함수
+async function crawlGovernmentSite(source: typeof GOVERNMENT_SOURCES[0]): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
 
-  // 다양한 공고 유형 생성
-  const announcementTypes = [
-    {
-      titlePrefix: '소규모 사업장 대기오염 방지시설 IoT 설치 지원사업',
-      keywords: ['대기배출시설', 'IoT', '굴뚝 자동측정기기', 'TMS'],
-      budget: '5억원 (약 100개소)',
-      supportAmount: '업체당 최대 500만원',
-      target: '관내 1~3종 대기배출시설 보유 사업장',
-    },
-    {
-      titlePrefix: '미세먼지 저감 스마트 모니터링 시스템 보급사업',
-      keywords: ['미세먼지', '스마트 모니터링', '대기질 측정'],
-      budget: '3억원 (약 60개소)',
-      supportAmount: '업체당 최대 300만원',
-      target: '관내 소규모 제조업체',
-    },
-    {
-      titlePrefix: '환경오염 방지시설 스마트화 지원사업',
-      keywords: ['환경오염', '방지시설', 'IoT', '스마트화'],
-      budget: '10억원 (약 100개소)',
-      supportAmount: '업체당 최대 1,000만원',
-      target: '관내 환경오염 방지시설 보유 사업장',
-    },
-  ];
+  try {
+    console.log(`[CRAWLER] ${source.region_name} 크롤링 시작: ${source.announcement_url}`);
 
-  // 지역별로 다른 공고 유형 선택 (region_code 기반)
-  const typeIndex = parseInt(source.region_code.slice(-1)) % announcementTypes.length;
-  const announcementType = announcementTypes[typeIndex];
-
-  // 신청 기간 계산 (오늘부터 2개월)
-  const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() + 7); // 1주일 후 시작
-  const endDate = new Date(startDate);
-  endDate.setMonth(endDate.getMonth() + 2); // 2개월간
-
-  // ISO 날짜 형식 (데이터베이스 저장용)
-  const formatISODate = (d: Date) => d.toISOString().split('T')[0];
-  // 한국어 날짜 형식 (콘텐츠 표시용)
-  const formatKRDate = (d: Date) => `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
-
-  const demoAnnouncements: DemoAnnouncement[] = [
-    {
-      title: `[${source.region_name}] 2025년 ${announcementType.titlePrefix} 공고`,
-      content: `
-        ${source.region_name}에서는 관내 사업장을 대상으로
-        ${announcementType.titlePrefix}을 실시합니다.
-
-        ◈ 지원대상: ${announcementType.target}
-        ◈ 지원내용: ${announcementType.keywords.join(', ')} 설치비 지원
-        ◈ 지원금액: ${announcementType.supportAmount}
-        ◈ 신청기간: ${formatKRDate(startDate)} ~ ${formatKRDate(endDate)}
-        ◈ 총 예산: ${announcementType.budget}
-
-        ※ 관련 키워드: ${announcementType.keywords.join(', ')}
-
-        ■ 원문보기 클릭 시
-        → 기업마당(bizinfo.go.kr) ${source.region_name} 대기배출 관련 지원사업 목록으로 이동
-        → 실제 공고문을 바로 확인할 수 있습니다
-
-        문의: ${source.region_name} 환경과
-      `,
-      // 실제 지자체 공고 게시판 URL로 연결
-      source_url: source.announcement_url,
-      published_at: today.toISOString(),
-      // AI 분석 폴백용 직접 추출 데이터
-      extracted_data: {
-        application_period_start: formatISODate(startDate),
-        application_period_end: formatISODate(endDate),
-        budget: announcementType.budget,
-        target_description: announcementType.target,
-        support_amount: announcementType.supportAmount,
+    // 기업마당 검색 페이지 요청
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
       },
-    },
-  ];
+      // Vercel Edge에서 타임아웃 설정
+      signal: AbortSignal.timeout(10000),
+    });
 
-  return demoAnnouncements;
+    if (!response.ok) {
+      console.error(`[CRAWLER] ${source.region_name} HTTP 오류: ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+
+    // 공고 ID 추출 (pblancId 패턴)
+    // 패턴: view.do?pblancId=PBLN_000000000XXXXXX 또는 fnView('PBLN_000000000XXXXXX')
+    const pblancIdPattern = /(?:pblancId=|fnView\(['"])(PBLN_\d+)(?:['"]?\))?/g;
+    const titlePattern = /<td[^>]*class="[^"]*tit[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/gi;
+
+    // 공고 ID 추출
+    const pblancIds: string[] = [];
+    let match;
+    while ((match = pblancIdPattern.exec(html)) !== null) {
+      if (!pblancIds.includes(match[1])) {
+        pblancIds.push(match[1]);
+      }
+    }
+
+    // 공고 제목 추출 (간단한 정규식)
+    const titles: string[] = [];
+    const simpleTitlePattern = /<a[^>]*onclick="[^"]*fnView[^"]*"[^>]*>([^<]+)<\/a>/gi;
+    while ((match = simpleTitlePattern.exec(html)) !== null) {
+      const title = match[1].trim().replace(/\s+/g, ' ');
+      if (title && title.length > 5) {
+        titles.push(title);
+      }
+    }
+
+    console.log(`[CRAWLER] ${source.region_name}: ${pblancIds.length}개 공고 ID 발견, ${titles.length}개 제목 발견`);
+
+    // 공고 데이터 생성 (최대 5개)
+    const maxAnnouncements = Math.min(pblancIds.length, titles.length, 5);
+
+    for (let i = 0; i < maxAnnouncements; i++) {
+      const pblancId = pblancIds[i];
+      const title = titles[i] || `[${source.region_name}] 지원사업 공고`;
+      const detailUrl = `${BIZINFO_DETAIL_URL}${pblancId}`;
+
+      // 공고 상세 정보 가져오기 (선택적)
+      let content = '';
+      let extractedData: CrawledAnnouncement['extracted_data'] = undefined;
+
+      try {
+        const detailInfo = await fetchAnnouncementDetail(detailUrl);
+        content = detailInfo.content;
+        extractedData = detailInfo.extractedData;
+      } catch (detailError) {
+        console.warn(`[CRAWLER] 상세 정보 조회 실패 (${pblancId}):`, detailError);
+        content = `${source.region_name} 지원사업 공고입니다.\n원문보기를 클릭하여 상세 내용을 확인하세요.`;
+      }
+
+      announcements.push({
+        title: `[${source.region_name}] ${title}`,
+        content,
+        source_url: detailUrl,  // 실제 공고 상세 페이지 URL
+        published_at: new Date().toISOString(),
+        extracted_data: extractedData,
+      });
+    }
+
+    // 공고를 찾지 못한 경우 - 지역 검색 페이지 링크 제공
+    if (announcements.length === 0) {
+      console.log(`[CRAWLER] ${source.region_name}: 관련 공고 없음, 검색 링크 제공`);
+      announcements.push({
+        title: `[${source.region_name}] 대기배출 관련 지원사업 검색`,
+        content: `${source.region_name} 지역의 대기배출 관련 지원사업을 검색합니다.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,  // 검색 결과 페이지
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER] ${source.region_name} 크롤링 오류:`, error);
+
+    // 오류 시 검색 페이지 링크 제공
+    return [{
+      title: `[${source.region_name}] 대기배출 관련 지원사업`,
+      content: `크롤링 중 오류가 발생했습니다.\n원문보기를 클릭하여 직접 확인해주세요.`,
+      source_url: source.announcement_url,
+      published_at: new Date().toISOString(),
+    }];
+  }
+}
+
+// 공고 상세 페이지에서 정보 추출
+async function fetchAnnouncementDetail(detailUrl: string): Promise<{
+  content: string;
+  extractedData?: CrawledAnnouncement['extracted_data'];
+}> {
+  try {
+    const response = await fetch(detailUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const html = await response.text();
+
+    // 간단한 내용 추출
+    let content = '';
+
+    // 지원대상, 지원내용 등 주요 정보 추출 시도
+    const infoPatterns = [
+      { label: '지원대상', pattern: /지원\s*대상[:\s]*([^<\n]{10,200})/i },
+      { label: '지원내용', pattern: /지원\s*내용[:\s]*([^<\n]{10,200})/i },
+      { label: '신청기간', pattern: /신청\s*기간[:\s]*([^<\n]{10,100})/i },
+      { label: '접수기간', pattern: /접수\s*기간[:\s]*([^<\n]{10,100})/i },
+      { label: '지원금액', pattern: /지원\s*금액[:\s]*([^<\n]{10,100})/i },
+      { label: '예산', pattern: /예\s*산[:\s]*([^<\n]{5,50})/i },
+    ];
+
+    const extractedInfo: string[] = [];
+    const extractedData: CrawledAnnouncement['extracted_data'] = {};
+
+    for (const { label, pattern } of infoPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        const value = match[1].replace(/<[^>]*>/g, '').trim();
+        extractedInfo.push(`◈ ${label}: ${value}`);
+
+        // 구조화된 데이터 저장
+        if (label === '지원대상') extractedData.target_description = value;
+        if (label === '지원금액') extractedData.support_amount = value;
+        if (label === '예산') extractedData.budget = value;
+        if (label === '신청기간' || label === '접수기간') {
+          // 날짜 파싱 시도
+          const dateMatch = value.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/g);
+          if (dateMatch && dateMatch.length >= 2) {
+            extractedData.application_period_start = dateMatch[0].replace(/[.\-\/]/g, '-');
+            extractedData.application_period_end = dateMatch[1].replace(/[.\-\/]/g, '-');
+          }
+        }
+      }
+    }
+
+    if (extractedInfo.length > 0) {
+      content = extractedInfo.join('\n');
+    } else {
+      content = '상세 내용은 원문보기를 통해 확인하세요.';
+    }
+
+    return {
+      content,
+      extractedData: Object.keys(extractedData).length > 0 ? extractedData : undefined,
+    };
+
+  } catch (error) {
+    console.warn(`[CRAWLER] 상세 페이지 조회 실패:`, error);
+    return {
+      content: '상세 내용은 원문보기를 통해 확인하세요.',
+    };
+  }
 }
 
 // GET: 크롤러 상태 확인
