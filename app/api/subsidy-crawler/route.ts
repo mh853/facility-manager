@@ -42,18 +42,48 @@ interface Phase2Source {
   menu_id?: string;
 }
 
-// IoT/소규모 대기배출시설 관련 키워드 (관련성 필터링용)
-const IOT_KEYWORDS = [
-  // 핵심 키워드
+// ============================================================
+// 🔑 핵심 키워드 (제목에 반드시 포함되어야 저장)
+// ============================================================
+const REQUIRED_KEYWORDS = [
+  // 핵심 키워드 (하나 이상 반드시 포함)
   '사물인터넷', 'IoT', 'iot', 'IOT',
   '소규모 대기배출', '소규모대기배출', '소규모 대기오염',
   '방지시설', '대기방지시설', '대기오염방지',
-  // 관련 키워드
-  '대기배출시설', '배출시설', '대기오염',
+  '대기배출시설', '배출시설',
   '굴뚝', 'TMS', '자동측정', '측정기기',
   '환경IoT', '스마트환경', '원격감시',
+];
+
+// 제외 키워드 (이 키워드가 포함되면 저장하지 않음)
+const EXCLUDE_KEYWORDS = [
+  '채용', '모집', '직원', '인력', '구인',
+  '입찰', '낙찰', '계약', '용역',
+  '결과', '발표', '선정', '합격',
+];
+
+// 제목에 필수 키워드 포함 여부 확인
+function hasRequiredKeyword(title: string): boolean {
+  const lowerTitle = title.toLowerCase();
+  return REQUIRED_KEYWORDS.some(k => lowerTitle.includes(k.toLowerCase()));
+}
+
+// 제외 키워드 포함 여부 확인
+function hasExcludeKeyword(title: string): boolean {
+  const lowerTitle = title.toLowerCase();
+  return EXCLUDE_KEYWORDS.some(k => lowerTitle.includes(k.toLowerCase()));
+}
+
+// 관련성 검사 (제목 기준)
+function isRelevantTitle(title: string): boolean {
+  return hasRequiredKeyword(title) && !hasExcludeKeyword(title);
+}
+
+// IoT/소규모 대기배출시설 관련 키워드 (관련성 점수 계산용)
+const IOT_KEYWORDS = [
+  ...REQUIRED_KEYWORDS,
+  // 추가 관련 키워드 (점수 계산용)
   '미세먼지', '대기관리', '환경모니터링',
-  // 지원사업 키워드
   '설치지원', '지원사업', '보조금', '설치비',
 ];
 
@@ -324,13 +354,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================================
-    // Phase 2: 환경 기관 크롤링 추가
+    // Phase 2: 환경 기관 크롤링 추가 (키워드 필터링 적용)
     // ============================================================
-    console.log('[CRAWLER] Phase 2 크롤링 시작...');
+    console.log('[CRAWLER] Phase 2 크롤링 시작 (키워드 필터링 적용)...');
 
     for (const source of PHASE2_SOURCES) {
       try {
         const announcements = await crawlPhase2Source(source);
+
+        // 🔑 크롤러가 이미 키워드 필터링을 적용하여 관련 공고만 반환
+        console.log(`[CRAWLER-P2] ${source.name}: ${announcements.length}개 관련 공고 처리 중`);
 
         for (const announcement of announcements) {
           // 중복 체크
@@ -341,16 +374,14 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (existing && !force) {
+            console.log(`[CRAWLER-P2] 중복 건너뜀: ${announcement.title}`);
             continue;
           }
 
-          // IOT_KEYWORDS 기반 관련성 판단
-          const text = `${announcement.title} ${announcement.content}`.toLowerCase();
-          const matchedKeywords = IOT_KEYWORDS.filter(k => text.includes(k.toLowerCase()));
-
-          // 관련성 점수 계산 (매칭된 키워드가 많을수록 높은 점수)
-          const isRelevant = matchedKeywords.length >= 1;
-          const relevanceScore = Math.min(0.5 + matchedKeywords.length * 0.1, 1.0);
+          // 크롤러에서 이미 필터링된 관련 공고만 저장
+          // 관련성 점수는 매칭된 키워드 수에 기반
+          const keywordsCount = announcement.keywords_matched?.length || 0;
+          const relevanceScore = Math.min(0.7 + keywordsCount * 0.1, 1.0);
 
           const insertData = {
             region_code: source.region_code,
@@ -360,9 +391,16 @@ export async function POST(request: NextRequest) {
             content: announcement.content,
             source_url: announcement.source_url,
             published_at: announcement.published_at,
-            is_relevant: isRelevant,
+            // 추출된 상세 정보 포함
+            application_period_start: announcement.application_period_start || null,
+            application_period_end: announcement.application_period_end || null,
+            budget: announcement.budget || null,
+            target_description: announcement.target_description || null,
+            support_amount: announcement.support_amount || null,
+            // 관련성 정보
+            is_relevant: true,  // 키워드 필터링 통과한 공고만 저장
             relevance_score: relevanceScore,
-            keywords_matched: matchedKeywords.length > 0 ? matchedKeywords : ['녹색환경'],
+            keywords_matched: announcement.keywords_matched || [],
           };
 
           const { error } = await supabase
@@ -372,11 +410,14 @@ export async function POST(request: NextRequest) {
           if (!error) {
             results.new_announcements++;
             results.relevant_announcements++;
+            console.log(`[CRAWLER-P2] ✅ 저장 완료: ${announcement.title}`);
+          } else {
+            console.error(`[CRAWLER-P2] 저장 실패: ${announcement.title}`, error);
           }
         }
 
         results.successful_regions++;
-        console.log(`[CRAWLER-P2] ${source.name} 완료`);
+        console.log(`[CRAWLER-P2] ${source.name} 완료: ${announcements.length}개 관련 공고`);
 
       } catch (error) {
         results.failed_regions++;
@@ -429,14 +470,14 @@ interface CrawledAnnouncement {
   content: string;
   source_url: string;  // 실제 공고 상세 페이지 URL
   published_at: string;
-  // 직접 추출된 데이터 (AI 분석 폴백용)
-  extracted_data?: {
-    application_period_start?: string;
-    application_period_end?: string;
-    budget?: string;
-    target_description?: string;
-    support_amount?: string;
-  };
+  // 직접 추출된 데이터
+  application_period_start?: string;
+  application_period_end?: string;
+  budget?: string;
+  target_description?: string;
+  support_amount?: string;
+  // 키워드 매칭 정보
+  keywords_matched?: string[];
 }
 
 // 기업마당 공고 상세 URL 생성
@@ -533,10 +574,169 @@ async function crawlGovernmentSite(source: typeof GOVERNMENT_SOURCES[0]): Promis
   }
 }
 
-// 공고 상세 페이지에서 정보 추출
+// ============================================================
+// 상세 페이지에서 정보 추출 (신청기간, 예산, 지원대상 등)
+// ============================================================
+
+interface ExtractedInfo {
+  content: string;
+  application_period_start?: string;
+  application_period_end?: string;
+  budget?: string;
+  target_description?: string;
+  support_amount?: string;
+}
+
+// 녹색환경지원센터 상세 페이지에서 정보 추출
+async function fetchGECDetail(detailUrl: string): Promise<ExtractedInfo> {
+  try {
+    console.log(`[CRAWLER] 상세 페이지 조회: ${detailUrl}`);
+
+    const response = await fetch(detailUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const html = await response.text();
+
+    // HTML 태그 제거 함수
+    const stripHtml = (str: string) => str.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+
+    // 추출된 정보 저장
+    const info: ExtractedInfo = { content: '' };
+    const extractedParts: string[] = [];
+
+    // 1. 신청기간/접수기간 추출
+    const periodPatterns = [
+      /(?:신청|접수|모집)\s*기간[:\s]*([^<\n]{10,150})/i,
+      /기\s*간[:\s]*(\d{4}[.\-\/년]\s*\d{1,2}[.\-\/월]\s*\d{1,2}[일]?\s*[~\-]\s*\d{4}[.\-\/년]\s*\d{1,2}[.\-\/월]\s*\d{1,2})/i,
+      /(\d{4}[.\-\/년]\s*\d{1,2}[.\-\/월]\s*\d{1,2}[일]?)\s*[~\-]\s*(\d{4}[.\-\/년]?\s*\d{1,2}[.\-\/월]\s*\d{1,2})/i,
+    ];
+
+    for (const pattern of periodPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        const periodText = stripHtml(match[0]);
+        extractedParts.push(`📅 신청기간: ${periodText}`);
+
+        // 날짜 파싱
+        const datePattern = /(\d{4})[.\-\/년]?\s*(\d{1,2})[.\-\/월]?\s*(\d{1,2})/g;
+        const dates = [...periodText.matchAll(datePattern)];
+        if (dates.length >= 1) {
+          info.application_period_start = `${dates[0][1]}-${dates[0][2].padStart(2, '0')}-${dates[0][3].padStart(2, '0')}`;
+        }
+        if (dates.length >= 2) {
+          info.application_period_end = `${dates[1][1]}-${dates[1][2].padStart(2, '0')}-${dates[1][3].padStart(2, '0')}`;
+        }
+        break;
+      }
+    }
+
+    // 2. 예산/사업비 추출
+    const budgetPatterns = [
+      /(?:사업비|예산|총\s*예산)[:\s]*([^<\n]{5,80})/i,
+      /(\d{1,3}(?:,\d{3})*(?:백만원|억원|천만원|만원|원))/i,
+    ];
+
+    for (const pattern of budgetPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        const budgetText = stripHtml(match[1] || match[0]);
+        if (budgetText.match(/\d/)) {  // 숫자가 포함된 경우만
+          info.budget = budgetText;
+          extractedParts.push(`💰 예산: ${budgetText}`);
+          break;
+        }
+      }
+    }
+
+    // 3. 지원대상 추출
+    const targetPatterns = [
+      /(?:지원|신청)\s*대상[:\s]*([^<\n]{10,300})/i,
+      /대\s*상[:\s]*([^<\n]{10,200})/i,
+    ];
+
+    for (const pattern of targetPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        const targetText = stripHtml(match[1]).substring(0, 200);
+        info.target_description = targetText;
+        extractedParts.push(`🎯 지원대상: ${targetText}`);
+        break;
+      }
+    }
+
+    // 4. 지원금액/지원내용 추출
+    const supportPatterns = [
+      /(?:지원|보조)\s*(?:금액|내용|한도)[:\s]*([^<\n]{10,200})/i,
+      /(?:설치비|보조금)[:\s]*([^<\n]{5,100})/i,
+    ];
+
+    for (const pattern of supportPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        const supportText = stripHtml(match[1]).substring(0, 150);
+        info.support_amount = supportText;
+        extractedParts.push(`💵 지원금액: ${supportText}`);
+        break;
+      }
+    }
+
+    // 5. 본문 내용 일부 추출 (첫 500자)
+    const bodyPatterns = [
+      /<div[^>]*class="[^"]*(?:content|view|body|detail)[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<td[^>]*class="[^"]*(?:content|view|body)[^"]*"[^>]*>([\s\S]*?)<\/td>/i,
+    ];
+
+    let bodyText = '';
+    for (const pattern of bodyPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        bodyText = stripHtml(match[1]).substring(0, 500);
+        break;
+      }
+    }
+
+    // 최종 content 조합
+    if (extractedParts.length > 0) {
+      info.content = extractedParts.join('\n\n');
+      if (bodyText && bodyText.length > 50) {
+        info.content += '\n\n📄 내용 요약:\n' + bodyText;
+      }
+    } else if (bodyText) {
+      info.content = bodyText;
+    } else {
+      info.content = '상세 내용은 원문보기를 통해 확인하세요.';
+    }
+
+    return info;
+
+  } catch (error) {
+    console.warn(`[CRAWLER] 상세 페이지 조회 실패: ${detailUrl}`, error);
+    return {
+      content: '상세 내용은 원문보기를 통해 확인하세요.',
+    };
+  }
+}
+
+// 공고 상세 페이지에서 정보 추출 (기존 함수 - 기업마당용)
 async function fetchAnnouncementDetail(detailUrl: string): Promise<{
   content: string;
-  extractedData?: CrawledAnnouncement['extracted_data'];
+  extractedData?: {
+    application_period_start?: string;
+    application_period_end?: string;
+    budget?: string;
+    target_description?: string;
+    support_amount?: string;
+  };
 }> {
   try {
     const response = await fetch(detailUrl, {
@@ -568,7 +768,13 @@ async function fetchAnnouncementDetail(detailUrl: string): Promise<{
     ];
 
     const extractedInfo: string[] = [];
-    const extractedData: CrawledAnnouncement['extracted_data'] = {};
+    const extractedData: {
+      application_period_start?: string;
+      application_period_end?: string;
+      budget?: string;
+      target_description?: string;
+      support_amount?: string;
+    } = {};
 
     for (const { label, pattern } of infoPatterns) {
       const match = html.match(pattern);
@@ -952,11 +1158,12 @@ async function crawlGECA(source: Phase2Source): Promise<CrawledAnnouncement[]> {
 }
 
 // 녹색환경지원센터 - 그누보드 패턴 (경북 등)
+// ⚠️ 키워드 필터링 적용: 관련 키워드가 제목에 포함된 공고만 저장
 async function crawlGEC_Gnuboard(source: Phase2Source): Promise<CrawledAnnouncement[]> {
   const announcements: CrawledAnnouncement[] = [];
 
   try {
-    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작 (그누보드)`);
+    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작 (그누보드, 키워드 필터링 적용)`);
 
     const response = await fetch(source.announcement_url, {
       headers: {
@@ -969,18 +1176,12 @@ async function crawlGEC_Gnuboard(source: Phase2Source): Promise<CrawledAnnouncem
 
     if (!response.ok) {
       console.error(`[CRAWLER-P2] ${source.name} HTTP 오류: ${response.status}`);
-      return [{
-        title: `[${source.name}] 사업공고`,
-        content: `${source.name}의 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
-        source_url: source.announcement_url,
-        published_at: new Date().toISOString(),
-      }];
+      return [];  // 오류 시 빈 배열 반환 (관련 없는 공고 저장 방지)
     }
 
     const html = await response.text();
 
     // 그누보드 패턴: wr_id=XXX 파라미터와 제목 추출
-    // <a href="...wr_id=682">제목</a>
     const linkPattern = /wr_id=(\d+)[^>]*>([^<]+)</gi;
     const items: { id: string; title: string }[] = [];
     let match;
@@ -989,40 +1190,38 @@ async function crawlGEC_Gnuboard(source: Phase2Source): Promise<CrawledAnnouncem
       const id = match[1];
       const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
 
-      if (id && title.length > 3 && !items.find(i => i.id === id)) {
+      // 🔑 핵심: 관련 키워드가 제목에 포함된 경우만 추가
+      if (id && title.length > 3 && !items.find(i => i.id === id) && isRelevantTitle(title)) {
         items.push({ id, title });
+        console.log(`[CRAWLER-P2] ✅ 관련 공고 발견: ${title}`);
       }
     }
 
-    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 공고 발견`);
+    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 관련 공고 발견 (키워드 필터링 후)`);
 
-    // 최대 15개 공고 저장
-    const maxItems = Math.min(items.length, 15);
-    for (let i = 0; i < maxItems; i++) {
-      const { id, title } = items[i];
+    // 관련 공고에 대해 상세 페이지 조회 및 정보 추출
+    for (const { id, title } of items) {
+      const detailUrl = `${source.detail_base_url}${id}`;
 
-      const matchedKeywords = IOT_KEYWORDS.filter(k =>
+      // 매칭된 키워드 확인
+      const matchedKeywords = REQUIRED_KEYWORDS.filter(k =>
         title.toLowerCase().includes(k.toLowerCase())
       );
 
-      const keywordInfo = matchedKeywords.length > 0
-        ? `\n\n매칭 키워드: ${matchedKeywords.join(', ')}`
-        : '';
+      // 상세 페이지에서 정보 추출
+      const detailInfo = await fetchGECDetail(detailUrl);
 
       announcements.push({
         title: `[${source.name}] ${title}`,
-        content: `${source.name}에서 게시한 공고입니다.${keywordInfo}\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`,
-        source_url: `${source.detail_base_url}${id}`,
+        content: detailInfo.content,
+        source_url: detailUrl,
         published_at: new Date().toISOString(),
-      });
-    }
-
-    if (announcements.length === 0) {
-      announcements.push({
-        title: `[${source.name}] 사업공고`,
-        content: `${source.name}의 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
-        source_url: source.announcement_url,
-        published_at: new Date().toISOString(),
+        application_period_start: detailInfo.application_period_start,
+        application_period_end: detailInfo.application_period_end,
+        budget: detailInfo.budget,
+        target_description: detailInfo.target_description,
+        support_amount: detailInfo.support_amount,
+        keywords_matched: matchedKeywords,
       });
     }
 
@@ -1030,21 +1229,17 @@ async function crawlGEC_Gnuboard(source: Phase2Source): Promise<CrawledAnnouncem
 
   } catch (error) {
     console.error(`[CRAWLER-P2] ${source.name} 크롤링 오류:`, error);
-    return [{
-      title: `[${source.name}] 사업공고`,
-      content: `크롤링 중 오류가 발생했습니다.\n원문보기를 클릭하여 직접 확인해주세요.`,
-      source_url: source.announcement_url,
-      published_at: new Date().toISOString(),
-    }];
+    return [];  // 오류 시 빈 배열 반환
   }
 }
 
 // 녹색환경지원센터 - CMS 패턴 (부산, 대전, 광주 등)
+// ⚠️ 키워드 필터링 적용: 관련 키워드가 제목에 포함된 공고만 저장
 async function crawlGEC_CMS(source: Phase2Source): Promise<CrawledAnnouncement[]> {
   const announcements: CrawledAnnouncement[] = [];
 
   try {
-    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작 (CMS)`);
+    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작 (CMS, 키워드 필터링 적용)`);
 
     const response = await fetch(source.announcement_url, {
       headers: {
@@ -1057,18 +1252,12 @@ async function crawlGEC_CMS(source: Phase2Source): Promise<CrawledAnnouncement[]
 
     if (!response.ok) {
       console.error(`[CRAWLER-P2] ${source.name} HTTP 오류: ${response.status}`);
-      return [{
-        title: `[${source.name}] 사업공고`,
-        content: `${source.name}의 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
-        source_url: source.announcement_url,
-        published_at: new Date().toISOString(),
-      }];
+      return [];  // 오류 시 빈 배열 반환 (관련 없는 공고 저장 방지)
     }
 
     const html = await response.text();
 
     // CMS 패턴: /ko/XX/view?SEQ=YYY 또는 SEQ=YYY
-    // <a href="/ko/23/view?SEQ=348">제목</a>
     const linkPatterns = [
       /view\?SEQ=(\d+)[^>]*>([^<]+)</gi,
       /SEQ=(\d+)[^>]*>([^<]+)</gi,
@@ -1082,41 +1271,39 @@ async function crawlGEC_CMS(source: Phase2Source): Promise<CrawledAnnouncement[]
         const id = match[1];
         const title = match[2].trim().replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ');
 
-        if (id && title.length > 3 && !items.find(i => i.id === id)) {
+        // 🔑 핵심: 관련 키워드가 제목에 포함된 경우만 추가
+        if (id && title.length > 3 && !items.find(i => i.id === id) && isRelevantTitle(title)) {
           items.push({ id, title });
+          console.log(`[CRAWLER-P2] ✅ 관련 공고 발견: ${title}`);
         }
       }
     }
 
-    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 공고 발견`);
+    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 관련 공고 발견 (키워드 필터링 후)`);
 
-    // 최대 15개 공고 저장
-    const maxItems = Math.min(items.length, 15);
-    for (let i = 0; i < maxItems; i++) {
-      const { id, title } = items[i];
+    // 관련 공고에 대해 상세 페이지 조회 및 정보 추출
+    for (const { id, title } of items) {
+      const detailUrl = `${source.detail_base_url}${id}`;
 
-      const matchedKeywords = IOT_KEYWORDS.filter(k =>
+      // 매칭된 키워드 확인
+      const matchedKeywords = REQUIRED_KEYWORDS.filter(k =>
         title.toLowerCase().includes(k.toLowerCase())
       );
 
-      const keywordInfo = matchedKeywords.length > 0
-        ? `\n\n매칭 키워드: ${matchedKeywords.join(', ')}`
-        : '';
+      // 상세 페이지에서 정보 추출
+      const detailInfo = await fetchGECDetail(detailUrl);
 
       announcements.push({
         title: `[${source.name}] ${title}`,
-        content: `${source.name}에서 게시한 공고입니다.${keywordInfo}\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`,
-        source_url: `${source.detail_base_url}${id}`,
+        content: detailInfo.content,
+        source_url: detailUrl,
         published_at: new Date().toISOString(),
-      });
-    }
-
-    if (announcements.length === 0) {
-      announcements.push({
-        title: `[${source.name}] 사업공고`,
-        content: `${source.name}의 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
-        source_url: source.announcement_url,
-        published_at: new Date().toISOString(),
+        application_period_start: detailInfo.application_period_start,
+        application_period_end: detailInfo.application_period_end,
+        budget: detailInfo.budget,
+        target_description: detailInfo.target_description,
+        support_amount: detailInfo.support_amount,
+        keywords_matched: matchedKeywords,
       });
     }
 
@@ -1124,12 +1311,7 @@ async function crawlGEC_CMS(source: Phase2Source): Promise<CrawledAnnouncement[]
 
   } catch (error) {
     console.error(`[CRAWLER-P2] ${source.name} 크롤링 오류:`, error);
-    return [{
-      title: `[${source.name}] 사업공고`,
-      content: `크롤링 중 오류가 발생했습니다.\n원문보기를 클릭하여 직접 확인해주세요.`,
-      source_url: source.announcement_url,
-      published_at: new Date().toISOString(),
-    }];
+    return [];  // 오류 시 빈 배열 반환
   }
 }
 
