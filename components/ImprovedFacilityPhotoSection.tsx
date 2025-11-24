@@ -179,7 +179,19 @@ export default function ImprovedFacilityPhotoSection({
   }, [facilityNumberMap]);
 
   const toast = useToast();
-  const { addFiles } = useFileContext();
+  const { addFiles, removeFile, setBusinessInfo, businessName: contextBusinessName, uploadedFiles } = useFileContext();
+
+  // 📡 FileContext에 사업장 정보 설정 (Realtime 구독용) - 무한 루프 방지
+  useEffect(() => {
+    // 이미 같은 사업장이 설정되어 있으면 스킵
+    if (businessName && businessName !== contextBusinessName) {
+      const systemType = mapPhaseToSystemType(currentPhase);
+      setBusinessInfo(businessName, systemType);
+      console.log(`📡 [PHOTO-SECTION] setBusinessInfo 호출: ${businessName}, ${systemType}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessName, currentPhase, contextBusinessName]);
+
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   
@@ -408,6 +420,46 @@ export default function ImprovedFacilityPhotoSection({
     window.addEventListener('photoStatsUpdate', handlePhotoStatsUpdate);
     return () => window.removeEventListener('photoStatsUpdate', handlePhotoStatsUpdate);
   }, [loadUploadedFiles]);
+
+  // 📡 NEW: Realtime으로 추가/삭제된 사진을 photoTracker에 즉시 반영
+  const prevUploadedFilesLengthRef = useRef(uploadedFiles.length);
+  useEffect(() => {
+    const prevLength = prevUploadedFilesLengthRef.current;
+    const currentLength = uploadedFiles.length;
+
+    // uploadedFiles 길이가 변경되었을 때 처리 (Realtime INSERT/DELETE)
+    if (currentLength !== prevLength) {
+      if (currentLength > prevLength) {
+        // INSERT: 새 파일 추가
+        console.log(`📡 [REALTIME-SYNC] 새 파일 감지: ${currentLength - prevLength}개`);
+
+        // 새 사진 하이라이트
+        const newPhotoIds = new Set<string>(
+          uploadedFiles.slice(prevLength).map(f => f.id)
+        );
+        if (newPhotoIds.size > 0) {
+          setRecentPhotoIds(newPhotoIds);
+          setTimeout(() => setRecentPhotoIds(new Set()), 5000);
+        }
+      } else {
+        // DELETE: 파일 삭제
+        console.log(`📡 [REALTIME-SYNC] 파일 삭제 감지: ${prevLength - currentLength}개`);
+      }
+
+      // photoTracker 재빌드 (추가/삭제 모두 반영)
+      photoTracker.buildFromUploadedFiles(uploadedFiles);
+
+      // 통계 업데이트
+      const trackerStats = photoTracker.getStatistics();
+      setStatistics(prev => ({
+        ...trackerStats,
+        totalPhotosAllPhases: prev.totalPhotosAllPhases
+      }));
+
+      console.log(`📡 [REALTIME-SYNC] photoTracker 업데이트 완료, 총 ${trackerStats.totalPhotos}장`);
+    }
+    prevUploadedFilesLengthRef.current = currentLength;
+  }, [uploadedFiles, photoTracker]);
 
   // ✅ 페이지 포커스 복원 시 자동 새로고침 (브라우저 뒤로가기, 탭 전환 등)
   useEffect(() => {
@@ -1106,13 +1158,18 @@ export default function ImprovedFacilityPhotoSection({
       markPhotoAsDeleted(photo.id);
       console.log(`⚡ [INSTANT-DELETE] ${photo.fileName} - markPhotoAsDeleted 호출완료`);
 
-      // 2️⃣ photoTracker에서도 즉시 제거하여 통계 업데이트
+      // 2️⃣ ✅ FIX: FileContext에서도 즉시 제거 (낙관적 업데이트 - API 호출 전)
+      // 이렇게 하면 uploadedFiles 변경 → photoTracker 재빌드 → UI 즉시 업데이트
+      removeFile(photo.id);
+      console.log(`🗑️ [OPTIMISTIC-DELETE] FileContext.removeFile 즉시 호출 - uploadedFiles 업데이트`);
+
+      // 3️⃣ photoTracker에서도 즉시 제거하여 통계 업데이트
       console.log(`🔍 [BEFORE-REMOVE] 삭제 전 통계:`, photoTracker.getStatistics());
       const removed = photoTracker.removePhoto(photo.id);
       console.log(`🗑️ [TRACKER-REMOVE] photoTracker.removePhoto 결과: ${removed}`);
       console.log(`🔍 [AFTER-REMOVE] 삭제 후 통계:`, photoTracker.getStatistics());
 
-      // 3️⃣ 통계 즉시 업데이트 (optimistic update) - photoTracker에서 최신 통계 가져오기
+      // 4️⃣ 통계 즉시 업데이트 (optimistic update) - photoTracker에서 최신 통계 가져오기
       if (removed) {
         const updatedStats = photoTracker.getStatistics();
         console.log(`📊 [STATS-UPDATE-START] setStatistics 호출 직전:`, updatedStats);
@@ -1126,9 +1183,9 @@ export default function ImprovedFacilityPhotoSection({
         console.warn(`⚠️ [STATS-SKIP] photoTracker에서 사진을 찾을 수 없어 통계 업데이트 생략`);
       }
 
-      // 4️⃣ 상태 변경 확인을 위한 약간의 지연
-      await new Promise(resolve => setTimeout(resolve, 100));
-      console.log(`🔄 [UI-SYNC] Jotai 상태 업데이트 후 UI 리렌더링 대기`);
+      // 5️⃣ React 렌더링을 위한 마이크로태스크 대기 (상태 업데이트 처리 시간)
+      await Promise.resolve();
+      console.log(`🔄 [UI-SYNC] 상태 업데이트 후 UI 리렌더링 트리거됨`);
 
       // ✅ 상세보기 창 유지 - 모달 닫지 않음 (사용자 경험 개선)
       console.log(`👁️ [MODAL-KEEP] 상세보기 창 유지 - 삭제 후에도 계속 사용 가능`);
@@ -1164,18 +1221,17 @@ export default function ImprovedFacilityPhotoSection({
       } else {
         console.log(`✅ [DELETE-API-SUCCESS] ${photo.fileName} 서버에서도 삭제 완료`);
 
-        // 5️⃣ API 삭제 성공 후에만 성공 메시지 표시
+        // 6️⃣ API 삭제 성공 후 성공 메시지 표시
         toast.success('삭제 완료', '사진이 성공적으로 삭제되었습니다.');
 
-        // ✅ 서버 삭제 완료 후 강제 새로고침으로 확실한 동기화
-        await loadUploadedFiles(true, false);
-        console.log('🔄 [POST-DELETE-REFRESH] 삭제 후 서버 데이터 재조회 완료');
+        // ✅ removeFile은 이미 낙관적으로 호출됨 (line 1163) - 중복 호출 불필요
+        // Realtime 중복 방지도 이미 적용됨 (recentLocalUpdatesRef)
 
         // 🚨 삭제 작업 완료 - 외부 클릭 차단 해제
         setIsDeletingPhoto(false);
         console.log(`🔓 [DELETE-UNLOCK] 삭제 작업 완료 - 모달 잠금 해제`);
 
-        console.log(`✅ [DELETE-COMPLETE] 삭제 완료, 통계 이미 업데이트됨`);
+        console.log(`✅ [DELETE-COMPLETE] 삭제 완료, 낙관적 업데이트로 UI 이미 반영됨`);
       }
       
     } catch (error) {
@@ -1194,7 +1250,7 @@ export default function ImprovedFacilityPhotoSection({
       
       toast.error('삭제 오류', '사진 삭제 중 문제가 발생했습니다. 다시 시도해주세요.');
     }
-  }, [businessName, markPhotoAsDeleted, markPhotoAsUndeleted, photoTracker, toast, loadUploadedFiles]);
+  }, [businessName, markPhotoAsDeleted, markPhotoAsUndeleted, removeFile, photoTracker, toast, loadUploadedFiles]);
 
   // 사진 선택 모달
   const handlePhotoSelect = useCallback((photo: FacilityPhoto, event: React.MouseEvent) => {

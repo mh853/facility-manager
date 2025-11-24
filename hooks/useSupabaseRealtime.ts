@@ -60,13 +60,13 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
   const onDisconnectRef = useRef(onDisconnect);
   const onErrorRef = useRef(onError);
 
-  // 콜백이 변경되면 ref 업데이트
-  useEffect(() => {
-    onNotificationRef.current = onNotification;
-    onConnectRef.current = onConnect;
-    onDisconnectRef.current = onDisconnect;
-    onErrorRef.current = onError;
-  }, [onNotification, onConnect, onDisconnect, onError]);
+  // ✅ FIX: 콜백을 동기적으로 업데이트 (race condition 방지)
+  // useEffect는 비동기적이므로 Realtime 이벤트가 ref 업데이트 전에 도착할 수 있음
+  // ref는 mutable이므로 렌더 중 직접 할당해도 안전함
+  onNotificationRef.current = onNotification;
+  onConnectRef.current = onConnect;
+  onDisconnectRef.current = onDisconnect;
+  onErrorRef.current = onError;
 
   // 연결 상태 업데이트 함수
   const updateState = useCallback((updates: Partial<RealtimeState>) => {

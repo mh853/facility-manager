@@ -214,14 +214,24 @@ export function useOptimisticUpload(options: UseOptimisticUploadOptions = {}) {
         );
 
         // 응답 형식을 기존 시스템과 호환되도록 변환
+        // ✅ FIX: fallback 객체에도 모든 URL 필드 포함 (ghost 방지)
         const compatibleResponse = {
           success: response.success,
           files: response.success && response.fileData ? [response.fileData] :
                  response.success ? [{
             id: response.fileId,
             name: photo.file.name,
+            originalName: photo.file.name,
+            mimeType: photo.file.type || 'application/octet-stream',
+            size: photo.file.size,
+            createdTime: new Date().toISOString(),
             publicUrl: response.publicUrl,
+            webViewLink: response.publicUrl,
+            downloadUrl: response.publicUrl,
+            thumbnailUrl: response.publicUrl,
             filePath: response.filePath,
+            folderName: response.filePath?.split('/').slice(-2, -1)[0] || '',
+            uploadStatus: 'completed',
             justUploaded: true
           }] : [],
           error: response.error
