@@ -60,16 +60,26 @@ const PHASE2_SOURCES: Phase2Source[] = [
     announcement_url: 'https://www.keci.or.kr/web/board/BD_board.list.do?bbsCd=1001',
     detail_base_url: 'https://www.keci.or.kr/web/board/BD_board.view.do?bbsCd=1001&seq=',
   },
-  // 울산녹색환경지원센터
+  // 경북녹색환경지원센터 (GBGEC)
   {
-    id: 'ugec',
-    name: '울산녹색환경지원센터',
+    id: 'gbgec',
+    name: '경북녹색환경지원센터',
     type: 'gec',
-    region_code: '31',
-    region_name: '울산광역시',
-    announcement_url: 'http://www.ugec.or.kr/bbs/board.php?bo_table=sub0401',
-    detail_base_url: 'http://www.ugec.or.kr/bbs/board.php?bo_table=sub0401&wr_id=',
+    region_code: '47',
+    region_name: '경상북도',
+    announcement_url: 'http://www.gbgec.or.kr/bbs/board.php?bo_table=sub5_1',
+    detail_base_url: 'http://www.gbgec.or.kr/bbs/board.php?bo_table=sub5_1&wr_id=',
   },
+  // 울산녹색환경지원센터 (UGEC) - 2024.11 기준 사이트 접속 불가로 비활성화
+  // {
+  //   id: 'ugec',
+  //   name: '울산녹색환경지원센터',
+  //   type: 'gec',
+  //   region_code: '31',
+  //   region_name: '울산광역시',
+  //   announcement_url: 'http://www.ugec.or.kr/bbs/board.php?bo_table=sub0401',
+  //   detail_base_url: 'http://www.ugec.or.kr/bbs/board.php?bo_table=sub0401&wr_id=',
+  // },
 ];
 
 // 크롤링 대상 지자체 목록 (기업마당 지역 검색 URL 사용)
