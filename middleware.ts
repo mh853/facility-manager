@@ -85,6 +85,15 @@ function isStaticFile(pathname: string): boolean {
          pathname.includes('.');
 }
 
+// CSRF 검증 제외 API 경로 (외부 호출용 - Bearer 토큰 인증)
+function isCSRFExemptAPI(pathname: string): boolean {
+  const exemptPaths = [
+    '/api/subsidy-crawler',  // GitHub Actions 크롤러
+    '/api/webhooks/',        // 외부 웹훅
+  ];
+  return exemptPaths.some(path => pathname.startsWith(path));
+}
+
 // API 경로 보호
 async function protectAPIRoute(request: NextRequest): Promise<NextResponse | null> {
   // Rate Limiting 체크
@@ -144,24 +153,26 @@ async function protectAPIRoute(request: NextRequest): Promise<NextResponse | nul
     );
   }
 
-  // CSRF 보호
-  const csrfResult = protectCSRF(request);
-  if (!csrfResult.valid) {
-    console.warn(`[SECURITY] CSRF validation failed for ${request.ip} on ${request.nextUrl.pathname}`);
+  // CSRF 보호 (외부 API 호출은 제외 - Bearer 토큰으로 인증)
+  if (!isCSRFExemptAPI(request.nextUrl.pathname)) {
+    const csrfResult = protectCSRF(request);
+    if (!csrfResult.valid) {
+      console.warn(`[SECURITY] CSRF validation failed for ${request.ip} on ${request.nextUrl.pathname}`);
 
-    return new NextResponse(
-      JSON.stringify({
-        success: false,
-        error: {
-          code: 'CSRF_TOKEN_INVALID',
-          message: 'CSRF 토큰이 유효하지 않습니다.'
+      return new NextResponse(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'CSRF_TOKEN_INVALID',
+            message: 'CSRF 토큰이 유효하지 않습니다.'
+          }
+        }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
         }
-      }),
-      {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
+      );
+    }
   }
 
   return null; // 모든 보안 검사 통과
