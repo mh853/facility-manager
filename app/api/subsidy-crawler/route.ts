@@ -11,32 +11,44 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // 크롤러 인증 토큰 (GitHub Actions에서 사용)
 const CRAWLER_SECRET = process.env.CRAWLER_SECRET || 'dev-secret';
 
-// 크롤링 대상 지자체 목록 (메인 홈페이지 URL - 안정적인 링크)
+// 정부 지원사업 통합 포털 (실제 공고 검색 가능)
+const SUPPORT_PORTALS = {
+  // 기업마당 - 정부 지원사업 통합 포털 (지역별 검색 가능)
+  bizinfo: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출',
+  // 코네틱 - 환경산업기술정보시스템
+  konetic: 'https://konetic.or.kr/user/T/TB/TB003_L02.do',
+  // 그린링크 - 소규모 대기배출시설 관리시스템
+  greenlink: 'https://www.greenlink.or.kr/web/link/?pMENU_ID=60',
+  // 경기도환경에너지진흥원 - 대기분야 지원사업
+  ggeea: 'https://www.ggeea.or.kr/news?sca=대기물산업지원팀',
+};
+
+// 크롤링 대상 지자체 목록 (기업마당 지역 검색 URL 사용)
 const GOVERNMENT_SOURCES = [
-  // 광역시도 - 메인 홈페이지 (게시판 URL은 자주 변경되므로 안정적인 메인 페이지 사용)
-  { region_code: '11', region_name: '서울특별시', region_type: 'metropolitan' as const, announcement_url: 'https://www.seoul.go.kr' },
-  { region_code: '26', region_name: '부산광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.busan.go.kr' },
-  { region_code: '27', region_name: '대구광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.daegu.go.kr' },
-  { region_code: '28', region_name: '인천광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.incheon.go.kr' },
-  { region_code: '29', region_name: '광주광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.gwangju.go.kr' },
-  { region_code: '30', region_name: '대전광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.daejeon.go.kr' },
-  { region_code: '31', region_name: '울산광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.ulsan.go.kr' },
-  { region_code: '36', region_name: '세종특별자치시', region_type: 'metropolitan' as const, announcement_url: 'https://www.sejong.go.kr' },
-  { region_code: '41', region_name: '경기도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gg.go.kr' },
-  { region_code: '42', region_name: '강원특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.provin.gangwon.kr' },
-  { region_code: '43', region_name: '충청북도', region_type: 'metropolitan' as const, announcement_url: 'https://www.chungbuk.go.kr' },
-  { region_code: '44', region_name: '충청남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.chungnam.go.kr' },
-  { region_code: '45', region_name: '전북특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeonbuk.go.kr' },
-  { region_code: '46', region_name: '전라남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeonnam.go.kr' },
-  { region_code: '47', region_name: '경상북도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gb.go.kr' },
-  { region_code: '48', region_name: '경상남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.gyeongnam.go.kr' },
-  { region_code: '50', region_name: '제주특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.jeju.go.kr' },
-  // 기초지자체 샘플
-  { region_code: '11680', region_name: '서울 강남구', region_type: 'basic' as const, announcement_url: 'https://www.gangnam.go.kr' },
-  { region_code: '11740', region_name: '서울 강동구', region_type: 'basic' as const, announcement_url: 'https://www.gangdong.go.kr' },
-  { region_code: '26440', region_name: '부산 해운대구', region_type: 'basic' as const, announcement_url: 'https://www.haeundae.go.kr' },
-  { region_code: '41111', region_name: '경기 수원시', region_type: 'basic' as const, announcement_url: 'https://www.suwon.go.kr' },
-  { region_code: '41131', region_name: '경기 성남시', region_type: 'basic' as const, announcement_url: 'https://www.seongnam.go.kr' },
+  // 광역시도 - 기업마당 지역별 환경 지원사업 검색 URL
+  { region_code: '11', region_name: '서울특별시', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=11' },
+  { region_code: '26', region_name: '부산광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=26' },
+  { region_code: '27', region_name: '대구광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=27' },
+  { region_code: '28', region_name: '인천광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=28' },
+  { region_code: '29', region_name: '광주광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=29' },
+  { region_code: '30', region_name: '대전광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=30' },
+  { region_code: '31', region_name: '울산광역시', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=31' },
+  { region_code: '36', region_name: '세종특별자치시', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=36' },
+  { region_code: '41', region_name: '경기도', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=41' },
+  { region_code: '42', region_name: '강원특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=42' },
+  { region_code: '43', region_name: '충청북도', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=43' },
+  { region_code: '44', region_name: '충청남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=44' },
+  { region_code: '45', region_name: '전북특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=45' },
+  { region_code: '46', region_name: '전라남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=46' },
+  { region_code: '47', region_name: '경상북도', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=47' },
+  { region_code: '48', region_name: '경상남도', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=48' },
+  { region_code: '50', region_name: '제주특별자치도', region_type: 'metropolitan' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=50' },
+  // 기초지자체 샘플 - 상위 광역시도 검색 URL 사용
+  { region_code: '11680', region_name: '서울 강남구', region_type: 'basic' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=11' },
+  { region_code: '11740', region_name: '서울 강동구', region_type: 'basic' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=11' },
+  { region_code: '26440', region_name: '부산 해운대구', region_type: 'basic' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=26' },
+  { region_code: '41111', region_name: '경기 수원시', region_type: 'basic' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=41' },
+  { region_code: '41131', region_name: '경기 성남시', region_type: 'basic' as const, announcement_url: 'https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/list.do?rows=10&cpage=1&pblancNm=대기배출&areaCd=41' },
 ];
 
 // POST: 크롤링 실행
@@ -257,9 +269,9 @@ async function crawlGovernmentSite(source: typeof GOVERNMENT_SOURCES[0]): Promis
 
         ※ 관련 키워드: ${announcementType.keywords.join(', ')}
 
-        ■ 공고 확인 방법
-        아래 '원문보기' 클릭 → ${source.region_name} 홈페이지 접속 →
-        '고시/공고' 또는 '환경' 메뉴에서 해당 지원사업 공고 확인
+        ■ 원문보기 클릭 시
+        → 기업마당(bizinfo.go.kr) ${source.region_name} 대기배출 관련 지원사업 목록으로 이동
+        → 실제 공고문을 바로 확인할 수 있습니다
 
         문의: ${source.region_name} 환경과
       `,
