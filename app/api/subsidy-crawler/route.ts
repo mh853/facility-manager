@@ -22,6 +22,56 @@ const SUPPORT_PORTALS = {
   ggeea: 'https://www.ggeea.or.kr/news?sca=대기물산업지원팀',
 };
 
+// ============================================================
+// Phase 2: 환경 관련 기관 크롤링 소스
+// ============================================================
+
+type Phase2SourceType = 'ggeea' | 'keci' | 'gec';
+
+interface Phase2Source {
+  id: string;
+  name: string;
+  type: Phase2SourceType;
+  region_code: string;
+  region_name: string;
+  announcement_url: string;
+  detail_base_url?: string;
+}
+
+// Phase 2 크롤링 대상: 환경 관련 기관
+const PHASE2_SOURCES: Phase2Source[] = [
+  // 경기환경에너지진흥원 (GGEEA)
+  {
+    id: 'ggeea',
+    name: '경기환경에너지진흥원',
+    type: 'ggeea',
+    region_code: '41',
+    region_name: '경기도',
+    announcement_url: 'https://www.ggeea.or.kr/news',
+    detail_base_url: 'https://www.ggeea.or.kr/news/',
+  },
+  // 한국환경보전원 (KECI)
+  {
+    id: 'keci',
+    name: '한국환경보전원',
+    type: 'keci',
+    region_code: '00',
+    region_name: '전국',
+    announcement_url: 'https://www.keci.or.kr/web/board/BD_board.list.do?bbsCd=1001',
+    detail_base_url: 'https://www.keci.or.kr/web/board/BD_board.view.do?bbsCd=1001&seq=',
+  },
+  // 울산녹색환경지원센터
+  {
+    id: 'ugec',
+    name: '울산녹색환경지원센터',
+    type: 'gec',
+    region_code: '31',
+    region_name: '울산광역시',
+    announcement_url: 'http://www.ugec.or.kr/bbs/board.php?bo_table=sub0401',
+    detail_base_url: 'http://www.ugec.or.kr/bbs/board.php?bo_table=sub0401&wr_id=',
+  },
+];
+
 // 크롤링 대상 지자체 목록 (기업마당 지역 검색 URL 사용)
 const GOVERNMENT_SOURCES = [
   // 광역시도 - 기업마당 지역별 환경 지원사업 검색 URL
@@ -163,6 +213,71 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ============================================================
+    // Phase 2: 환경 기관 크롤링 추가
+    // ============================================================
+    console.log('[CRAWLER] Phase 2 크롤링 시작...');
+
+    for (const source of PHASE2_SOURCES) {
+      try {
+        const announcements = await crawlPhase2Source(source);
+
+        for (const announcement of announcements) {
+          // 중복 체크
+          const { data: existing } = await supabase
+            .from('subsidy_announcements')
+            .select('id')
+            .eq('source_url', announcement.source_url)
+            .single();
+
+          if (existing && !force) {
+            continue;
+          }
+
+          // 키워드 기반 관련성 판단
+          const keywords = ['대기배출', 'IoT', '사물인터넷', '방지시설', '환경', '미세먼지', '소규모'];
+          const text = `${announcement.title} ${announcement.content}`.toLowerCase();
+          const matchedKeywords = keywords.filter(k => text.includes(k.toLowerCase()));
+
+          const insertData = {
+            region_code: source.region_code,
+            region_name: source.region_name,
+            region_type: 'metropolitan' as const,
+            title: announcement.title,
+            content: announcement.content,
+            source_url: announcement.source_url,
+            published_at: announcement.published_at,
+            is_relevant: true,
+            relevance_score: Math.min(0.6 + matchedKeywords.length * 0.1, 1.0),
+            keywords_matched: matchedKeywords.length > 0 ? matchedKeywords : ['환경'],
+          };
+
+          const { error } = await supabase
+            .from('subsidy_announcements')
+            .upsert(insertData, { onConflict: 'source_url' });
+
+          if (!error) {
+            results.new_announcements++;
+            results.relevant_announcements++;
+          }
+        }
+
+        results.successful_regions++;
+        console.log(`[CRAWLER-P2] ${source.name} 완료`);
+
+      } catch (error) {
+        results.failed_regions++;
+        results.errors?.push({
+          region_code: source.id,
+          error: error instanceof Error ? error.message : '알 수 없는 오류',
+        });
+        console.error(`[CRAWLER-P2] ${source.name} 실패:`, error);
+      }
+    }
+
+    // Phase 2 소스 수 반영
+    results.total_regions += PHASE2_SOURCES.length;
+
     results.duration_ms = Date.now() - startTime;
 
     // 크롤링 로그 저장
@@ -173,6 +288,8 @@ export async function POST(request: NextRequest) {
       duration_ms: results.duration_ms,
       error_message: results.errors?.length ? JSON.stringify(results.errors) : null,
     });
+
+    console.log(`[CRAWLER] 전체 크롤링 완료: ${results.new_announcements}개 공고, ${results.duration_ms}ms`);
 
     return NextResponse.json(results);
 
@@ -377,6 +494,258 @@ async function fetchAnnouncementDetail(detailUrl: string): Promise<{
     return {
       content: '상세 내용은 원문보기를 통해 확인하세요.',
     };
+  }
+}
+
+// ============================================================
+// Phase 2: 환경 기관 전용 크롤링 함수
+// ============================================================
+
+// 경기환경에너지진흥원 (GGEEA) 크롤링
+async function crawlGGEEA(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-P2] ${source.name} HTTP 오류: ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+
+    // GGEEA 링크 패턴: <a href="/news/123">제목</a>
+    const linkPattern = /<a[^>]*href="\/news\/(\d+)"[^>]*>([^<]+)<\/a>/gi;
+    const items: { id: string; title: string }[] = [];
+    let match;
+
+    while ((match = linkPattern.exec(html)) !== null) {
+      const id = match[1];
+      const title = match[2].trim().replace(/\s+/g, ' ');
+
+      // 대기배출, 방지시설, IoT 관련 키워드 필터링
+      const keywords = ['대기', '방지시설', 'IoT', '사물인터넷', '소규모', '배출', '환경'];
+      const hasKeyword = keywords.some(k => title.toLowerCase().includes(k.toLowerCase()));
+
+      if (id && title.length > 5 && !items.find(i => i.id === id)) {
+        items.push({ id, title });
+      }
+    }
+
+    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 공고 발견`);
+
+    // 최대 10개 공고 저장
+    const maxItems = Math.min(items.length, 10);
+    for (let i = 0; i < maxItems; i++) {
+      const { id, title } = items[i];
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: `${source.name}에서 게시한 공고입니다.\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`,
+        source_url: `${source.detail_base_url}${id}`,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-P2] ${source.name} 크롤링 오류:`, error);
+    return [{
+      title: `[${source.name}] 사업공고`,
+      content: `크롤링 중 오류가 발생했습니다.\n원문보기를 클릭하여 직접 확인해주세요.`,
+      source_url: source.announcement_url,
+      published_at: new Date().toISOString(),
+    }];
+  }
+}
+
+// 한국환경보전원 (KECI) 크롤링
+async function crawlKECI(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-P2] ${source.name} HTTP 오류: ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+
+    // KECI 링크 패턴: seq= 파라미터를 포함한 링크
+    // <a href="javascript:fn_view('123')">제목</a> 또는 seq=123 패턴
+    const linkPattern1 = /fn_view\s*\(\s*['"]?(\d+)['"]?\s*\)[^>]*>([^<]+)</gi;
+    const linkPattern2 = /seq=(\d+)[^>]*>([^<]+)</gi;
+
+    const items: { id: string; title: string }[] = [];
+
+    // 패턴 1 시도
+    let match;
+    while ((match = linkPattern1.exec(html)) !== null) {
+      const id = match[1];
+      const title = match[2].trim().replace(/\s+/g, ' ');
+      if (id && title.length > 5 && !items.find(i => i.id === id)) {
+        items.push({ id, title });
+      }
+    }
+
+    // 패턴 2 시도
+    while ((match = linkPattern2.exec(html)) !== null) {
+      const id = match[1];
+      const title = match[2].trim().replace(/\s+/g, ' ');
+      if (id && title.length > 5 && !items.find(i => i.id === id)) {
+        items.push({ id, title });
+      }
+    }
+
+    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 공고 발견`);
+
+    // 최대 10개 공고 저장
+    const maxItems = Math.min(items.length, 10);
+    for (let i = 0; i < maxItems; i++) {
+      const { id, title } = items[i];
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: `${source.name}에서 게시한 공고입니다.\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`,
+        source_url: `${source.detail_base_url}${id}`,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    // 공고가 없으면 기본 링크 제공
+    if (announcements.length === 0) {
+      announcements.push({
+        title: `[${source.name}] 공지사항`,
+        content: `${source.name}의 공지사항을 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-P2] ${source.name} 크롤링 오류:`, error);
+    return [{
+      title: `[${source.name}] 공지사항`,
+      content: `크롤링 중 오류가 발생했습니다.\n원문보기를 클릭하여 직접 확인해주세요.`,
+      source_url: source.announcement_url,
+      published_at: new Date().toISOString(),
+    }];
+  }
+}
+
+// 녹색환경지원센터 (GEC) 공통 크롤링
+async function crawlGEC(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  const announcements: CrawledAnnouncement[] = [];
+
+  try {
+    console.log(`[CRAWLER-P2] ${source.name} 크롤링 시작`);
+
+    const response = await fetch(source.announcement_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      console.error(`[CRAWLER-P2] ${source.name} HTTP 오류: ${response.status}`);
+      // SSL 인증서 오류 등으로 실패해도 링크는 제공
+      return [{
+        title: `[${source.name}] 사업공고`,
+        content: `${source.name}의 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      }];
+    }
+
+    const html = await response.text();
+
+    // 그누보드/XE 등 일반적인 게시판 패턴: wr_id= 파라미터
+    const linkPattern = /wr_id=(\d+)[^>]*>([^<]+)</gi;
+    const items: { id: string; title: string }[] = [];
+    let match;
+
+    while ((match = linkPattern.exec(html)) !== null) {
+      const id = match[1];
+      const title = match[2].trim().replace(/\s+/g, ' ');
+      if (id && title.length > 5 && !items.find(i => i.id === id)) {
+        items.push({ id, title });
+      }
+    }
+
+    console.log(`[CRAWLER-P2] ${source.name}: ${items.length}개 공고 발견`);
+
+    // 최대 10개 공고 저장
+    const maxItems = Math.min(items.length, 10);
+    for (let i = 0; i < maxItems; i++) {
+      const { id, title } = items[i];
+      announcements.push({
+        title: `[${source.name}] ${title}`,
+        content: `${source.name}에서 게시한 공고입니다.\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`,
+        source_url: `${source.detail_base_url}${id}`,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    // 공고가 없으면 기본 링크 제공
+    if (announcements.length === 0) {
+      announcements.push({
+        title: `[${source.name}] 사업공고`,
+        content: `${source.name}의 사업공고를 확인하세요.\n\n원문보기를 클릭하여 최신 공고를 확인하세요.`,
+        source_url: source.announcement_url,
+        published_at: new Date().toISOString(),
+      });
+    }
+
+    return announcements;
+
+  } catch (error) {
+    console.error(`[CRAWLER-P2] ${source.name} 크롤링 오류:`, error);
+    // 오류 시에도 링크는 제공 (SSL 인증서 만료 등)
+    return [{
+      title: `[${source.name}] 사업공고`,
+      content: `크롤링 중 오류가 발생했습니다.\n원문보기를 클릭하여 직접 확인해주세요.`,
+      source_url: source.announcement_url,
+      published_at: new Date().toISOString(),
+    }];
+  }
+}
+
+// Phase 2 소스 크롤링 라우터
+async function crawlPhase2Source(source: Phase2Source): Promise<CrawledAnnouncement[]> {
+  switch (source.type) {
+    case 'ggeea':
+      return crawlGGEEA(source);
+    case 'keci':
+      return crawlKECI(source);
+    case 'gec':
+      return crawlGEC(source);
+    default:
+      return [];
   }
 }
 
