@@ -235,34 +235,30 @@ async function crawlGovernmentSite(source: typeof GOVERNMENT_SOURCES[0]): Promis
 
     const html = await response.text();
 
-    // 공고 ID 추출 (pblancId 패턴)
-    // 패턴: view.do?pblancId=PBLN_000000000XXXXXX 또는 fnView('PBLN_000000000XXXXXX')
-    const pblancIdPattern = /(?:pblancId=|fnView\(['"])(PBLN_\d+)(?:['"]?\))?/g;
-    const titlePattern = /<td[^>]*class="[^"]*tit[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/gi;
+    // 공고 링크 추출 - href="view.do?pblancId=PBLN_000000000XXXXXX" 형식
+    // <a href="view.do?pblancId=PBLN_000000000116479">제목</a>
+    const linkPattern = /<a[^>]*href="view\.do\?pblancId=(PBLN_\d+)"[^>]*>([^<]+)<\/a>/gi;
 
-    // 공고 ID 추출
+    // 공고 ID와 제목 동시 추출
     const pblancIds: string[] = [];
-    let match;
-    while ((match = pblancIdPattern.exec(html)) !== null) {
-      if (!pblancIds.includes(match[1])) {
-        pblancIds.push(match[1]);
-      }
-    }
-
-    // 공고 제목 추출 (간단한 정규식)
     const titles: string[] = [];
-    const simpleTitlePattern = /<a[^>]*onclick="[^"]*fnView[^"]*"[^>]*>([^<]+)<\/a>/gi;
-    while ((match = simpleTitlePattern.exec(html)) !== null) {
-      const title = match[1].trim().replace(/\s+/g, ' ');
-      if (title && title.length > 5) {
+    let match;
+
+    while ((match = linkPattern.exec(html)) !== null) {
+      const pblancId = match[1];
+      const title = match[2].trim().replace(/\s+/g, ' ');
+
+      // 중복 제거 및 유효성 검사
+      if (pblancId && !pblancIds.includes(pblancId) && title && title.length > 5) {
+        pblancIds.push(pblancId);
         titles.push(title);
       }
     }
 
-    console.log(`[CRAWLER] ${source.region_name}: ${pblancIds.length}개 공고 ID 발견, ${titles.length}개 제목 발견`);
+    console.log(`[CRAWLER] ${source.region_name}: ${pblancIds.length}개 공고 발견`);
 
     // 공고 데이터 생성 (최대 5개)
-    const maxAnnouncements = Math.min(pblancIds.length, titles.length, 5);
+    const maxAnnouncements = Math.min(pblancIds.length, 5);
 
     for (let i = 0; i < maxAnnouncements; i++) {
       const pblancId = pblancIds[i];
