@@ -1,0 +1,86 @@
+# 환경 기관 보조금 공고 크롤러 (Phase 2)
+# 매일 오전 10시 (KST) 실행 - 31개 환경센터 크롤링
+
+name: Subsidy Crawler - Phase 2 (Environmental Agencies)
+
+on:
+  # 스케줄 (UTC 기준 - KST는 +9시간)
+  schedule:
+    - cron: '0 1 * * *'   # 매일 01:00 UTC = 10:00 KST
+
+  # 수동 실행 가능
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '이미 수집된 공고도 다시 처리'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  # Vercel 배포 URL (프로덕션)
+  API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://facility.blueon-iot.com' }}
+
+jobs:
+  crawl_phase2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 🕐 현재 시간 표시
+        run: |
+          echo "⏰ 실행 시각: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+
+      - name: 🌿 Phase 2 크롤링 시작 (환경기관 31개)
+        id: crawl_phase2
+        run: |
+          echo "🤖 Phase 2 크롤링 시작: 31개 환경센터"
+          echo "📍 경기환경에너지진흥원, 전국 녹색환경지원센터 등"
+
+          FORCE="${{ github.event.inputs.force || 'false' }}"
+          BODY='{"enable_phase2": true, "force": '$FORCE'}'
+
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
+            -d "$BODY" \
+            "${{ env.API_BASE_URL }}/api/subsidy-crawler")
+
+          echo "📥 Phase 2 응답: $RESPONSE"
+          SUCCESS=$(echo $RESPONSE | jq -r '.success // false')
+          NEW_COUNT=$(echo $RESPONSE | jq -r '.new_announcements // 0')
+          RELEVANT_COUNT=$(echo $RESPONSE | jq -r '.relevant_announcements // 0')
+          DURATION=$(echo $RESPONSE | jq -r '.duration_ms // 0')
+
+          echo "success=$SUCCESS" >> $GITHUB_OUTPUT
+          echo "new_count=$NEW_COUNT" >> $GITHUB_OUTPUT
+          echo "relevant_count=$RELEVANT_COUNT" >> $GITHUB_OUTPUT
+          echo "duration=$DURATION" >> $GITHUB_OUTPUT
+
+          echo "✅ Phase 2 완료: 신규 ${NEW_COUNT}건, 관련 ${RELEVANT_COUNT}건 (실행시간: ${DURATION}ms)"
+
+      - name: 📬 알림 발송 (관련 공고 발견 시)
+        if: steps.crawl_phase2.outputs.relevant_count > 0
+        run: |
+          echo "🔔 새로운 관련 공고 발견!"
+          echo "📊 관련 공고 수: ${{ steps.crawl_phase2.outputs.relevant_count }}건"
+
+          # Slack 웹훅 (선택사항)
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"🌿 *환경기관 보조금 공고 알림 (Phase 2)*\n새로운 IoT 지원사업 관련 공고 ${{ steps.crawl_phase2.outputs.relevant_count }}건이 발견되었습니다.\n👉 확인하기: ${{ env.API_BASE_URL }}/admin/subsidy\"}" \
+              ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi
+
+      - name: 📋 실행 요약
+        if: always()
+        run: |
+          echo "=================================="
+          echo "📋 Phase 2 크롤링 실행 요약"
+          echo "=================================="
+          echo "⏰ 완료 시각: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+          echo "✅ 성공 여부: ${{ steps.crawl_phase2.outputs.success }}"
+          echo "📊 신규 공고: ${{ steps.crawl_phase2.outputs.new_count }}건"
+          echo "🎯 관련 공고: ${{ steps.crawl_phase2.outputs.relevant_count }}건"
+          echo "⏱️  실행 시간: ${{ steps.crawl_phase2.outputs.duration }}ms"
+          echo "=================================="

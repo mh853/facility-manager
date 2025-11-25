@@ -388,7 +388,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CrawlRequest = await request.json().catch(() => ({}));
-    const { region_codes, force } = body;
+    const { region_codes, force, enable_phase2 } = body;
 
     // 크롤링 대상 지자체 결정
     let targets = GOVERNMENT_SOURCES;
@@ -513,11 +513,11 @@ export async function POST(request: NextRequest) {
     // ============================================================
     // Phase 2: 환경 기관 크롤링 추가 (키워드 필터링 적용)
     // ============================================================
-    console.log('[CRAWLER] Phase 2 크롤링 비활성화 (Vercel Hobby 플랜 10초 제한)');
+    // Phase 2는 별도 스케줄에서 enable_phase2=true로 실행
+    if (enable_phase2) {
+      console.log('[CRAWLER] Phase 2 크롤링 시작 (환경기관 31개)...');
 
-    // Phase 2 크롤링 임시 비활성화: 31개 환경센터 크롤링은 ~15초+ 소요
-    // TODO: 별도 스케줄/API로 분리하거나 Pro 플랜 업그레이드 후 재활성화
-    /* for (const source of PHASE2_SOURCES) {
+      for (const source of PHASE2_SOURCES) {
       try {
         const announcements = await crawlPhase2Source(source);
 
@@ -604,9 +604,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Phase 2 소스 수 반영
-    // results.total_regions += PHASE2_SOURCES.length;
-    */
+      // Phase 2 소스 수 반영
+      results.total_regions += PHASE2_SOURCES.length;
+      console.log('[CRAWLER] Phase 2 크롤링 완료');
+    } else {
+      console.log('[CRAWLER] Phase 2 크롤링 건너뜀 (enable_phase2=false)');
+    }
 
     results.duration_ms = Date.now() - startTime;
 

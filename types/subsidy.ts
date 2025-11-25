@@ -117,6 +117,7 @@ export interface GeminiAnalysisResult {
 export interface CrawlRequest {
   region_codes?: string[];  // 특정 지자체만 크롤링 (없으면 전체)
   force?: boolean;          // 이미 크롤링한 URL도 다시 처리
+  enable_phase2?: boolean;  // Phase 2 환경기관 크롤링 활성화 (기본값: false)
 }
 
 // 크롤링 결과
