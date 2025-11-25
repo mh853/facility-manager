@@ -32,6 +32,9 @@
     },
     "app/api/generate-report/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/subsidy-crawler/route.ts": {
+      "maxDuration": 300
     }
   },
   "headers": [
