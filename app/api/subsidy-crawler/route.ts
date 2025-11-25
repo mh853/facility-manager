@@ -711,37 +711,15 @@ async function crawlGovernmentSite(source: typeof GOVERNMENT_SOURCES[0]): Promis
       const title = titles[i] || `지원사업 공고`;
       const detailUrl = `${BIZINFO_DETAIL_URL}${pblancId}`;
 
-      // 상세 페이지에서 신청기간, 예산 등 추출 (최대 3개만 상세 조회)
-      let detailContent = `${source.region_name} 지역 지원사업 공고입니다.\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`;
-      let extractedData: {
-        application_period_start?: string;
-        application_period_end?: string;
-        budget?: string;
-        target_description?: string;
-        support_amount?: string;
-      } | undefined;
-
-      if (i < 3) {  // 처음 3개 공고만 상세 페이지 조회 (타임아웃 방지)
-        try {
-          const detail = await fetchAnnouncementDetail(detailUrl);
-          detailContent = detail.content;
-          extractedData = detail.extractedData;
-        } catch (e) {
-          console.warn(`[CRAWLER] ${source.region_name} 상세 페이지 조회 실패:`, e);
-        }
-      }
+      // 상세 페이지 조회 제거 (Vercel Hobby 플랜 10초 제한 대응)
+      // 기본 안내 메시지만 제공
+      const detailContent = `${source.region_name} 지역 지원사업 공고입니다.\n\n원문보기를 클릭하여 상세 내용을 확인하세요.`;
 
       announcements.push({
         title: `[${source.region_name}] ${title}`,
         content: detailContent,
         source_url: detailUrl,
         published_at: new Date().toISOString(),
-        // 추출된 데이터 추가
-        application_period_start: extractedData?.application_period_start,
-        application_period_end: extractedData?.application_period_end,
-        budget: extractedData?.budget,
-        target_description: extractedData?.target_description,
-        support_amount: extractedData?.support_amount,
       });
     }
 
