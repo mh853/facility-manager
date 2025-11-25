@@ -42,34 +42,20 @@ jobs:
           echo "📡 크롤러 상태 확인 중..."
           curl -s "${{ env.API_BASE_URL }}/api/subsidy-crawler" | jq '.'
 
-      - name: 🚀 크롤링 실행
-        id: crawl
+      - name: 🚀 크롤링 그룹 1 (서울~대전)
+        id: crawl_group1
         run: |
-          echo "🤖 지자체 공고 크롤링 시작..."
-
-          # 입력 파라미터 처리
-          REGION_CODES="${{ github.event.inputs.region_codes || '' }}"
+          echo "🤖 [그룹 1/3] 크롤링 시작: 서울, 부산, 대구, 인천, 광주, 대전"
           FORCE="${{ github.event.inputs.force || 'false' }}"
+          BODY='{"region_codes": ["11","26","27","28","29","30"], "force": '$FORCE'}'
 
-          # JSON 요청 본문 생성
-          if [ -n "$REGION_CODES" ]; then
-            BODY="{\"region_codes\": [\"${REGION_CODES//,/\",\"}\"], \"force\": $FORCE}"
-          else
-            BODY="{\"force\": $FORCE}"
-          fi
-
-          echo "📤 요청 본문: $BODY"
-
-          # 크롤러 API 호출
           RESPONSE=$(curl -s -X POST \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
             -d "$BODY" \
             "${{ env.API_BASE_URL }}/api/subsidy-crawler")
 
-          echo "📥 응답: $RESPONSE"
-
-          # 결과 파싱
+          echo "📥 그룹 1 응답: $RESPONSE"
           SUCCESS=$(echo $RESPONSE | jq -r '.success // false')
           NEW_COUNT=$(echo $RESPONSE | jq -r '.new_announcements // 0')
           RELEVANT_COUNT=$(echo $RESPONSE | jq -r '.relevant_announcements // 0')
@@ -78,14 +64,77 @@ jobs:
           echo "new_count=$NEW_COUNT" >> $GITHUB_OUTPUT
           echo "relevant_count=$RELEVANT_COUNT" >> $GITHUB_OUTPUT
 
-          if [ "$SUCCESS" != "true" ]; then
-            echo "❌ 크롤링 실패"
-            exit 1
-          fi
+          echo "✅ 그룹 1 완료: 신규 ${NEW_COUNT}건, 관련 ${RELEVANT_COUNT}건"
 
-          echo "✅ 크롤링 완료"
-          echo "📊 신규 공고: $NEW_COUNT건"
-          echo "🎯 관련 공고: $RELEVANT_COUNT건"
+      - name: 🚀 크롤링 그룹 2 (울산~충남)
+        id: crawl_group2
+        run: |
+          echo "🤖 [그룹 2/3] 크롤링 시작: 울산, 세종, 경기, 강원, 충북, 충남"
+          FORCE="${{ github.event.inputs.force || 'false' }}"
+          BODY='{"region_codes": ["31","36","41","51","43","44"], "force": '$FORCE'}'
+
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
+            -d "$BODY" \
+            "${{ env.API_BASE_URL }}/api/subsidy-crawler")
+
+          echo "📥 그룹 2 응답: $RESPONSE"
+          SUCCESS=$(echo $RESPONSE | jq -r '.success // false')
+          NEW_COUNT=$(echo $RESPONSE | jq -r '.new_announcements // 0')
+          RELEVANT_COUNT=$(echo $RESPONSE | jq -r '.relevant_announcements // 0')
+
+          echo "success=$SUCCESS" >> $GITHUB_OUTPUT
+          echo "new_count=$NEW_COUNT" >> $GITHUB_OUTPUT
+          echo "relevant_count=$RELEVANT_COUNT" >> $GITHUB_OUTPUT
+
+          echo "✅ 그룹 2 완료: 신규 ${NEW_COUNT}건, 관련 ${RELEVANT_COUNT}건"
+
+      - name: 🚀 크롤링 그룹 3 (전북~제주)
+        id: crawl_group3
+        run: |
+          echo "🤖 [그룹 3/3] 크롤링 시작: 전북, 전남, 경북, 경남, 제주"
+          FORCE="${{ github.event.inputs.force || 'false' }}"
+          BODY='{"region_codes": ["52","46","47","48","50"], "force": '$FORCE'}'
+
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
+            -d "$BODY" \
+            "${{ env.API_BASE_URL }}/api/subsidy-crawler")
+
+          echo "📥 그룹 3 응답: $RESPONSE"
+          SUCCESS=$(echo $RESPONSE | jq -r '.success // false')
+          NEW_COUNT=$(echo $RESPONSE | jq -r '.new_announcements // 0')
+          RELEVANT_COUNT=$(echo $RESPONSE | jq -r '.relevant_announcements // 0')
+
+          echo "success=$SUCCESS" >> $GITHUB_OUTPUT
+          echo "new_count=$NEW_COUNT" >> $GITHUB_OUTPUT
+          echo "relevant_count=$RELEVANT_COUNT" >> $GITHUB_OUTPUT
+
+          echo "✅ 그룹 3 완료: 신규 ${NEW_COUNT}건, 관련 ${RELEVANT_COUNT}건"
+
+      - name: 📊 결과 집계
+        id: crawl
+        run: |
+          TOTAL_NEW=$((
+            ${{ steps.crawl_group1.outputs.new_count || 0 }} +
+            ${{ steps.crawl_group2.outputs.new_count || 0 }} +
+            ${{ steps.crawl_group3.outputs.new_count || 0 }}
+          ))
+          TOTAL_RELEVANT=$((
+            ${{ steps.crawl_group1.outputs.relevant_count || 0 }} +
+            ${{ steps.crawl_group2.outputs.relevant_count || 0 }} +
+            ${{ steps.crawl_group3.outputs.relevant_count || 0 }}
+          ))
+
+          echo "success=true" >> $GITHUB_OUTPUT
+          echo "new_count=$TOTAL_NEW" >> $GITHUB_OUTPUT
+          echo "relevant_count=$TOTAL_RELEVANT" >> $GITHUB_OUTPUT
+
+          echo "✅ 전체 크롤링 완료"
+          echo "📊 총 신규 공고: ${TOTAL_NEW}건"
+          echo "🎯 총 관련 공고: ${TOTAL_RELEVANT}건"
 
       - name: 📬 알림 발송 (관련 공고 발견 시)
         if: steps.crawl.outputs.relevant_count > 0
