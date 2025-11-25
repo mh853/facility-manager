@@ -513,9 +513,11 @@ export async function POST(request: NextRequest) {
     // ============================================================
     // Phase 2: 환경 기관 크롤링 추가 (키워드 필터링 적용)
     // ============================================================
-    console.log('[CRAWLER] Phase 2 크롤링 시작 (키워드 필터링 적용)...');
+    console.log('[CRAWLER] Phase 2 크롤링 비활성화 (Vercel Hobby 플랜 10초 제한)');
 
-    for (const source of PHASE2_SOURCES) {
+    // Phase 2 크롤링 임시 비활성화: 31개 환경센터 크롤링은 ~15초+ 소요
+    // TODO: 별도 스케줄/API로 분리하거나 Pro 플랜 업그레이드 후 재활성화
+    /* for (const source of PHASE2_SOURCES) {
       try {
         const announcements = await crawlPhase2Source(source);
 
@@ -603,7 +605,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Phase 2 소스 수 반영
-    results.total_regions += PHASE2_SOURCES.length;
+    // results.total_regions += PHASE2_SOURCES.length;
+    */
 
     results.duration_ms = Date.now() - startTime;
 
