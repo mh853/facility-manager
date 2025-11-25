@@ -79,6 +79,13 @@ const navigationItems: NavigationItem[] = [
     requiredLevel: 1
   },
   {
+    name: '보조금 공고',
+    href: '/admin/subsidy',
+    icon: FileText,
+    description: '지자체 보조금 공고 모니터링',
+    requiredLevel: 1
+  },
+  {
     name: '일정 관리',
     href: '/schedule',
     icon: Calendar,

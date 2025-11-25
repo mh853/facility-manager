@@ -1,7 +1,9 @@
 'use client';
 
 import { lazy, Suspense } from 'react';
+import Link from 'next/link';
 import AdminLayout from '@/components/ui/AdminLayout';
+import { FileText, ArrowRight } from 'lucide-react';
 
 // Lazy load board components for better initial load performance
 const AnnouncementBoard = lazy(() => import('@/components/boards/AnnouncementBoard'));
@@ -48,6 +50,25 @@ export default function HomePage() {
             <MessageBoard />
           </Suspense>
         </div>
+
+        {/* 보조금 공고 바로가기 */}
+        <Link
+          href="/admin/subsidy"
+          className="block bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 p-6 group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="bg-white/20 p-3 rounded-lg">
+                <FileText className="w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-1">지자체 보조금 공고 모니터링</h3>
+                <p className="text-green-50 text-sm">IoT 관련 지원사업 공고를 확인하세요</p>
+              </div>
+            </div>
+            <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
       </div>
     </AdminLayout>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+import AdminLayout from '@/components/ui/AdminLayout';
 import type { SubsidyAnnouncement, SubsidyDashboardStats, AnnouncementStatus } from '@/types/subsidy';
 
 // 상태별 색상
@@ -188,40 +188,26 @@ export default function SubsidyAnnouncementsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">공고 목록을 불러오는 중...</p>
+      <AdminLayout
+        title="보조금 공고 모니터링"
+        description="IoT 지원사업 관련 공고를 확인하세요"
+      >
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">공고 목록을 불러오는 중...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                지자체 보조금 공고 모니터링
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                소규모 대기배출시설 IoT 지원사업
-              </p>
-            </div>
-            <Link
-              href="/admin"
-              className="text-gray-600 hover:text-gray-900 text-sm"
-            >
-              ← 관리자 메뉴로
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-6">
+    <AdminLayout
+      title="보조금 공고 모니터링"
+      description="IoT 지원사업 관련 공고를 확인하세요"
+    >
+      <div className="space-y-6">
         {/* 통계 카드 */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -535,7 +521,7 @@ export default function SubsidyAnnouncementsPage() {
             </div>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }
