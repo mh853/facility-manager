@@ -15,18 +15,20 @@ export async function GET(request: NextRequest) {
       .from('subsidy_announcements')
       .select('*', { count: 'exact', head: true });
 
-    // 관련 공고 수
+    // 관련 공고 수 (relevance_score >= 0.75)
     const { count: relevantCount } = await supabase
       .from('subsidy_announcements')
       .select('*', { count: 'exact', head: true })
-      .eq('is_relevant', true);
+      .eq('is_relevant', true)
+      .gte('relevance_score', 0.75);
 
-    // 읽지 않은 공고 수
+    // 읽지 않은 공고 수 (relevance_score >= 0.75)
     const { count: unreadCount } = await supabase
       .from('subsidy_announcements')
       .select('*', { count: 'exact', head: true })
       .eq('is_read', false)
-      .eq('is_relevant', true);
+      .eq('is_relevant', true)
+      .gte('relevance_score', 0.75);
 
     // 이번 주 신규 공고
     const weekAgo = new Date();
@@ -35,7 +37,8 @@ export async function GET(request: NextRequest) {
       .from('subsidy_announcements')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', weekAgo.toISOString())
-      .eq('is_relevant', true);
+      .eq('is_relevant', true)
+      .gte('relevance_score', 0.75);
 
     // 마감 임박 (7일 이내)
     const now = new Date();
@@ -46,13 +49,15 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact', head: true })
       .gte('application_period_end', now.toISOString())
       .lte('application_period_end', weekLater.toISOString())
-      .eq('is_relevant', true);
+      .eq('is_relevant', true)
+      .gte('relevance_score', 0.75);
 
-    // 상태별 통계
+    // 상태별 통계 (relevance_score >= 0.75)
     const { data: statusData } = await supabase
       .from('subsidy_announcements')
       .select('status')
-      .eq('is_relevant', true);
+      .eq('is_relevant', true)
+      .gte('relevance_score', 0.75);
 
     const byStatus: Record<string, number> = {
       new: 0,
@@ -68,11 +73,12 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 지역 유형별 통계
+    // 지역 유형별 통계 (relevance_score >= 0.75)
     const { data: regionData } = await supabase
       .from('subsidy_announcements')
       .select('region_type')
-      .eq('is_relevant', true);
+      .eq('is_relevant', true)
+      .gte('relevance_score', 0.75);
 
     const byRegionType: Record<string, number> = {
       metropolitan: 0,
