@@ -138,25 +138,41 @@ export default function ImprovedFacilityPhotoSection({
   }
 
   // 🎯 대기필증 관리 시설번호 조회 헬퍼 함수 (메모이제이션)
+  // 🔧 quantity별 개별 번호를 배열로 저장하도록 변경
   const facilityNumberMap = useMemo(() => {
     if (!facilityNumbering?.outlets) {
-      return new Map<string, number>();
+      return new Map<string, number[]>();
     }
 
     // ✅ capacity를 포함한 키로 매핑 (같은 이름의 시설 구분)
-    const map = new Map<string, number>();
+    // 🔧 각 시설의 quantity별 번호를 배열로 수집
+    const map = new Map<string, number[]>();
 
     for (const outlet of facilityNumbering.outlets) {
-      // 배출시설 매핑 (capacity 포함)
+      // 배출시설 매핑 (capacity 포함, quantity별 개별 번호 수집)
+      const dischargeByFacility = new Map<string, number[]>();
       outlet.dischargeFacilities?.forEach((f: any) => {
         const key = `discharge-${outlet.outletNumber}-${f.facilityName}-${f.capacity || 'any'}`;
-        map.set(key, f.facilityNumber);
+        if (!dischargeByFacility.has(key)) {
+          dischargeByFacility.set(key, []);
+        }
+        dischargeByFacility.get(key)!.push(f.facilityNumber);
+      });
+      dischargeByFacility.forEach((numbers, key) => {
+        map.set(key, numbers);
       });
 
-      // 방지시설 매핑 (capacity 포함)
+      // 방지시설 매핑 (capacity 포함, quantity별 개별 번호 수집)
+      const preventionByFacility = new Map<string, number[]>();
       outlet.preventionFacilities?.forEach((f: any) => {
         const key = `prevention-${outlet.outletNumber}-${f.facilityName}-${f.capacity || 'any'}`;
-        map.set(key, f.facilityNumber);
+        if (!preventionByFacility.has(key)) {
+          preventionByFacility.set(key, []);
+        }
+        preventionByFacility.get(key)!.push(f.facilityNumber);
+      });
+      preventionByFacility.forEach((numbers, key) => {
+        map.set(key, numbers);
       });
     }
 
@@ -165,13 +181,20 @@ export default function ImprovedFacilityPhotoSection({
 
   const getCorrectFacilityNumber = useCallback((
     facilityType: 'discharge' | 'prevention',
-    facility: Facility
+    facility: Facility,
+    quantityIndex: number = 0 // 🔧 quantityIndex 파라미터 추가
   ): number => {
     // ✅ capacity 포함 검색 (API에서 capacity를 포함하도록 수정됨)
     const key = `${facilityType}-${facility.outlet}-${facility.name}-${facility.capacity || 'any'}`;
 
     if (facilityNumberMap.has(key)) {
-      return facilityNumberMap.get(key)!;
+      const numbers = facilityNumberMap.get(key)!;
+      // 🔧 quantityIndex에 해당하는 번호 반환 (범위 체크)
+      if (quantityIndex >= 0 && quantityIndex < numbers.length) {
+        return numbers[quantityIndex];
+      }
+      // fallback: 첫 번째 번호 반환
+      return numbers.length > 0 ? numbers[0] : facility.number;
     }
 
     // 매칭 실패 시 원래 번호 반환
@@ -1657,7 +1680,8 @@ export default function ImprovedFacilityPhotoSection({
                       const instanceIndex = quantityIndex + 1;
 
                       // 🎯 대기필증 관리의 올바른 시설번호 적용 (먼저 계산)
-                      const correctNumber = getCorrectFacilityNumber('prevention', facility);
+                      // 🔧 quantityIndex를 전달하여 각 개별 시설의 고유 번호 획득
+                      const correctNumber = getCorrectFacilityNumber('prevention', facility, quantityIndex);
                       const facilityWithCorrectNumber = { ...facility, number: correctNumber };
 
                       // ✅ correctNumber를 사용하여 키 생성
@@ -1713,7 +1737,8 @@ export default function ImprovedFacilityPhotoSection({
                       const instanceIndex = quantityIndex + 1;
 
                       // 🎯 대기필증 관리의 올바른 시설번호 적용 (먼저 계산)
-                      const correctNumber = getCorrectFacilityNumber('discharge', facility);
+                      // 🔧 quantityIndex를 전달하여 각 개별 시설의 고유 번호 획득
+                      const correctNumber = getCorrectFacilityNumber('discharge', facility, quantityIndex);
                       const facilityWithCorrectNumber = { ...facility, number: correctNumber };
 
                       // ✅ correctNumber를 사용하여 키 생성
