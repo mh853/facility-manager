@@ -363,79 +363,170 @@ export async function GET(
       is_deleted: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      outlets: outlets?.map(outlet => ({
-        id: outlet.id,
-        air_permit_id: airPermit.id,
-        outlet_number: outlet.outlet_number,
-        outlet_name: outlet.outlet_name || `배출구 ${outlet.outlet_number}`,
-        stack_height: null,
-        stack_diameter: null,
-        flow_rate: null,
-        additional_info: {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        discharge_facilities: outlet.discharge_facilities?.map(facility => ({
-          id: facility.id,
-          outlet_id: outlet.id,
-          facility_name: facility.facility_name,
-          facility_code: null,
-          capacity: facility.capacity,
-          quantity: facility.quantity,
-          operating_conditions: {},
-          measurement_points: [],
-          device_ids: [],
-          additional_info: { notes: facility.notes },
+      outlets: outlets?.map(outlet => {
+        // 이 배출구에 속한 배출시설 필터링
+        const outletDischargeFacilities = dischargeFacilities?.filter(
+          f => f.outlet_id === outlet.id
+        ) || [];
+
+        // 이 배출구에 속한 방지시설 필터링
+        const outletPreventionFacilities = preventionFacilities?.filter(
+          f => f.outlet_id === outlet.id
+        ) || [];
+
+        console.log(`🔍 [FACILITY-NUMBERING] 배출구 ${outlet.outlet_number} 시설 정보:`, {
+          discharge: outletDischargeFacilities.length,
+          prevention: outletPreventionFacilities.length
+        });
+
+        return {
+          id: outlet.id,
+          air_permit_id: airPermit.id,
+          outlet_number: outlet.outlet_number,
+          outlet_name: outlet.outlet_name || `배출구 ${outlet.outlet_number}`,
+          stack_height: null,
+          stack_diameter: null,
+          flow_rate: null,
+          additional_info: {},
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })) || [],
-        prevention_facilities: outlet.prevention_facilities?.map(facility => ({
-          id: facility.id,
-          outlet_id: outlet.id,
-          facility_name: facility.facility_name,
-          facility_code: null,
-          capacity: facility.capacity,
-          quantity: facility.quantity,
-          efficiency_rating: null,
-          media_type: null,
-          maintenance_interval: null,
-          operating_conditions: {},
-          measurement_points: [],
-          device_ids: [],
-          additional_info: { notes: facility.notes },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })) || []
-      })) || []
+          updated_at: new Date().toISOString(),
+          discharge_facilities: outletDischargeFacilities.map(facility => ({
+            id: facility.id,
+            outlet_id: outlet.id,
+            facility_name: facility.facility_name,
+            facility_code: null,
+            capacity: facility.capacity,
+            quantity: facility.quantity,
+            operating_conditions: {},
+            measurement_points: [],
+            device_ids: [],
+            additional_info: { notes: facility.notes },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })),
+          prevention_facilities: outletPreventionFacilities.map(facility => ({
+            id: facility.id,
+            outlet_id: outlet.id,
+            facility_name: facility.facility_name,
+            facility_code: null,
+            capacity: facility.capacity,
+            quantity: facility.quantity,
+            efficiency_rating: null,
+            media_type: null,
+            maintenance_interval: null,
+            operating_conditions: {},
+            measurement_points: [],
+            device_ids: [],
+            additional_info: { notes: facility.notes },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }))
+        };
+      }) || []
     };
 
     // 🎯 어드민 시스템과 동일한 시설번호 생성
     const facilityNumbering = generateFacilityNumbering(airPermitData);
 
     // 🔧 생성된 번호로 null 값 보정 (모든 사업장에서 일관된 번호 표시)
-    facilities.discharge.forEach(facility => {
+    facilities.discharge.forEach((facility, index) => {
       if (facility.number === null || facility.number === undefined) {
+        console.log(`🔧 [NULL-FIX] 배출시설 null 보정 시도:`, {
+          name: facility.name,
+          outlet: facility.outlet,
+          capacity: facility.capacity
+        });
+
         // 생성된 번호에서 해당 시설의 번호 찾기
-        const facilityInfo = facilityNumbering.outlets
-          .flatMap(outlet => outlet.dischargeFacilities)
-          .find(f => (f.facilityName === facility.name && f.outletNumber === facility.outlet));
-        
-        if (facilityInfo) {
-          facility.number = facilityInfo.facilityNumber;
-          facility.displayName = `배출구${facility.outlet}-배출시설${facility.number}`;
+        const outletFacilities = facilityNumbering.outlets.find(o => o.outletNumber === facility.outlet);
+
+        if (outletFacilities && outletFacilities.dischargeFacilities.length > 0) {
+          // 시설 이름 + 용량으로 매칭 시도
+          let facilityInfo = outletFacilities.dischargeFacilities.find(f =>
+            f.facilityName === facility.name && f.capacity === facility.capacity
+          );
+
+          // 매칭 실패 시 이름만으로 매칭
+          if (!facilityInfo) {
+            facilityInfo = outletFacilities.dischargeFacilities.find(f =>
+              f.facilityName === facility.name
+            );
+          }
+
+          // 여전히 매칭 실패 시 배출구 내 순서대로 번호 할당
+          if (!facilityInfo && outletFacilities.dischargeFacilities[index]) {
+            facilityInfo = outletFacilities.dischargeFacilities[index];
+          }
+
+          // 최종 fallback: 배출구의 첫 번째 시설 번호 사용
+          if (!facilityInfo && outletFacilities.dischargeFacilities.length > 0) {
+            facilityInfo = outletFacilities.dischargeFacilities[0];
+          }
+
+          if (facilityInfo) {
+            facility.number = facilityInfo.facilityNumber;
+            facility.displayName = `배출구${facility.outlet}-배출시설${facility.number}`;
+            console.log(`✅ [NULL-FIX] 배출시설 번호 보정 성공:`, {
+              name: facility.name,
+              assignedNumber: facility.number
+            });
+          } else {
+            console.warn(`⚠️ [NULL-FIX] 배출시설 번호 보정 실패:`, {
+              name: facility.name,
+              outlet: facility.outlet
+            });
+          }
         }
       }
     });
 
-    facilities.prevention.forEach(facility => {
+    facilities.prevention.forEach((facility, index) => {
       if (facility.number === null || facility.number === undefined) {
+        console.log(`🔧 [NULL-FIX] 방지시설 null 보정 시도:`, {
+          name: facility.name,
+          outlet: facility.outlet,
+          capacity: facility.capacity
+        });
+
         // 생성된 번호에서 해당 시설의 번호 찾기
-        const facilityInfo = facilityNumbering.outlets
-          .flatMap(outlet => outlet.preventionFacilities)
-          .find(f => (f.facilityName === facility.name && f.outletNumber === facility.outlet));
-        
-        if (facilityInfo) {
-          facility.number = facilityInfo.facilityNumber;
-          facility.displayName = `배출구${facility.outlet}-방지시설${facility.number}`;
+        const outletFacilities = facilityNumbering.outlets.find(o => o.outletNumber === facility.outlet);
+
+        if (outletFacilities && outletFacilities.preventionFacilities.length > 0) {
+          // 시설 이름 + 용량으로 매칭 시도
+          let facilityInfo = outletFacilities.preventionFacilities.find(f =>
+            f.facilityName === facility.name && f.capacity === facility.capacity
+          );
+
+          // 매칭 실패 시 이름만으로 매칭
+          if (!facilityInfo) {
+            facilityInfo = outletFacilities.preventionFacilities.find(f =>
+              f.facilityName === facility.name
+            );
+          }
+
+          // 여전히 매칭 실패 시 배출구 내 순서대로 번호 할당
+          if (!facilityInfo && outletFacilities.preventionFacilities[index]) {
+            facilityInfo = outletFacilities.preventionFacilities[index];
+          }
+
+          // 최종 fallback: 배출구의 첫 번째 시설 번호 사용
+          if (!facilityInfo && outletFacilities.preventionFacilities.length > 0) {
+            facilityInfo = outletFacilities.preventionFacilities[0];
+          }
+
+          if (facilityInfo) {
+            facility.number = facilityInfo.facilityNumber;
+            facility.displayName = `배출구${facility.outlet}-방지시설${facility.number}`;
+            console.log(`✅ [NULL-FIX] 방지시설 번호 보정 성공:`, {
+              name: facility.name,
+              assignedNumber: facility.number
+            });
+          } else {
+            console.warn(`⚠️ [NULL-FIX] 방지시설 번호 보정 실패:`, {
+              name: facility.name,
+              outlet: facility.outlet
+            });
+          }
         }
       }
     });
