@@ -19,10 +19,7 @@ export default function SpecialNotesSection({ notes, onUpdate, onSave, isSaving 
   }, [notes]);
 
   const handleSave = async () => {
-    // 먼저 로컬 상태 업데이트
     onUpdate(editNotes);
-
-    // DB 저장 호출 (편집된 값을 직접 전달)
     if (onSave) {
       await onSave(editNotes);
     }
@@ -38,22 +35,14 @@ export default function SpecialNotesSection({ notes, onUpdate, onSave, isSaving 
           <h2 className="text-xl font-bold text-gray-800">특이사항</h2>
         </div>
 
+        {/* 저장 버튼 */}
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed transition-colors text-sm shadow-md hover:shadow-lg"
+          className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
         >
-          {isSaving ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              저장 중...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              저장
-            </>
-          )}
+          <Save className="w-4 h-4" />
+          {isSaving ? '저장 중...' : '저장'}
         </button>
       </div>
       

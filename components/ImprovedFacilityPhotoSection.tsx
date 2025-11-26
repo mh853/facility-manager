@@ -125,17 +125,18 @@ export default function ImprovedFacilityPhotoSection({
   facilityNumbering,
   currentPhase
 }: ImprovedFacilityPhotoSectionProps) {
-  console.log('🎯 [FACILITY-NUMBERING] 대기필증 관리 시설번호:', facilityNumbering);
+  // 디버그 로그 제거 (개발 완료)
+  // console.log('🎯 [FACILITY-NUMBERING] 대기필증 관리 시설번호:', facilityNumbering);
 
-  if (facilityNumbering?.outlets) {
-    console.log('🎯 [OUTLETS] 배출구 정보:', facilityNumbering.outlets);
-    facilityNumbering.outlets.forEach((outlet: any, idx: number) => {
-      console.log(`  배출구 ${outlet.outletNumber}:`, {
-        배출시설: outlet.dischargeFacilities?.map((f: any) => `${f.displayNumber}(${f.facilityName})`),
-        방지시설: outlet.preventionFacilities?.map((f: any) => `${f.displayNumber}(${f.facilityName})`)
-      });
-    });
-  }
+  // if (facilityNumbering?.outlets) {
+  //   console.log('🎯 [OUTLETS] 배출구 정보:', facilityNumbering.outlets);
+  //   facilityNumbering.outlets.forEach((outlet: any, idx: number) => {
+  //     console.log(`  배출구 ${outlet.outletNumber}:`, {
+  //       배출시설: outlet.dischargeFacilities?.map((f: any) => `${f.displayNumber}(${f.facilityName})`),
+  //       방지시설: outlet.preventionFacilities?.map((f: any) => `${f.displayNumber}(${f.facilityName})`)
+  //     });
+  //   });
+  // }
 
   // 🎯 대기필증 관리 시설번호 조회 헬퍼 함수 (메모이제이션)
   // 🔧 quantity별 개별 번호를 배열로 저장하도록 변경
@@ -1378,7 +1379,8 @@ export default function ImprovedFacilityPhotoSection({
     facilities.discharge.forEach(facility => {
       const uniqueKey = `${facility.outlet}-${facility.number}-${facility.capacity || 'unknown'}`;
       if (seenDischarge.has(uniqueKey)) {
-        console.warn(`⚠️ [DUPLICATE] 중복 배출시설 제거: 배출구${facility.outlet}, 시설${facility.number}, 용량${facility.capacity}`);
+        // 디버그 로그 제거 (중복 제거 기능 정상 작동)
+        // console.warn(`⚠️ [DUPLICATE] 중복 배출시설 제거: 배출구${facility.outlet}, 시설${facility.number}, 용량${facility.capacity}`);
         return; // 중복 건너뛰기
       }
       seenDischarge.add(uniqueKey);
@@ -1970,6 +1972,26 @@ function FacilityCard({
         </div>
       </div>
 
+      {/* 촬영 가이드 */}
+      <div className={`mb-3 p-3 bg-${colorScheme}-50 border border-${colorScheme}-200 rounded-lg`}>
+        <p className={`text-xs text-${colorScheme}-700 font-medium mb-1`}>📸 필요 사진:</p>
+        {facilityType === 'prevention' ? (
+          <ul className={`text-xs text-${colorScheme}-600 space-y-0.5 ml-4`}>
+            <li>• 방지시설</li>
+            <li>• 방지시설 명판 (문자 식별 가능하도록 촬영)</li>
+            <li>• 온도계</li>
+            <li>• 차압계 (차압값 식별 가능하도록)</li>
+          </ul>
+        ) : (
+          <ul className={`text-xs text-${colorScheme}-600 space-y-0.5 ml-4`}>
+            <li>• 배출시설</li>
+            <li>• 분전함 외부 (동일한 분전함이라도 시설별 각각 첨부)</li>
+            <li>• 분전함 내부</li>
+            <li>• 전류계 (문자 식별 가능하도록)</li>
+          </ul>
+        )}
+      </div>
+
       {/* 업로드 진행률 */}
       {isUploading && (
         <div className="mb-3">
@@ -1978,7 +2000,7 @@ function FacilityCard({
             <span>{Math.round(progress)}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
+            <div
               className={`bg-${colorScheme}-600 h-2 rounded-full transition-all duration-300`}
               style={{ width: `${progress}%` }}
             />
@@ -2120,6 +2142,22 @@ function BasicPhotoCategory({
         </div>
       )}
 
+      {/* 촬영 가이드 */}
+      {category === 'gateway' && (
+        <div className={`mb-3 p-3 bg-${color}-50 border border-${color}-200 rounded-lg`}>
+          <p className={`text-xs text-${color}-700 font-medium mb-1`}>📸 필요 사진:</p>
+          <ul className={`text-xs text-${color}-600 space-y-0.5 ml-4`}>
+            <li>• 게이트웨이 인근 (측정기기 주위가 넓게 보이도록 촬영)</li>
+            <li>• 게이트웨이 외부</li>
+            <li>• 게이트웨이 내부</li>
+            <li>• VPN</li>
+            <li>• CT포트</li>
+            <li>• 내부 패널 뒷면</li>
+            <li>• 게이트웨이 화면 (전체)</li>
+          </ul>
+        </div>
+      )}
+
       {/* 업로드 영역 */}
       <div className="relative mb-3">
         <input
@@ -2131,7 +2169,7 @@ function BasicPhotoCategory({
           disabled={isUploading}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
         />
-        <div 
+        <div
           className={dragZoneStyles(
             `basic-${category}`,
             `border-2 border-dashed border-${color}-300 rounded-lg p-4 text-center transition-all duration-200

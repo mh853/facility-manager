@@ -580,9 +580,8 @@ export default function BusinessDetailPage() {
           toast.remove();
         }, 3000);
 
-        // ✅ 저장 성공 후 최신 데이터 재조회 (브라우저 캐시 무효화 적용됨)
-        console.log('✅ [SPECIAL-NOTES-SAVED] 특이사항 저장 완료 - 데이터 재조회');
-        loadData();
+        // 저장 성공 - 페이지 새로고침 없이 상태만 업데이트
+        console.log('✅ [SPECIAL-NOTES-SAVED] 특이사항 저장 완료');
       } else {
         throw new Error(result.message || '저장 실패');
       }
