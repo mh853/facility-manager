@@ -322,13 +322,13 @@ export default function BusinessDetailPage() {
             if (mgmtData.success && mgmtData.data.business) {
               const business = mgmtData.data.business;
 
-                // Phase별 데이터 로드
+                // Phase별 데이터 로드 (날짜 필드는 null이면 빈 문자열로 유지)
                 setPhaseData({
                   presurvey: {
                     inspectorInfo: {
                       name: business.presurvey_inspector_name || '',
                       contact: business.presurvey_inspector_contact || '',
-                      date: business.presurvey_inspector_date || new Date().toISOString().split('T')[0]
+                      date: business.presurvey_inspector_date || ''
                     },
                     specialNotes: business.presurvey_special_notes || ''
                   },
@@ -336,7 +336,7 @@ export default function BusinessDetailPage() {
                     inspectorInfo: {
                       name: business.postinstall_installer_name || '',
                       contact: business.postinstall_installer_contact || '',
-                      date: business.postinstall_installer_date || new Date().toISOString().split('T')[0]
+                      date: business.postinstall_installer_date || ''
                     },
                     specialNotes: business.postinstall_special_notes || ''
                   },
@@ -344,7 +344,7 @@ export default function BusinessDetailPage() {
                     inspectorInfo: {
                       name: business.aftersales_technician_name || '',
                       contact: business.aftersales_technician_contact || '',
-                      date: business.aftersales_technician_date || new Date().toISOString().split('T')[0]
+                      date: business.aftersales_technician_date || ''
                     },
                     specialNotes: business.aftersales_special_notes || ''
                   }
