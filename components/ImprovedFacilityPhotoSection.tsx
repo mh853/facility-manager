@@ -152,25 +152,40 @@ export default function ImprovedFacilityPhotoSection({
     for (const outlet of facilityNumbering.outlets) {
       // 배출시설 매핑 (capacity 포함, quantity별 개별 번호 수집)
       const dischargeByFacility = new Map<string, number[]>();
-      outlet.dischargeFacilities?.forEach((f: any) => {
+      outlet.dischargeFacilities?.forEach((f: any, idx: number) => {
         const key = `discharge-${outlet.outletNumber}-${f.facilityName}-${f.capacity || 'any'}`;
         if (!dischargeByFacility.has(key)) {
           dischargeByFacility.set(key, []);
         }
         dischargeByFacility.get(key)!.push(f.facilityNumber);
+
+        // 🔧 Also store by array index for easier lookup in rendering
+        const idxKey = `discharge-${outlet.outletNumber}-idx${idx}`;
+        if (!map.has(idxKey)) {
+          map.set(idxKey, []);
+        }
+        map.get(idxKey)!.push(f.facilityNumber);
       });
       dischargeByFacility.forEach((numbers, key) => {
         map.set(key, numbers);
       });
 
-      // 방지시설 매핑 (capacity 포함, quantity별 개별 번호 수집)
+      // 방지시설 매핑 (facilityId 포함하여 같은 이름의 시설도 개별 구분)
       const preventionByFacility = new Map<string, number[]>();
-      outlet.preventionFacilities?.forEach((f: any) => {
-        const key = `prevention-${outlet.outletNumber}-${f.facilityName}-${f.capacity || 'any'}`;
+      outlet.preventionFacilities?.forEach((f: any, idx: number) => {
+        // 🔧 FIX: facilityId를 키에 포함시켜 같은 이름/용량의 시설도 구분
+        const key = `prevention-${outlet.outletNumber}-${f.facilityId}-${f.capacity || 'any'}`;
         if (!preventionByFacility.has(key)) {
           preventionByFacility.set(key, []);
         }
         preventionByFacility.get(key)!.push(f.facilityNumber);
+
+        // 🔧 Also store by array index for easier lookup in rendering
+        const idxKey = `prevention-${outlet.outletNumber}-idx${idx}`;
+        if (!map.has(idxKey)) {
+          map.set(idxKey, []);
+        }
+        map.get(idxKey)!.push(f.facilityNumber);
       });
       preventionByFacility.forEach((numbers, key) => {
         map.set(key, numbers);
@@ -183,13 +198,15 @@ export default function ImprovedFacilityPhotoSection({
   const getCorrectFacilityNumber = useCallback((
     facilityType: 'discharge' | 'prevention',
     facility: Facility,
-    quantityIndex: number = 0 // 🔧 quantityIndex 파라미터 추가
+    quantityIndex: number = 0, // 🔧 quantityIndex 파라미터 추가
+    facilityIdx: number = 0 // 🔧 배열 내 위치 (같은 이름의 시설 구분용)
   ): number => {
-    // ✅ capacity 포함 검색 (API에서 capacity를 포함하도록 수정됨)
-    const key = `${facilityType}-${facility.outlet}-${facility.name}-${facility.capacity || 'any'}`;
+    // 🔧 FIX: facilityIdx를 키에 사용하여 배열 순서대로 매핑
+    // 배출구별로 시설 배열 순서가 보장되므로 idx로 정확한 시설 구분 가능
+    const idxKey = `${facilityType}-${facility.outlet}-idx${facilityIdx}`;
 
-    if (facilityNumberMap.has(key)) {
-      const numbers = facilityNumberMap.get(key)!;
+    if (facilityNumberMap.has(idxKey)) {
+      const numbers = facilityNumberMap.get(idxKey)!;
       // 🔧 quantityIndex에 해당하는 번호 반환 (범위 체크)
       if (quantityIndex >= 0 && quantityIndex < numbers.length) {
         return numbers[quantityIndex];
@@ -1682,8 +1699,8 @@ export default function ImprovedFacilityPhotoSection({
                       const instanceIndex = quantityIndex + 1;
 
                       // 🎯 대기필증 관리의 올바른 시설번호 적용 (먼저 계산)
-                      // 🔧 quantityIndex를 전달하여 각 개별 시설의 고유 번호 획득
-                      const correctNumber = getCorrectFacilityNumber('prevention', facility, quantityIndex);
+                      // 🔧 quantityIndex와 facilityIdx를 전달하여 각 개별 시설의 고유 번호 획득
+                      const correctNumber = getCorrectFacilityNumber('prevention', facility, quantityIndex, facilityIdx);
                       const facilityWithCorrectNumber = { ...facility, number: correctNumber };
 
                       // ✅ correctNumber를 사용하여 키 생성
@@ -1739,8 +1756,8 @@ export default function ImprovedFacilityPhotoSection({
                       const instanceIndex = quantityIndex + 1;
 
                       // 🎯 대기필증 관리의 올바른 시설번호 적용 (먼저 계산)
-                      // 🔧 quantityIndex를 전달하여 각 개별 시설의 고유 번호 획득
-                      const correctNumber = getCorrectFacilityNumber('discharge', facility, quantityIndex);
+                      // 🔧 quantityIndex와 facilityIdx를 전달하여 각 개별 시설의 고유 번호 획득
+                      const correctNumber = getCorrectFacilityNumber('discharge', facility, quantityIndex, facilityIdx);
                       const facilityWithCorrectNumber = { ...facility, number: correctNumber };
 
                       // ✅ correctNumber를 사용하여 키 생성
