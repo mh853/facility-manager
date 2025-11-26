@@ -105,7 +105,7 @@ export class FacilityPhotoTracker {
 
   /**
    * 특정 시설의 사진 목록 조회
-   * 🔧 시설 번호 변경 시 역호환성 지원: 모든 가능한 키로 조회 시도
+   * 정확한 키 매칭만 사용 (역호환성 로직 제거)
    */
   public getFacilityPhotos(facilityType: 'discharge' | 'prevention' | 'basic',
                           facilityNumber?: number,
@@ -118,28 +118,7 @@ export class FacilityPhotoTracker {
       return facilityInfo.photos
     }
 
-    // 🔧 역호환성: 정확한 키로 찾지 못한 경우, 같은 타입/배출구의 모든 시설 검색
-    if (facilityType !== 'basic' && outletNumber !== undefined) {
-      const allPhotos: FacilityPhoto[] = []
-
-      // 같은 배출구의 모든 시설 사진 검색
-      for (const [key, info] of this.facilityPhotos) {
-        if (info.facilityType === facilityType && info.outletNumber === outletNumber) {
-          allPhotos.push(...info.photos)
-        }
-      }
-
-      // 시설 번호가 변경되었을 가능성이 있으므로 모든 사진 반환
-      if (allPhotos.length > 0) {
-        console.warn(`⚠️ [PhotoTracker] 정확한 키(${facilityKey})로 사진을 찾지 못했지만, 같은 배출구의 사진 발견:`, {
-          facilityType,
-          outletNumber,
-          foundPhotos: allPhotos.length
-        })
-        return allPhotos
-      }
-    }
-
+    // 정확한 키로 찾지 못하면 빈 배열 반환
     return []
   }
 
