@@ -1492,14 +1492,14 @@ function TaskManagementPage() {
               <table className="w-full min-w-[800px]">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">사업장</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800 w-32 sm:w-80 max-w-32 sm:max-w-80">업무 설명</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">업무 단계</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">담당자</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">상태</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">우선순위</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">마감일</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-800">작업</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">사업장</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800 w-32 sm:w-80 max-w-32 sm:max-w-80">업무 설명</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">업무 단계</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">담당자</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">상태</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">우선순위</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">마감일</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">작업</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1509,7 +1509,7 @@ function TaskManagementPage() {
                                    task.type === 'etc' ? etcSteps : asSteps).find(s => s.status === task.status)
                     return (
                       <tr key={task.id} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
                           <button
                             onClick={() => handleOpenEditModal(task)}
                             className="font-medium text-gray-900 hover:text-blue-600 transition-colors cursor-pointer text-left block truncate max-w-[120px] sm:max-w-none"
@@ -1518,7 +1518,7 @@ function TaskManagementPage() {
                             {task.businessName}
                           </button>
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
                           <div
                             className="font-medium text-gray-900 max-w-xs leading-tight"
                             style={{
@@ -1532,12 +1532,12 @@ function TaskManagementPage() {
                             {task.description || '-'}
                           </div>
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
                           <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getColorClasses(step?.color || 'gray')}`}>
                             {step?.label || task.status}
                           </span>
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm text-gray-600">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base text-gray-600">
                           {task.assignees && task.assignees.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {task.assignees.slice(0, 3).map((assignee) => (
@@ -1559,7 +1559,7 @@ function TaskManagementPage() {
                             task.assignee || '미배정'
                           )}
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
                           <span className={`inline-flex px-2 py-1 text-xs rounded ${
                             task.type === 'self'
                               ? 'bg-blue-100 text-blue-800'
@@ -1574,16 +1574,16 @@ function TaskManagementPage() {
                              task.type === 'etc' ? '기타' : 'AS'}
                           </span>
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
                           <div className="flex items-center gap-1">
                             {getPriorityIcon(task.priority)}
                             <span className="capitalize">{task.priority}</span>
                           </div>
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm text-gray-600">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base text-gray-600">
                           {task.dueDate ? formatDate(task.dueDate) : '-'}
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs md:text-sm">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
                           <div className="flex items-center gap-1">
                             <button
                               onClick={(e) => {

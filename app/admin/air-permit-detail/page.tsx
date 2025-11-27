@@ -1178,7 +1178,7 @@ function AirPermitDetailContent() {
               type="text"
               value={permitDetail.business_type || ''}
               onChange={(e) => handleBasicInfoChange('business_type', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
               placeholder="업종을 입력하세요"
             />
           </div>
@@ -1188,7 +1188,7 @@ function AirPermitDetailContent() {
               type="text"
               value={permitDetail.additional_info?.category || ''}
               onChange={(e) => handleBasicInfoChange('category', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
               placeholder="종별을 입력하세요"
             />
           </div>
@@ -1212,7 +1212,7 @@ function AirPermitDetailContent() {
                   }
                 }
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
             />
           </div>
           <div>
@@ -1235,7 +1235,7 @@ function AirPermitDetailContent() {
                   }
                 }
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
             />
           </div>
         </div>
@@ -1285,7 +1285,7 @@ function AirPermitDetailContent() {
                       <select
                         value={gatewayAssignments[outlet.id] || ''}
                         onChange={(e) => handleGatewayChange(outlet.id, e.target.value)}
-                        className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-1 border border-gray-300 rounded-md text-base focus:ring-2 focus:ring-blue-500"
                       >
                         {generateGatewayOptions(gatewayAssignments).map((gw) => (
                           <option key={gw.value} value={gw.value}>
@@ -1359,7 +1359,7 @@ function AirPermitDetailContent() {
                                       inputMode="text"
                                       value={dischargeFacility.facility_name}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'facility_name', e.target.value)}
-                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                     />
                                   ) : (
                                     <span className="text-sm">{dischargeFacility.facility_name}</span>
@@ -1373,7 +1373,7 @@ function AirPermitDetailContent() {
                                       type="text"
                                       value={dischargeFacility.capacity || ''}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'capacity', e.target.value)}
-                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                     />
                                   ) : (
                                     <span className="text-sm">{dischargeFacility.capacity || '-'}</span>
@@ -1388,7 +1388,7 @@ function AirPermitDetailContent() {
                                       min="1"
                                       value={dischargeFacility.quantity}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'quantity', parseInt(e.target.value) || 1)}
-                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                     />
                                   ) : (
                                     <span className="text-sm">{dischargeFacility.quantity}</span>
@@ -1431,7 +1431,7 @@ function AirPermitDetailContent() {
                                         value={dischargeFacility.additional_info?.facility_number || ''}
                                         onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'facility_number', e.target.value)}
                                         placeholder="수동 시설번호"
-                                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                        className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                       />
                                     ) : (
                                       dischargeFacility.additional_info?.facility_number && (
@@ -1450,7 +1450,7 @@ function AirPermitDetailContent() {
                                     value={dischargeFacility.additional_info?.green_link_code ?? ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'green_link_code', e.target.value)}
                                     placeholder="그린링크코드"
-                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                    className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                   />
                                 ) : (
                                   <span className="text-sm">{dischargeFacility?.additional_info?.green_link_code || '-'}</span>
@@ -1462,7 +1462,7 @@ function AirPermitDetailContent() {
                                     value={dischargeFacility.additional_info?.memo || ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'memo', e.target.value)}
                                     placeholder="메모"
-                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
+                                    className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
                                     rows={1}
                                   />
                                 ) : (
@@ -1496,7 +1496,7 @@ function AirPermitDetailContent() {
                                       inputMode="text"
                                       value={preventionFacility.facility_name}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'facility_name', e.target.value)}
-                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                     />
                                   ) : (
                                     <span className="text-sm">{preventionFacility.facility_name}</span>
@@ -1510,7 +1510,7 @@ function AirPermitDetailContent() {
                                       type="text"
                                       value={preventionFacility.capacity || ''}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'capacity', e.target.value)}
-                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                     />
                                   ) : (
                                     <span className="text-sm">{preventionFacility.capacity || '-'}</span>
@@ -1525,7 +1525,7 @@ function AirPermitDetailContent() {
                                       min="1"
                                       value={preventionFacility.quantity}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'quantity', parseInt(e.target.value) || 1)}
-                                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                     />
                                   ) : (
                                     <span className="text-sm">{preventionFacility.quantity}</span>
@@ -1568,7 +1568,7 @@ function AirPermitDetailContent() {
                                         value={preventionFacility.additional_info?.facility_number || ''}
                                         onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'facility_number', e.target.value)}
                                         placeholder="수동 시설번호"
-                                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                        className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                       />
                                     ) : (
                                       preventionFacility.additional_info?.facility_number && (
@@ -1587,7 +1587,7 @@ function AirPermitDetailContent() {
                                     value={preventionFacility.additional_info?.green_link_code ?? ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'green_link_code', e.target.value)}
                                     placeholder="그린링크코드"
-                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                    className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                   />
                                 ) : (
                                   <span className="text-sm">{preventionFacility?.additional_info?.green_link_code || '-'}</span>
@@ -1599,7 +1599,7 @@ function AirPermitDetailContent() {
                                     value={preventionFacility.additional_info?.memo || ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'memo', e.target.value)}
                                     placeholder="메모"
-                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
+                                    className="w-full px-2 py-1 text-base border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
                                     rows={1}
                                   />
                                 ) : (

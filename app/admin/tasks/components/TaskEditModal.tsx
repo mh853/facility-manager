@@ -124,7 +124,7 @@ export default function TaskEditModal({
               type="text"
               value={editingTask.title}
               onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               required
             />
           </div>
@@ -137,7 +137,7 @@ export default function TaskEditModal({
             <select
               value={editingTask.type}
               onChange={(e) => setEditingTask({ ...editingTask, type: e.target.value as TaskType })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             >
               <option value="self">자비</option>
               <option value="subsidy">보조금</option>
@@ -161,7 +161,7 @@ export default function TaskEditModal({
                   setSelectedBusinessIndex(-1)
                 }}
                 onKeyDown={handleKeyDown}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                 placeholder="사업장 이름 또는 주소로 검색..."
               />
 
@@ -203,7 +203,7 @@ export default function TaskEditModal({
             <input
               type="text"
               value={editingTask.status}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-base"
               disabled
               title="상태는 칸반 보드에서 드래그하여 변경할 수 있습니다"
             />
@@ -220,7 +220,7 @@ export default function TaskEditModal({
             <select
               value={editingTask.priority}
               onChange={(e) => setEditingTask({ ...editingTask, priority: e.target.value as Priority })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             >
               <option value="high">높음</option>
               <option value="medium">보통</option>
@@ -250,7 +250,7 @@ export default function TaskEditModal({
               type="date"
               value={editingTask.startDate || ''}
               onChange={(e) => setEditingTask({ ...editingTask, startDate: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             />
           </div>
 
@@ -263,7 +263,7 @@ export default function TaskEditModal({
               type="date"
               value={editingTask.dueDate || ''}
               onChange={(e) => setEditingTask({ ...editingTask, dueDate: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             />
           </div>
 
@@ -275,7 +275,7 @@ export default function TaskEditModal({
             <textarea
               value={editingTask.description || ''}
               onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               rows={3}
             />
           </div>
@@ -288,7 +288,7 @@ export default function TaskEditModal({
             <textarea
               value={editingTask.notes || ''}
               onChange={(e) => setEditingTask({ ...editingTask, notes: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               rows={3}
             />
           </div>

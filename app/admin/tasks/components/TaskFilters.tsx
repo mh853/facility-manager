@@ -53,7 +53,7 @@ export default function TaskFilters({
           <select
             value={selectedType}
             onChange={(e) => onTypeChange(e.target.value as TaskType | 'all')}
-            className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+            className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             aria-label="업무 타입 필터"
           >
             <option value="all">전체 타입</option>
@@ -67,7 +67,7 @@ export default function TaskFilters({
           <select
             value={selectedPriority}
             onChange={(e) => onPriorityChange(e.target.value as Priority | 'all')}
-            className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+            className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             aria-label="우선순위 필터"
           >
             <option value="all">전체 우선순위</option>
@@ -80,7 +80,7 @@ export default function TaskFilters({
           <select
             value={selectedAssignee}
             onChange={(e) => onAssigneeChange(e.target.value)}
-            className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+            className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             aria-label="담당자 필터"
           >
             <option value="all">전체 담당자</option>
@@ -96,7 +96,7 @@ export default function TaskFilters({
           <input
             type="text"
             placeholder="업무명, 사업장명, 담당자로 검색..."
-            className="w-full pl-8 pr-3 py-1.5 sm:pl-10 sm:pr-4 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+            className="w-full pl-8 pr-3 py-1.5 sm:pl-10 sm:pr-4 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             onChange={(e) => onSearchChange(e.target.value)}
             defaultValue={searchTerm}
             aria-label="업무 검색"

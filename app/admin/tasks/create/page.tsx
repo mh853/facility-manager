@@ -322,7 +322,7 @@ export default function CreateTaskPage() {
                   type="text"
                   value={formData.title}
                   onChange={(e) => handleInputChange('title', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base ${
                     validationErrors.title ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="업무 제목을 입력하세요"
@@ -338,7 +338,7 @@ export default function CreateTaskPage() {
                 <select
                   value={formData.category_id}
                   onChange={(e) => handleInputChange('category_id', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                 >
                   <option value="">카테고리 선택</option>
                   {metadata?.categories.map((category) => (
@@ -355,7 +355,7 @@ export default function CreateTaskPage() {
                 <select
                   value={formData.priority}
                   onChange={(e) => handleInputChange('priority', Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                 >
                   {metadata?.priorities.map((priority) => (
                     <option key={priority.value} value={priority.value}>
@@ -373,7 +373,7 @@ export default function CreateTaskPage() {
                 <select
                   value={formData.assigned_to}
                   onChange={(e) => handleInputChange('assigned_to', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base ${
                     validationErrors.assigned_to ? 'border-red-300' : 'border-gray-300'
                   }`}
                 >
@@ -398,7 +398,7 @@ export default function CreateTaskPage() {
                   step="0.5"
                   value={formData.estimated_hours}
                   onChange={(e) => handleInputChange('estimated_hours', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base ${
                     validationErrors.estimated_hours ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="예상 작업 시간"
@@ -415,7 +415,7 @@ export default function CreateTaskPage() {
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                   placeholder="업무에 대한 상세한 설명을 입력하세요"
                 />
               </div>
@@ -437,7 +437,7 @@ export default function CreateTaskPage() {
                   type="date"
                   value={formData.start_date}
                   onChange={(e) => handleInputChange('start_date', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                 />
               </div>
 
@@ -448,7 +448,7 @@ export default function CreateTaskPage() {
                   type="date"
                   value={formData.due_date}
                   onChange={(e) => handleInputChange('due_date', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base ${
                     validationErrors.due_date ? 'border-red-300' : 'border-gray-300'
                   }`}
                 />
@@ -475,7 +475,7 @@ export default function CreateTaskPage() {
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                   placeholder="태그를 입력하고 Enter를 누르세요"
                 />
                 <button

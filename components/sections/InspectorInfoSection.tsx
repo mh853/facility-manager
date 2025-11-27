@@ -77,7 +77,7 @@ export default function InspectorInfoSection({ inspectorInfo, onUpdate, onSave, 
             type="text"
             value={editData.name}
             onChange={(e) => setEditData({...editData, name: e.target.value})}
-            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+            className="w-full px-4 py-2.5 text-base border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
             placeholder={
               title === 'AS 담당자 정보' ? 'AS 담당자 이름을 입력하세요' :
               title === '설치자 정보' ? '설치자 이름을 입력하세요' : '실사자 이름을 입력하세요'
@@ -108,7 +108,7 @@ export default function InspectorInfoSection({ inspectorInfo, onUpdate, onSave, 
                 setEditData({...editData, contact: `${value.slice(0, 3)}-${value.slice(3, 7)}-${value.slice(7, 11)}`});
               }
             }}
-            className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+            className="w-full px-4 py-2.5 text-base border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
             placeholder="010-0000-0000"
             maxLength={13}
           />
@@ -126,7 +126,7 @@ export default function InspectorInfoSection({ inspectorInfo, onUpdate, onSave, 
             type="date"
             value={editData.date}
             onChange={(e) => setEditData({...editData, date: e.target.value})}
-            className="w-full min-w-0 px-3 py-2.5 md:px-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+            className="w-full min-w-0 px-3 py-2.5 md:px-4 text-base border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
             style={{
               WebkitAppearance: 'none',
               flexShrink: 1

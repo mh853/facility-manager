@@ -134,7 +134,7 @@ export default function TaskCreateModal({
               type="text"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               placeholder="예: OO사업장 방지시설 설치"
               required
             />
@@ -148,7 +148,7 @@ export default function TaskCreateModal({
             <select
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value as TaskType })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             >
               <option value="self">자비</option>
               <option value="subsidy">보조금</option>
@@ -172,7 +172,7 @@ export default function TaskCreateModal({
                   setSelectedBusinessIndex(-1)
                 }}
                 onKeyDown={handleKeyDown}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                 placeholder="사업장 이름 또는 주소로 검색..."
                 required={form.type !== 'etc'}
               />
@@ -215,7 +215,7 @@ export default function TaskCreateModal({
             <select
               value={form.priority}
               onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             >
               <option value="high">높음</option>
               <option value="medium">보통</option>
@@ -245,7 +245,7 @@ export default function TaskCreateModal({
               type="date"
               value={form.dueDate}
               onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             />
           </div>
 
@@ -257,7 +257,7 @@ export default function TaskCreateModal({
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               rows={3}
               placeholder="업무에 대한 상세 설명..."
             />

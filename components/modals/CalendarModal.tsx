@@ -596,7 +596,7 @@ export default function CalendarModal({
       />
 
       {/* 모달 컨텐츠 */}
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${showBusinessInfo ? 'max-w-6xl' : 'max-w-2xl'} max-h-[90vh] overflow-hidden border border-purple-100/20`}>
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${showBusinessInfo ? 'lg:max-w-6xl max-w-2xl' : 'max-w-2xl'} max-h-[90vh] overflow-hidden border border-purple-100/20`}>
         {/* 헤더 */}
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-purple-500 to-blue-500 opacity-10"></div>
@@ -625,9 +625,9 @@ export default function CalendarModal({
         </div>
 
         {/* 본문 */}
-        <div className={`${showBusinessInfo ? 'grid grid-cols-[60%_40%]' : ''} max-h-[calc(90vh-200px)] bg-gradient-to-b from-white to-gray-50/30`}>
+        <div className={`${showBusinessInfo ? 'lg:grid lg:grid-cols-[60%_40%]' : ''} max-h-[calc(90vh-200px)] bg-gradient-to-b from-white to-gray-50/30 overflow-y-auto`}>
           {/* 왼쪽: 캘린더 폼 영역 */}
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+          <div className="p-6">
           {internalMode === 'view' && event ? (
             // 보기 모드
             <div className="space-y-6">
@@ -758,7 +758,7 @@ export default function CalendarModal({
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
+                  className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
                   placeholder="일정 제목을 입력하세요"
                   required
                   disabled={loading}
@@ -772,7 +772,7 @@ export default function CalendarModal({
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 min-h-[120px] bg-white resize-none"
+                  className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 min-h-[120px] bg-white resize-none"
                   placeholder="일정 설명을 입력하세요 (선택사항)"
                   disabled={loading}
                 />
@@ -923,7 +923,7 @@ export default function CalendarModal({
                       }}
                       placeholder="라벨 입력 후 Enter (예: 착공실사, 준공실사)"
                       disabled={loading}
-                      className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white text-sm"
+                      className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white text-base"
                     />
                     <button
                       type="button"
@@ -964,7 +964,7 @@ export default function CalendarModal({
                       type="date"
                       value={eventDate}
                       onChange={(e) => setEventDate(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
                       required
                       disabled={loading}
                     />
@@ -979,7 +979,7 @@ export default function CalendarModal({
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       min={eventDate}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
                       disabled={loading}
                     />
                   </div>
@@ -995,7 +995,7 @@ export default function CalendarModal({
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
                       disabled={loading}
                     />
                   </div>
@@ -1008,7 +1008,7 @@ export default function CalendarModal({
                       type="time"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
                       disabled={loading}
                     />
                   </div>
@@ -1021,7 +1021,7 @@ export default function CalendarModal({
                   <select
                     value={eventType}
                     onChange={(e) => setEventType(e.target.value as 'todo' | 'schedule')}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
+                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
                     disabled={loading}
                   >
                     <option value="schedule">일정</option>
@@ -1057,11 +1057,22 @@ export default function CalendarModal({
               )}
             </form>
           )}
+
+          {/* 모바일: 사업장 정보 패널 (폼 아래에 표시) */}
+          {showBusinessInfo && businessId && businessName && (
+            <div className="lg:hidden mt-6 border-t border-gray-200 pt-6">
+              <BusinessInfoPanel
+                businessId={businessId}
+                businessName={businessName}
+                onClose={() => setShowBusinessInfo(false)}
+              />
+            </div>
+          )}
           </div>
 
-          {/* 오른쪽: 사업장 정보 패널 (조건부 렌더링) */}
+          {/* 데스크탑: 사업장 정보 패널 (오른쪽에 표시) */}
           {showBusinessInfo && businessId && businessName && (
-            <div className="border-l border-gray-200 overflow-hidden h-full max-h-[calc(90vh-200px)]">
+            <div className="hidden lg:block border-l border-gray-200 overflow-y-auto">
               <BusinessInfoPanel
                 businessId={businessId}
                 businessName={businessName}

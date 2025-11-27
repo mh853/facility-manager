@@ -184,7 +184,7 @@ export default function BusinessAutocomplete({
           placeholder={placeholder}
           disabled={disabled}
           required={required}
-          className={`w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed ${
+          className={`w-full pl-10 pr-10 py-2 text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed ${
             businessId && onBusinessClick ? 'cursor-pointer hover:bg-blue-50' : ''
           } ${error ? 'border-red-300' : 'border-gray-300'}`}
         />
