@@ -55,10 +55,10 @@ function LoginForm() {
     setError(null)
 
     try {
-      // ✅ 절대 URL 사용 (배포 환경에서 경로 문제 방지)
-      const apiUrl = `${window.location.origin}/api/auth/login`
+      // ✅ new URL()로 절대 경로 명확하게 생성 (Next.js 빌드 최적화 우회)
+      const apiUrl = new URL('/api/auth/login', window.location.origin).href
       console.log('🔍 [LOGIN] API URL:', apiUrl)
-      console.log('🔍 [LOGIN] window.location.origin:', window.location.origin)
+      console.log('🔍 [LOGIN] window.location:', window.location.href)
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -66,8 +66,7 @@ function LoginForm() {
           'Cache-Control': 'no-cache',
         },
         body: JSON.stringify(formData),
-        credentials: 'same-origin',
-        mode: 'cors',
+        credentials: 'include', // ✅ same-origin → include (쿠키 전송 보장)
       })
 
       const result = await response.json()
