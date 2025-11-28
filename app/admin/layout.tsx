@@ -1,10 +1,6 @@
-import React from 'react';
-import { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: '관리자 - 시설 관리 시스템',
-  description: '시설 관리 시스템 관리자 페이지',
-};
+import React from 'react';
 
 export default function AdminLayout({
   children,

@@ -149,6 +149,11 @@ interface UnifiedBusinessInfo {
   completion_survey_manager?: string | null;
   completion_survey_date?: string | null;
 
+  // 제출일 관리 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
+  construction_report_submitted_at?: string | null;
+  greenlink_confirmation_submitted_at?: string | null;
+  attachment_completion_submitted_at?: string | null;
+
   // 시스템 필드들
   manufacturer?: 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null;
   vpn?: 'wired' | 'wireless' | null;
@@ -289,7 +294,9 @@ import {
   FileCheck,
   DollarSign,
   Wallet,
-  Receipt
+  Receipt,
+  CalendarClock,
+  ChevronDown
 } from 'lucide-react'
 
 // 대한민국 지자체 목록
@@ -771,6 +778,7 @@ function BusinessManagementPage() {
 
   // 📊 전체 업무 통계 (통계카드용)
   const [totalBusinessesWithTasks, setTotalBusinessesWithTasks] = useState(0)
+  const [allTasksForFilter, setAllTasksForFilter] = useState<any[]>([])
 
   // 🔄 검색 로딩 상태 (검색시 현재 단계 로딩용)
   const [isSearchLoading, setIsSearchLoading] = useState(false)
@@ -780,6 +788,42 @@ function BusinessManagementPage() {
   const [filterRegion, setFilterRegion] = useState<string>('')
   const [filterCategory, setFilterCategory] = useState<string>('')
   const [filterProjectYear, setFilterProjectYear] = useState<string>('')
+  const [filterCurrentStep, setFilterCurrentStep] = useState<string>('')
+
+  // 제출일 필터 상태 (개별 항목)
+  const [submissionDateFilters, setSubmissionDateFilters] = useState<{
+    order_date: boolean;
+    construction_report: boolean;
+    greenlink_confirmation: boolean;
+    attachment_completion: boolean;
+  }>({
+    order_date: false,
+    construction_report: false,
+    greenlink_confirmation: false,
+    attachment_completion: false
+  })
+  const [isSubmissionFilterExpanded, setIsSubmissionFilterExpanded] = useState<boolean>(false)
+
+  // 제출일 필터 토글 함수
+  const toggleSubmissionFilter = (filterKey: keyof typeof submissionDateFilters) => {
+    setSubmissionDateFilters(prev => ({
+      ...prev,
+      [filterKey]: !prev[filterKey]
+    }))
+  }
+
+  // 제출일 필터 초기화 함수
+  const clearSubmissionFilters = () => {
+    setSubmissionDateFilters({
+      order_date: false,
+      construction_report: false,
+      greenlink_confirmation: false,
+      attachment_completion: false
+    })
+  }
+
+  // 제출일 필터가 활성화되어 있는지 확인
+  const hasActiveSubmissionFilter = Object.values(submissionDateFilters).some(v => v)
 
   // 📱 무한 스크롤 상태 (모바일 전용)
   const [displayedBusinesses, setDisplayedBusinesses] = useState<any[]>([])
@@ -1357,6 +1401,76 @@ function BusinessManagementPage() {
       .filter(term => term.length > 0)
   }, [searchQuery])
 
+  // 전체 업무 데이터를 기반으로 사업장별 현재 단계 계산 (업무관리에서 사용하는 로직과 동일)
+  const calculateBusinessCurrentSteps = useMemo(() => {
+    const statusMap: Record<string, string> = {}
+
+    // task-status-utils.ts의 한글 매핑 사용
+    const statusLabels: Record<string, string> = {
+      customer_contact: '고객 상담',
+      site_inspection: '현장 실사',
+      quotation: '견적서 작성',
+      contract: '계약 체결',
+      deposit_confirm: '계약금 확인',
+      product_order: '제품 발주',
+      product_shipment: '제품 출고',
+      installation_schedule: '설치 협의',
+      installation: '제품 설치',
+      balance_payment: '잔금 입금',
+      document_complete: '서류 발송 완료',
+      application_submit: '신청서 제출',
+      document_supplement: '서류 보완',
+      pre_construction_inspection: '착공 전 실사',
+      pre_construction_supplement: '착공 보완',
+      pre_construction_supplement_1st: '착공 보완 1차',
+      pre_construction_supplement_2nd: '착공 보완 2차',
+      pre_construction_supplement_3rd: '착공 보완 3차',
+      completion_inspection: '준공 실사',
+      completion_supplement: '준공 보완',
+      completion_supplement_1st: '완공 보완 1차',
+      completion_supplement_2nd: '완공 보완 2차',
+      completion_supplement_3rd: '완공 보완 3차',
+      final_document_submit: '서류 제출',
+      subsidy_payment: '보조금 입금',
+      etc_status: '기타'
+    }
+
+    // 사업장별로 업무 그룹화
+    const businessTasksMap: Record<string, any[]> = {}
+    allTasksForFilter.forEach(task => {
+      const businessName = task.business_name
+      if (!businessTasksMap[businessName]) {
+        businessTasksMap[businessName] = []
+      }
+      businessTasksMap[businessName].push(task)
+    })
+
+    // 각 사업장의 현재 단계 계산
+    Object.entries(businessTasksMap).forEach(([businessName, tasks]) => {
+      const activeTasks = tasks.filter(task => !task.completed_at)
+
+      if (activeTasks.length === 0) {
+        const completedTasks = tasks.filter(task => task.completed_at)
+        statusMap[businessName] = completedTasks.length > 0 ? '업무 완료' : '업무 미등록'
+      } else {
+        // 우선순위별 정렬
+        const priorityOrder = { high: 3, medium: 2, low: 1 }
+        const sortedTasks = activeTasks.sort((a, b) => {
+          const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority]
+          if (priorityDiff !== 0) return priorityDiff
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        })
+
+        const topTask = sortedTasks[0]
+        const statusLabel = statusLabels[topTask.status] || topTask.status
+        statusMap[businessName] = activeTasks.length === 1 ? statusLabel : `${statusLabel} 외 ${activeTasks.length - 1}건`
+      }
+    })
+
+    console.log(`📊 [CURRENT-STEP-CALC] ${Object.keys(statusMap).length}개 사업장의 현재 단계 계산 완료`)
+    return statusMap
+  }, [allTasksForFilter])
+
   // 검색 필터링 (useMemo 사용으로 자동 필터링)
   const filteredBusinesses = useMemo(() => {
     console.log('🔍 useMemo 필터링 실행:', searchTerms, 'allBusinesses 수:', allBusinesses.length)
@@ -1374,12 +1488,45 @@ function BusinessManagementPage() {
       })
     }
     if (filterCategory) {
-      filtered = filtered.filter(b => (b as any).진행상태 === filterCategory || b.progress_status === filterCategory)
+      filtered = filtered.filter(b => {
+        const value = (b as any).진행상태 || b.progress_status
+        return value && String(value).trim() === filterCategory
+      })
     }
     if (filterProjectYear) {
       filtered = filtered.filter(b => {
         const year = (b as any).사업진행연도 || b.project_year
         return year === Number(filterProjectYear)
+      })
+    }
+    if (filterCurrentStep) {
+      filtered = filtered.filter(b => {
+        const businessName = b.사업장명 || b.business_name || ''
+        const currentStep = calculateBusinessCurrentSteps[businessName]
+        return currentStep && currentStep.trim() === filterCurrentStep
+      })
+    }
+
+    // 제출일 필터 적용 (개별 항목)
+    if (hasActiveSubmissionFilter) {
+      filtered = filtered.filter(b => {
+        // 하나라도 활성화된 필터가 있으면, 해당 필터 조건을 만족해야 함
+        let matchesFilter = true
+
+        if (submissionDateFilters.order_date) {
+          matchesFilter = matchesFilter && !!b.order_date
+        }
+        if (submissionDateFilters.construction_report) {
+          matchesFilter = matchesFilter && !!b.construction_report_submitted_at
+        }
+        if (submissionDateFilters.greenlink_confirmation) {
+          matchesFilter = matchesFilter && !!b.greenlink_confirmation_submitted_at
+        }
+        if (submissionDateFilters.attachment_completion) {
+          matchesFilter = matchesFilter && !!b.attachment_completion_submitted_at
+        }
+
+        return matchesFilter
       })
     }
 
@@ -1438,7 +1585,7 @@ function BusinessManagementPage() {
 
     console.log('🎯 필터링 결과:', filtered.length, '개 사업장 (검색어:', searchTerms.length, '개)')
     return filtered
-  }, [searchTerms, allBusinesses, filterOffice, filterRegion, filterCategory, filterProjectYear])
+  }, [searchTerms, allBusinesses, filterOffice, filterRegion, filterCategory, filterProjectYear, filterCurrentStep, calculateBusinessCurrentSteps, submissionDateFilters, hasActiveSubmissionFilter])
 
   // 필터 옵션 추출
   const filterOptions = useMemo(() => {
@@ -1452,19 +1599,29 @@ function BusinessManagementPage() {
       }).filter(Boolean)
     )] as string[]
     const categories = [...new Set(
-      allBusinesses.map(b => (b as any).진행상태 || b.progress_status).filter(Boolean)
+      allBusinesses.map(b => {
+        const value = (b as any).진행상태 || b.progress_status
+        return value ? String(value).trim() : null
+      }).filter(Boolean)
     )] as string[]
     const years = [...new Set(
       allBusinesses.map(b => (b as any).사업진행연도 || b.project_year).filter(Boolean)
     )] as number[]
+    // calculateBusinessCurrentSteps에서 현재 단계 추출 (업무가 등록된 사업장만)
+    const currentSteps = [...new Set(
+      Object.values(calculateBusinessCurrentSteps)
+        .map(status => status.trim())
+        .filter(Boolean)
+    )] as string[]
 
     return {
       offices: offices.sort(),
       regions: regions.sort(),
       categories,
-      years: years.sort((a, b) => b - a) // 최신 연도부터
+      years: years.sort((a, b) => b - a), // 최신 연도부터
+      currentSteps: currentSteps.sort()
     }
-  }, [allBusinesses])
+  }, [allBusinesses, calculateBusinessCurrentSteps])
 
   // 검색어 하이라이팅 함수
   const highlightSearchTerm = useCallback((text: string, searchTerm: string) => {
@@ -1646,7 +1803,7 @@ function BusinessManagementPage() {
     }
   }, []) // 의존성 배열 제거 - setBusinessTaskStatuses는 함수형 업데이트(prev =>)를 사용하므로 안전
 
-  // 📊 전체 업무 통계 로딩 (통계카드용)
+  // 📊 전체 업무 통계 로딩 (통계카드용 + 현재 단계 필터용)
   const loadTaskStatistics = useCallback(async () => {
     try {
       console.log('📊 [TASK-STATS] 전체 업무 통계 로딩 시작')
@@ -1673,16 +1830,18 @@ function BusinessManagementPage() {
       const result = await response.json()
 
       if (result.success && result.data?.tasks) {
+        const activeTasks = result.data.tasks.filter((task: any) => task.is_active && !task.is_deleted)
+
         // 활성 상태이고 삭제되지 않은 업무의 고유 사업장명 추출
         const uniqueBusinessNames = new Set(
-          result.data.tasks
-            .filter((task: any) => task.is_active && !task.is_deleted)
+          activeTasks
             .map((task: any) => task.business_name)
             .filter((name: string) => name) // 빈 값 제외
         )
 
         setTotalBusinessesWithTasks(uniqueBusinessNames.size)
-        console.log(`✅ [TASK-STATS] 업무 진행 사업장: ${uniqueBusinessNames.size}개`)
+        setAllTasksForFilter(activeTasks) // 필터용 전체 업무 데이터 저장
+        console.log(`✅ [TASK-STATS] 업무 진행 사업장: ${uniqueBusinessNames.size}개, 총 업무: ${activeTasks.length}개`)
       }
     } catch (error) {
       console.error('❌ [TASK-STATS] 업무 통계 로딩 실패:', error)
@@ -2072,6 +2231,11 @@ function BusinessManagementPage() {
           completion_survey_manager: business.completion_survey_manager || null,
           completion_survey_date: business.completion_survey_date || null,
 
+          // 제출일 관리 필드
+          construction_report_submitted_at: business.construction_report_submitted_at || null,
+          greenlink_confirmation_submitted_at: business.greenlink_confirmation_submitted_at || null,
+          attachment_completion_submitted_at: business.attachment_completion_submitted_at || null,
+
           // 계산서 및 입금 관리 필드 (보조금 사업장)
           invoice_1st_date: business.invoice_1st_date || null,
           invoice_1st_amount: business.invoice_1st_amount || null,
@@ -2361,7 +2525,12 @@ function BusinessManagementPage() {
         invoice_balance_date: freshData.invoice_balance_date || '',
         invoice_balance_amount: freshData.invoice_balance_amount || null,
         payment_balance_date: freshData.payment_balance_date || '',
-        payment_balance_amount: freshData.payment_balance_amount || null
+        payment_balance_amount: freshData.payment_balance_amount || null,
+
+        // 제출일 관리 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
+        construction_report_submitted_at: freshData.construction_report_submitted_at || '',
+        greenlink_confirmation_submitted_at: freshData.greenlink_confirmation_submitted_at || '',
+        attachment_completion_submitted_at: freshData.attachment_completion_submitted_at || ''
       })
 
       setIsModalOpen(true)
@@ -2571,7 +2740,12 @@ function BusinessManagementPage() {
         multiple_stack_cost: row['복수굴뚝비용'] ? parseInt(row['복수굴뚝비용']) : null,
         expansion_pack: row['확장팩'] || '',
         negotiation: row['네고'] || '',
-        other_equipment: row['기타'] || ''
+        other_equipment: row['기타'] || '',
+
+        // 제출일 관리 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
+        construction_report_submitted_at: parseExcelDate(row['착공신고서제출일']),
+        greenlink_confirmation_submitted_at: parseExcelDate(row['그린링크전송확인서제출일']),
+        attachment_completion_submitted_at: parseExcelDate(row['부착완료통보서제출일'])
       }));
       
       console.log('🔄 헤더 기반 매핑 완료:', mappedBusinesses.slice(0, 2));
@@ -3528,13 +3702,14 @@ function BusinessManagementPage() {
               <div className="space-y-2 md:space-y-3 mt-2 md:mt-3 pt-2 md:pt-3 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-medium text-gray-700">필터</span>
-                  {(filterOffice || filterRegion || filterCategory || filterProjectYear) && (
+                  {(filterOffice || filterRegion || filterCategory || filterProjectYear || filterCurrentStep) && (
                     <button
                       onClick={() => {
                         setFilterOffice('')
                         setFilterRegion('')
                         setFilterCategory('')
                         setFilterProjectYear('')
+                        setFilterCurrentStep('')
                       }}
                       className="text-base text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
                     >
@@ -3543,7 +3718,7 @@ function BusinessManagementPage() {
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
                   <div>
                     <label className="block text-base font-medium text-gray-700 mb-1">
                       영업점
@@ -3619,10 +3794,125 @@ function BusinessManagementPage() {
                       ))}
                     </select>
                   </div>
+
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-1">
+                      현재 단계
+                      {filterCurrentStep && <span className="ml-1 text-blue-600">●</span>}
+                    </label>
+                    <select
+                      value={filterCurrentStep}
+                      onChange={(e) => setFilterCurrentStep(e.target.value)}
+                      className={`w-full px-2 py-1.5 text-base border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        filterCurrentStep ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="">전체</option>
+                      {filterOptions.currentSteps.map(step => (
+                        <option key={step} value={step}>{step}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 제출일 필터 (접기/펼치기 지원) */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <CalendarClock className="w-5 h-5 text-blue-600" />
+                      <h4 className="text-sm md:text-base font-semibold text-gray-800">제출일 필터</h4>
+                      <button
+                        onClick={() => setIsSubmissionFilterExpanded(!isSubmissionFilterExpanded)}
+                        className="ml-1 text-gray-500 hover:text-gray-700 transition-colors"
+                        aria-label={isSubmissionFilterExpanded ? '필터 접기' : '필터 펼치기'}
+                      >
+                        <ChevronDown
+                          className={`w-4 h-4 transition-transform duration-200 ${isSubmissionFilterExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                    </div>
+                    {hasActiveSubmissionFilter && (
+                      <button
+                        onClick={clearSubmissionFilters}
+                        className="text-xs md:text-sm text-gray-600 hover:text-red-600 font-medium transition-colors"
+                      >
+                        초기화 ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 제출일 필터 버튼들 (접기/펼치기 애니메이션) */}
+                  <div className={`grid grid-cols-2 md:grid-cols-4 gap-2 transition-all duration-300 overflow-hidden ${
+                    isSubmissionFilterExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+                  }`}>
+                    <button
+                      onClick={() => toggleSubmissionFilter('order_date')}
+                      className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                        submissionDateFilters.order_date
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-300 hover:border-blue-300 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          submissionDateFilters.order_date ? 'bg-blue-500' : 'bg-gray-300'
+                        }`} />
+                        발주일
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => toggleSubmissionFilter('construction_report')}
+                      className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                        submissionDateFilters.construction_report
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-300 hover:border-blue-300 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          submissionDateFilters.construction_report ? 'bg-blue-500' : 'bg-gray-300'
+                        }`} />
+                        착공신고서
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => toggleSubmissionFilter('greenlink_confirmation')}
+                      className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                        submissionDateFilters.greenlink_confirmation
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-300 hover:border-blue-300 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          submissionDateFilters.greenlink_confirmation ? 'bg-blue-500' : 'bg-gray-300'
+                        }`} />
+                        그린링크
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => toggleSubmissionFilter('attachment_completion')}
+                      className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                        submissionDateFilters.attachment_completion
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-300 hover:border-blue-300 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          submissionDateFilters.attachment_completion ? 'bg-blue-500' : 'bg-gray-300'
+                        }`} />
+                        부착완료
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-            
+
           </div>
 
           {/* Data Table - Desktop Only */}
@@ -4216,6 +4506,36 @@ function BusinessManagementPage() {
                         type="date"
                         value={formData.installation_date || ''}
                         onChange={(e) => setFormData({...formData, installation_date: e.target.value})}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">착공신고서 제출일</label>
+                      <input
+                        type="date"
+                        value={formData.construction_report_submitted_at || ''}
+                        onChange={(e) => setFormData({...formData, construction_report_submitted_at: e.target.value})}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">그린링크 전송확인서 제출일</label>
+                      <input
+                        type="date"
+                        value={formData.greenlink_confirmation_submitted_at || ''}
+                        onChange={(e) => setFormData({...formData, greenlink_confirmation_submitted_at: e.target.value})}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">부착완료통보서 제출일</label>
+                      <input
+                        type="date"
+                        value={formData.attachment_completion_submitted_at || ''}
+                        onChange={(e) => setFormData({...formData, attachment_completion_submitted_at: e.target.value})}
                         className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
                       />
                     </div>
