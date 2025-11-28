@@ -405,10 +405,8 @@ export default function TaskMobileModal({
               {onDelete && (
                 <button
                   onClick={() => {
-                    if (confirm('이 업무를 삭제하시겠습니까?')) {
-                      onDelete(task)
-                      onClose()
-                    }
+                    // confirm과 모달 닫기는 handleDeleteTask에서 처리
+                    onDelete(task)
                   }}
                   className="flex items-center justify-center gap-2 px-5 py-3.5 border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 hover:border-gray-400 active:scale-95 transition-all"
                 >

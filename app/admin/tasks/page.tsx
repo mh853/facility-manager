@@ -403,7 +403,7 @@ function TaskManagementPage() {
   // 업무 삭제 핸들러
   const handleDeleteTask = useCallback(async (taskId: string) => {
     if (!confirm('이 업무를 삭제하시겠습니까?')) {
-      return
+      return false // 취소 시 false 반환
     }
 
     try {
@@ -436,12 +436,20 @@ function TaskManagementPage() {
         setShowEditBusinessDropdown(false)
       }
 
+      // 상세 모달이 열려있다면 닫기
+      if (mobileSelectedTask?.id === taskId) {
+        setMobileModalOpen(false)
+        setMobileSelectedTask(null)
+      }
+
       alert('업무가 삭제되었습니다.')
+      return true // 성공 시 true 반환
     } catch (error) {
       console.error('Failed to delete task:', error)
       alert(`업무 삭제 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+      return false // 실패 시 false 반환
     }
-  }, [])
+  }, [mobileSelectedTask])
 
   // 업무 완료 핸들러 (다음 단계로 자동 이동)
   const handleCompleteTask = useCallback(async (taskId: string) => {
@@ -1743,8 +1751,8 @@ function TaskManagementPage() {
             setMobileModalOpen(false)
           }}
           onDelete={async (task: any) => {
+            // handleDeleteTask에서 모달을 자동으로 닫으므로 별도 처리 불필요
             await handleDeleteTask(task.id)
-            setMobileModalOpen(false)
           }}
         />
       </div>
