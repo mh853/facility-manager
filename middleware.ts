@@ -56,6 +56,7 @@ function setSecurityHeaders(response: NextResponse): void {
 // 공개 경로 확인 (로그인 없이 접근 가능한 페이지)
 function isPublicRoute(pathname: string): boolean {
   const publicRoutes = [
+    '/', // 루트 페이지 공개 (로그인 불필요)
     '/login',
     '/signup',
     '/forgot-password',
@@ -87,6 +88,7 @@ function isStaticFile(pathname: string): boolean {
 // CSRF 검증 제외 API 경로 (외부 호출용 - Bearer 토큰 인증)
 function isCSRFExemptAPI(pathname: string): boolean {
   const exemptPaths = [
+    '/api/auth/login',       // 로그인 API (CSRF 토큰 없이 호출 가능)
     '/api/subsidy-crawler',  // GitHub Actions 크롤러
     '/api/webhooks/',        // 외부 웹훅
   ];
@@ -182,6 +184,13 @@ async function checkPageAuthentication(request: NextRequest): Promise<NextRespon
   // httpOnly 쿠키에서 토큰 확인
   const token = request.cookies.get('auth_token')?.value;
 
+  // 🔍 디버깅: 쿠키 정보 로깅
+  console.log(`🔍 [MIDDLEWARE] 페이지 인증 체크 - Path: ${request.nextUrl.pathname}`, {
+    hasCookie: !!token,
+    cookieNames: Array.from(request.cookies.getAll().map(c => c.name)),
+    userAgent: request.headers.get('user-agent')?.substring(0, 50)
+  });
+
   if (!token) {
     // 로그인 페이지로 리다이렉트
     const loginUrl = new URL('/login', request.url);
@@ -260,6 +269,11 @@ export async function middleware(request: NextRequest) {
       setSecurityHeaders(protectionResult);
       return protectionResult;
     }
+
+    // ✅ API 보호 통과 시 여기서 종료 (페이지 인증 체크 건너뛰기)
+    const response = NextResponse.next();
+    setSecurityHeaders(response);
+    return response;
   }
 
   // 일반 페이지 처리 - 인증이 필요한 페이지 확인
