@@ -85,6 +85,11 @@ export function useBusinessData() {
                         business.manufacturer === 'cleanearth' ? '크린어스' :
                         business.manufacturer === 'gaia_cns' ? '가이아씨앤에스' :
                         business.manufacturer === 'evs' ? '이브이에스' :
+                        // 한글로 저장된 경우도 그대로 유지 (병합 업로드 지원)
+                        business.manufacturer === '에코센스' ? '에코센스' :
+                        business.manufacturer === '크린어스' ? '크린어스' :
+                        business.manufacturer === '가이아씨앤에스' ? '가이아씨앤에스' :
+                        business.manufacturer === '이브이에스' ? '이브이에스' :
                         business.manufacturer || '',
           negotiation: business.negotiation || '',
           // 한국어 센서/장비 필드명 매핑

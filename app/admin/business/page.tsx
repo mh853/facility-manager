@@ -3148,6 +3148,9 @@ function BusinessManagementPage() {
       render: (item: any) => {
         const manufacturer = item.manufacturer || '-'
 
+        // 공백 제거 및 정규화 (띄어쓰기, 앞뒤 공백 제거)
+        const normalizedManufacturer = typeof manufacturer === 'string' ? manufacturer.trim() : manufacturer
+
         // 제조사별 스타일 정의
         const getManufacturerStyle = (name: string) => {
           switch(name) {
@@ -3166,8 +3169,8 @@ function BusinessManagementPage() {
 
         return (
           <div className="text-center">
-            <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getManufacturerStyle(manufacturer)}`}>
-              {searchQuery ? highlightSearchTerm(manufacturer, searchQuery) : manufacturer}
+            <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getManufacturerStyle(normalizedManufacturer)}`}>
+              {searchQuery ? highlightSearchTerm(normalizedManufacturer, searchQuery) : normalizedManufacturer}
             </span>
           </div>
         )
@@ -3208,6 +3211,9 @@ function BusinessManagementPage() {
       render: (item: any) => {
         const progressStatus = item.progress_status || (item as any).진행상태 || '-'
 
+        // 공백 제거 및 정규화 (띄어쓰기, 앞뒤 공백 제거)
+        const normalizedStatus = typeof progressStatus === 'string' ? progressStatus.trim() : progressStatus
+
         // 진행구분별 스타일 정의
         const getProgressStatusStyle = (status: string) => {
           switch(status) {
@@ -3228,8 +3234,8 @@ function BusinessManagementPage() {
 
         return (
           <div className="text-center">
-            <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getProgressStatusStyle(progressStatus)}`}>
-              {progressStatus}
+            <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getProgressStatusStyle(normalizedStatus)}`}>
+              {normalizedStatus}
             </span>
           </div>
         )
