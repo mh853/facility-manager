@@ -29,6 +29,7 @@ function BoardSkeleton({ height = 'h-64' }: { height?: string }) {
 
 /**
  * 메인 페이지 (루트 페이지 개편)
+ * - 인증 필요: 로그인한 사용자만 접근 가능
  * - AdminLayout 기반 레이아웃
  * - 공지사항, 전달사항 대시보드
  * - 성능 최적화: Lazy loading으로 초기 번들 크기 감소

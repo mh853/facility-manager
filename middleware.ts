@@ -56,7 +56,6 @@ function setSecurityHeaders(response: NextResponse): void {
 // 공개 경로 확인 (로그인 없이 접근 가능한 페이지)
 function isPublicRoute(pathname: string): boolean {
   const publicRoutes = [
-    '/', // 홈페이지 (사업장 선택)
     '/login',
     '/signup',
     '/forgot-password',
