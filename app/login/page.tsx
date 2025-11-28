@@ -57,6 +57,8 @@ function LoginForm() {
     try {
       // ✅ 절대 URL 사용 (배포 환경에서 경로 문제 방지)
       const apiUrl = `${window.location.origin}/api/auth/login`
+      console.log('🔍 [LOGIN] API URL:', apiUrl)
+      console.log('🔍 [LOGIN] window.location.origin:', window.location.origin)
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
