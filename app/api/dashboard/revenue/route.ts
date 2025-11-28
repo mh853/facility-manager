@@ -7,6 +7,10 @@ import {
   type AggregationLevel
 } from '@/lib/dashboard-utils'
 
+// Force dynamic rendering for API routes
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 interface RevenueQueryParams {
   months?: string;
   office?: string;
