@@ -24,9 +24,11 @@ function LoginForm() {
   useEffect(() => {
     if (user && !authLoading) {
       const redirectTo = searchParams?.get('redirect') || '/admin'
-      router.push(redirectTo)
+      console.log('✅ 이미 로그인됨, 리다이렉트:', redirectTo)
+      // ✅ 즉시 리다이렉트 (이미 로그인된 상태이므로 쿠키 존재 보장)
+      window.location.href = redirectTo
     }
-  }, [user, authLoading, router, searchParams])
+  }, [user, authLoading, searchParams])
 
   // URL 파라미터에서 오류 메시지 확인
   useEffect(() => {
@@ -73,10 +75,12 @@ function LoginForm() {
         if (authResult.success) {
           setSuccessMessage('로그인되었습니다!')
 
+          // ✅ 2초 대기 후 리다이렉트 (쿠키 설정 보장)
           setTimeout(() => {
             const redirectTo = searchParams?.get('redirect') || '/admin'
-            router.push(redirectTo)
-          }, 1000)
+            console.log('🔄 로그인 성공, 리다이렉트:', redirectTo)
+            window.location.href = redirectTo
+          }, 2000)
         } else {
           setError(authResult.error || '인증 처리 중 오류가 발생했습니다.')
         }
