@@ -137,16 +137,16 @@ export default function BusinessCard({
     >
       {/* 헤더: 진행구분 + 제조사 */}
       <div className="flex items-center justify-between mb-2">
-        <span className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium border rounded ${statusStyle.badgeBg} ${statusStyle.badgeText} ${statusStyle.badgeBorder}`}>
+        <span className={`px-1.5 py-0.5 text-xs sm:text-xs font-medium border rounded ${statusStyle.badgeBg} ${statusStyle.badgeText} ${statusStyle.badgeBorder}`}>
           {progressStatus}
         </span>
-        <span className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium border rounded ${getManufacturerStyle(manufacturer)}`}>
+        <span className={`px-1.5 py-0.5 text-xs sm:text-xs font-medium border rounded ${getManufacturerStyle(manufacturer)}`}>
           {renderText(manufacturer)}
         </span>
       </div>
 
       {/* 사업장명 */}
-      <h3 className="font-semibold text-xs sm:text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">
+      <h3 className="font-semibold text-sm sm:text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">
         {renderText(businessName)}
       </h3>
 
@@ -154,7 +154,7 @@ export default function BusinessCard({
       <div className="space-y-1.5">
         {/* 담당자 */}
         {managerName !== '-' && (
-          <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-600">
+          <div className="flex items-center gap-1.5 text-xs sm:text-xs text-gray-600">
             <User className="w-3 h-3 flex-shrink-0" />
             <span className="truncate">{renderText(managerName)}</span>
           </div>
@@ -162,23 +162,23 @@ export default function BusinessCard({
 
         {/* 연락처 */}
         {contact !== '-' && (
-          <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-600">
+          <div className="flex items-center gap-1.5 text-xs sm:text-xs text-gray-600">
             <Phone className="w-3 h-3 flex-shrink-0" />
             <span className="truncate">{renderText(contact)}</span>
           </div>
         )}
 
         {/* 주소 */}
-        <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-600">
+        <div className="flex items-center gap-1.5 text-xs sm:text-xs text-gray-600">
           <MapPin className="w-3 h-3 flex-shrink-0" />
           <span className="truncate" title={address}>{renderText(address)}</span>
         </div>
 
         {/* 사업진행연도 */}
         {projectYear && (
-          <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-600">
+          <div className="flex items-center gap-1.5 text-xs sm:text-xs text-gray-600">
             <Calendar className="w-3 h-3 flex-shrink-0" />
-            <span className="px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <span className="px-1.5 py-0.5 rounded-md text-xs sm:text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
               {projectYear}년
             </span>
           </div>
@@ -189,13 +189,13 @@ export default function BusinessCard({
       {taskStatus && (
         <div className="mt-2 pt-2 border-t border-gray-100">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] sm:text-[10px] text-gray-500">현재 단계</span>
-            <span className={`px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium ${taskStatus.colorClass}`}>
+            <span className="text-xs sm:text-xs text-gray-500">현재 단계</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs sm:text-xs font-medium ${taskStatus.colorClass}`}>
               {taskStatus.statusText}
             </span>
           </div>
           {taskStatus.lastUpdated && (
-            <div className="text-[9px] sm:text-[10px] text-gray-400 mt-0.5">
+            <div className="text-xs sm:text-xs text-gray-400 mt-0.5">
               {taskStatus.lastUpdated}
             </div>
           )}
@@ -209,7 +209,7 @@ export default function BusinessCard({
             e.stopPropagation()
             onBusinessClick(business)
           }}
-          className="flex items-center gap-0.5 text-[10px] sm:text-xs text-blue-600 font-medium hover:text-blue-700"
+          className="flex items-center gap-0.5 text-xs sm:text-xs text-blue-600 font-medium hover:text-blue-700"
         >
           상세보기
           <ChevronRight className="w-3 h-3" />

@@ -1275,8 +1275,8 @@ function TaskManagementPage() {
           <div className="bg-white rounded-md md:rounded-lg border border-gray-200 p-2 md:p-3 cursor-help relative group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600">전체 업무</p>
-                <p className="text-sm sm:text-lg md:text-2xl font-semibold text-gray-900">{dynamicStats.totalTasks}</p>
+                <p className="text-xs sm:text-xs md:text-sm text-gray-600">전체 업무</p>
+                <p className="text-lg sm:text-lg md:text-2xl font-semibold text-gray-900">{dynamicStats.totalTasks}</p>
               </div>
               <Target className="w-4 h-4 md:w-6 md:h-6 text-blue-500" />
             </div>
@@ -1295,8 +1295,8 @@ function TaskManagementPage() {
           <div className="bg-white rounded-md md:rounded-lg border border-gray-200 p-2 md:p-3 cursor-help relative group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600">활성 단계</p>
-                <p className="text-sm sm:text-lg md:text-2xl font-semibold text-orange-600">{dynamicStats.stepsWithTasks}</p>
+                <p className="text-xs sm:text-xs md:text-sm text-gray-600">활성 단계</p>
+                <p className="text-lg sm:text-lg md:text-2xl font-semibold text-orange-600">{dynamicStats.stepsWithTasks}</p>
               </div>
               <TrendingUp className="w-4 h-4 md:w-6 md:h-6 text-orange-500" />
             </div>
@@ -1315,8 +1315,8 @@ function TaskManagementPage() {
           <div className="bg-white rounded-md md:rounded-lg border border-gray-200 p-2 md:p-3 cursor-help relative group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600">높은 우선순위</p>
-                <p className="text-sm sm:text-lg md:text-2xl font-semibold text-red-600">{dynamicStats.highPriorityTasks}</p>
+                <p className="text-xs sm:text-xs md:text-sm text-gray-600">높은 우선순위</p>
+                <p className="text-lg sm:text-lg md:text-2xl font-semibold text-red-600">{dynamicStats.highPriorityTasks}</p>
               </div>
               <AlertCircle className="w-4 h-4 md:w-6 md:h-6 text-red-500" />
             </div>
@@ -1338,8 +1338,8 @@ function TaskManagementPage() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-red-600">지연 업무</p>
-                <p className="text-sm sm:text-lg md:text-2xl font-semibold text-red-700">{dynamicStats.delayedTasks}</p>
+                <p className="text-xs sm:text-xs md:text-sm text-red-600">지연 업무</p>
+                <p className="text-lg sm:text-lg md:text-2xl font-semibold text-red-700">{dynamicStats.delayedTasks}</p>
               </div>
               <Clock className="w-4 h-4 md:w-6 md:h-6 text-red-500" />
             </div>
@@ -1361,8 +1361,8 @@ function TaskManagementPage() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-yellow-600">위험 업무</p>
-                <p className="text-sm sm:text-lg md:text-2xl font-semibold text-yellow-700">{dynamicStats.atRiskTasks}</p>
+                <p className="text-xs sm:text-xs md:text-sm text-yellow-600">위험 업무</p>
+                <p className="text-lg sm:text-lg md:text-2xl font-semibold text-yellow-700">{dynamicStats.atRiskTasks}</p>
               </div>
               <AlertCircle className="w-4 h-4 md:w-6 md:h-6 text-yellow-500" />
             </div>
@@ -1891,10 +1891,10 @@ function TaskManagementPage() {
                     <div className="bg-green-600 rounded-sm p-1">
                       <FileText className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
                     </div>
-                    <h3 className="text-xs font-medium text-gray-900 truncate">업무정보</h3>
+                    <h3 className="text-xs sm:text-xs font-medium text-gray-900 truncate">업무정보</h3>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-900 truncate">
+                    <p className="text-xs sm:text-xs font-medium text-gray-900 truncate">
                       {createTaskForm.type === 'self' ? '자비' :
                        createTaskForm.type === 'subsidy' ? '보조금' :
                        createTaskForm.type === 'etc' ? '기타' : 'AS'}
@@ -1908,10 +1908,10 @@ function TaskManagementPage() {
                     <div className="bg-blue-600 rounded-sm p-1">
                       <Calendar className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
                     </div>
-                    <h3 className="text-xs font-medium text-gray-900 truncate">일정</h3>
+                    <h3 className="text-xs sm:text-xs font-medium text-gray-900 truncate">일정</h3>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-900 truncate">
+                    <p className="text-xs sm:text-xs font-medium text-gray-900 truncate">
                       {createTaskForm.startDate ? new Date(createTaskForm.startDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '미설정'}
                     </p>
                   </div>
@@ -1923,10 +1923,10 @@ function TaskManagementPage() {
                     <div className="bg-purple-600 rounded-sm p-1">
                       <User className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
                     </div>
-                    <h3 className="text-xs font-medium text-gray-900 truncate">우선순위</h3>
+                    <h3 className="text-xs sm:text-xs font-medium text-gray-900 truncate">우선순위</h3>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-900">
+                    <p className="text-xs sm:text-xs font-medium text-gray-900">
                       {createTaskForm.priority === 'high' ? '높음' :
                        createTaskForm.priority === 'medium' ? '보통' : '낮음'}
                     </p>
@@ -2194,10 +2194,10 @@ function TaskManagementPage() {
                     <div className="bg-green-600 rounded-sm p-1">
                       <CheckCircle className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
                     </div>
-                    <h3 className="text-xs font-medium text-gray-900 truncate">진행</h3>
+                    <h3 className="text-xs sm:text-xs font-medium text-gray-900 truncate">진행</h3>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-900 truncate">
+                    <p className="text-xs sm:text-xs font-medium text-gray-900 truncate">
                       {(editingTask.type === 'self' ? selfSteps :
                        editingTask.type === 'subsidy' ? subsidySteps :
                        editingTask.type === 'etc' ? etcSteps : asSteps)
@@ -2224,10 +2224,10 @@ function TaskManagementPage() {
                     }`}>
                       <Flag className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
                     </div>
-                    <h3 className="text-xs font-medium text-gray-900 truncate">우선</h3>
+                    <h3 className="text-xs sm:text-xs font-medium text-gray-900 truncate">우선</h3>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-900">
+                    <p className="text-xs sm:text-xs font-medium text-gray-900">
                       {editingTask.priority === 'high' ? '높음' :
                        editingTask.priority === 'medium' ? '보통' : '낮음'}
                     </p>
@@ -2240,10 +2240,10 @@ function TaskManagementPage() {
                     <div className="bg-blue-600 rounded-sm p-1">
                       <User className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
                     </div>
-                    <h3 className="text-xs font-medium text-gray-900 truncate">담당자</h3>
+                    <h3 className="text-xs sm:text-xs font-medium text-gray-900 truncate">담당자</h3>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-900 truncate">
+                    <p className="text-xs sm:text-xs font-medium text-gray-900 truncate">
                       {editingTask.assignee || '미배정'}
                     </p>
                   </div>

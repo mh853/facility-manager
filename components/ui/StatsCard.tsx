@@ -154,7 +154,7 @@ export default function StatsCard({
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-1 sm:mb-2 md:mb-3 lg:mb-4">
-        <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">{title}</h3>
+        <h3 className="text-xs sm:text-xs md:text-sm font-medium text-gray-600">{title}</h3>
         <div className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center ${colorScheme.icon}`}>
           <Icon className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6" />
         </div>
@@ -162,11 +162,11 @@ export default function StatsCard({
 
       {/* Value */}
       <div className="mb-1 sm:mb-1 md:mb-2">
-        <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900">
+        <div className="text-lg sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900">
           {formatValue(value)}
         </div>
         {description && (
-          <p className="text-[9px] sm:text-xs md:text-sm text-gray-500 mt-0.5">{description}</p>
+          <p className="text-xs sm:text-xs md:text-sm text-gray-500 mt-0.5">{description}</p>
         )}
       </div>
 
