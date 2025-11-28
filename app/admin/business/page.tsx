@@ -1247,8 +1247,18 @@ function BusinessManagementPage() {
   const stats = useMemo(() => {
     const currentYear = new Date().getFullYear()
     const thisYearBusinesses = allBusinesses.filter(b => b.project_year === currentYear).length
-    const subsidyBusinesses = allBusinesses.filter(b => b.progress_status === '보조금').length
-    const selfFundedBusinesses = allBusinesses.filter(b => b.progress_status === '자비').length
+
+    // 보조금: "보조금"만 포함
+    const subsidyBusinesses = allBusinesses.filter(b => {
+      const status = (b.progress_status || '').trim()
+      return status === '보조금'
+    }).length
+
+    // 자비: "자비" + "보조금 동시진행" 포함
+    const selfFundedBusinesses = allBusinesses.filter(b => {
+      const status = (b.progress_status || '').trim()
+      return status === '자비' || status === '보조금 동시진행'
+    }).length
 
     return {
       thisYear: thisYearBusinesses,
@@ -2307,13 +2317,13 @@ function BusinessManagementPage() {
         negotiation: freshData.negotiation,
 
         contacts: freshData.contacts || [],
-        manufacturer: freshData.manufacturer,
-        vpn: freshData.vpn,
+        manufacturer: freshData.manufacturer || '',
+        vpn: freshData.vpn || '',
         is_active: freshData.is_active,
-        progress_status: freshData.progress_status,
-        project_year: freshData.project_year,
-        revenue_source: freshData.revenue_source,
-        installation_team: freshData.installation_team,
+        progress_status: freshData.progress_status || '',
+        project_year: freshData.project_year || null,
+        revenue_source: freshData.revenue_source || '',
+        installation_team: freshData.installation_team || '',
         order_manager: freshData.order_manager || '',
 
         // 일정 관리
