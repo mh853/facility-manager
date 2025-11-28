@@ -301,7 +301,7 @@ export default function AdminLayout({ children, title, description, actions }: A
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 px-3 lg:px-3 py-2 lg:py-3 space-y-1 lg:space-y-1 lg:overflow-y-auto">
+            <nav className="flex-1 px-3 lg:px-3 py-2 lg:py-3 space-y-1 lg:space-y-1 overflow-y-auto overscroll-contain">
               <NavigationItems pathname={pathname || ''} onItemClick={() => setSidebarOpen(false)} />
             </nav>
 
