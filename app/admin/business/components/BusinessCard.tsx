@@ -110,8 +110,12 @@ export default function BusinessCard({
   }
 
   const progressStatus = business.progress_status || business.진행상태 || '미지정'
-  const statusStyle = getProgressStatusStyle(progressStatus)
+  // 공백 제거 및 정규화 (띄어쓰기, 앞뒤 공백 제거)
+  const normalizedProgressStatus = typeof progressStatus === 'string' ? progressStatus.trim() : progressStatus
+  const statusStyle = getProgressStatusStyle(normalizedProgressStatus)
   const manufacturer = business.manufacturer || '-'
+  // 공백 제거 및 정규화
+  const normalizedManufacturer = typeof manufacturer === 'string' ? manufacturer.trim() : manufacturer
   const projectYear = business.project_year || business.사업진행연도
   const businessName = business.사업장명 || business.business_name || ''
   const managerName = business.담당자명 || '-'
@@ -138,10 +142,10 @@ export default function BusinessCard({
       {/* 헤더: 진행구분 + 제조사 */}
       <div className="flex items-center justify-between mb-2">
         <span className={`px-1.5 py-0.5 text-xs sm:text-xs font-medium border rounded ${statusStyle.badgeBg} ${statusStyle.badgeText} ${statusStyle.badgeBorder}`}>
-          {progressStatus}
+          {normalizedProgressStatus}
         </span>
-        <span className={`px-1.5 py-0.5 text-xs sm:text-xs font-medium border rounded ${getManufacturerStyle(manufacturer)}`}>
-          {renderText(manufacturer)}
+        <span className={`px-1.5 py-0.5 text-xs sm:text-xs font-medium border rounded ${getManufacturerStyle(normalizedManufacturer)}`}>
+          {renderText(normalizedManufacturer)}
         </span>
       </div>
 
