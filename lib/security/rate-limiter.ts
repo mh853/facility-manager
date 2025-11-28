@@ -26,6 +26,10 @@ export class RateLimiter {
       windowMs: 15 * 60 * 1000, // 15분
       maxRequests: process.env.NODE_ENV === 'development' ? 100 : 5 // 개발: 100, 프로덕션: 5
     },
+    '/api/auth/verify': {
+      windowMs: 15 * 60 * 1000, // 15분
+      maxRequests: process.env.NODE_ENV === 'development' ? 1000 : 100 // 페이지 로드마다 호출되므로 높은 제한
+    },
     '/api/upload': {
       windowMs: 60 * 60 * 1000, // 1시간
       maxRequests: 20 // 파일 업로드 제한
