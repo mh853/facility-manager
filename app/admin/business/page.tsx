@@ -4471,16 +4471,6 @@ function BusinessManagementPage() {
                   <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">발주요청일</label>
-                      <input
-                        type="date"
-                        value={formData.order_request_date || ''}
-                        onChange={(e) => setFormData({...formData, order_request_date: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
-                      />
-                    </div>
-
-                    <div>
                       <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">발주일</label>
                       <input
                         type="date"

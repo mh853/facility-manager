@@ -101,6 +101,9 @@ interface UnifiedBusinessInfo {
   pre_construction_survey_date?: string | null
   completion_survey_manager?: string | null
   completion_survey_date?: string | null
+  construction_report_submitted_at?: string | null
+  greenlink_confirmation_submitted_at?: string | null
+  attachment_completion_submitted_at?: string | null
   manufacturer?: 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null
   vpn?: 'wired' | 'wireless' | null
   greenlink_id?: string | null
@@ -1121,13 +1124,6 @@ export default function BusinessDetailModal({
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
-                    {business.order_request_date && (
-                      <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                        <div className="text-xs sm:text-sm text-gray-600 mb-1">발주요청일</div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.order_request_date}</div>
-                      </div>
-                    )}
-
                     {business.order_date && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">발주일</div>
@@ -1146,6 +1142,27 @@ export default function BusinessDetailModal({
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">설치일</div>
                         <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.installation_date}</div>
+                      </div>
+                    )}
+
+                    {business.construction_report_submitted_at && (
+                      <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                        <div className="text-xs sm:text-sm text-gray-600 mb-1">착공신고서 제출일</div>
+                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.construction_report_submitted_at}</div>
+                      </div>
+                    )}
+
+                    {business.greenlink_confirmation_submitted_at && (
+                      <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                        <div className="text-xs sm:text-sm text-gray-600 mb-1">그린링크 전송확인서 제출일</div>
+                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.greenlink_confirmation_submitted_at}</div>
+                      </div>
+                    )}
+
+                    {business.attachment_completion_submitted_at && (
+                      <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                        <div className="text-xs sm:text-sm text-gray-600 mb-1">부착완료통보서 제출일</div>
+                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.attachment_completion_submitted_at}</div>
                       </div>
                     )}
 

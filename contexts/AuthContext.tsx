@@ -60,17 +60,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPermissions(userData.permissions);
       setSocialAccounts([]); // 일반 로그인은 소셜 계정 없음
 
-      // 🚀 즉시 백그라운드 Realtime 연결 시작
-      import('@/lib/realtime-manager').then(({ initializeRealtimeConnection }) => {
-        initializeRealtimeConnection().catch(console.error);
-        console.log('⚡ [AUTH] 백그라운드 Realtime 연결 시작됨');
-      }).catch((error) => {
-        console.warn('⚠️ [AUTH] Realtime 연결 초기화 실패 (기능 무시):', error.message);
-      });
-
       console.log('✅ [AUTH-CONTEXT] 일반 로그인 성공:', {
         user: userData.user
       });
+
+      // 🚀 로그인 성공 후 백그라운드 Realtime 연결 시작 (로그인 흐름과 완전히 분리)
+      // setTimeout으로 감싸서 현재 실행 컨텍스트와 분리
+      setTimeout(() => {
+        import('@/lib/realtime-manager')
+          .then(({ initializeRealtimeConnection }) => {
+            initializeRealtimeConnection()
+              .then(() => console.log('⚡ [AUTH] Realtime 연결 성공'))
+              .catch((err) => console.warn('⚠️ [AUTH] Realtime 연결 실패 (무시):', err.message));
+          })
+          .catch((err) => console.warn('⚠️ [AUTH] Realtime 모듈 로드 실패 (무시):', err.message));
+      }, 100);
 
       return { success: true };
     } catch (error) {
@@ -100,19 +104,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPermissions(response.data.permissions);
         setSocialAccounts(response.data.socialAccounts || []);
 
-        // 🚀 즉시 백그라운드 Realtime 연결 시작
-        import('@/lib/realtime-manager').then(({ initializeRealtimeConnection }) => {
-          initializeRealtimeConnection().catch(console.error);
-          console.log('⚡ [AUTH] 백그라운드 Realtime 연결 시작됨');
-        }).catch((error) => {
-          console.warn('⚠️ [AUTH] Realtime 연결 초기화 실패 (기능 무시):', error.message);
-        });
-
         console.log('✅ [AUTH-CONTEXT] 소셜 로그인 성공:', {
           user: response.data.user,
           isNewUser,
           socialAccounts: response.data.socialAccounts?.length || 0
         });
+
+        // 🚀 로그인 성공 후 백그라운드 Realtime 연결 시작 (로그인 흐름과 완전히 분리)
+        setTimeout(() => {
+          import('@/lib/realtime-manager')
+            .then(({ initializeRealtimeConnection }) => {
+              initializeRealtimeConnection()
+                .then(() => console.log('⚡ [AUTH] Realtime 연결 성공'))
+                .catch((err) => console.warn('⚠️ [AUTH] Realtime 연결 실패 (무시):', err.message));
+            })
+            .catch((err) => console.warn('⚠️ [AUTH] Realtime 모듈 로드 실패 (무시):', err.message));
+        }, 100);
 
         return { success: true };
       } else {
