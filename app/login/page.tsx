@@ -55,7 +55,9 @@ function LoginForm() {
     setError(null)
 
     try {
-      const response = await fetch('/api/auth/login', {
+      // ✅ 절대 URL 사용 (배포 환경에서 경로 문제 방지)
+      const apiUrl = `${window.location.origin}/api/auth/login`
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -75,12 +77,42 @@ function LoginForm() {
         if (authResult.success) {
           setSuccessMessage('로그인되었습니다!')
 
-          // ✅ 2초 대기 후 리다이렉트 (쿠키 설정 보장)
-          setTimeout(() => {
-            const redirectTo = searchParams?.get('redirect') || '/admin'
-            console.log('🔄 로그인 성공, 리다이렉트:', redirectTo)
-            window.location.href = redirectTo
-          }, 2000)
+          // ✅ 쿠키 설정 확인 후 리다이렉트 (폴링 방식)
+          const redirectTo = searchParams?.get('redirect') || '/admin'
+          console.log('🔄 로그인 성공, 쿠키 확인 시작')
+
+          let attempts = 0
+          const maxAttempts = 10 // 최대 5초 대기 (500ms * 10)
+
+          const checkCookieAndRedirect = () => {
+            attempts++
+            console.log(`🍪 쿠키 확인 시도 ${attempts}/${maxAttempts}`)
+
+            // 1️⃣ JavaScript로 읽을 수 있는 auth_ready 쿠키 확인
+            const authReady = document.cookie.split('; ').find(row => row.startsWith('auth_ready='))
+            console.log('🔍 auth_ready 쿠키:', authReady)
+
+            if (authReady) {
+              console.log('✅ 쿠키 확인 완료 (auth_ready 발견), 리다이렉트:', redirectTo)
+              // ✅ 안전한 리다이렉트: 현재 탭에서 replace (히스토리 제거)
+              window.location.replace(redirectTo)
+              return
+            }
+
+            // 2️⃣ auth_ready가 없으면 verify API로 재확인
+            if (attempts < maxAttempts) {
+              console.log('⏳ auth_ready 쿠키 미발견, 재시도...')
+              setTimeout(checkCookieAndRedirect, 500)
+            } else {
+              console.error('❌ 쿠키 설정 실패')
+              // 🆘 최후의 수단: 쿠키 문제가 있으므로 localStorage 토큰으로 리다이렉트
+              console.log('🔧 대안: localStorage 토큰 사용 리다이렉트')
+              window.location.replace(redirectTo)
+            }
+          }
+
+          // 초기 500ms 대기 후 확인 시작
+          setTimeout(checkCookieAndRedirect, 500)
         } else {
           setError(authResult.error || '인증 처리 중 오류가 발생했습니다.')
         }
