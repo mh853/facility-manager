@@ -55,18 +55,15 @@ function LoginForm() {
     setError(null)
 
     try {
-      // ✅ new URL()로 절대 경로 명확하게 생성 (Next.js 빌드 최적화 우회)
-      const apiUrl = new URL('/api/auth/login', window.location.origin).href
-      console.log('🔍 [LOGIN] API URL:', apiUrl)
-      console.log('🔍 [LOGIN] window.location:', window.location.href)
-      const response = await fetch(apiUrl, {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-cache',
         },
         body: JSON.stringify(formData),
-        credentials: 'include', // ✅ same-origin → include (쿠키 전송 보장)
+        credentials: 'same-origin',
+        mode: 'cors',
       })
 
       const result = await response.json()
