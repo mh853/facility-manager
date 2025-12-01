@@ -28,6 +28,9 @@ export async function addressToCoordinates(address: string): Promise<GeocodingRe
   try {
     const KAKAO_REST_API_KEY = process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY;
 
+    console.log('[Geocoding] 디버그 - API 키 존재 여부:', !!KAKAO_REST_API_KEY);
+    console.log('[Geocoding] 디버그 - API 키 앞 4자리:', KAKAO_REST_API_KEY?.substring(0, 4));
+
     if (!KAKAO_REST_API_KEY) {
       console.error('[Geocoding] 카카오 REST API 키가 설정되지 않았습니다.');
       return {
