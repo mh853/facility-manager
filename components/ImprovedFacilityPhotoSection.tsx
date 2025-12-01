@@ -1992,7 +1992,17 @@ function FacilityCard({
       {/* 촬영 가이드 */}
       <div className={`mb-3 p-3 bg-${colorScheme}-50 border border-${colorScheme}-200 rounded-lg`}>
         <p className={`text-xs text-${colorScheme}-700 font-medium mb-1`}>📸 필요 사진:</p>
-        {facilityType === 'prevention' ? (
+        {facilityType === 'prevention' && facility.fan ? (
+          // 송풍팬 (방지시설 중 fan 필드가 있는 경우)
+          <ul className={`text-xs text-${colorScheme}-600 space-y-0.5 ml-4`}>
+            <li>• 송풍팬</li>
+            <li>• 송풍시설 명판 (문자 식별 가능하도록 촬영)</li>
+            <li>• 분전함 외부 (주위가 넓게 보이도록 촬영)</li>
+            <li>• 분전함 내부</li>
+            <li>• 전류계 (문자 식별 가능하도록 촬영)</li>
+          </ul>
+        ) : facilityType === 'prevention' ? (
+          // 일반 방지시설
           <ul className={`text-xs text-${colorScheme}-600 space-y-0.5 ml-4`}>
             <li>• 방지시설</li>
             <li>• 방지시설 명판 (문자 식별 가능하도록 촬영)</li>
@@ -2000,6 +2010,7 @@ function FacilityCard({
             <li>• 차압계 (차압값 식별 가능하도록)</li>
           </ul>
         ) : (
+          // 배출시설
           <ul className={`text-xs text-${colorScheme}-600 space-y-0.5 ml-4`}>
             <li>• 배출시설</li>
             <li>• 분전함 외부 (동일한 분전함이라도 시설별 각각 첨부)</li>
