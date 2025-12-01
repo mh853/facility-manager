@@ -32,6 +32,13 @@ export default function BusinessRevenueModal({
   });
   const [isSavingAdjustment, setIsSavingAdjustment] = useState(false);
 
+  // 실사비 조정 상태
+  const [isEditingSurveyFee, setIsEditingSurveyFee] = useState(false);
+  const [surveyFeeForm, setSurveyFeeForm] = useState({
+    amount: 0
+  });
+  const [isSavingSurveyFee, setIsSavingSurveyFee] = useState(false);
+
   // API에서 최신 계산 결과 가져오기 (Hook은 항상 최상위에서 호출)
   // ⚠️ 중요: isOpen이 true로 변경될 때만 실행 (모달 열릴 때만)
   useEffect(() => {
@@ -91,6 +98,21 @@ export default function BusinessRevenueModal({
       setAdjustmentForm({ amount: 0, type: 'add', reason: '' });
     }
   }, [calculatedData?.operating_cost_adjustment]);
+
+  // 실사비 조정 값 로드
+  useEffect(() => {
+    if (calculatedData?.survey_fee_adjustment) {
+      setSurveyFeeForm({
+        amount: calculatedData.survey_fee_adjustment
+      });
+    } else if (business?.survey_fee_adjustment) {
+      setSurveyFeeForm({
+        amount: business.survey_fee_adjustment
+      });
+    } else {
+      setSurveyFeeForm({ amount: 0 });
+    }
+  }, [calculatedData?.survey_fee_adjustment, business?.survey_fee_adjustment]);
 
   // 영업비용 조정 저장 핸들러
   const handleSaveAdjustment = async () => {
@@ -214,6 +236,64 @@ export default function BusinessRevenueModal({
     }
   };
 
+  // 실사비 조정 저장 핸들러
+  const handleSaveSurveyFee = async () => {
+    if (!business?.id) return;
+
+    setIsSavingSurveyFee(true);
+    try {
+      const token = TokenManager.getToken();
+
+      // business_info 테이블에 직접 업데이트
+      const response = await fetch('/api/business-info-direct', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          id: business.id,
+          survey_fee_adjustment: surveyFeeForm.amount === null || surveyFeeForm.amount === undefined
+            ? null
+            : surveyFeeForm.amount
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // 매출 재계산
+        const calcResponse = await fetch('/api/revenue/calculate', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            business_id: business.id,
+            save_result: true
+          })
+        });
+
+        const calcData = await calcResponse.json();
+
+        if (calcData.success && calcData.data && calcData.data.calculation) {
+          setCalculatedData(calcData.data.calculation);
+        }
+
+        setIsEditingSurveyFee(false);
+        alert('실사비 조정이 저장되었습니다.');
+      } else {
+        alert(data.message || '실사비 조정 저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('실사비 조정 저장 오류:', error);
+      alert('저장 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
+    } finally {
+      setIsSavingSurveyFee(false);
+    }
+  };
+
   const formatCurrency = (amount: number | string | undefined) => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) || 0 : (amount || 0);
     return `₩${numAmount.toLocaleString()}`;
@@ -230,7 +310,8 @@ export default function BusinessRevenueModal({
   // 표시할 데이터: API 계산 결과 우선, 없으면 기존 business 객체 사용
   const displayData = calculatedData ? {
     ...calculatedData,
-    additional_installation_revenue: Number(calculatedData.installation_extra_cost) || 0
+    additional_installation_revenue: Number(calculatedData.installation_extra_cost) || 0,
+    survey_fee_adjustment: calculatedData.survey_fee_adjustment ?? business.survey_fee_adjustment
   } : {
     total_revenue: business.total_revenue || 0,
     total_cost: business.total_cost || 0,
@@ -240,7 +321,11 @@ export default function BusinessRevenueModal({
     installation_costs: business.installation_costs || 0,
     additional_installation_revenue: Number(business.installation_extra_cost) || Number(business.additional_installation_revenue) || 0,
     net_profit: business.net_profit || 0,
-    has_calculation: false
+    has_calculation: false,
+    survey_fee_adjustment: business.survey_fee_adjustment,
+    operating_cost_adjustment: null,
+    adjusted_sales_commission: null,
+    equipment_breakdown: undefined
   };
 
   return (
@@ -650,13 +735,109 @@ export default function BusinessRevenueModal({
                 <div className="bg-white rounded-lg p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-600">📋 실사비용</span>
+                    <div className="flex items-center gap-2">
+                      {displayData.survey_fee_adjustment && displayData.survey_fee_adjustment !== 0 ? (
+                        <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">
+                          조정됨
+                        </span>
+                      ) : null}
+                      <span className="text-xs text-gray-500">실사일 기반 계산</span>
+                    </div>
                   </div>
                   <p className="text-xl font-bold text-purple-700">
                     {formatCurrency(displayData.survey_costs)}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    실사일 기반 동적 계산
-                  </p>
+                  {displayData.survey_fee_adjustment && displayData.survey_fee_adjustment !== 0 ? (
+                    <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                      <div>기본: {formatCurrency((displayData.survey_costs || 0) - (displayData.survey_fee_adjustment || 0))}</div>
+                      <div className={displayData.survey_fee_adjustment > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                        조정: {displayData.survey_fee_adjustment > 0 ? '+' : ''}{formatCurrency(displayData.survey_fee_adjustment)}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {calculatedData ? '최신 계산 적용' : '저장된 값'}
+                    </p>
+                  )}
+                </div>
+
+                {/* 실사비용 조정 카드 */}
+                <div className="bg-purple-50 rounded-lg p-4 shadow-sm border-2 border-purple-300">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-600">⚙️ 실사비용 조정</span>
+                    {!isEditingSurveyFee && userPermission >= 2 && (
+                      <button
+                        onClick={() => setIsEditingSurveyFee(true)}
+                        className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                      >
+                        {displayData.survey_fee_adjustment && displayData.survey_fee_adjustment !== 0 ? '수정' : '추가'}
+                      </button>
+                    )}
+                  </div>
+
+                  {isEditingSurveyFee ? (
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        placeholder="조정 금액 (양수=증가, 음수=감소, 빈칸=제거)"
+                        value={surveyFeeForm.amount || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '') {
+                            setSurveyFeeForm({amount: null as any});
+                          } else {
+                            const numValue = Number(value);
+                            setSurveyFeeForm({amount: isNaN(numValue) ? null as any : numValue});
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                      <p className="text-xs text-gray-500">
+                        💡 기본 실사비 100,000원 기준, 양수는 증가/음수는 감소
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleSaveSurveyFee}
+                          disabled={isSavingSurveyFee}
+                          className="flex-1 px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                        >
+                          {isSavingSurveyFee ? '저장 중...' : '저장'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsEditingSurveyFee(false);
+                            // 기존 값으로 복원
+                            const currentValue = calculatedData?.survey_fee_adjustment ?? business?.survey_fee_adjustment;
+                            if (currentValue !== null && currentValue !== undefined) {
+                              setSurveyFeeForm({amount: currentValue});
+                            } else {
+                              setSurveyFeeForm({amount: null as any});
+                            }
+                          }}
+                          disabled={isSavingSurveyFee}
+                          className="flex-1 px-3 py-2 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400 disabled:opacity-50 font-medium"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      {displayData.survey_fee_adjustment && displayData.survey_fee_adjustment !== 0 ? (
+                        <p className="text-xl font-bold text-purple-700">
+                          {displayData.survey_fee_adjustment > 0 ? '+' : ''}
+                          {formatCurrency(displayData.survey_fee_adjustment)}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-500">조정 없음</p>
+                      )}
+                      {!userPermission || userPermission < 2 ? (
+                        <p className="text-xs text-gray-400 mt-2">
+                          ℹ️ 권한 레벨 2 이상만 수정 가능합니다
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
                 {/* 설치비 */}
@@ -740,6 +921,13 @@ export default function BusinessRevenueModal({
                     <span>- 실사비용</span>
                     <span className="font-bold text-purple-700">-{formatCurrency(displayData.survey_costs)}</span>
                   </div>
+                  {displayData.survey_fee_adjustment && displayData.survey_fee_adjustment !== 0 && (
+                    <div className="text-xs text-purple-600 pl-4 -mt-1 mb-2">
+                      (기본 {formatCurrency((displayData.survey_costs || 0) - (displayData.survey_fee_adjustment || 0))}
+                      {displayData.survey_fee_adjustment > 0 ? ' + ' : ' - '}
+                      {formatCurrency(Math.abs(displayData.survey_fee_adjustment))} 조정)
+                    </div>
+                  )}
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 기본설치비</span>
                     <span className="font-bold text-cyan-700">-{formatCurrency(displayData.installation_costs)}</span>

@@ -438,7 +438,10 @@ export async function POST(request: NextRequest) {
       baseSurveyCosts += surveyCostMap.completion || 0;
     }
 
-    const totalSurveyCosts = baseSurveyCosts + totalAdjustments;
+    // 실사비 조정 (기본 실사비 100,000원 기준 조정)
+    const surveyFeeAdjustment = businessInfo.survey_fee_adjustment || 0;
+
+    const totalSurveyCosts = baseSurveyCosts + totalAdjustments + surveyFeeAdjustment;
 
     // 8. 추가공사비 및 협의사항 반영
     const additionalCost = businessInfo.additional_cost || 0; // 추가공사비 (매출에 더하기)
@@ -517,7 +520,10 @@ export async function POST(request: NextRequest) {
       },
       // 영업비용 조정 정보 (신규)
       operating_cost_adjustment: operatingCostAdjustment || null,
-      adjusted_sales_commission: hasAdjustment ? adjustedSalesCommission : null
+      adjusted_sales_commission: hasAdjustment ? adjustedSalesCommission : null,
+      // 실사비 조정 정보
+      survey_fee_adjustment: surveyFeeAdjustment,
+      adjusted_survey_costs: totalSurveyCosts
     };
 
     let savedCalculation = null;

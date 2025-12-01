@@ -130,12 +130,21 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { id, updateData } = await request.json();
+    const body = await request.json();
+    const { id } = body;
+
+    // updateData가 있으면 사용, 없으면 body 자체를 updateData로 사용 (id 제외)
+    let updateData = body.updateData;
+    if (!updateData) {
+      // updateData 없이 직접 필드가 전달된 경우 (예: {id, survey_fee_adjustment})
+      const { id: _, ...restFields } = body;
+      updateData = restFields;
+    }
 
     if (!id) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'ID가 필요합니다' 
+      return NextResponse.json({
+        success: false,
+        error: 'ID가 필요합니다'
       }, { status: 400 });
     }
 
@@ -345,6 +354,15 @@ export async function PUT(request: Request) {
     if (updateData.installation_extra_cost !== undefined) {
       updateObject.installation_extra_cost = parseInt(updateData.installation_extra_cost) || null;
     }
+    if (updateData.survey_fee_adjustment !== undefined) {
+      // null, undefined, 빈 문자열이면 null로, 그 외에는 parseInt
+      if (updateData.survey_fee_adjustment === null || updateData.survey_fee_adjustment === '' || updateData.survey_fee_adjustment === undefined) {
+        updateObject.survey_fee_adjustment = null;
+      } else {
+        const numValue = parseInt(updateData.survey_fee_adjustment);
+        updateObject.survey_fee_adjustment = isNaN(numValue) ? null : numValue;
+      }
+    }
     if (updateData.negotiation !== undefined) {
       updateObject.negotiation = normalizeUTF8(updateData.negotiation || '');
     }
@@ -437,6 +455,17 @@ export async function PUT(request: Request) {
     }
     if (updateData.payment_balance_amount !== undefined) {
       updateObject.payment_balance_amount = updateData.payment_balance_amount ? parseInt(updateData.payment_balance_amount) : null;
+    }
+
+    // 제출일 관리 필드 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
+    if (updateData.construction_report_submitted_at !== undefined) {
+      updateObject.construction_report_submitted_at = updateData.construction_report_submitted_at || null;
+    }
+    if (updateData.greenlink_confirmation_submitted_at !== undefined) {
+      updateObject.greenlink_confirmation_submitted_at = updateData.greenlink_confirmation_submitted_at || null;
+    }
+    if (updateData.attachment_completion_submitted_at !== undefined) {
+      updateObject.attachment_completion_submitted_at = updateData.attachment_completion_submitted_at || null;
     }
 
     // Set updated timestamp
@@ -595,6 +624,11 @@ export async function POST(request: Request) {
             invoice_balance_amount: business.invoice_balance_amount ? parseInt(business.invoice_balance_amount) : null,
             payment_balance_date: business.payment_balance_date || null,
             payment_balance_amount: business.payment_balance_amount ? parseInt(business.payment_balance_amount) : null,
+
+            // 제출일 관리 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
+            construction_report_submitted_at: business.construction_report_submitted_at || null,
+            greenlink_confirmation_submitted_at: business.greenlink_confirmation_submitted_at || null,
+            attachment_completion_submitted_at: business.attachment_completion_submitted_at || null,
 
             updated_at: new Date().toISOString()
           };
@@ -811,6 +845,11 @@ export async function POST(request: Request) {
       invoice_balance_amount: businessData.invoice_balance_amount ? parseInt(businessData.invoice_balance_amount) : null,
       payment_balance_date: businessData.payment_balance_date || null,
       payment_balance_amount: businessData.payment_balance_amount ? parseInt(businessData.payment_balance_amount) : null,
+
+      // 제출일 관리 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
+      construction_report_submitted_at: businessData.construction_report_submitted_at || null,
+      greenlink_confirmation_submitted_at: businessData.greenlink_confirmation_submitted_at || null,
+      attachment_completion_submitted_at: businessData.attachment_completion_submitted_at || null,
 
       // System fields
       created_at: new Date().toISOString(),

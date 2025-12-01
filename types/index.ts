@@ -118,6 +118,7 @@ export interface BusinessInfo {
   // 비용 정보
   additional_cost?: number;              // 추가공사비 (계산서 발행 항목)
   installation_extra_cost?: number;      // 추가설치비 (설치팀 요청 추가 비용)
+  survey_fee_adjustment?: number;        // 실사비 조정 (기본 100,000원 기준 조정금액)
 
   // Phase별 담당자 정보 및 특이사항 (독립 저장)
   // 설치 전 실사 (Presurvey)
@@ -143,6 +144,11 @@ export interface BusinessInfo {
   inspector_contact?: string;
   inspector_date?: string;
   special_notes?: string;
+
+  // 제출일 관리 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
+  construction_report_submitted_at?: string;    // 착공신고서 제출일
+  greenlink_confirmation_submitted_at?: string; // 그린링크 전송확인서 제출일
+  attachment_completion_submitted_at?: string;  // 부착완료통보서 제출일
 }
 
 export interface FileInfo {
@@ -388,6 +394,10 @@ export interface CalculatedData {
   // 영업비용 조정 관련 (신규)
   operating_cost_adjustment?: OperatingCostAdjustment | null;
   adjusted_sales_commission?: number;
+
+  // 실사비 조정 관련
+  survey_fee_adjustment?: number;
+  adjusted_survey_costs?: number;
 }
 
 export interface BusinessSummaryResponse {
@@ -409,4 +419,18 @@ export interface BusinessSummaryResponse {
     };
   };
   message: string;
+}
+
+// 사업장 관리 날짜 필터링 조건 타입
+export interface DateFilterCondition {
+  field: 'order_date' | 'survey_date' | 'installation_date' | 'completion_date' |
+         'construction_report_submitted_at' | 'greenlink_confirmation_submitted_at' |
+         'attachment_completion_submitted_at';
+  hasValue: boolean; // true: 날짜 있음, false: 날짜 없음
+}
+
+export interface DateFilterPreset {
+  id: string;
+  label: string;
+  conditions: DateFilterCondition[];
 }
