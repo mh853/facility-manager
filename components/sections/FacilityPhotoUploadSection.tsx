@@ -1283,7 +1283,19 @@ export default function FacilityPhotoUploadSection({
                 <Zap className="w-4 h-4" />
                 송풍팬
               </h4>
-              
+
+              {/* 촬영 가이드 */}
+              <div className="mb-3 p-3 bg-cyan-100 border border-cyan-300 rounded-lg">
+                <p className="text-xs text-cyan-800 font-medium mb-1">📸 필요 사진:</p>
+                <ul className="text-xs text-cyan-700 space-y-0.5 ml-4">
+                  <li>• 송풍팬</li>
+                  <li>• 송풍시설 명판 (문자 식별 가능하도록 촬영)</li>
+                  <li>• 분전함 외부 (주위가 넓게 보이도록 촬영)</li>
+                  <li>• 분전함 내부</li>
+                  <li>• 전류계 (문자 식별 가능하도록 촬영)</li>
+                </ul>
+              </div>
+
               {/* 업로드 진행률 (송풍팬) */}
               {uploading['basic-fan'] && (
                 <div className="mb-3">
