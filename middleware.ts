@@ -32,7 +32,7 @@ function setSecurityHeaders(response: NextResponse): void {
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js 요구사항
     "style-src 'self' 'unsafe-inline'", // TailwindCSS 지원
     "img-src 'self' data: blob: https:", // 이미지 업로드 지원
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co", // Supabase 연결
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://dapi.kakao.com", // Supabase 연결 + 카카오 지오코딩 API
     "font-src 'self' data:",
     "frame-src 'self' https://*.supabase.co", // Supabase Storage iframe 허용 (캘린더 파일 미리보기)
     "object-src 'self' https://*.supabase.co", // PDF embed 태그 허용 (캘린더 파일 미리보기)
