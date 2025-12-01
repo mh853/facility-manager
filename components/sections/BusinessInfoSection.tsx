@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Building2, MapPin, Phone, Calendar, User, Navigation, ExternalLink, X } from 'lucide-react';
 import { BusinessInfo } from '@/types';
-import { createPhoneLink, createNavigationLinks } from '@/utils/contact';
+import { createPhoneLink, createNavigationLinks, createKakaoNaviLink } from '@/utils/contact';
 
 interface BusinessInfoSectionProps {
   businessInfo: BusinessInfo;
@@ -28,34 +28,54 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
   };
 
   // 네비게이션 앱 열기
-  const openNavigationApp = (app: 'tmap' | 'naver' | 'kakao') => {
+  const openNavigationApp = async (app: 'tmap' | 'naver' | 'kakao') => {
     const links = createNavigationLinks(selectedAddress);
-    
+
     if (!links) {
       alert('주소 정보가 없습니다.');
       return;
     }
 
     const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (!isMobile && app === 'naver') {
-      // PC에서는 네이버 지도 웹 버전으로
-      window.open(`https://map.naver.com/v5/search/${encodeURIComponent(selectedAddress)}`, '_blank');
-    } else {
-      // 모바일에서는 앱 링크로
-      window.location.href = links[app];
-      
-      // 앱이 없으면 웹 버전으로 fallback (2초 후)
-      setTimeout(() => {
-        if (app === 'naver') {
-          window.open(`https://map.naver.com/v5/search/${encodeURIComponent(selectedAddress)}`, '_blank');
-        } else if (app === 'kakao') {
-          // 카카오내비 웹 버전 (없으면 카카오맵으로 fallback)
-          window.open(`https://kakaonavi.kakao.com/launch/index.do?url=kakaomap://search?q=${encodeURIComponent(selectedAddress)}`, '_blank');
+
+    // 카카오내비는 비동기 처리 (지오코딩)
+    if (app === 'kakao') {
+      try {
+        const kakaoNaviUrl = await createKakaoNaviLink(selectedAddress);
+
+        if (kakaoNaviUrl) {
+          window.location.href = kakaoNaviUrl;
+
+          // 앱이 없으면 웹 버전으로 fallback (2초 후)
+          setTimeout(() => {
+            window.open(`https://map.kakao.com/link/search/${encodeURIComponent(selectedAddress)}`, '_blank');
+          }, 2000);
+        } else {
+          alert('주소를 처리할 수 없습니다.');
         }
-      }, 2000);
+      } catch (error) {
+        console.error('카카오내비 URL 생성 오류:', error);
+        // 에러 시 카카오맵으로 폴백
+        window.location.href = links[app];
+      }
+    } else {
+      // 티맵, 네이버는 기존 동기 방식
+      if (!isMobile && app === 'naver') {
+        // PC에서는 네이버 지도 웹 버전으로
+        window.open(`https://map.naver.com/v5/search/${encodeURIComponent(selectedAddress)}`, '_blank');
+      } else {
+        // 모바일에서는 앱 링크로
+        window.location.href = links[app];
+
+        // 앱이 없으면 웹 버전으로 fallback (2초 후)
+        setTimeout(() => {
+          if (app === 'naver') {
+            window.open(`https://map.naver.com/v5/search/${encodeURIComponent(selectedAddress)}`, '_blank');
+          }
+        }, 2000);
+      }
     }
-    
+
     setShowNavigationModal(false);
   };
 
