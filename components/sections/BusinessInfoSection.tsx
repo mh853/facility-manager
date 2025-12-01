@@ -275,8 +275,8 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
                     <span className="text-yellow-600 font-bold text-lg">K</span>
                   </div>
                   <div className="text-left">
-                    <div className="font-semibold text-gray-900">카카오맵</div>
-                    <div className="text-sm text-gray-500">카카오 지도 서비스</div>
+                    <div className="font-semibold text-gray-900">카카오내비</div>
+                    <div className="text-sm text-gray-500">카카오 내비게이션</div>
                   </div>
                 </button>
               </div>
