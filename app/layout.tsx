@@ -1,4 +1,5 @@
 import { Inter, Noto_Sans_KR } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import ClientProviders from '@/components/providers/ClientProviders';
 
@@ -85,6 +86,7 @@ export default function RootLayout({
         {/* DNS Prefetch 최적화 */}
         <link rel="dns-prefetch" href="//fonts.googleapis.com" />
         <link rel="dns-prefetch" href="//googleapis.com" />
+        <link rel="dns-prefetch" href="//t1.kakaocdn.net" />
         
         {/* Preconnect for faster connections */}
         <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="" />
@@ -138,6 +140,14 @@ export default function RootLayout({
         />
       </head>
       <body className={`${notoSansKR.className} antialiased`}>
+        {/* Kakao JavaScript SDK */}
+        <Script
+          src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+          integrity="sha384-TiCUE00h649CAMonG018J2ujOgDKW/kVWlChEuu4jK2vxfAAD0eZxzCKakxg55G4"
+          crossOrigin="anonymous"
+          strategy="beforeInteractive"
+        />
+
         {/* 로딩 성능 모니터링 */}
         <script
           dangerouslySetInnerHTML={{
@@ -147,7 +157,7 @@ export default function RootLayout({
                   const perfData = window.performance.timing;
                   const pageLoadTime = perfData.loadEventEnd - perfData.navigationStart;
                   console.log('📊 페이지 로드 시간:', pageLoadTime + 'ms');
-                  
+
                   if (pageLoadTime > 3000) {
                     console.warn('⚠️ 페이지 로딩이 3초를 초과했습니다!');
                   }

@@ -29,7 +29,7 @@ function setSecurityHeaders(response: NextResponse): void {
   // Content Security Policy (CSP)
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js 요구사항
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://t1.kakaocdn.net", // Next.js + Kakao SDK
     "style-src 'self' 'unsafe-inline'", // TailwindCSS 지원
     "img-src 'self' data: blob: https:", // 이미지 업로드 지원
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://dapi.kakao.com", // Supabase 연결 + 카카오 지오코딩 API
