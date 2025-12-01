@@ -89,7 +89,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; frame-src 'self' https://*.supabase.co; object-src 'self' https://*.supabase.co; img-src 'self' data: https:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" // Supabase Storage iframe/embed 허용
+            value: "default-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://dapi.kakao.com; frame-src 'self' https://*.supabase.co; object-src 'self' https://*.supabase.co; img-src 'self' data: https:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" // Supabase Storage iframe/embed 허용 + 카카오 지오코딩 API
           }
         ],
       },
