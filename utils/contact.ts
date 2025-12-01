@@ -43,9 +43,9 @@ export async function createKakaoNaviLink(address: string): Promise<string | nul
 
     if (result.success && result.coordinates) {
       const { lat, lng } = result.coordinates;
-      // 카카오내비 URL Scheme - 목적지 이름, 경도(x), 위도(y) 모두 필수
-      const encodedName = encodeURIComponent(address.trim());
-      return `kakaonavi://navigate?ep=${lng},${lat}&ep_name=${encodedName}`;
+      // 카카오맵 내비게이션 URL Scheme (공식 문서)
+      // type=safedrive: 안전운전 모드, ep: 목적지 좌표 (위도,경도)
+      return `kakaomap://startnavi?type=safedrive&ep=${lat},${lng}`;
     } else {
       console.warn(`[createKakaoNaviLink] 주소 변환 실패: ${result.error}`);
       // 폴백: 카카오맵 검색으로 대체
