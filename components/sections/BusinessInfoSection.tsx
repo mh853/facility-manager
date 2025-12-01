@@ -50,7 +50,8 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
         if (app === 'naver') {
           window.open(`https://map.naver.com/v5/search/${encodeURIComponent(selectedAddress)}`, '_blank');
         } else if (app === 'kakao') {
-          window.open(`https://map.kakao.com/link/search/${encodeURIComponent(selectedAddress)}`, '_blank');
+          // 카카오내비 웹 버전 (없으면 카카오맵으로 fallback)
+          window.open(`https://kakaonavi.kakao.com/launch/index.do?url=kakaomap://search?q=${encodeURIComponent(selectedAddress)}`, '_blank');
         }
       }, 2000);
     }

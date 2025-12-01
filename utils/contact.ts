@@ -26,7 +26,7 @@ export function createNavigationLinks(address: string) {
   return {
     tmap: `tmap://route?goalname=목적지&goalx=0&goaly=0&reqCoordType=WGS84GEO&goalAddr=${encodedAddress}`,
     naver: `nmap://search?query=${encodedAddress}&appname=com.facility.manager`,
-    kakao: `kakaomap://search?q=${encodedAddress}`
+    kakao: `kakaonavi://search?q=${encodedAddress}`
   };
 }
 
