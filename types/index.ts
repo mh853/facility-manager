@@ -434,3 +434,21 @@ export interface DateFilterPreset {
   label: string;
   conditions: DateFilterCondition[];
 }
+
+// Kakao SDK TypeScript 타입 정의
+declare global {
+  interface Window {
+    Kakao: {
+      init: (appKey: string) => void;
+      isInitialized: () => boolean;
+      Navi: {
+        start: (options: {
+          name: string;
+          x: number; // 경도 (longitude)
+          y: number; // 위도 (latitude)
+          coordType: 'wgs84' | 'katec';
+        }) => void;
+      };
+    };
+  }
+}

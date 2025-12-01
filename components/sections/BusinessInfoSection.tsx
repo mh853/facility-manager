@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Building2, MapPin, Phone, Calendar, User, Navigation, ExternalLink, X } from 'lucide-react';
 import { BusinessInfo } from '@/types';
-import { createPhoneLink, createNavigationLinks, createKakaoNaviLink } from '@/utils/contact';
+import { createPhoneLink, createNavigationLinks, startKakaoNavi } from '@/utils/contact';
 
 interface BusinessInfoSectionProps {
   businessInfo: BusinessInfo;
@@ -38,25 +38,13 @@ export default function BusinessInfoSection({ businessInfo }: BusinessInfoSectio
 
     const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    // 카카오내비는 비동기 처리 (지오코딩)
+    // 카카오내비는 Kakao JavaScript SDK 사용 (공식 방법)
     if (app === 'kakao') {
       try {
-        const kakaoNaviUrl = await createKakaoNaviLink(selectedAddress);
-
-        if (kakaoNaviUrl) {
-          window.location.href = kakaoNaviUrl;
-
-          // 앱이 없으면 웹 버전으로 fallback (2초 후)
-          setTimeout(() => {
-            window.open(`https://map.kakao.com/link/search/${encodeURIComponent(selectedAddress)}`, '_blank');
-          }, 2000);
-        } else {
-          alert('주소를 처리할 수 없습니다.');
-        }
+        await startKakaoNavi(selectedAddress);
       } catch (error) {
-        console.error('카카오내비 URL 생성 오류:', error);
-        // 에러 시 카카오맵으로 폴백
-        window.location.href = links[app];
+        console.error('카카오내비 실행 오류:', error);
+        // 에러는 startKakaoNavi 함수 내부에서 사용자에게 이미 알림
       }
     } else {
       // 티맵, 네이버는 기존 동기 방식
