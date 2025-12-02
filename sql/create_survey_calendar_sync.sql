@@ -101,6 +101,14 @@ CREATE INDEX IF NOT EXISTS idx_survey_events_labels
 CREATE OR REPLACE FUNCTION sync_business_to_survey_events()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- 🔒 무한 루프 방지: 이미 동기화 중이면 트리거 실행 안 함
+  IF current_setting('app.syncing_survey', TRUE) = 'true' THEN
+    RETURN NEW;
+  END IF;
+
+  -- 🔓 동기화 플래그 설정
+  PERFORM set_config('app.syncing_survey', 'true', TRUE);
+
   -- 견적실사 동기화
   IF NEW.estimate_survey_date IS NOT NULL THEN
     INSERT INTO survey_events (
@@ -196,6 +204,14 @@ RETURNS TRIGGER AS $$
 DECLARE
   survey_type_value TEXT;
 BEGIN
+  -- 🔒 무한 루프 방지: 이미 동기화 중이면 트리거 실행 안 함
+  IF current_setting('app.syncing_survey', TRUE) = 'true' THEN
+    RETURN NEW;
+  END IF;
+
+  -- 🔓 동기화 플래그 설정
+  PERFORM set_config('app.syncing_survey', 'true', TRUE);
+
   survey_type_value := NEW.survey_type;
 
   -- survey_type에 따라 business_info 업데이트

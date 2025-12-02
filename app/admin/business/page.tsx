@@ -145,10 +145,16 @@ interface UnifiedBusinessInfo {
   // 실사 관리 필드
   estimate_survey_manager?: string | null;
   estimate_survey_date?: string | null;
+  estimate_survey_start_time?: string | null;  // ✅ 시간 필드 추가
+  estimate_survey_end_time?: string | null;    // ✅ 시간 필드 추가
   pre_construction_survey_manager?: string | null;
   pre_construction_survey_date?: string | null;
+  pre_construction_survey_start_time?: string | null;  // ✅ 시간 필드 추가
+  pre_construction_survey_end_time?: string | null;    // ✅ 시간 필드 추가
   completion_survey_manager?: string | null;
   completion_survey_date?: string | null;
+  completion_survey_start_time?: string | null;  // ✅ 시간 필드 추가
+  completion_survey_end_time?: string | null;    // ✅ 시간 필드 추가
 
   // 제출일 관리 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
   construction_report_submitted_at?: string | null;
@@ -4572,6 +4578,26 @@ function BusinessManagementPage() {
                             className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
                           />
                         </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">시작 시간</label>
+                            <input
+                              type="time"
+                              value={formData.estimate_survey_start_time || ''}
+                              onChange={(e) => setFormData({...formData, estimate_survey_start_time: e.target.value})}
+                              className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">종료 시간</label>
+                            <input
+                              type="time"
+                              value={formData.estimate_survey_end_time || ''}
+                              onChange={(e) => setFormData({...formData, estimate_survey_end_time: e.target.value})}
+                              className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -4598,6 +4624,26 @@ function BusinessManagementPage() {
                             className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
                           />
                         </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">시작 시간</label>
+                            <input
+                              type="time"
+                              value={formData.pre_construction_survey_start_time || ''}
+                              onChange={(e) => setFormData({...formData, pre_construction_survey_start_time: e.target.value})}
+                              className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">종료 시간</label>
+                            <input
+                              type="time"
+                              value={formData.pre_construction_survey_end_time || ''}
+                              onChange={(e) => setFormData({...formData, pre_construction_survey_end_time: e.target.value})}
+                              className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -4623,6 +4669,26 @@ function BusinessManagementPage() {
                             onChange={(e) => setFormData({...formData, completion_survey_date: e.target.value})}
                             className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
                           />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">시작 시간</label>
+                            <input
+                              type="time"
+                              value={formData.completion_survey_start_time || ''}
+                              onChange={(e) => setFormData({...formData, completion_survey_start_time: e.target.value})}
+                              className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">종료 시간</label>
+                            <input
+                              type="time"
+                              value={formData.completion_survey_end_time || ''}
+                              onChange={(e) => setFormData({...formData, completion_survey_end_time: e.target.value})}
+                              className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>

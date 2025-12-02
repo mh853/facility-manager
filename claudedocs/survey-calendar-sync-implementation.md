@@ -436,6 +436,61 @@ CREATE TABLE survey_events (
 
 ---
 
+### 문제 2: 트리거 무한 루프 오류
+**오류 메시지**:
+```
+ERROR: 54001: stack depth limit exceeded
+HINT: Increase the configuration parameter "max_stack_depth"
+CONTEXT: [Repeating pattern of:]
+SQL statement "INSERT INTO survey_events (...)"
+PL/pgSQL function sync_business_to_survey_events()
+SQL statement "UPDATE business_info SET estimate_survey_date = ..."
+PL/pgSQL function sync_survey_to_business_info()
+```
+
+**원인**:
+양방향 트리거가 서로를 무한 호출:
+```
+business_info UPDATE
+  → sync_business_to_survey_events() 트리거
+    → survey_events INSERT/UPDATE
+      → sync_survey_to_business_info() 트리거
+        → business_info UPDATE
+          → sync_business_to_survey_events() 트리거 (무한 루프!)
+```
+
+**해결책**:
+트랜잭션 범위 세션 변수를 사용한 루프 방지:
+
+```sql
+CREATE OR REPLACE FUNCTION sync_business_to_survey_events()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- 🔒 무한 루프 방지: 이미 동기화 중이면 트리거 실행 안 함
+  IF current_setting('app.syncing_survey', TRUE) = 'true' THEN
+    RETURN NEW;
+  END IF;
+
+  -- 🔓 동기화 플래그 설정
+  PERFORM set_config('app.syncing_survey', 'true', TRUE);
+
+  -- ... 동기화 로직 ...
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 동일한 로직을 sync_survey_to_business_info()에도 적용
+```
+
+**작동 원리**:
+1. 트리거 시작 시 `app.syncing_survey` 플래그 확인
+2. 이미 `true`면 즉시 리턴 (재진입 차단)
+3. 플래그를 `true`로 설정 후 동기화 수행
+4. `TRUE` 파라미터로 트랜잭션 범위 설정 (자동 리셋)
+
+---
+
 ## 🔗 관련 파일
 
 - **SQL 스키마**: [`/sql/create_survey_calendar_sync.sql`](../sql/create_survey_calendar_sync.sql)

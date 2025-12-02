@@ -130,6 +130,8 @@ export default function CalendarBoard() {
           title: survey.title,
           description: survey.description || null,
           event_date: survey.event_date,
+          start_time: survey.start_time || null,  // ✅ 시간 필드 추가
+          end_time: survey.end_time || null,      // ✅ 시간 필드 추가
           event_type: 'schedule' as const, // 실사는 일정 타입으로
           is_completed: false,
           author_id: survey.business_id || '',
