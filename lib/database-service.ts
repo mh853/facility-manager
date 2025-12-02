@@ -110,7 +110,12 @@ export interface BusinessInfo {
   
   // 영업점
   sales_office: string | null
-  
+
+  // 제출일 관리 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
+  construction_report_submitted_at: string | null
+  greenlink_confirmation_submitted_at: string | null
+  attachment_completion_submitted_at: string | null
+
   // 시설 요약 정보
   facility_summary: {
     outlets?: Array<{
@@ -127,7 +132,7 @@ export interface BusinessInfo {
     }
     last_updated?: string
   } | null
-  
+
   additional_info: Record<string, any>
   is_active: boolean
   is_deleted: boolean

@@ -2137,7 +2137,6 @@ function BusinessManagementPage() {
           expansion_pack: business.expansion_pack,
           other_equipment: business.other_equipment,
           additional_cost: business.additional_cost,
-          survey_fee_adjustment: business.survey_fee_adjustment,
           negotiation: business.negotiation,
           multiple_stack_cost: business.multiple_stack_cost,
           representative_birth_date: business.representative_birth_date,
@@ -3148,7 +3147,6 @@ function BusinessManagementPage() {
               completion_survey_date: serverData.completion_survey_date || null,
               // 비용 정보
               additional_cost: serverData.additional_cost || null,
-              survey_fee_adjustment: serverData.survey_fee_adjustment || null,
               multiple_stack_cost: serverData.multiple_stack_cost || null,
               expansion_pack: serverData.expansion_pack || null,
               other_equipment: serverData.other_equipment || null,
@@ -4968,22 +4966,10 @@ function BusinessManagementPage() {
                       </label>
                       <input
                         type="text"
-                        value={formData.survey_fee_adjustment !== null && formData.survey_fee_adjustment !== undefined
-                          ? formData.survey_fee_adjustment.toLocaleString()
-                          : ''}
+                        value={formData.survey_fee_adjustment ? formData.survey_fee_adjustment.toLocaleString() : ''}
                         onChange={(e) => {
-                          const value = e.target.value.replace(/,/g, '').trim();
-                          // 빈 값이면 null
-                          if (value === '' || value === '-') {
-                            setFormData({...formData, survey_fee_adjustment: null});
-                            return;
-                          }
-                          // 숫자와 음수 기호만 허용 (정규식으로 검증)
-                          if (!/^-?\d+$/.test(value)) {
-                            return; // 유효하지 않은 입력은 무시
-                          }
-                          const numValue = parseInt(value, 10);
-                          setFormData({...formData, survey_fee_adjustment: isNaN(numValue) ? null : numValue});
+                          const value = e.target.value.replace(/,/g, '');
+                          setFormData({...formData, survey_fee_adjustment: value ? parseInt(value) : null});
                         }}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
                         placeholder="실사비 조정 금액 (예: -50,000 또는 50,000)"

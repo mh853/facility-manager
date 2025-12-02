@@ -8,6 +8,7 @@ import { ConfirmModal } from '@/components/ui/Modal'
 import EcosensePurchaseOrderForm from '@/components/EcosensePurchaseOrderForm'
 import EstimateManagement from './components/EstimateManagement'
 import ContractManagement from './components/ContractManagement'
+import ConstructionReportManagement from './components/ConstructionReportManagement'
 import { useAuth } from '@/contexts/AuthContext'
 
 // Code Splitting: 무거운 모달 및 템플릿 컴포넌트를 동적 로딩
@@ -25,6 +26,27 @@ const SelfPayContractTemplate = dynamic(() => import('./components/SelfPayContra
   loading: () => <div className="text-center py-4">로딩 중...</div>,
   ssr: false
 })
+
+const ConstructionReportTemplate = dynamic(() => import('./components/construction-report/ConstructionReportTemplate'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
+
+const ContractGovernmentTemplate = dynamic(() => import('./components/construction-report/ContractGovernmentTemplate'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
+
+const ContractBusinessTemplate = dynamic(() => import('./components/construction-report/ContractBusinessTemplate'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
+
+const ImprovementPlanTemplate = dynamic(() => import('./components/construction-report/ImprovementPlanTemplate'), {
+  loading: () => <div className="text-center py-4">로딩 중...</div>,
+  ssr: false
+})
+
 import {
   FileText,
   Download,
@@ -35,11 +57,12 @@ import {
   ShoppingCart,
   X,
   FileCheck,
-  Trash2
+  Trash2,
+  FileSignature
 } from 'lucide-react'
 
 export default function DocumentAutomationPage() {
-  const [activeTab, setActiveTab] = useState<'purchase_order' | 'estimate' | 'contract' | 'history'>('estimate')
+  const [activeTab, setActiveTab] = useState<'purchase_order' | 'estimate' | 'contract' | 'construction_report' | 'history'>('estimate')
 
   // 발주서 관련 상태
   const [businesses, setBusinesses] = useState<any[]>([])
@@ -185,6 +208,8 @@ export default function DocumentAutomationPage() {
       // 문서 타입에 따라 다른 API 호출
       const endpoint = documentType === 'estimate'
         ? `/api/estimates/${documentId}`
+        : documentType === 'construction_report'
+        ? `/api/construction-reports?id=${documentId}`
         : `/api/document-automation/history/${documentId}`
 
       const response = await fetch(endpoint, {
@@ -310,6 +335,7 @@ export default function DocumentAutomationPage() {
               {[
                 { id: 'estimate', name: '견적서 관리', icon: FileText },
                 { id: 'contract', name: '계약서 관리', icon: FileCheck },
+                { id: 'construction_report', name: '착공신고서', icon: FileSignature },
                 { id: 'purchase_order', name: '발주서 관리', icon: ShoppingCart },
                 { id: 'history', name: '실행 이력', icon: Clock }
               ].map((tab) => (
@@ -337,6 +363,10 @@ export default function DocumentAutomationPage() {
 
             {activeTab === 'contract' && (
               <ContractManagement onDocumentCreated={loadDocumentHistory} />
+            )}
+
+            {activeTab === 'construction_report' && (
+              <ConstructionReportManagement onDocumentCreated={loadDocumentHistory} />
             )}
 
             {activeTab === 'purchase_order' && (
@@ -469,7 +499,7 @@ export default function DocumentAutomationPage() {
             {activeTab === 'history' && (
               <div className="space-y-6">
                 {/* 통계 요약 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
                   <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
                     <div className="text-xs sm:text-sm text-gray-500 mb-1">전체 문서</div>
                     <div className="text-xl sm:text-2xl font-bold text-gray-900">{historySummary.total_documents}</div>
@@ -485,6 +515,10 @@ export default function DocumentAutomationPage() {
                   <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
                     <div className="text-xs sm:text-sm text-gray-500 mb-1">계약서</div>
                     <div className="text-xl sm:text-2xl font-bold text-red-600">{historySummary.by_type.contract}</div>
+                  </div>
+                  <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1">착공신고서</div>
+                    <div className="text-xl sm:text-2xl font-bold text-purple-600">{historySummary.by_type.construction_report || 0}</div>
                   </div>
                 </div>
 
@@ -515,6 +549,7 @@ export default function DocumentAutomationPage() {
                       <option value="purchase_order">발주서</option>
                       <option value="estimate">견적서</option>
                       <option value="contract">계약서</option>
+                      <option value="construction_report">착공신고서</option>
                       <option value="other">기타</option>
                     </select>
                     <select
@@ -572,11 +607,13 @@ export default function DocumentAutomationPage() {
                                 doc.document_type === 'purchase_order' ? 'bg-blue-100 text-blue-800' :
                                 doc.document_type === 'estimate' ? 'bg-green-100 text-green-800' :
                                 doc.document_type === 'contract' ? 'bg-purple-100 text-purple-800' :
+                                doc.document_type === 'construction_report' ? 'bg-orange-100 text-orange-800' :
                                 'bg-gray-100 text-gray-800'
                               }`}>
                                 {doc.document_type === 'purchase_order' ? '발주서' :
                                  doc.document_type === 'estimate' ? '견적서' :
-                                 doc.document_type === 'contract' ? '계약서' : '기타'}
+                                 doc.document_type === 'contract' ? '계약서' :
+                                 doc.document_type === 'construction_report' ? '착공신고서' : '기타'}
                               </span>
                               <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full whitespace-nowrap ${
                                 doc.file_format === 'excel' ? 'bg-green-100 text-green-800' :
@@ -652,6 +689,15 @@ export default function DocumentAutomationPage() {
                                     보기
                                   </>
                                 )}
+                              </button>
+                            )}
+                            {doc.document_type === 'construction_report' && doc.document_data && (
+                              <button
+                                onClick={() => setPreviewDocument(doc)}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-orange-600 hover:text-orange-900 border border-orange-200 hover:border-orange-300 rounded-lg transition-colors text-xs"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                보기
                               </button>
                             )}
                             {doc.file_path ? (
@@ -737,11 +783,13 @@ export default function DocumentAutomationPage() {
                                   doc.document_type === 'purchase_order' ? 'bg-blue-100 text-blue-800' :
                                   doc.document_type === 'estimate' ? 'bg-green-100 text-green-800' :
                                   doc.document_type === 'contract' ? 'bg-purple-100 text-purple-800' :
+                                  doc.document_type === 'construction_report' ? 'bg-orange-100 text-orange-800' :
                                   'bg-gray-100 text-gray-800'
                                 }`}>
                                   {doc.document_type === 'purchase_order' ? '발주서' :
                                    doc.document_type === 'estimate' ? '견적서' :
-                                   doc.document_type === 'contract' ? '계약서' : '기타'}
+                                   doc.document_type === 'contract' ? '계약서' :
+                                   doc.document_type === 'construction_report' ? '착공신고서' : '기타'}
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -810,6 +858,16 @@ export default function DocumentAutomationPage() {
                                           보기
                                         </>
                                       )}
+                                    </button>
+                                  )}
+                                  {doc.document_type === 'construction_report' && doc.document_data && (
+                                    <button
+                                      onClick={() => setPreviewDocument(doc)}
+                                      className="text-orange-600 hover:text-orange-900 inline-flex items-center gap-1"
+                                      title="착공신고서 보기"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                      보기
                                     </button>
                                   )}
 
@@ -974,6 +1032,7 @@ export default function DocumentAutomationPage() {
                 <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 truncate">
                   {previewDocument.document_type === 'estimate' ? '견적서 미리보기' :
                    previewDocument.document_type === 'contract' ? '계약서 미리보기' :
+                   previewDocument.document_type === 'construction_report' ? '착공신고서 미리보기' :
                    '발주서 미리보기'}
                 </h2>
                 <p className="text-[10px] sm:text-xs md:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">
@@ -1255,18 +1314,86 @@ export default function DocumentAutomationPage() {
                       }
                     })()}
                   </div>
+                ) : previewDocument.document_type === 'construction_report' && previewDocument.document_data ? (
+                  <div className="space-y-6">
+                    {/* Page 1: 착공신고서 */}
+                    <div className="bg-white rounded-lg shadow-sm">
+                      <div className="sticky top-0 bg-blue-600 text-white px-4 py-2 rounded-t-lg flex items-center justify-between z-10">
+                        <h3 className="text-sm font-semibold">Page 1: 착공신고서</h3>
+                        <span className="text-xs opacity-90">1 / 4</span>
+                      </div>
+                      <div className="p-4" style={{ transform: 'scale(0.85)', transformOrigin: 'top center' }}>
+                        <ConstructionReportTemplate data={previewDocument.document_data} />
+                      </div>
+                    </div>
+
+                    {/* Page 2: 계약서 (지자체 제출용) */}
+                    <div className="bg-white rounded-lg shadow-sm">
+                      <div className="sticky top-0 bg-green-600 text-white px-4 py-2 rounded-t-lg flex items-center justify-between z-10">
+                        <h3 className="text-sm font-semibold">Page 2: 계약서 (지자체 제출용)</h3>
+                        <span className="text-xs opacity-90">2 / 4</span>
+                      </div>
+                      <div className="p-4" style={{ transform: 'scale(0.85)', transformOrigin: 'top center' }}>
+                        <ContractGovernmentTemplate data={previewDocument.document_data} />
+                      </div>
+                    </div>
+
+                    {/* Page 3: 계약서 (사업장 보관용) */}
+                    <div className="bg-white rounded-lg shadow-sm">
+                      <div className="sticky top-0 bg-purple-600 text-white px-4 py-2 rounded-t-lg flex items-center justify-between z-10">
+                        <h3 className="text-sm font-semibold">Page 3: 계약서 (사업장 보관용)</h3>
+                        <span className="text-xs opacity-90">3 / 4</span>
+                      </div>
+                      <div className="p-4" style={{ transform: 'scale(0.85)', transformOrigin: 'top center' }}>
+                        <ContractBusinessTemplate data={previewDocument.document_data} />
+                      </div>
+                    </div>
+
+                    {/* Page 4: 개선계획서 */}
+                    <div className="bg-white rounded-lg shadow-sm">
+                      <div className="sticky top-0 bg-orange-600 text-white px-4 py-2 rounded-t-lg flex items-center justify-between z-10">
+                        <h3 className="text-sm font-semibold">Page 4: 개선계획서</h3>
+                        <span className="text-xs opacity-90">4 / 4</span>
+                      </div>
+                      <div className="p-4" style={{ transform: 'scale(0.85)', transformOrigin: 'top center' }}>
+                        <ImprovementPlanTemplate data={previewDocument.document_data} />
+                      </div>
+                    </div>
+                  </div>
                 ) : null}
               </div>
             </div>
 
             {/* 푸터 */}
-            <div className="flex items-center justify-end p-3 sm:p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+            <div className="flex items-center justify-end gap-2 p-3 sm:p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
               <button
                 onClick={() => setPreviewDocument(null)}
                 className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
               >
                 닫기
               </button>
+              {previewDocument.document_type === 'construction_report' && (
+                <>
+                  <button
+                    onClick={() => {
+                      window.open(`/api/construction-reports/pdf?id=${previewDocument.id}`, '_blank')
+                    }}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-1 sm:gap-2"
+                  >
+                    <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                    PDF 다운로드
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.open(`/api/construction-reports/download?id=${previewDocument.id}`, '_blank')
+                    }}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-1 sm:gap-2"
+                  >
+                    <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                    DOCX 다운로드
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

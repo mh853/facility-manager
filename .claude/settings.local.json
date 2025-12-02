@@ -68,7 +68,11 @@
       "Bash(find:*)",
       "Bash(timeout 30 npm run type-check:*)",
       "Bash(kill:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(npm view:*)",
+      "Bash(open:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(jq:*)"
     ],
     "deny": [],
     "ask": [],

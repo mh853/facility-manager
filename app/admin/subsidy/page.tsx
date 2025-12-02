@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdminLayout from '@/components/ui/AdminLayout';
 import type { SubsidyAnnouncement, SubsidyDashboardStats, AnnouncementStatus } from '@/types/subsidy';
 
@@ -14,35 +14,24 @@ const statusColors: Record<AnnouncementStatus, { bg: string; text: string; label
 };
 
 export default function SubsidyAnnouncementsPage() {
-  const [announcements, setAnnouncements] = useState<SubsidyAnnouncement[]>([]);
+  const [allAnnouncements, setAllAnnouncements] = useState<SubsidyAnnouncement[]>([]);
   const [stats, setStats] = useState<SubsidyDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<SubsidyAnnouncement | null>(null);
 
-  // 페이지네이션 상태
-  const [pagination, setPagination] = useState({
-    total: 0,
-    hasMore: false,
-    pageSize: 20,
-  });
-
   // 필터 상태 (기본값: 관련 공고만 표시 - 75% 이상)
-  const [filter, setFilter] = useState({
-    status: 'all',
-    isRelevant: 'true',  // 관련도 75% 이상만 표시
-    search: '',
-    page: 1,
-  });
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterRelevant, setFilterRelevant] = useState('true');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
 
-  // 공고 목록 로드
-  const loadAnnouncements = useCallback(async () => {
+  // 전체 공고 목록 로드 (필터 없이)
+  const loadAllAnnouncements = useCallback(async () => {
     try {
       const params = new URLSearchParams({
-        page: filter.page.toString(),
-        pageSize: '20',
-        ...(filter.status !== 'all' && { status: filter.status }),
-        ...(filter.isRelevant !== 'all' && { isRelevant: filter.isRelevant }),
-        ...(filter.search && { search: filter.search }),
+        page: '1',
+        pageSize: '1000', // 충분히 큰 숫자로 전체 로드
         sortBy: 'published_at',
         sortOrder: 'desc',
       });
@@ -51,17 +40,12 @@ export default function SubsidyAnnouncementsPage() {
       const data = await response.json();
 
       if (data.success) {
-        setAnnouncements(data.data.announcements);
-        setPagination({
-          total: data.data.total,
-          hasMore: data.data.hasMore,
-          pageSize: data.data.pageSize,
-        });
+        setAllAnnouncements(data.data.announcements);
       }
     } catch (error) {
       console.error('공고 로드 실패:', error);
     }
-  }, [filter]);
+  }, []);
 
   // 통계 로드
   const loadStats = useCallback(async () => {
@@ -81,11 +65,56 @@ export default function SubsidyAnnouncementsPage() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([loadAnnouncements(), loadStats()]);
+      await Promise.all([loadAllAnnouncements(), loadStats()]);
       setLoading(false);
     };
     loadData();
-  }, [loadAnnouncements, loadStats]);
+  }, [loadAllAnnouncements, loadStats]);
+
+  // 클라이언트 사이드 필터링 (useMemo로 자동 적용)
+  const filteredAnnouncements = useMemo(() => {
+    let filtered = allAnnouncements;
+
+    // 상태 필터
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(a => a.status === filterStatus);
+    }
+
+    // 관련성 필터
+    if (filterRelevant === 'true') {
+      filtered = filtered.filter(a => a.relevance_score && a.relevance_score >= 0.75);
+    } else if (filterRelevant === 'false') {
+      filtered = filtered.filter(a => !a.relevance_score || a.relevance_score < 0.75);
+    }
+
+    // 검색어 필터 (실시간)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(a => {
+        const searchableText = [
+          a.title,
+          a.region_name,
+          a.target_description,
+          a.support_amount,
+          ...(a.keywords_matched || [])
+        ].join(' ').toLowerCase();
+        return searchableText.includes(query);
+      });
+    }
+
+    return filtered;
+  }, [allAnnouncements, filterStatus, filterRelevant, searchQuery]);
+
+  // 페이지네이션 적용
+  const paginatedAnnouncements = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredAnnouncements.slice(startIndex, endIndex);
+  }, [filteredAnnouncements, currentPage, pageSize]);
+
+  // 페이지네이션 정보
+  const totalPages = Math.ceil(filteredAnnouncements.length / pageSize);
+  const hasMore = currentPage < totalPages;
 
   // 상태 업데이트
   const updateAnnouncementStatus = async (id: string, status: AnnouncementStatus) => {
@@ -97,7 +126,7 @@ export default function SubsidyAnnouncementsPage() {
       });
 
       if (response.ok) {
-        setAnnouncements(prev =>
+        setAllAnnouncements(prev =>
           prev.map(a => (a.id === id ? { ...a, status } : a))
         );
         if (selectedAnnouncement?.id === id) {
@@ -124,7 +153,7 @@ export default function SubsidyAnnouncementsPage() {
       const result = await response.json();
 
       if (result.success) {
-        setAnnouncements(prev =>
+        setAllAnnouncements(prev =>
           prev.map(a => (a.id === announcement.id ? { ...a, is_read: true } : a))
         );
         loadStats();
@@ -250,8 +279,11 @@ export default function SubsidyAnnouncementsPage() {
             <div>
               <label className="block text-xs text-gray-500 mb-1">상태</label>
               <select
-                value={filter.status}
-                onChange={e => setFilter(f => ({ ...f, status: e.target.value, page: 1 }))}
+                value={filterStatus}
+                onChange={e => {
+                  setFilterStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="border rounded px-3 py-1.5 text-sm"
               >
                 <option value="all">전체</option>
@@ -264,8 +296,11 @@ export default function SubsidyAnnouncementsPage() {
             <div>
               <label className="block text-xs text-gray-500 mb-1">관련성</label>
               <select
-                value={filter.isRelevant}
-                onChange={e => setFilter(f => ({ ...f, isRelevant: e.target.value, page: 1 }))}
+                value={filterRelevant}
+                onChange={e => {
+                  setFilterRelevant(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="border rounded px-3 py-1.5 text-sm"
               >
                 <option value="true">관련 공고만 (75%↑)</option>
@@ -274,38 +309,36 @@ export default function SubsidyAnnouncementsPage() {
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-xs text-gray-500 mb-1">검색</label>
+              <label className="block text-xs text-gray-500 mb-1">검색 (실시간 필터링)</label>
               <input
                 type="text"
-                value={filter.search}
-                onChange={e => setFilter(f => ({ ...f, search: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && loadAnnouncements()}
+                value={searchQuery}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 placeholder="제목, 지역명으로 검색..."
                 className="w-full border rounded px-3 py-1.5 text-sm"
               />
             </div>
-            <button
-              onClick={() => loadAnnouncements()}
-              className="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700 mt-5"
-            >
-              검색
-            </button>
           </div>
         </div>
 
         {/* 공고 목록 */}
         <div className="bg-white rounded-lg shadow">
-          {announcements.length === 0 ? (
+          {paginatedAnnouncements.length === 0 ? (
             <div className="p-12 text-center text-gray-500">
               <div className="text-4xl mb-4">📋</div>
               <p>조회된 공고가 없습니다.</p>
               <p className="text-sm mt-2">
-                크롤러가 실행되면 공고가 자동으로 수집됩니다.
+                {searchQuery || filterStatus !== 'all' || filterRelevant !== 'true'
+                  ? '필터 조건을 변경해보세요.'
+                  : '크롤러가 실행되면 공고가 자동으로 수집됩니다.'}
               </p>
             </div>
           ) : (
             <div className="divide-y">
-              {announcements.map(announcement => {
+              {paginatedAnnouncements.map(announcement => {
                 const daysRemaining = getDaysRemaining(announcement.application_period_end);
                 const isUrgent = daysRemaining !== null && daysRemaining <= 7 && daysRemaining >= 0;
 
@@ -377,29 +410,29 @@ export default function SubsidyAnnouncementsPage() {
           )}
 
           {/* 페이지네이션 */}
-          {pagination.total > 0 && (
-            <div className="flex items-center justify-between border-t pt-4 mt-4">
+          {filteredAnnouncements.length > 0 && (
+            <div className="flex items-center justify-between border-t pt-4 mt-4 px-4">
               <div className="text-sm text-gray-600">
-                총 <span className="font-medium">{pagination.total}</span>건 중{' '}
+                총 <span className="font-medium">{filteredAnnouncements.length}</span>건 중{' '}
                 <span className="font-medium">
-                  {(filter.page - 1) * pagination.pageSize + 1}-
-                  {Math.min(filter.page * pagination.pageSize, pagination.total)}
+                  {(currentPage - 1) * pageSize + 1}-
+                  {Math.min(currentPage * pageSize, filteredAnnouncements.length)}
                 </span>건 표시
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setFilter(f => ({ ...f, page: f.page - 1 }))}
-                  disabled={filter.page <= 1}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                  disabled={currentPage <= 1}
                   className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ← 이전
                 </button>
                 <span className="text-sm text-gray-600">
-                  {filter.page} / {Math.ceil(pagination.total / pagination.pageSize)}
+                  {currentPage} / {totalPages}
                 </span>
                 <button
-                  onClick={() => setFilter(f => ({ ...f, page: f.page + 1 }))}
-                  disabled={!pagination.hasMore}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  disabled={!hasMore}
                   className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   다음 →

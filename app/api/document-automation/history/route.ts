@@ -79,7 +79,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       query = query.eq('business_id', businessId)
     }
 
-    if (documentType) {
+    if (documentType && documentType !== 'construction_report') {
       query = query.eq('document_type', documentType)
     }
 
@@ -103,10 +103,6 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     // 정렬
     query = query.order('created_at', { ascending: false })
 
-    // 페이지네이션
-    const startIndex = (page - 1) * limit
-    query = query.range(startIndex, startIndex + limit - 1)
-
     const { data: documents, error: documentsError, count } = await query
 
     if (documentsError) {
@@ -114,13 +110,84 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('문서 이력 조회 중 오류가 발생했습니다', 500)
     }
 
-    // 통계 계산 (통합 뷰에서 가져오기)
+    // 착공신고서 조회 (별도 테이블)
+    let constructionQuery = supabaseAdmin
+      .from('construction_reports')
+      .select('*', { count: 'exact' })
+      .eq('is_deleted', false)
+
+    // 필터 적용
+    if (businessId) {
+      constructionQuery = constructionQuery.eq('business_id', businessId)
+    }
+
+    if (startDate) {
+      constructionQuery = constructionQuery.gte('created_at', startDate)
+    }
+
+    if (endDate) {
+      constructionQuery = constructionQuery.lte('created_at', endDate)
+    }
+
+    if (search) {
+      constructionQuery = constructionQuery.ilike('business_name', `%${search}%`)
+    }
+
+    constructionQuery = constructionQuery.order('created_at', { ascending: false })
+
+    const { data: constructionReports, error: constructionError, count: constructionCount } = await constructionQuery
+
+    if (constructionError) {
+      console.error('[DOCUMENT-HISTORY] 착공신고서 조회 오류:', constructionError)
+    }
+
+    // 착공신고서를 문서 이력 형식으로 변환
+    const constructionDocs = (constructionReports || []).map(report => ({
+      id: report.id,
+      business_id: report.business_id,
+      business_name: report.business_name,
+      document_type: 'construction_report',
+      document_name: `착공신고서_${report.business_name}_${report.report_number}`,
+      file_format: 'pdf',
+      file_size: 0,
+      file_path: report.pdf_file_url || null,
+      document_data: report.report_data,
+      created_at: report.created_at,
+      created_by: report.created_by_name || '시스템',
+      metadata: {
+        report_number: report.report_number,
+        subsidy_amount: report.subsidy_amount,
+        report_date: report.report_date
+      }
+    }))
+
+    // 문서 타입 필터링 (착공신고서만 조회하는 경우)
+    let allDocuments = documents || []
+    if (documentType === 'construction_report') {
+      allDocuments = constructionDocs
+    } else if (!documentType) {
+      // 전체 조회 시 병합
+      allDocuments = [...(documents || []), ...constructionDocs]
+      allDocuments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    }
+
+    // 페이지네이션 적용
+    const startIndex = (page - 1) * limit
+    const paginatedDocs = allDocuments.slice(startIndex, startIndex + limit)
+    const totalCount = allDocuments.length
+
+    // 통계 계산 (전체 문서 + 착공신고서)
     const { data: allDocs } = await supabaseAdmin
       .from('document_history_detail')
       .select('document_type, file_format')
 
+    const { data: allConstructionReports } = await supabaseAdmin
+      .from('construction_reports')
+      .select('id')
+      .eq('is_deleted', false)
+
     const summary = {
-      total_documents: count || 0,
+      total_documents: (allDocs?.length || 0) + (allConstructionReports?.length || 0),
       by_type: {
         purchase_order:
           allDocs?.filter((d) => d.document_type === 'purchase_order')
@@ -129,23 +196,24 @@ export const GET = withApiHandler(async (request: NextRequest) => {
           allDocs?.filter((d) => d.document_type === 'estimate').length || 0,
         contract:
           allDocs?.filter((d) => d.document_type === 'contract').length || 0,
+        construction_report: allConstructionReports?.length || 0,
         other: allDocs?.filter((d) => d.document_type === 'other').length || 0
       },
       by_format: {
         excel: allDocs?.filter((d) => d.file_format === 'excel').length || 0,
-        pdf: allDocs?.filter((d) => d.file_format === 'pdf').length || 0
+        pdf: (allDocs?.filter((d) => d.file_format === 'pdf').length || 0) + (allConstructionReports?.length || 0)
       }
     }
 
     const response: DocumentHistoryListResponse = {
       success: true,
       data: {
-        documents: documents || [],
+        documents: paginatedDocs,
         pagination: {
-          total: count || 0,
+          total: totalCount,
           page,
           limit,
-          total_pages: Math.ceil((count || 0) / limit)
+          total_pages: Math.ceil(totalCount / limit)
         },
         summary
       }

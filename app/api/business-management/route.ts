@@ -518,7 +518,12 @@ function convertExcelToBusinessData(excelRow: any): Partial<BusinessInfo> {
     explosion_proof_temperature_meter_domestic: getExcelValue(excelRow, '방폭온도계(국산)') ? Number(getExcelValue(excelRow, '방폭온도계(국산)')) : null,
     expansion_device: getExcelValue(excelRow, '확장디바이스') ? Number(getExcelValue(excelRow, '확장디바이스')) : null,
     representative_birth_date: convertExcelDate(getExcelValue(excelRow, '대표자생년월일')),
-    
+
+    // 제출일 관리 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
+    construction_report_submitted_at: convertExcelDate(getExcelValue(excelRow, '착공신고서제출일')),
+    greenlink_confirmation_submitted_at: convertExcelDate(getExcelValue(excelRow, '그린링크전송확인서제출일')),
+    attachment_completion_submitted_at: convertExcelDate(getExcelValue(excelRow, '부착완료통보서제출일')),
+
     // 기존 필드들 (엑셀에 없어서 null로 설정)
     relay_8ch: null,
     relay_16ch: null,

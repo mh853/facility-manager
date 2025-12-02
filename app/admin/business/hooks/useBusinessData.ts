@@ -196,6 +196,17 @@ export function useBusinessData() {
           payment_balance_date: business.payment_balance_date || null,
           payment_balance_amount: business.payment_balance_amount || null,
 
+          // 제출일 관리 (착공신고서, 그린링크 전송확인서, 부착완료통보서)
+          construction_report_submitted_at: business.construction_report_submitted_at || null,
+          greenlink_confirmation_submitted_at: business.greenlink_confirmation_submitted_at || null,
+          attachment_completion_submitted_at: business.attachment_completion_submitted_at || null,
+
+          // 일정 관리 (발주요청일, 발주일, 출하일, 설치일)
+          order_request_date: business.order_request_date || null,
+          order_date: business.order_date || null,
+          shipment_date: business.shipment_date || null,
+          installation_date: business.installation_date || null,
+
           // 추가공사비
           additional_cost: business.additional_cost || null
         }));

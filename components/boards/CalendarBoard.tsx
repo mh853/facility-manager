@@ -106,17 +106,46 @@ export default function CalendarBoard() {
   };
 
   /**
-   * 캘린더 이벤트 조회
+   * 캘린더 이벤트 조회 (일반 이벤트 + 실사 이벤트 통합)
    */
   const fetchEvents = async (scrollToBottom = false) => {
     try {
       setLoading(true);
       const { startDate, endDate } = getMonthRange(currentDate);
-      const response = await fetch(`/api/calendar?start_date=${startDate}&end_date=${endDate}`);
-      const result = await response.json();
 
-      if (result.success) {
-        setEvents(result.data);
+      // 병렬로 일반 이벤트와 실사 이벤트 조회
+      const [calendarResponse, surveyResponse] = await Promise.all([
+        fetch(`/api/calendar?start_date=${startDate}&end_date=${endDate}`),
+        fetch(`/api/survey-events?month=${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`)
+      ]);
+
+      const calendarResult = await calendarResponse.json();
+      const surveyResult = await surveyResponse.json();
+
+      // 두 결과 모두 성공했는지 확인
+      if (calendarResult.success && surveyResult.success) {
+        // 실사 이벤트를 CalendarEvent 형식으로 변환
+        const surveyEvents: CalendarEvent[] = (surveyResult.data || []).map((survey: any) => ({
+          id: survey.id,
+          title: survey.title,
+          description: survey.description || null,
+          event_date: survey.event_date,
+          event_type: 'schedule' as const, // 실사는 일정 타입으로
+          is_completed: false,
+          author_id: survey.business_id || '',
+          author_name: survey.author_name || '미지정',
+          labels: survey.labels || [],
+          business_id: survey.business_id,
+          business_name: survey.business_name,
+          created_at: survey.created_at,
+          updated_at: survey.updated_at
+        }));
+
+        // 일반 이벤트와 실사 이벤트 통합
+        const mergedEvents = [...(calendarResult.data || []), ...surveyEvents];
+        setEvents(mergedEvents);
+
+        console.log(`✅ [캘린더] 이벤트 로드 완료 - 일반: ${calendarResult.data?.length || 0}, 실사: ${surveyEvents.length}, 총: ${mergedEvents.length}`);
 
         // 스크롤 요청 표시
         if (scrollToBottom) {
@@ -124,7 +153,7 @@ export default function CalendarBoard() {
           scrollToBottomRef.current = true;
         }
       } else {
-        setError(result.error || '캘린더 이벤트를 불러오는데 실패했습니다.');
+        setError(calendarResult.error || surveyResult.error || '캘린더 이벤트를 불러오는데 실패했습니다.');
       }
     } catch (err) {
       console.error('[캘린더 조회 오류]', err);

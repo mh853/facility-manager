@@ -192,6 +192,17 @@ export async function POST(request: NextRequest) {
       path: '/'
     });
 
+    // 🔧 추가: 쿠키 설정 확인용 플래그 쿠키 (httpOnly=false)
+    response.cookies.set('auth_ready', 'true', {
+      httpOnly: false, // JavaScript에서 읽을 수 있음
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60,
+      path: '/'
+    });
+
+    console.log('🍪 [AUTH] 쿠키 설정 완료: auth_token (httpOnly), auth_ready (readable)');
+
     return response;
 
   } catch (error) {

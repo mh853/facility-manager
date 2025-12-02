@@ -132,6 +132,8 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/router-inventory/*',  // 라우터 재고 관리 API 전체 제외 (JWT 인증 사용)
     '/api/order-management/*',  // 발주 관리 API 전체 제외 (JWT 인증 사용)
     '/api/document-automation/*',  // 문서 자동화 API 전체 제외 (JWT 인증 사용)
+    '/api/construction-reports',  // 착공신고서 관리 API (JWT 인증 사용)
+    '/api/construction-reports/*',  // 착공신고서 관리 API 전체 제외 (JWT 인증 사용)
     '/api/estimates/*',  // 견적서 관리 API 전체 제외 (JWT 인증 사용)
     '/api/air-permit-pdf',  // 대기필증 PDF 생성 API (JWT 인증 사용)
     '/api/air-permit',  // 대기필증 관리 API (JWT 인증 사용)
