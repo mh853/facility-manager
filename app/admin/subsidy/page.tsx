@@ -165,35 +165,74 @@ export default function SubsidyAnnouncementsPage() {
     }
   };
 
-  // 제목에서 지역명 추출 (예: [전북], [경기] 등)
+  // 제목에서 실제 대상 지역명 추출
+  // 패턴: [출처지역] [대상지역] 제목... 또는 [대상지역] 제목...
+  // 첫 번째 대괄호가 광역시/특별시면 출처이므로 두 번째 대괄호 사용
   const extractRegionFromTitle = (title: string, fallback: string): string => {
-    // 대괄호 패턴 매칭: [전북], [경기], [서울] 등
-    const bracketMatch = title.match(/\[([^\]]+)\]/);
-    if (bracketMatch) {
-      const region = bracketMatch[1];
-      // 지역명 매핑 (약어 → 전체 지역명)
-      const regionMap: Record<string, string> = {
-        '서울': '서울특별시',
-        '부산': '부산광역시',
-        '대구': '대구광역시',
-        '인천': '인천광역시',
-        '광주': '광주광역시',
-        '대전': '대전광역시',
-        '울산': '울산광역시',
-        '세종': '세종특별자치시',
-        '경기': '경기도',
-        '강원': '강원특별자치도',
-        '충북': '충청북도',
-        '충남': '충청남도',
-        '전북': '전북특별자치도',
-        '전남': '전라남도',
-        '경북': '경상북도',
-        '경남': '경상남도',
-        '제주': '제주특별자치도',
-      };
-      return regionMap[region] || region;
+    // 모든 대괄호 내용 추출
+    const bracketMatches = title.match(/\[([^\]]+)\]/g);
+    if (!bracketMatches || bracketMatches.length === 0) {
+      return fallback;
     }
-    return fallback;
+
+    // 지역명 매핑 (약어 → 전체 지역명)
+    const regionMap: Record<string, string> = {
+      '서울': '서울특별시',
+      '부산': '부산광역시',
+      '대구': '대구광역시',
+      '인천': '인천광역시',
+      '광주': '광주광역시',
+      '대전': '대전광역시',
+      '울산': '울산광역시',
+      '세종': '세종특별자치시',
+      '경기': '경기도',
+      '강원': '강원특별자치도',
+      '충북': '충청북도',
+      '충남': '충청남도',
+      '전북': '전북특별자치도',
+      '전남': '전라남도',
+      '경북': '경상북도',
+      '경남': '경상남도',
+      '제주': '제주특별자치도',
+    };
+
+    // 출처 사이트 패턴 (이것들은 건너뛰어야 함)
+    const sourcePatterns = [
+      '서울특별시', '부산광역시', '대구광역시', '인천광역시',
+      '광주광역시', '대전광역시', '울산광역시', '세종특별자치시',
+      '경기도', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'
+    ];
+
+    // 광역시/특별시/도 전체 이름 패턴 (출처로 사용되는 경우가 많음)
+    const fullNameSourcePatterns = [
+      /^서울특별시$/,
+      /^부산광역시$/,
+      /^대구광역시$/,
+      /^인천광역시$/,
+      /^광주광역시$/,
+      /^대전광역시$/,
+      /^울산광역시$/,
+      /^세종특별자치시$/,
+    ];
+
+    // 대괄호 내용들을 순회하며 실제 대상 지역 찾기
+    const extractedRegions = bracketMatches.map(m => m.replace(/[\[\]]/g, ''));
+
+    // 대괄호가 2개 이상이고 첫 번째가 광역시/특별시 전체명이면 두 번째 사용
+    if (extractedRegions.length >= 2) {
+      const firstRegion = extractedRegions[0];
+      const isFirstSourcePattern = fullNameSourcePatterns.some(p => p.test(firstRegion));
+
+      if (isFirstSourcePattern) {
+        // 첫 번째는 출처, 두 번째가 실제 대상 지역
+        const targetRegion = extractedRegions[1];
+        return regionMap[targetRegion] || targetRegion;
+      }
+    }
+
+    // 대괄호가 1개이거나 첫 번째가 출처가 아니면 첫 번째 사용
+    const region = extractedRegions[0];
+    return regionMap[region] || region;
   };
 
   // 날짜 포맷
