@@ -165,8 +165,30 @@ export async function PUT(request: Request) {
     const updateObject: any = {};
 
     // String fields with UTF-8 normalization
+    // business_name 변경 시 중복 체크 (자기 자신 제외)
     if (updateData.business_name !== undefined) {
-      updateObject.business_name = normalizeUTF8(updateData.business_name || '');
+      const normalizedName = normalizeUTF8(updateData.business_name || '').trim();
+
+      // 현재 저장된 이름과 다른 경우에만 중복 체크
+      if (normalizedName !== business.data.business_name?.trim()) {
+        const { data: existingWithSameName } = await supabaseAdmin
+          .from('business_info')
+          .select('id')
+          .eq('business_name', normalizedName)
+          .eq('is_deleted', false)
+          .neq('id', id)  // 자기 자신 제외
+          .maybeSingle();
+
+        if (existingWithSameName) {
+          logError('❌ [BUSINESS-INFO-DIRECT] 중복 사업장명:', normalizedName);
+          return NextResponse.json({
+            success: false,
+            error: `이미 동일한 사업장명이 존재합니다: ${normalizedName}`
+          }, { status: 409 });  // Conflict
+        }
+      }
+
+      updateObject.business_name = normalizedName;
     }
     if (updateData.local_government !== undefined) {
       updateObject.local_government = normalizeUTF8(updateData.local_government || '');

@@ -4484,61 +4484,49 @@ function BusinessManagementPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">발주일</label>
-                      <input
-                        type="date"
+                      <DateInput
                         value={formData.order_date || ''}
-                        onChange={(e) => setFormData({...formData, order_date: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        onChange={(value) => setFormData({...formData, order_date: value})}
                       />
                     </div>
 
                     <div>
                       <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">출고일</label>
-                      <input
-                        type="date"
+                      <DateInput
                         value={formData.shipment_date || ''}
-                        onChange={(e) => setFormData({...formData, shipment_date: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        onChange={(value) => setFormData({...formData, shipment_date: value})}
                       />
                     </div>
 
                     <div>
                       <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">설치일</label>
-                      <input
-                        type="date"
+                      <DateInput
                         value={formData.installation_date || ''}
-                        onChange={(e) => setFormData({...formData, installation_date: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        onChange={(value) => setFormData({...formData, installation_date: value})}
                       />
                     </div>
 
                     <div>
                       <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">착공신고서 제출일</label>
-                      <input
-                        type="date"
+                      <DateInput
                         value={formData.construction_report_submitted_at || ''}
-                        onChange={(e) => setFormData({...formData, construction_report_submitted_at: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        onChange={(value) => setFormData({...formData, construction_report_submitted_at: value})}
                       />
                     </div>
 
                     <div>
                       <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">그린링크 전송확인서 제출일</label>
-                      <input
-                        type="date"
+                      <DateInput
                         value={formData.greenlink_confirmation_submitted_at || ''}
-                        onChange={(e) => setFormData({...formData, greenlink_confirmation_submitted_at: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        onChange={(value) => setFormData({...formData, greenlink_confirmation_submitted_at: value})}
                       />
                     </div>
 
                     <div>
                       <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">부착완료통보서 제출일</label>
-                      <input
-                        type="date"
+                      <DateInput
                         value={formData.attachment_completion_submitted_at || ''}
-                        onChange={(e) => setFormData({...formData, attachment_completion_submitted_at: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        onChange={(value) => setFormData({...formData, attachment_completion_submitted_at: value})}
                       />
                     </div>
 
@@ -4571,11 +4559,9 @@ function BusinessManagementPage() {
                         </div>
                         <div>
                           <label className="block text-base font-medium text-gray-700 mb-1">실사일</label>
-                          <input
-                            type="date"
+                          <DateInput
                             value={formData.estimate_survey_date || ''}
-                            onChange={(e) => setFormData({...formData, estimate_survey_date: e.target.value})}
-                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            onChange={(value) => setFormData({...formData, estimate_survey_date: value})}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
@@ -4617,11 +4603,9 @@ function BusinessManagementPage() {
                         </div>
                         <div>
                           <label className="block text-base font-medium text-gray-700 mb-1">실사일</label>
-                          <input
-                            type="date"
+                          <DateInput
                             value={formData.pre_construction_survey_date || ''}
-                            onChange={(e) => setFormData({...formData, pre_construction_survey_date: e.target.value})}
-                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            onChange={(value) => setFormData({...formData, pre_construction_survey_date: value})}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
@@ -4663,11 +4647,9 @@ function BusinessManagementPage() {
                         </div>
                         <div>
                           <label className="block text-base font-medium text-gray-700 mb-1">실사일</label>
-                          <input
-                            type="date"
+                          <DateInput
                             value={formData.completion_survey_date || ''}
-                            onChange={(e) => setFormData({...formData, completion_survey_date: e.target.value})}
-                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 text-[10px] sm:text-xs"
+                            onChange={(value) => setFormData({...formData, completion_survey_date: value})}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
@@ -5087,11 +5069,9 @@ function BusinessManagementPage() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="block text-base font-medium text-gray-700 mb-1">계산서 발행일</label>
-                              <input
-                                type="date"
+                              <DateInput
                                 value={formData.invoice_1st_date || ''}
-                                onChange={(e) => setFormData({...formData, invoice_1st_date: e.target.value || null})}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-blue-500"
+                                onChange={(value) => setFormData({...formData, invoice_1st_date: value || null})}
                               />
                             </div>
                             <div>
@@ -5109,11 +5089,9 @@ function BusinessManagementPage() {
                             </div>
                             <div>
                               <label className="block text-base font-medium text-gray-700 mb-1">입금일</label>
-                              <input
-                                type="date"
+                              <DateInput
                                 value={formData.payment_1st_date || ''}
-                                onChange={(e) => setFormData({...formData, payment_1st_date: e.target.value || null})}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-blue-500"
+                                onChange={(value) => setFormData({...formData, payment_1st_date: value || null})}
                               />
                             </div>
                             <div>
@@ -5151,11 +5129,9 @@ function BusinessManagementPage() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="block text-base font-medium text-gray-700 mb-1">계산서 발행일</label>
-                              <input
-                                type="date"
+                              <DateInput
                                 value={formData.invoice_2nd_date || ''}
-                                onChange={(e) => setFormData({...formData, invoice_2nd_date: e.target.value || null})}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-green-500"
+                                onChange={(value) => setFormData({...formData, invoice_2nd_date: value || null})}
                               />
                             </div>
                             <div>
@@ -5173,11 +5149,9 @@ function BusinessManagementPage() {
                             </div>
                             <div>
                               <label className="block text-base font-medium text-gray-700 mb-1">입금일</label>
-                              <input
-                                type="date"
+                              <DateInput
                                 value={formData.payment_2nd_date || ''}
-                                onChange={(e) => setFormData({...formData, payment_2nd_date: e.target.value || null})}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-green-500"
+                                onChange={(value) => setFormData({...formData, payment_2nd_date: value || null})}
                               />
                             </div>
                             <div>
@@ -5216,11 +5190,9 @@ function BusinessManagementPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div>
                                 <label className="block text-base font-medium text-gray-700 mb-1">계산서 발행일</label>
-                                <input
-                                  type="date"
+                                <DateInput
                                   value={formData.invoice_additional_date || ''}
-                                  onChange={(e) => setFormData({...formData, invoice_additional_date: e.target.value || null})}
-                                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-amber-500"
+                                  onChange={(value) => setFormData({...formData, invoice_additional_date: value || null})}
                                 />
                               </div>
                               <div>
@@ -5235,11 +5207,9 @@ function BusinessManagementPage() {
                               </div>
                               <div>
                                 <label className="block text-base font-medium text-gray-700 mb-1">입금일</label>
-                                <input
-                                  type="date"
+                                <DateInput
                                   value={formData.payment_additional_date || ''}
-                                  onChange={(e) => setFormData({...formData, payment_additional_date: e.target.value || null})}
-                                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-amber-500"
+                                  onChange={(value) => setFormData({...formData, payment_additional_date: value || null})}
                                 />
                               </div>
                               <div>
@@ -5337,11 +5307,9 @@ function BusinessManagementPage() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="block text-base font-medium text-gray-700 mb-1">계산서 발행일</label>
-                              <input
-                                type="date"
+                              <DateInput
                                 value={formData.invoice_advance_date || ''}
-                                onChange={(e) => setFormData({...formData, invoice_advance_date: e.target.value || null})}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-purple-500"
+                                onChange={(value) => setFormData({...formData, invoice_advance_date: value || null})}
                               />
                             </div>
                             <div>
@@ -5360,11 +5328,9 @@ function BusinessManagementPage() {
                             </div>
                             <div>
                               <label className="block text-base font-medium text-gray-700 mb-1">입금일</label>
-                              <input
-                                type="date"
+                              <DateInput
                                 value={formData.payment_advance_date || ''}
-                                onChange={(e) => setFormData({...formData, payment_advance_date: e.target.value || null})}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-purple-500"
+                                onChange={(value) => setFormData({...formData, payment_advance_date: value || null})}
                               />
                             </div>
                             <div>
@@ -5402,11 +5368,9 @@ function BusinessManagementPage() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="block text-base font-medium text-gray-700 mb-1">계산서 발행일</label>
-                              <input
-                                type="date"
+                              <DateInput
                                 value={formData.invoice_balance_date || ''}
-                                onChange={(e) => setFormData({...formData, invoice_balance_date: e.target.value || null})}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-cyan-500"
+                                onChange={(value) => setFormData({...formData, invoice_balance_date: value || null})}
                               />
                             </div>
                             <div>
@@ -5425,11 +5389,9 @@ function BusinessManagementPage() {
                             </div>
                             <div>
                               <label className="block text-base font-medium text-gray-700 mb-1">입금일</label>
-                              <input
-                                type="date"
+                              <DateInput
                                 value={formData.payment_balance_date || ''}
-                                onChange={(e) => setFormData({...formData, payment_balance_date: e.target.value || null})}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-[10px] sm:text-xs focus:ring-1 focus:ring-cyan-500"
+                                onChange={(value) => setFormData({...formData, payment_balance_date: value || null})}
                               />
                             </div>
                             <div>
