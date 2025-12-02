@@ -5,6 +5,7 @@ import { X, CheckSquare, Square, Calendar as CalendarIcon, Paperclip, Upload, Fi
 import { getLabelColor } from '@/lib/label-colors';
 import BusinessAutocomplete from '@/components/inputs/BusinessAutocomplete';
 import BusinessInfoPanel from '@/components/business/BusinessInfoPanel';
+import DateInput from '@/components/ui/DateInput';
 
 /**
  * 첨부 파일 메타데이터 타입
@@ -960,13 +961,10 @@ export default function CalendarModal({
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       시작일 <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={eventDate}
-                      onChange={(e) => setEventDate(e.target.value)}
-                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
-                      required
-                      disabled={loading}
+                      onChange={(value) => setEventDate(value)}
+                      className="w-full"
                     />
                   </div>
 
@@ -974,13 +972,10 @@ export default function CalendarModal({
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       종료일 <span className="text-xs text-gray-500 font-normal">(선택)</span>
                     </label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      min={eventDate}
-                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 bg-white"
-                      disabled={loading}
+                      onChange={(value) => setEndDate(value)}
+                      className="w-full"
                     />
                   </div>
                 </div>
