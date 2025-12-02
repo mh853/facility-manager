@@ -4,28 +4,76 @@
 
 에코센스 제조사 사업장의 발주서를 생성할 때 Excel이 아닌 PDF로 다운로드되는 문제 발생
 
-## 근본 원인
+## 근본 원인 (확정)
 
-### 1. 제조사 값 확인 로직
-[PurchaseOrderModal.tsx:155](app/admin/document-automation/components/PurchaseOrderModal.tsx#L155)에서 제조사 확인:
-```typescript
-if (manufacturer === 'ecosense') {
-  // Excel 다운로드 (서버 생성)
-} else {
-  // PDF 다운로드 (클라이언트 생성)
+### 1. 제조사 값 불일치 ⚠️
+**DB 저장 값**: `'에코센스'` (한글)
+**코드 비교 값**: `'ecosense'` (영문)
+**결과**: `'에코센스' === 'ecosense'` → `false` → PDF 다운로드
+
+브라우저 콘솔 로그:
+```
+[PURCHASE-ORDER-MODAL] 제조사 확인: {
+  manufacturer: '에코센스',
+  businessName: '영화산업사',
+  isEcosense: false  // ← 한글이라서 false!
 }
 ```
 
-**문제**: `editedData.manufacturer` 값이 정확히 `'ecosense'`가 아니면 else 분기로 가서 PDF 생성됨
-
-### 2. 가능한 원인
-- DB에 저장된 제조사 값이 `'ecosense'` 대신 다른 형식일 수 있음 (예: `'에코센스'`, `'Ecosense'` 등)
-- 대소문자 구분 문제
-- null/undefined 처리 문제
+### 2. 문제의 핵심
+- business_info 테이블의 manufacturer 컬럼에 **한글로 저장**됨
+- 코드는 영문 문자열 비교로 작성됨
+- 다른 제조사들도 같은 문제 발생 가능
 
 ## 해결 방법
 
-### 1. 디버깅 로그 추가
+### 1. 제조사 정규화 함수 추가 ⭐
+
+**핵심 수정**: 한글/영문 제조사 값을 모두 처리하는 정규화 함수
+
+[PurchaseOrderModal.tsx:148-179](app/admin/document-automation/components/PurchaseOrderModal.tsx#L148-L179):
+```typescript
+// 제조사 정규화: 한글 → 영문 코드 변환
+const normalizeManufacturer = (value: string | null | undefined): string => {
+  if (!value) return ''
+  const normalized = value.trim().toLowerCase()
+
+  // 한글 → 영문 매핑
+  const mapping: Record<string, string> = {
+    '에코센스': 'ecosense',
+    'ecosense': 'ecosense',
+    '크린어스': 'cleanearth',
+    'cleanearth': 'cleanearth',
+    '가이아씨앤에스': 'gaia_cns',
+    'gaia_cns': 'gaia_cns',
+    '이브이에스': 'evs',
+    'evs': 'evs'
+  }
+
+  return mapping[normalized] || normalized
+}
+
+const normalizedManufacturer = normalizeManufacturer(manufacturer)
+const isEcosense = normalizedManufacturer === 'ecosense'
+
+console.log('[PURCHASE-ORDER-MODAL] 제조사 확인:', {
+  originalManufacturer: manufacturer,
+  normalizedManufacturer,
+  businessName: editedData.business_name,
+  isEcosense
+})
+```
+
+**개선 효과**:
+- ✅ `'에코센스'` → `'ecosense'` 자동 변환
+- ✅ 한글/영문 모두 처리 가능
+- ✅ 대소문자 무시 (case-insensitive)
+- ✅ trim으로 공백 제거
+- ✅ null/undefined 안전 처리
+- ✅ 다른 제조사도 동일하게 처리
+- ✅ 상세한 디버깅 로그로 정규화 과정 추적
+
+### 2. 디버깅 로그 강화
 
 **API 엔드포인트 로그 추가** ([route.ts:91](app/api/document-automation/purchase-order/route.ts#L91)):
 ```typescript

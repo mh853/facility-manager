@@ -145,14 +145,38 @@ export default function PurchaseOrderModal({
       // 제조사별 파일 형식 결정
       const manufacturer = editedData.manufacturer
 
+      // 제조사 정규화: 한글 → 영문 코드 변환
+      const normalizeManufacturer = (value: string | null | undefined): string => {
+        if (!value) return ''
+        const normalized = value.trim().toLowerCase()
+
+        // 한글 → 영문 매핑
+        const mapping: Record<string, string> = {
+          '에코센스': 'ecosense',
+          'ecosense': 'ecosense',
+          '크린어스': 'cleanearth',
+          'cleanearth': 'cleanearth',
+          '가이아씨앤에스': 'gaia_cns',
+          'gaia_cns': 'gaia_cns',
+          '이브이에스': 'evs',
+          'evs': 'evs'
+        }
+
+        return mapping[normalized] || normalized
+      }
+
+      const normalizedManufacturer = normalizeManufacturer(manufacturer)
+      const isEcosense = normalizedManufacturer === 'ecosense'
+
       console.log('[PURCHASE-ORDER-MODAL] 제조사 확인:', {
-        manufacturer,
+        originalManufacturer: manufacturer,
+        normalizedManufacturer,
         businessName: editedData.business_name,
-        isEcosense: manufacturer === 'ecosense'
+        isEcosense
       })
 
       // 에코센스는 Excel (서버 생성), 다른 제조사는 PDF (클라이언트 생성)
-      if (manufacturer === 'ecosense') {
+      if (isEcosense) {
         // 에코센스: 서버에서 Excel 생성
         const request: CreatePurchaseOrderRequest = {
           business_id: businessId,
