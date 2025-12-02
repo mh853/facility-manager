@@ -29,7 +29,11 @@ export async function GET(request: NextRequest) {
     if (month) {
       const [year, monthNum] = month.split('-');
       const startDate = `${year}-${monthNum}-01`;
-      const endDate = `${year}-${monthNum}-31`;
+
+      // 해당 월의 마지막 날짜를 정확히 계산 (28~31일)
+      const lastDay = new Date(parseInt(year), parseInt(monthNum), 0).getDate();
+      const endDate = `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`;
+
       query = query.gte('event_date', startDate).lte('event_date', endDate);
     }
 
@@ -75,6 +79,8 @@ export async function POST(request: NextRequest) {
       business_name,
       survey_type, // 'estimate_survey' | 'pre_construction_survey' | 'completion_survey'
       event_date,
+      start_time,  // ✅ 시간 필드 추가
+      end_time,    // ✅ 시간 필드 추가
       author_name,
       description
     } = body;
@@ -113,6 +119,8 @@ export async function POST(request: NextRequest) {
         id: eventId,
         title,
         event_date,
+        start_time: start_time || null,  // ✅ 시간 필드 추가
+        end_time: end_time || null,      // ✅ 시간 필드 추가
         labels: [label],
         business_id,
         business_name,
@@ -156,6 +164,8 @@ export async function PUT(request: NextRequest) {
     const {
       id,
       event_date,
+      start_time,  // ✅ 시간 필드 추가
+      end_time,    // ✅ 시간 필드 추가
       author_name,
       description
     } = body;
@@ -172,6 +182,8 @@ export async function PUT(request: NextRequest) {
       .from('survey_events')
       .update({
         event_date: event_date || undefined,
+        start_time: start_time !== undefined ? start_time : undefined,  // ✅ 시간 필드 추가
+        end_time: end_time !== undefined ? end_time : undefined,        // ✅ 시간 필드 추가
         author_name: author_name || undefined,
         description: description || undefined,
         updated_at: new Date().toISOString()
