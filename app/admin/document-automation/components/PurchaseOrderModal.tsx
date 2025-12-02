@@ -145,6 +145,12 @@ export default function PurchaseOrderModal({
       // 제조사별 파일 형식 결정
       const manufacturer = editedData.manufacturer
 
+      console.log('[PURCHASE-ORDER-MODAL] 제조사 확인:', {
+        manufacturer,
+        businessName: editedData.business_name,
+        isEcosense: manufacturer === 'ecosense'
+      })
+
       // 에코센스는 Excel (서버 생성), 다른 제조사는 PDF (클라이언트 생성)
       if (manufacturer === 'ecosense') {
         // 에코센스: 서버에서 Excel 생성
@@ -197,7 +203,7 @@ export default function PurchaseOrderModal({
 
         const pdfBuffer = await generateEcosensePurchaseOrderPDF(editedData)
 
-        const blob = new Blob([pdfBuffer], { type: 'application/pdf' })
+        const blob = new Blob([new Uint8Array(pdfBuffer)], { type: 'application/pdf' })
         const url = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url

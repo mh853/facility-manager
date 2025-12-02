@@ -203,6 +203,109 @@ export async function generateEcosensePurchaseOrderFromTemplate(
   console.log('[ECOSENSE-TEMPLATE] 데이터 채우기 완료')
 
   // ============================================================================
+  // 대기필증 정보 추가 (있는 경우 별도 시트로)
+  // ============================================================================
+  if (data.air_permit && data.air_permit.outlets && data.air_permit.outlets.length > 0) {
+    console.log('[ECOSENSE-TEMPLATE] 대기필증 정보 추가 시작')
+
+    const airPermitSheet = workbook.addWorksheet('대기필증 정보')
+
+    // 헤더 스타일
+    const headerStyle = {
+      font: { bold: true, size: 11 },
+      fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFD9EAD3' } },
+      alignment: { horizontal: 'center' as const, vertical: 'middle' as const },
+      border: {
+        top: { style: 'thin' as const },
+        left: { style: 'thin' as const },
+        bottom: { style: 'thin' as const },
+        right: { style: 'thin' as const }
+      }
+    }
+
+    // 기본 정보
+    airPermitSheet.getCell('A1').value = '사업장명'
+    airPermitSheet.getCell('B1').value = data.business_name
+    airPermitSheet.getCell('A2').value = '업종'
+    airPermitSheet.getCell('B2').value = data.air_permit.business_type || ''
+    airPermitSheet.getCell('A3').value = '종별'
+    airPermitSheet.getCell('B3').value = data.air_permit.category || ''
+
+    // 배출구별 정보
+    let currentRow = 5
+    data.air_permit.outlets.forEach((outlet, outletIndex) => {
+      // 배출구 제목
+      airPermitSheet.getCell(`A${currentRow}`).value = `배출구 ${outlet.outlet_number}: ${outlet.outlet_name}`
+      airPermitSheet.getCell(`A${currentRow}`).font = { bold: true, size: 12 }
+      currentRow += 2
+
+      // 배출시설 헤더
+      if (outlet.discharge_facilities && outlet.discharge_facilities.length > 0) {
+        airPermitSheet.getCell(`A${currentRow}`).value = '🏭 배출시설'
+        airPermitSheet.getCell(`A${currentRow}`).font = { bold: true }
+        airPermitSheet.getCell(`A${currentRow}`).fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFCE4EC' } }
+        currentRow++
+
+        // 배출시설 테이블 헤더
+        airPermitSheet.getCell(`A${currentRow}`).value = '시설명'
+        airPermitSheet.getCell(`B${currentRow}`).value = '용량'
+        airPermitSheet.getCell(`C${currentRow}`).value = '수량'
+        airPermitSheet.getCell(`D${currentRow}`).value = '녹색기업코드'
+        ;['A', 'B', 'C', 'D'].forEach(col => {
+          airPermitSheet.getCell(`${col}${currentRow}`).style = headerStyle
+        })
+        currentRow++
+
+        // 배출시설 데이터
+        outlet.discharge_facilities.forEach(facility => {
+          airPermitSheet.getCell(`A${currentRow}`).value = facility.name
+          airPermitSheet.getCell(`B${currentRow}`).value = facility.capacity
+          airPermitSheet.getCell(`C${currentRow}`).value = facility.quantity
+          airPermitSheet.getCell(`D${currentRow}`).value = facility.green_link_code || ''
+          currentRow++
+        })
+        currentRow++
+      }
+
+      // 방지시설 헤더
+      if (outlet.prevention_facilities && outlet.prevention_facilities.length > 0) {
+        airPermitSheet.getCell(`A${currentRow}`).value = '🛡️ 방지시설'
+        airPermitSheet.getCell(`A${currentRow}`).font = { bold: true }
+        airPermitSheet.getCell(`A${currentRow}`).fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFE8F5E9' } }
+        currentRow++
+
+        // 방지시설 테이블 헤더
+        airPermitSheet.getCell(`A${currentRow}`).value = '시설명'
+        airPermitSheet.getCell(`B${currentRow}`).value = '용량'
+        airPermitSheet.getCell(`C${currentRow}`).value = '수량'
+        airPermitSheet.getCell(`D${currentRow}`).value = '녹색기업코드'
+        ;['A', 'B', 'C', 'D'].forEach(col => {
+          airPermitSheet.getCell(`${col}${currentRow}`).style = headerStyle
+        })
+        currentRow++
+
+        // 방지시설 데이터
+        outlet.prevention_facilities.forEach(facility => {
+          airPermitSheet.getCell(`A${currentRow}`).value = facility.name
+          airPermitSheet.getCell(`B${currentRow}`).value = facility.capacity
+          airPermitSheet.getCell(`C${currentRow}`).value = facility.quantity
+          airPermitSheet.getCell(`D${currentRow}`).value = facility.green_link_code || ''
+          currentRow++
+        })
+        currentRow += 2
+      }
+    })
+
+    // 컬럼 너비 조정
+    airPermitSheet.getColumn('A').width = 30
+    airPermitSheet.getColumn('B').width = 20
+    airPermitSheet.getColumn('C').width = 10
+    airPermitSheet.getColumn('D').width = 20
+
+    console.log('[ECOSENSE-TEMPLATE] 대기필증 정보 추가 완료:', data.air_permit.outlets.length, '개 배출구')
+  }
+
+  // ============================================================================
   // Excel 버퍼 생성
   // ============================================================================
   const buffer = await workbook.xlsx.writeBuffer()

@@ -88,6 +88,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     console.log('[PURCHASE-ORDER] 사업장 데이터:', {
       id: business.id,
       name: business.business_name,
+      manufacturer: business.manufacturer,  // ✅ 제조사 확인용 로그 추가
       ph_meter: business.ph_meter,
       differential_pressure_meter: business.differential_pressure_meter,
       temperature_meter: business.temperature_meter,
