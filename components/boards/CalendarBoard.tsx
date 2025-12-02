@@ -73,6 +73,11 @@ export default function CalendarBoard() {
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [availableLabels, setAvailableLabels] = useState<string[]>([]);
 
+  // 전체 데이터 검색용 상태
+  const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
+  const [allEventsLoaded, setAllEventsLoaded] = useState(false);
+  const [allEventsLoading, setAllEventsLoading] = useState(false);
+
   // 스크롤 요청 추적용 ref
   const scrollToBottomRef = React.useRef(false);
 
@@ -189,6 +194,65 @@ export default function CalendarBoard() {
   useEffect(() => {
     fetchAvailableLabels();
   }, []);
+
+  /**
+   * 전체 캘린더 이벤트 조회 (검색용 - 날짜 범위 제한 없음)
+   */
+  const fetchAllEvents = async () => {
+    if (allEventsLoaded || allEventsLoading) return;
+
+    try {
+      setAllEventsLoading(true);
+
+      // 병렬로 전체 일반 이벤트와 실사 이벤트 조회 (날짜 범위 없이)
+      const [calendarResponse, surveyResponse] = await Promise.all([
+        fetch('/api/calendar'),  // 날짜 범위 없이 전체 조회
+        fetch('/api/survey-events')  // month 파라미터 없이 전체 조회
+      ]);
+
+      const calendarResult = await calendarResponse.json();
+      const surveyResult = await surveyResponse.json();
+
+      if (calendarResult.success && surveyResult.success) {
+        // 실사 이벤트를 CalendarEvent 형식으로 변환
+        const surveyEvents: CalendarEvent[] = (surveyResult.data || []).map((survey: any) => ({
+          id: survey.id,
+          title: survey.title,
+          description: survey.description || null,
+          event_date: survey.event_date,
+          start_time: survey.start_time || null,
+          end_time: survey.end_time || null,
+          event_type: 'schedule' as const,
+          is_completed: false,
+          author_id: survey.business_id || '',
+          author_name: survey.author_name || '미지정',
+          labels: survey.labels || [],
+          business_id: survey.business_id,
+          business_name: survey.business_name,
+          created_at: survey.created_at,
+          updated_at: survey.updated_at
+        }));
+
+        const mergedEvents = [...(calendarResult.data || []), ...surveyEvents];
+        setAllEvents(mergedEvents);
+        setAllEventsLoaded(true);
+        console.log(`✅ [캘린더] 전체 이벤트 로드 완료 - 총: ${mergedEvents.length}개`);
+      }
+    } catch (err) {
+      console.error('[전체 이벤트 조회 오류]', err);
+    } finally {
+      setAllEventsLoading(false);
+    }
+  };
+
+  /**
+   * 검색어나 라벨 필터가 활성화되면 전체 데이터 로드
+   */
+  useEffect(() => {
+    if ((searchQuery.trim() || selectedLabels.length > 0) && !allEventsLoaded) {
+      fetchAllEvents();
+    }
+  }, [searchQuery, selectedLabels, allEventsLoaded]);
 
   /**
    * 사용 가능한 라벨 변경 시 선택된 라벨 정리
@@ -311,6 +375,10 @@ export default function CalendarBoard() {
   const handleModalSuccess = async () => {
     fetchEvents(true); // 페이지 하단으로 스크롤
 
+    // 전체 데이터 캐시 무효화 (다음 검색 시 새로 로드)
+    setAllEventsLoaded(false);
+    setAllEvents([]);
+
     // 즉시 라벨 갱신 시도 (빠른 피드백)
     fetchAvailableLabels();
 
@@ -391,6 +459,10 @@ export default function CalendarBoard() {
         // 목록에서 제거
         setEvents(events.filter(event => event.id !== eventId));
 
+        // 전체 데이터 캐시 무효화 (다음 검색 시 새로 로드)
+        setAllEventsLoaded(false);
+        setAllEvents([]);
+
         // 즉시 라벨 갱신 시도 (빠른 피드백)
         fetchAvailableLabels();
 
@@ -410,17 +482,27 @@ export default function CalendarBoard() {
   };
 
   /**
+   * 검색/필터 활성화 여부
+   */
+  const isFilterActive = searchQuery.trim() !== '' || selectedLabels.length > 0;
+
+  /**
    * 검색 및 라벨 필터링된 이벤트 목록 (메모이제이션)
+   * - 필터가 활성화되면 전체 데이터(allEvents)에서 검색
+   * - 필터가 없으면 현재 월 데이터(events)만 사용
    */
   const filteredEvents = useMemo(() => {
-    let filtered = events;
+    // 필터가 활성화되고 전체 데이터가 로드되었으면 전체 데이터에서 검색
+    const sourceEvents = (isFilterActive && allEventsLoaded) ? allEvents : events;
+    let filtered = sourceEvents;
 
     // 검색어 필터링
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(event =>
         event.title.toLowerCase().includes(query) ||
-        (event.description && event.description.toLowerCase().includes(query))
+        (event.description && event.description.toLowerCase().includes(query)) ||
+        (event.business_name && event.business_name.toLowerCase().includes(query))
       );
     }
 
@@ -434,7 +516,7 @@ export default function CalendarBoard() {
     }
 
     return filtered;
-  }, [events, searchQuery, selectedLabels]);
+  }, [events, allEvents, allEventsLoaded, isFilterActive, searchQuery, selectedLabels]);
 
   /**
    * 이벤트를 날짜별로 인덱싱 (메모이제이션으로 성능 최적화)
@@ -677,12 +759,20 @@ export default function CalendarBoard() {
 
           {/* 필터 결과 표시 */}
           {(searchQuery || selectedLabels.length > 0) && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="text-xs text-gray-500">
-                {filteredEvents.length}개의 일정이 표시되고 있습니다
-                {events.length !== filteredEvents.length && ` (전체 ${events.length}개 중)`}
+                {allEventsLoading ? (
+                  <span className="text-purple-600">🔍 전체 일정 검색 중...</span>
+                ) : (
+                  <>
+                    <span className="font-medium text-purple-600">{filteredEvents.length}개</span>의 일정
+                    {allEventsLoaded && (
+                      <span className="text-gray-400"> (전체 {allEvents.length}개 중)</span>
+                    )}
+                  </>
+                )}
               </div>
-              {filteredEvents.length > 0 && (
+              {filteredEvents.length > 0 && !allEventsLoading && (
                 <button
                   onClick={() => setIsListViewOpen(true)}
                   className="px-2.5 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded transition-colors font-medium whitespace-nowrap"
