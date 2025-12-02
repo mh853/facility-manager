@@ -145,7 +145,9 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/messages',  // 전달사항 목록 API (Supabase Admin 인증 사용)
     '/api/messages/*',  // 전달사항 개별 API (Supabase Admin 인증 사용)
     '/api/calendar',  // 캘린더 이벤트 목록 API (Supabase Admin 인증 사용)
-    '/api/calendar/*'  // 캘린더 이벤트 개별 API (Supabase Admin 인증 사용)
+    '/api/calendar/*',  // 캘린더 이벤트 개별 API (Supabase Admin 인증 사용)
+    '/api/subsidy-announcements',  // 보조금 공고 목록 API (Supabase Admin 인증 사용)
+    '/api/subsidy-announcements/*'  // 보조금 공고 개별 API (Supabase Admin 인증 사용)
   ];
 
   if (excludePaths.includes(request.nextUrl.pathname)) {

@@ -420,7 +420,7 @@ export default function SubsidyAnnouncementsPage() {
 
                 return (
                   <div
-                    key={announcement.id}
+                    key={`${announcement.id}-${announcement.is_read}`}
                     className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
                       !announcement.is_read ? 'bg-blue-50/50' : ''
                     }`}
