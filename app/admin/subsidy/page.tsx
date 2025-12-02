@@ -139,9 +139,17 @@ export default function SubsidyAnnouncementsPage() {
     }
   };
 
-  // 읽음 처리
+  // 읽음 처리 (낙관적 업데이트)
   const markAsRead = async (announcement: SubsidyAnnouncement) => {
     if (announcement.is_read) return;
+
+    // 낙관적 업데이트: UI 먼저 업데이트
+    setAllAnnouncements(prev =>
+      prev.map(a => (a.id === announcement.id ? { ...a, is_read: true } : a))
+    );
+
+    // 통계도 즉시 업데이트 (읽지 않은 수 -1)
+    setStats(prev => prev ? { ...prev, unread_count: Math.max(0, prev.unread_count - 1) } : prev);
 
     try {
       const response = await fetch('/api/subsidy-announcements', {
@@ -152,16 +160,21 @@ export default function SubsidyAnnouncementsPage() {
 
       const result = await response.json();
 
-      if (result.success) {
-        setAllAnnouncements(prev =>
-          prev.map(a => (a.id === announcement.id ? { ...a, is_read: true } : a))
-        );
-        loadStats();
-      } else {
+      if (!result.success) {
+        // 실패 시 롤백
         console.error('읽음 처리 실패:', result.error);
+        setAllAnnouncements(prev =>
+          prev.map(a => (a.id === announcement.id ? { ...a, is_read: false } : a))
+        );
+        setStats(prev => prev ? { ...prev, unread_count: prev.unread_count + 1 } : prev);
       }
     } catch (error) {
+      // 에러 시 롤백
       console.error('읽음 처리 실패:', error);
+      setAllAnnouncements(prev =>
+        prev.map(a => (a.id === announcement.id ? { ...a, is_read: false } : a))
+      );
+      setStats(prev => prev ? { ...prev, unread_count: prev.unread_count + 1 } : prev);
     }
   };
 
