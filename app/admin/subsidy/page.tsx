@@ -235,6 +235,30 @@ export default function SubsidyAnnouncementsPage() {
     return regionMap[region] || region;
   };
 
+  // 타이틀에서 출처 지역 대괄호 제거
+  // 예: "[서울특별시] [전북] 고창군..." → "[전북] 고창군..."
+  const cleanTitle = (title: string): string => {
+    // 광역시/특별시 전체 이름 패턴 (출처로 사용되는 경우)
+    const sourcePatterns = [
+      /^\[서울특별시\]\s*/,
+      /^\[부산광역시\]\s*/,
+      /^\[대구광역시\]\s*/,
+      /^\[인천광역시\]\s*/,
+      /^\[광주광역시\]\s*/,
+      /^\[대전광역시\]\s*/,
+      /^\[울산광역시\]\s*/,
+      /^\[세종특별자치시\]\s*/,
+    ];
+
+    // 출처 패턴으로 시작하면 제거
+    for (const pattern of sourcePatterns) {
+      if (pattern.test(title)) {
+        return title.replace(pattern, '');
+      }
+    }
+    return title;
+  };
+
   // 날짜 포맷
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '-';
@@ -417,7 +441,7 @@ export default function SubsidyAnnouncementsPage() {
                         </div>
 
                         <h3 className="font-medium text-gray-900 truncate">
-                          {announcement.title}
+                          {cleanTitle(announcement.title)}
                         </h3>
 
                         <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
@@ -506,7 +530,7 @@ export default function SubsidyAnnouncementsPage() {
                 </div>
 
                 <h3 className="text-xl font-bold mb-4">
-                  {selectedAnnouncement.title}
+                  {cleanTitle(selectedAnnouncement.title)}
                 </h3>
 
                 <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
