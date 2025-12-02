@@ -88,9 +88,9 @@ export default function DayEventsModal({
       />
 
       {/* 모달 컨텐츠 */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col mx-4">
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-purple-50 to-blue-50">
+        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-purple-50 to-blue-50 flex-shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <CalendarIcon className="w-5 h-5 text-purple-600" />
@@ -111,7 +111,7 @@ export default function DayEventsModal({
         </div>
 
         {/* 본문 */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
           {events.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <CalendarIcon className="w-12 h-12 mx-auto mb-3 text-gray-400" />
@@ -387,7 +387,7 @@ export default function DayEventsModal({
         </div>
 
         {/* 푸터 */}
-        <div className="flex items-center justify-between p-6 border-t bg-gray-50">
+        <div className="flex items-center justify-between p-6 border-t bg-gray-50 flex-shrink-0">
           <button
             onClick={onCreateEvent}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
