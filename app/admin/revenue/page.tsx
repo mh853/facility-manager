@@ -1172,7 +1172,7 @@ function RevenueDashboard() {
               <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">영업점</label>
               <select
                 value={selectedOffice}
-                onChange={(e) => setSelectedOffice(e.target.value)}
+                onChange={(e) => { setSelectedOffice(e.target.value); setCurrentPage(1); }}
                 className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체 영업점</option>
@@ -1188,7 +1188,7 @@ function RevenueDashboard() {
               <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">지역</label>
               <select
                 value={selectedRegion}
-                onChange={(e) => setSelectedRegion(e.target.value)}
+                onChange={(e) => { setSelectedRegion(e.target.value); setCurrentPage(1); }}
                 className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체 지역</option>
@@ -1204,7 +1204,7 @@ function RevenueDashboard() {
               <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">진행구분</label>
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }}
                 className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체</option>
@@ -1220,7 +1220,7 @@ function RevenueDashboard() {
               <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">사업 진행 연도</label>
               <select
                 value={selectedProjectYear}
-                onChange={(e) => setSelectedProjectYear(e.target.value)}
+                onChange={(e) => { setSelectedProjectYear(e.target.value); setCurrentPage(1); }}
                 className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체 연도</option>
@@ -1236,7 +1236,7 @@ function RevenueDashboard() {
               <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">설치 월</label>
               <select
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                onChange={(e) => { setSelectedMonth(e.target.value); setCurrentPage(1); }}
                 className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">전체 월</option>
@@ -1262,7 +1262,7 @@ function RevenueDashboard() {
                   type="checkbox"
                   id="receivables-filter"
                   checked={showReceivablesOnly}
-                  onChange={(e) => setShowReceivablesOnly(e.target.checked)}
+                  onChange={(e) => { setShowReceivablesOnly(e.target.checked); setCurrentPage(1); }}
                   className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
                 />
                 <label htmlFor="receivables-filter" className="ml-1.5 sm:ml-2 text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 cursor-pointer">
@@ -1302,7 +1302,7 @@ function RevenueDashboard() {
                   type="text"
                   placeholder="사업장명 또는 영업점"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                   className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -1314,7 +1314,7 @@ function RevenueDashboard() {
                 type="number"
                 placeholder="0"
                 value={revenueFilter.min}
-                onChange={(e) => setRevenueFilter(prev => ({ ...prev, min: e.target.value }))}
+                onChange={(e) => { setRevenueFilter(prev => ({ ...prev, min: e.target.value })); setCurrentPage(1); }}
                 className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min="0"
                 step="100000"
@@ -1327,7 +1327,7 @@ function RevenueDashboard() {
                 type="number"
                 placeholder="제한없음"
                 value={revenueFilter.max}
-                onChange={(e) => setRevenueFilter(prev => ({ ...prev, max: e.target.value }))}
+                onChange={(e) => { setRevenueFilter(prev => ({ ...prev, max: e.target.value })); setCurrentPage(1); }}
                 className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min="0"
                 step="100000"
@@ -1560,6 +1560,7 @@ function RevenueDashboard() {
                     setSelectedRegion('');
                     setRevenueFilter({ min: '', max: '' });
                     setShowReceivablesOnly(false);
+                    setCurrentPage(1);
                   }}
                   className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
                 >
