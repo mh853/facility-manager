@@ -3881,6 +3881,7 @@ function BusinessManagementPage() {
           <div className="hidden md:block p-2 md:p-6 overflow-x-auto">
             <div className="min-w-[1090px]">
               <DataTable
+                key={`datatable-${filteredBusinesses.length}`}
                 data={businessesWithId}
                 columns={columns}
                 actions={actions}
