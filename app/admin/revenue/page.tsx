@@ -1067,7 +1067,7 @@ function RevenueDashboard() {
       >
         <div className="space-y-3 sm:space-y-4">
 
-        {/* 통계 카드 */}
+        {/* 통계 카드 - 주석 처리 (나중에 필요할 수 있음)
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           <StatsCard
             title="총 사업장 수"
@@ -1144,6 +1144,7 @@ function RevenueDashboard() {
             description="순이익 기준 최고 영업점"
           />
         </div>
+        */}
 
         {/* 필터 및 검색 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
