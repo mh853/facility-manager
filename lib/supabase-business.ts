@@ -116,6 +116,7 @@ export async function createBusiness(businessData: Omit<BusinessInfo, 'id' | 'cr
 }
 
 export async function updateBusiness(id: string, updates: Partial<BusinessInfo>) {
+  // 1. 먼저 사업장 정보 업데이트
   const { data, error } = await supabaseAdmin
     .from('business_info')
     .update(updates)
@@ -126,6 +127,61 @@ export async function updateBusiness(id: string, updates: Partial<BusinessInfo>)
   if (error) {
     console.error('❌ [SUPABASE] 사업장 업데이트 실패:', error);
     throw new Error(`사업장 업데이트 실패: ${error.message}`);
+  }
+
+  // 2. 실사 일정 필드가 변경된 경우 survey_events 동기화
+  const surveyFields = [
+    { field: 'estimate_survey_date', type: 'estimate_survey', label: '견적실사', managerField: 'estimate_survey_manager' },
+    { field: 'pre_construction_survey_date', type: 'pre_construction_survey', label: '착공전실사', managerField: 'pre_construction_survey_manager' },
+    { field: 'completion_survey_date', type: 'completion_survey', label: '준공실사', managerField: 'completion_survey_manager' }
+  ];
+
+  for (const survey of surveyFields) {
+    if (survey.field in updates) {
+      const surveyDate = (updates as any)[survey.field];
+      const surveyManager = (updates as any)[survey.managerField] || (data as any)[survey.managerField];
+      const eventId = `${survey.type}-${id}`;
+
+      try {
+        if (surveyDate) {
+          // 실사일이 있으면 생성 또는 업데이트
+          const { error: upsertError } = await supabaseAdmin
+            .from('survey_events')
+            .upsert({
+              id: eventId,
+              title: `${data.business_name} - ${survey.label}`,
+              event_date: surveyDate,
+              labels: [survey.label],
+              business_id: id,
+              business_name: data.business_name,
+              author_name: surveyManager || '미지정',
+              event_type: 'survey',
+              survey_type: survey.type
+            }, { onConflict: 'id' });
+
+          if (upsertError) {
+            console.error(`⚠️ [SUPABASE] ${survey.label} 일정 동기화 실패:`, upsertError);
+          } else {
+            console.log(`✅ [SUPABASE] ${survey.label} 일정 동기화 완료:`, eventId);
+          }
+        } else {
+          // 실사일이 삭제되면 일정도 삭제
+          const { error: deleteError } = await supabaseAdmin
+            .from('survey_events')
+            .delete()
+            .eq('id', eventId);
+
+          if (deleteError) {
+            console.error(`⚠️ [SUPABASE] ${survey.label} 일정 삭제 실패:`, deleteError);
+          } else {
+            console.log(`✅ [SUPABASE] ${survey.label} 일정 삭제 완료:`, eventId);
+          }
+        }
+      } catch (syncError) {
+        console.error(`⚠️ [SUPABASE] ${survey.label} 동기화 중 오류:`, syncError);
+        // 동기화 실패해도 사업장 업데이트는 성공으로 간주
+      }
+    }
   }
 
   return data as BusinessInfo;

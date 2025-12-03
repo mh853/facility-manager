@@ -449,9 +449,24 @@ export default function CalendarBoard() {
     }
 
     try {
-      const response = await fetch(`/api/calendar/${eventId}`, {
-        method: 'DELETE'
-      });
+      // 실사 이벤트 감지 (estimate-survey-, pre-construction-survey-, completion-survey-)
+      const isSurveyEvent =
+        eventId.startsWith('estimate-survey-') ||
+        eventId.startsWith('pre-construction-survey-') ||
+        eventId.startsWith('completion-survey-');
+
+      let response;
+      if (isSurveyEvent) {
+        // 실사 이벤트는 survey-events API 사용
+        response = await fetch(`/api/survey-events?id=${eventId}`, {
+          method: 'DELETE'
+        });
+      } else {
+        // 일반 일정은 calendar API 사용
+        response = await fetch(`/api/calendar/${eventId}`, {
+          method: 'DELETE'
+        });
+      }
 
       const result = await response.json();
 

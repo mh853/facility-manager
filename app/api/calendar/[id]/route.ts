@@ -137,6 +137,7 @@ export async function PUT(
  * DELETE /api/calendar/[id]
  * 캘린더 이벤트 삭제 (Soft Delete)
  * - Level 1+ (AUTHENTICATED) 삭제 가능
+ * - 실사 이벤트(survey)는 /api/survey-events로 리다이렉트
  */
 export async function DELETE(
   request: NextRequest,
@@ -146,7 +147,24 @@ export async function DELETE(
     const supabase = getSupabaseAdmin();
     const { id } = params;
 
-    // Soft delete
+    // 실사 이벤트 감지 → survey-events API로 리다이렉트
+    const isSurveyEvent =
+      id.startsWith('estimate-survey-') ||
+      id.startsWith('pre-construction-survey-') ||
+      id.startsWith('completion-survey-');
+
+    if (isSurveyEvent) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '실사 이벤트는 /api/survey-events API를 사용해주세요.',
+          redirect: `/api/survey-events?id=${id}`
+        },
+        { status: 400 }
+      );
+    }
+
+    // Soft delete (일반 캘린더 이벤트)
     const { data, error } = await supabase
       .from('calendar_events')
       .update({ is_deleted: true })
