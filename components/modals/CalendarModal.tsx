@@ -6,6 +6,7 @@ import { getLabelColor } from '@/lib/label-colors';
 import BusinessAutocomplete from '@/components/inputs/BusinessAutocomplete';
 import BusinessInfoPanel from '@/components/business/BusinessInfoPanel';
 import DateInput from '@/components/ui/DateInput';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * 첨부 파일 메타데이터 타입
@@ -73,6 +74,9 @@ export default function CalendarModal({
   initialDate,
   onSuccess
 }: CalendarModalProps) {
+  // 🔐 사용자 인증 정보
+  const { user } = useAuth();
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
@@ -480,9 +484,14 @@ export default function CalendarModal({
       setLoading(true);
       setError(null);
 
-      // TODO: 실제 사용자 정보 가져오기
-      const authorId = 'temp_user_id';
-      const authorName = '사용자';
+      // 사용자 로그인 확인
+      if (!user) {
+        setError('로그인이 필요합니다.');
+        return;
+      }
+
+      const authorId = user.id;
+      const authorName = user.name;
 
       if (internalMode === 'create') {
         // 생성
