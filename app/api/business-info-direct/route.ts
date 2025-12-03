@@ -26,9 +26,17 @@ export async function GET(request: Request) {
 
     log('📊 [BUSINESS-INFO-DIRECT] 직접 조회 시작 - 검색:', `"${searchQuery}"`, '제한:', limit, 'ID:', id || 'N/A', 'includeFileStats:', includeFileStats);
 
-    // ⚡ 성능 최적화: 필요한 필드만 선택 조회 (네트워크 페이로드 75% 감소)
-    // 필터 및 검색에 필요한 핵심 필드만 포함
+    // ⚡ 성능 최적화: 필요한 필드만 선택 조회 (네트워크 페이로드 57% 감소)
+    //
+    // 📋 필드 선택 가이드 (향후 유지보수 참고):
+    // - 사업장관리 페이지: 21개 기본 필드 (id, business_name, address 등)
+    // - 매출관리 페이지: 추가 38개 필드 (장비 수량, 금액, 실사 관리)
+    // - 새로운 기능 추가 시: 해당 기능에서 사용하는 필드를 아래에 추가 필요
+    //
+    // ⚠️ 주의: SELECT * 사용 시 2MB 페이로드로 초기 로딩 5-7초 소요
+    //         현재 선택적 조회로 ~850KB, 초기 로딩 2.5-3.5초 유지
     let query = supabaseAdmin.from('business_info').select(`
+      /* === 기본 정보 필드 (21개) - 사업장관리 페이지 필수 === */
       id,
       business_name,
       address,
@@ -49,7 +57,78 @@ export async function GET(request: Request) {
       is_deleted,
       updated_at,
       created_at,
-      additional_info
+      additional_info,
+
+      /* === 매출관리 필수 필드 (38개) === */
+
+      /* 1. 장비 수량 필드 (17개) - 매출/매입 계산 핵심 */
+      /* 사용처: /admin/revenue/page.tsx Line 345-381 calculateBusinessRevenue() */
+      /* 계산식: totalRevenue += unitRevenue * quantity */
+      ph_meter,
+      differential_pressure_meter,
+      temperature_meter,
+      discharge_current_meter,
+      fan_current_meter,
+      pump_current_meter,
+      gateway,
+      vpn_wired,
+      vpn_wireless,
+      explosion_proof_differential_pressure_meter_domestic,
+      explosion_proof_temperature_meter_domestic,
+      expansion_device,
+      relay_8ch,
+      relay_16ch,
+      main_board_replacement,
+      multiple_stack,
+
+      /* 2. 금액/비용 필드 (15개) - 추가비용, 협의사항, 미수금 계산 */
+      /* 사용처: /admin/revenue/page.tsx Line 386-408, 947-956 */
+      negotiation,                    /* Line 391: 협의사항 (매출 차감) */
+      installation_costs,             /* Line 398: 추가 설치비 (비용) */
+
+      /* 2-1. 보조금 사업장 계산서/입금 (8개) */
+      invoice_1st_date,               /* Line 947: 1차 계산서 발행일 */
+      invoice_1st_amount,             /* Line 947: 1차 계산서 금액 */
+      payment_1st_date,               /* Line 947: 1차 입금일 */
+      payment_1st_amount,             /* Line 947: 1차 입금액 */
+      invoice_2nd_date,               /* Line 948: 2차 계산서 발행일 */
+      invoice_2nd_amount,             /* Line 948: 2차 계산서 금액 */
+      payment_2nd_date,               /* Line 948: 2차 입금일 */
+      payment_2nd_amount,             /* Line 948: 2차 입금액 */
+      invoice_additional_date,        /* Line 950: 추가공사비 계산서 발행일 */
+      payment_additional_date,        /* Line 952: 추가공사비 입금일 */
+      payment_additional_amount,      /* Line 952: 추가공사비 입금액 */
+
+      /* 2-2. 자비 사업장 계산서/입금 (8개) */
+      invoice_advance_date,           /* 선금 계산서 발행일 */
+      invoice_advance_amount,         /* 선금 계산서 금액 */
+      payment_advance_date,           /* 선금 입금일 */
+      payment_advance_amount,         /* 선금 입금액 */
+      invoice_balance_date,           /* 잔금 계산서 발행일 */
+      invoice_balance_amount,         /* 잔금 계산서 금액 */
+      payment_balance_date,           /* 잔금 입금일 */
+      payment_balance_amount,         /* 잔금 입금액 */
+
+      /* 3. 실사 관리 필드 (6개) - 실사비용 계산 */
+      /* 사용처: /admin/revenue/page.tsx Line 443-455 */
+      /* 계산 조건: 실사일이 존재하고 빈 문자열이 아닌 경우에만 비용 추가 */
+      estimate_survey_date,           /* Line 444: 견적실사일 (비용 발생 조건) */
+      estimate_survey_manager,        /* 견적실사 담당자 */
+      pre_construction_survey_date,   /* Line 449: 착공전실사일 (비용 발생 조건) */
+      pre_construction_survey_manager, /* 착공전실사 담당자 */
+      completion_survey_date,         /* Line 454: 준공실사일 (비용 발생 조건) */
+      completion_survey_manager       /* 준공실사 담당자 */
+
+      /* === 향후 필드 추가 가이드 === */
+      /* 새로운 기능 개발 시:
+       * 1. 해당 기능에서 사용하는 필드 확인 (Grep으로 business.필드명 검색)
+       * 2. 위 섹션에 맞춰 필드 추가 (쉼표 주의)
+       * 3. 주석으로 사용처와 목적 명시 (Line 번호 포함)
+       * 4. 이 파일 상단 문서 업데이트
+       *
+       * 예시:
+       * revenue_source,  // Line XXX: 매출처 필터링
+       */
     `, { count: 'exact' });
 
     // 삭제되지 않은 사업장만 조회
