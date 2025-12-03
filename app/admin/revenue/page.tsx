@@ -10,6 +10,7 @@ import { ProtectedPage } from '@/components/auth/ProtectedPage';
 import { AuthLevel } from '@/lib/auth/AuthLevels';
 import StatsCard from '@/components/ui/StatsCard';
 import Modal, { ModalActions } from '@/components/ui/Modal';
+import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
 import { MANUFACTURER_NAMES_REVERSE, type ManufacturerName } from '@/constants/manufacturers';
 
 // Code Splitting: 무거운 모달 및 디스플레이 컴포넌트를 동적 로딩
@@ -79,8 +80,7 @@ function RevenueDashboard() {
   const router = useRouter();
   const [businesses, setBusinesses] = useState<BusinessInfo[]>([]);
   const [calculations, setCalculations] = useState<RevenueCalculation[]>([]);
-  const [selectedBusiness, setSelectedBusiness] = useState<string>('');
-  const [selectedOffice, setSelectedOffice] = useState<string>('');
+  const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -104,10 +104,10 @@ function RevenueDashboard() {
   // 제조사별 수수료율 데이터 (영업점 → 제조사 → 수수료율)
   const [commissionRates, setCommissionRates] = useState<Record<string, Record<string, number>>>({});
   const [commissionRatesLoaded, setCommissionRatesLoaded] = useState(false);
-  const [selectedRegion, setSelectedRegion] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(''); // 카테고리(진행구분) 필터
-  const [selectedProjectYear, setSelectedProjectYear] = useState(''); // 사업 진행 연도 필터
-  const [selectedMonth, setSelectedMonth] = useState(''); // 월별 필터 (1-12)
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // 카테고리(진행구분) 필터
+  const [selectedProjectYears, setSelectedProjectYears] = useState<string[]>([]); // 사업 진행 연도 필터
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([]); // 월별 필터 (1-12)
   const [showReceivablesOnly, setShowReceivablesOnly] = useState(false); // 미수금 필터
   const [sortField, setSortField] = useState<string>('business_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -115,6 +115,7 @@ function RevenueDashboard() {
   const itemsPerPage = 20;
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   const [selectedEquipmentBusiness, setSelectedEquipmentBusiness] = useState<any>(null);
+  const [quickCalcBusiness, setQuickCalcBusiness] = useState<string>(''); // 빈 상태용 빠른 계산 선택
 
   const { user } = useAuth();
   const userPermission = user?.permission_level || 0;
@@ -526,8 +527,8 @@ function RevenueDashboard() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedBusiness) params.append('business_id', selectedBusiness);
-      if (selectedOffice) params.append('sales_office', selectedOffice);
+      // 다중 선택 필터는 클라이언트에서 처리하므로 서버 필터는 제거
+      if (selectedOffices.length === 1) params.append('sales_office', selectedOffices[0]);
       params.append('limit', '100');
 
       console.log('📊 [LOAD-CALCULATIONS] 요청 파라미터:', params.toString());
@@ -841,19 +842,22 @@ function RevenueDashboard() {
       (business.sales_office && business.sales_office.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (business.manager_name && business.manager_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    // 드롭다운 필터
-    const officeMatch = !selectedOffice || business.sales_office === selectedOffice;
-    const regionMatch = !selectedRegion || (business.address && business.address.toLowerCase().includes(selectedRegion.toLowerCase()));
-    const categoryMatch = !selectedCategory || business.progress_status === selectedCategory;
-    const yearMatch = !selectedProjectYear || business.project_year === Number(selectedProjectYear);
+    // 드롭다운 필터 (다중 선택)
+    const officeMatch = selectedOffices.length === 0 || selectedOffices.includes(business.sales_office || '');
+    const regionMatch = selectedRegions.length === 0 || selectedRegions.some(region =>
+      business.address && business.address.toLowerCase().includes(region.toLowerCase())
+    );
+    const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(business.progress_status || '');
+    const yearMatch = selectedProjectYears.length === 0 || selectedProjectYears.includes(String(business.project_year || ''));
 
-    // 월별 필터 (설치일 기준)
+    // 월별 필터 (설치일 기준, 다중 선택)
     let monthMatch = true;
-    if (selectedMonth) {
+    if (selectedMonths.length > 0) {
       const installDate = business.installation_date;
       if (installDate) {
         const date = new Date(installDate);
-        monthMatch = (date.getMonth() + 1) === Number(selectedMonth);
+        const month = String(date.getMonth() + 1);
+        monthMatch = selectedMonths.includes(month);
       } else {
         monthMatch = false; // 설치일이 없으면 필터에서 제외
       }
@@ -1152,109 +1156,46 @@ function RevenueDashboard() {
             <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             필터 및 검색
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-            <div>
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">사업장 선택</label>
-              <select
-                value={selectedBusiness}
-                onChange={(e) => setSelectedBusiness(e.target.value)}
-                className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">전체 사업장</option>
-                {businesses.map(business => (
-                  <option key={business.id} value={business.id}>
-                    {business.business_name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+            <MultiSelectDropdown
+              label="영업점"
+              options={salesOffices}
+              selectedValues={selectedOffices}
+              onChange={(values) => { setSelectedOffices(values); setCurrentPage(1); }}
+              placeholder="전체 영업점"
+            />
 
-            <div>
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">영업점</label>
-              <select
-                value={selectedOffice}
-                onChange={(e) => { setSelectedOffice(e.target.value); setCurrentPage(1); }}
-                className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">전체 영업점</option>
-                {salesOffices.map(office => (
-                  <option key={office} value={office}>
-                    {office}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MultiSelectDropdown
+              label="지역"
+              options={regions.sort()}
+              selectedValues={selectedRegions}
+              onChange={(values) => { setSelectedRegions(values); setCurrentPage(1); }}
+              placeholder="전체 지역"
+            />
 
-            <div>
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">지역</label>
-              <select
-                value={selectedRegion}
-                onChange={(e) => { setSelectedRegion(e.target.value); setCurrentPage(1); }}
-                className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">전체 지역</option>
-                {regions.sort().map(region => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MultiSelectDropdown
+              label="진행구분"
+              options={['자비', '보조금', '보조금 동시진행', '대리점', 'AS']}
+              selectedValues={selectedCategories}
+              onChange={(values) => { setSelectedCategories(values); setCurrentPage(1); }}
+              placeholder="전체"
+            />
 
-            <div>
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">진행구분</label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }}
-                className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">전체</option>
-                <option value="자비">자비</option>
-                <option value="보조금">보조금</option>
-                <option value="보조금 동시진행">보조금 동시진행</option>
-                <option value="대리점">대리점</option>
-                <option value="AS">AS</option>
-              </select>
-            </div>
+            <MultiSelectDropdown
+              label="사업 진행 연도"
+              options={projectYears.map(year => String(year))}
+              selectedValues={selectedProjectYears}
+              onChange={(values) => { setSelectedProjectYears(values); setCurrentPage(1); }}
+              placeholder="전체 연도"
+            />
 
-            <div>
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">사업 진행 연도</label>
-              <select
-                value={selectedProjectYear}
-                onChange={(e) => { setSelectedProjectYear(e.target.value); setCurrentPage(1); }}
-                className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">전체 연도</option>
-                {projectYears.map(year => (
-                  <option key={year} value={year}>
-                    {year}년
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">설치 월</label>
-              <select
-                value={selectedMonth}
-                onChange={(e) => { setSelectedMonth(e.target.value); setCurrentPage(1); }}
-                className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">전체 월</option>
-                <option value="1">1월</option>
-                <option value="2">2월</option>
-                <option value="3">3월</option>
-                <option value="4">4월</option>
-                <option value="5">5월</option>
-                <option value="6">6월</option>
-                <option value="7">7월</option>
-                <option value="8">8월</option>
-                <option value="9">9월</option>
-                <option value="10">10월</option>
-                <option value="11">11월</option>
-                <option value="12">12월</option>
-              </select>
-            </div>
+            <MultiSelectDropdown
+              label="설치 월"
+              options={['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']}
+              selectedValues={selectedMonths}
+              onChange={(values) => { setSelectedMonths(values); setCurrentPage(1); }}
+              placeholder="전체 월"
+            />
 
             <div className="sm:col-span-2 md:col-span-1">
               <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">미수금 필터</label>
@@ -1272,7 +1213,7 @@ function RevenueDashboard() {
               </div>
             </div>
 
-            <div className="flex items-end gap-1.5 sm:gap-2 sm:col-span-2 md:col-span-3 lg:col-span-1">
+            <div className="flex items-end gap-1.5 sm:gap-2">
               <button
                 onClick={loadCalculations}
                 disabled={loading}
@@ -1281,16 +1222,6 @@ function RevenueDashboard() {
                 <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 조회
               </button>
-              {selectedBusiness && (
-                <button
-                  onClick={() => calculateRevenue(selectedBusiness)}
-                  disabled={isCalculating}
-                  className="flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 sm:gap-1.5 transition-colors"
-                >
-                  <Calculator className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  {isCalculating ? '계산 중...' : '계산'}
-                </button>
-              )}
             </div>
           </div>
 
@@ -1506,8 +1437,8 @@ function RevenueDashboard() {
                       <h4 className="text-xs sm:text-sm font-medium text-blue-900 mb-2">매출 계산 시작하기</h4>
                       <div className="space-y-2">
                         <select
-                          value={selectedBusiness}
-                          onChange={(e) => setSelectedBusiness(e.target.value)}
+                          value={quickCalcBusiness}
+                          onChange={(e) => setQuickCalcBusiness(e.target.value)}
                           className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-blue-300 rounded-md text-xs sm:text-sm"
                         >
                           <option value="">사업장을 선택하세요</option>
@@ -1518,8 +1449,8 @@ function RevenueDashboard() {
                           ))}
                         </select>
                         <button
-                          onClick={() => calculateRevenue(selectedBusiness)}
-                          disabled={!selectedBusiness || isCalculating}
+                          onClick={() => calculateRevenue(quickCalcBusiness)}
+                          disabled={!quickCalcBusiness || isCalculating}
                           className="w-full px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm font-medium"
                         >
                           {isCalculating ? '계산 중...' : '매출 계산 실행'}
