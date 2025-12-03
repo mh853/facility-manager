@@ -16,6 +16,7 @@ import { TokenManager } from '@/lib/api-client'
 import { getManufacturerName } from '@/constants/manufacturers'
 import AutocompleteInput from '@/components/ui/AutocompleteInput'
 import DateInput from '@/components/ui/DateInput'
+import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown'
 import { formatMobilePhone, formatLandlinePhone } from '@/utils/phone-formatter'
 import { useToast } from '@/contexts/ToastContext'
 // ⚡ 커스텀 훅 임포트 (Phase 2.1 성능 최적화)
@@ -790,12 +791,12 @@ function BusinessManagementPage() {
   // 🔄 검색 로딩 상태 (검색시 현재 단계 로딩용)
   const [isSearchLoading, setIsSearchLoading] = useState(false)
 
-  // 필터 상태
-  const [filterOffice, setFilterOffice] = useState<string>('')
-  const [filterRegion, setFilterRegion] = useState<string>('')
-  const [filterCategory, setFilterCategory] = useState<string>('')
-  const [filterProjectYear, setFilterProjectYear] = useState<string>('')
-  const [filterCurrentStep, setFilterCurrentStep] = useState<string>('')
+  // 필터 상태 (다중 선택 지원)
+  const [filterOffices, setFilterOffices] = useState<string[]>([])
+  const [filterRegions, setFilterRegions] = useState<string[]>([])
+  const [filterCategories, setFilterCategories] = useState<string[]>([])
+  const [filterProjectYears, setFilterProjectYears] = useState<string[]>([])
+  const [filterCurrentSteps, setFilterCurrentSteps] = useState<string[]>([])
 
   // 제출일 필터 상태 (개별 항목)
   const [submissionDateFilters, setSubmissionDateFilters] = useState<{
@@ -1484,33 +1485,37 @@ function BusinessManagementPage() {
 
     let filtered = allBusinesses
 
-    // 드롭다운 필터 적용
-    if (filterOffice) {
-      filtered = filtered.filter(b => b.영업점 === filterOffice || b.sales_office === filterOffice)
+    // 드롭다운 필터 적용 (다중 선택)
+    if (filterOffices.length > 0) {
+      filtered = filtered.filter(b => {
+        const office = b.영업점 || b.sales_office || ''
+        return filterOffices.includes(office)
+      })
     }
-    if (filterRegion) {
+    if (filterRegions.length > 0) {
       filtered = filtered.filter(b => {
         const address = b.주소 || b.address || ''
-        return address.includes(filterRegion)
+        return filterRegions.some(region => address.includes(region))
       })
     }
-    if (filterCategory) {
+    if (filterCategories.length > 0) {
       filtered = filtered.filter(b => {
-        const value = (b as any).진행상태 || b.progress_status
-        return value && String(value).trim() === filterCategory
+        const value = (b as any).진행상태 || b.progress_status || ''
+        return filterCategories.includes(String(value).trim())
       })
     }
-    if (filterProjectYear) {
+    if (filterProjectYears.length > 0) {
       filtered = filtered.filter(b => {
         const year = (b as any).사업진행연도 || b.project_year
-        return year === Number(filterProjectYear)
+        // "2024년" 형태로 저장되므로 비교 시 "년" 접미사 추가
+        return filterProjectYears.includes(`${year}년`)
       })
     }
-    if (filterCurrentStep) {
+    if (filterCurrentSteps.length > 0) {
       filtered = filtered.filter(b => {
         const businessName = b.사업장명 || b.business_name || ''
         const currentStep = calculateBusinessCurrentSteps[businessName]
-        return currentStep && currentStep.trim() === filterCurrentStep
+        return currentStep && filterCurrentSteps.includes(currentStep.trim())
       })
     }
 
@@ -1592,7 +1597,7 @@ function BusinessManagementPage() {
 
     console.log('🎯 필터링 결과:', filtered.length, '개 사업장 (검색어:', searchTerms.length, '개)')
     return filtered
-  }, [searchTerms, allBusinesses, filterOffice, filterRegion, filterCategory, filterProjectYear, filterCurrentStep, calculateBusinessCurrentSteps, submissionDateFilters, hasActiveSubmissionFilter])
+  }, [searchTerms, allBusinesses, filterOffices, filterRegions, filterCategories, filterProjectYears, filterCurrentSteps, calculateBusinessCurrentSteps, submissionDateFilters, hasActiveSubmissionFilter])
 
   // 필터 옵션 추출
   const filterOptions = useMemo(() => {
@@ -3640,8 +3645,8 @@ function BusinessManagementPage() {
                 사업장 목록
               </h2>
               <div className="flex items-center gap-2">
-                <span className="text-base font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                  {(searchQuery || filterOffice || filterRegion || filterCategory || filterProjectYear) ? (
+                <span className="text-xs sm:text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                  {(searchQuery || filterOffices.length > 0 || filterRegions.length > 0 || filterCategories.length > 0 || filterProjectYears.length > 0 || filterCurrentSteps.length > 0) ? (
                     `필터링 결과 ${filteredBusinesses.length}개 (전체 ${allBusinesses.length}개 중)`
                   ) : (
                     `전체 ${allBusinesses.length}개 사업장`
@@ -3713,17 +3718,17 @@ function BusinessManagementPage() {
               {/* 필터 드롭다운 */}
               <div className="space-y-2 md:space-y-3 mt-2 md:mt-3 pt-2 md:pt-3 border-t border-gray-200">
                 <div className="flex items-center justify-between">
-                  <span className="text-base font-medium text-gray-700">필터</span>
-                  {(filterOffice || filterRegion || filterCategory || filterProjectYear || filterCurrentStep) && (
+                  <span className="text-xs sm:text-sm font-medium text-gray-700">필터</span>
+                  {(filterOffices.length > 0 || filterRegions.length > 0 || filterCategories.length > 0 || filterProjectYears.length > 0 || filterCurrentSteps.length > 0) && (
                     <button
                       onClick={() => {
-                        setFilterOffice('')
-                        setFilterRegion('')
-                        setFilterCategory('')
-                        setFilterProjectYear('')
-                        setFilterCurrentStep('')
+                        setFilterOffices([])
+                        setFilterRegions([])
+                        setFilterCategories([])
+                        setFilterProjectYears([])
+                        setFilterCurrentSteps([])
                       }}
-                      className="text-base text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                      className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
                     >
                       <X className="w-3 h-3" />
                       필터 초기화
@@ -3731,100 +3736,45 @@ function BusinessManagementPage() {
                   )}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-1">
-                      영업점
-                      {filterOffice && <span className="ml-1 text-blue-600">●</span>}
-                    </label>
-                    <select
-                      value={filterOffice}
-                      onChange={(e) => setFilterOffice(e.target.value)}
-                      className={`w-full px-2 py-1.5 text-base border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        filterOffice ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">전체</option>
-                      {filterOptions.offices.map(office => (
-                        <option key={office} value={office}>{office}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <MultiSelectDropdown
+                    label="영업점"
+                    options={filterOptions.offices}
+                    selectedValues={filterOffices}
+                    onChange={setFilterOffices}
+                    placeholder="전체"
+                  />
 
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-1">
-                      지역
-                      {filterRegion && <span className="ml-1 text-blue-600">●</span>}
-                    </label>
-                    <select
-                      value={filterRegion}
-                      onChange={(e) => setFilterRegion(e.target.value)}
-                      className={`w-full px-2 py-1.5 text-base border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        filterRegion ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">전체</option>
-                      {filterOptions.regions.map(region => (
-                        <option key={region} value={region}>{region}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <MultiSelectDropdown
+                    label="지역"
+                    options={filterOptions.regions}
+                    selectedValues={filterRegions}
+                    onChange={setFilterRegions}
+                    placeholder="전체"
+                  />
 
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-1">
-                      진행구분
-                      {filterCategory && <span className="ml-1 text-blue-600">●</span>}
-                    </label>
-                    <select
-                      value={filterCategory}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                      className={`w-full px-2 py-1.5 text-base border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        filterCategory ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">전체</option>
-                      {filterOptions.categories.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <MultiSelectDropdown
+                    label="진행구분"
+                    options={filterOptions.categories}
+                    selectedValues={filterCategories}
+                    onChange={setFilterCategories}
+                    placeholder="전체"
+                  />
 
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-1">
-                      사업 진행 연도
-                      {filterProjectYear && <span className="ml-1 text-blue-600">●</span>}
-                    </label>
-                    <select
-                      value={filterProjectYear}
-                      onChange={(e) => setFilterProjectYear(e.target.value)}
-                      className={`w-full px-2 py-1.5 text-base border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        filterProjectYear ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">전체</option>
-                      {filterOptions.years.map(year => (
-                        <option key={year} value={year}>{year}년</option>
-                      ))}
-                    </select>
-                  </div>
+                  <MultiSelectDropdown
+                    label="사업 진행 연도"
+                    options={filterOptions.years.map(year => `${year}년`)}
+                    selectedValues={filterProjectYears}
+                    onChange={setFilterProjectYears}
+                    placeholder="전체"
+                  />
 
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-1">
-                      현재 단계
-                      {filterCurrentStep && <span className="ml-1 text-blue-600">●</span>}
-                    </label>
-                    <select
-                      value={filterCurrentStep}
-                      onChange={(e) => setFilterCurrentStep(e.target.value)}
-                      className={`w-full px-2 py-1.5 text-base border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        filterCurrentStep ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">전체</option>
-                      {filterOptions.currentSteps.map(step => (
-                        <option key={step} value={step}>{step}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <MultiSelectDropdown
+                    label="현재 단계"
+                    options={filterOptions.currentSteps}
+                    selectedValues={filterCurrentSteps}
+                    onChange={setFilterCurrentSteps}
+                    placeholder="전체"
+                  />
                 </div>
 
                 {/* 제출일 필터 (접기/펼치기 지원) */}
