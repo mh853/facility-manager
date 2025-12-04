@@ -585,15 +585,22 @@ export class DatabaseService {
   static async updateAirPermitWithOutlets(permitId: string, permitData: Partial<AirPermitInfo>, outlets?: any[]): Promise<AirPermitWithOutlets> {
     // 1. 기본 대기필증 정보 업데이트
     const updatedPermit = await this.updateAirPermit(permitId, permitData)
-    
+
     // 2. 배출구와 시설 정보가 제공된 경우 업데이트
     if (outlets && Array.isArray(outlets)) {
       // 기존 배출구 삭제 (시설도 함께 삭제됨 - CASCADE)
-      await supabase
+      console.log('🗑️ 기존 배출구 삭제 시작:', permitId)
+      const { error: deleteError, count: deletedCount } = await supabaseAdmin
         .from('discharge_outlets')
         .delete()
         .eq('air_permit_id', permitId)
-      
+
+      if (deleteError) {
+        console.error('❌ 배출구 삭제 실패:', deleteError)
+        throw new Error(`배출구 삭제 실패: ${deleteError.message}`)
+      }
+      console.log('✅ 기존 배출구 삭제 완료, 삭제 수:', deletedCount)
+
       // 새로운 배출구와 시설 생성
       const updatedOutlets: OutletWithFacilities[] = []
       
