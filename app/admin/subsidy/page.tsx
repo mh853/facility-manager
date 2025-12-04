@@ -19,7 +19,7 @@ export default function SubsidyAnnouncementsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<SubsidyAnnouncement | null>(null);
 
-  // 필터 상태 (기본값: 관련 공고만 표시 - 75% 이상)
+  // 필터 상태 (기본값: 관련 공고만 표시 - 60% 이상)
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterRelevant, setFilterRelevant] = useState('true');
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,9 +82,9 @@ export default function SubsidyAnnouncementsPage() {
 
     // 관련성 필터
     if (filterRelevant === 'true') {
-      filtered = filtered.filter(a => a.relevance_score && a.relevance_score >= 0.75);
+      filtered = filtered.filter(a => a.relevance_score && a.relevance_score >= 0.60);
     } else if (filterRelevant === 'false') {
-      filtered = filtered.filter(a => !a.relevance_score || a.relevance_score < 0.75);
+      filtered = filtered.filter(a => !a.relevance_score || a.relevance_score < 0.60);
     }
 
     // 검색어 필터 (실시간)
