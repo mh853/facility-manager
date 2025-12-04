@@ -627,7 +627,9 @@ export class DatabaseService {
                 quantity: facility.quantity || 1,
                 additional_info: facility.additional_info || {}  // ✅ 프론트엔드에서 전달된 additional_info 사용
               }
+              console.log(`💾 [DB] 배출시설 생성: ${facility.name}, additional_info =`, JSON.stringify(facilityData.additional_info))
               const createdFacility = await this.createDischargeFacility(facilityData)
+              console.log(`✅ [DB] 배출시설 생성 완료: ${createdFacility.facility_name}, additional_info =`, JSON.stringify(createdFacility.additional_info))
               dischargeFacilities.push(createdFacility)
             }
           }
@@ -645,7 +647,9 @@ export class DatabaseService {
                 quantity: facility.quantity || 1,
                 additional_info: facility.additional_info || {}  // ✅ 프론트엔드에서 전달된 additional_info 사용
               }
+              console.log(`💾 [DB] 방지시설 생성: ${facility.name}, additional_info =`, JSON.stringify(facilityData.additional_info))
               const createdFacility = await this.createPreventionFacility(facilityData)
+              console.log(`✅ [DB] 방지시설 생성 완료: ${createdFacility.facility_name}, additional_info =`, JSON.stringify(createdFacility.additional_info))
               preventionFacilities.push(createdFacility)
             }
           }

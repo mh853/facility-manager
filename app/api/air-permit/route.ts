@@ -222,6 +222,18 @@ export async function PUT(request: NextRequest) {
       }))
     })
 
+    // 🔍 시설별 additional_info 디버그 로그
+    console.log('🔍 [DEBUG] 시설별 additional_info 상세:')
+    outlets.forEach((outlet: any, oi: number) => {
+      console.log(`  배출구 ${oi + 1}:`)
+      outlet.discharge_facilities?.forEach((f: any, fi: number) => {
+        console.log(`    - 배출시설 ${fi + 1} (${f.name}): additional_info =`, JSON.stringify(f.additional_info))
+      })
+      outlet.prevention_facilities?.forEach((f: any, fi: number) => {
+        console.log(`    - 방지시설 ${fi + 1} (${f.name}): additional_info =`, JSON.stringify(f.additional_info))
+      })
+    })
+
     // Step 5: 날짜 필드 검증
     const validateDate = (dateStr: string, fieldName: string): string | null => {
       try {

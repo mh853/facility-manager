@@ -24,11 +24,19 @@ interface PermitPdfData {
       name: string
       capacity: string
       quantity: number
+      defaultFacilityNumber?: string  // 기본 시설번호 (배1, 배2...)
+      facilityNumber?: string          // 사용자 입력 시설번호
+      greenLinkCode?: string
+      memo?: string
     }>
     preventionFacilities: Array<{
       name: string
       capacity: string
       quantity: number
+      defaultFacilityNumber?: string  // 기본 시설번호 (방1, 방2...)
+      facilityNumber?: string          // 사용자 입력 시설번호
+      greenLinkCode?: string
+      memo?: string
     }>
   }>
 }
@@ -97,6 +105,9 @@ export class KoreanAirPermitPdfGenerator {
       // 잠깐 기다린 후 렌더링 (폰트 로딩 완료 대기)
       await new Promise(resolve => setTimeout(resolve, 500))
 
+      // 실제 콘텐츠 높이 측정 (빈 페이지 방지)
+      const actualContentHeight = tempDiv.scrollHeight || tempDiv.offsetHeight
+
       // Canvas로 변환 (최적화된 옵션)
       const canvas = await html2canvas(tempDiv, {
         scale: 2,
@@ -104,7 +115,7 @@ export class KoreanAirPermitPdfGenerator {
         backgroundColor: '#ffffff',
         logging: false,
         width: 794,
-        height: tempDiv.offsetHeight || 1123, // A4 기본 높이
+        height: actualContentHeight, // 실제 콘텐츠 높이만 사용
         allowTaint: false,
         foreignObjectRendering: false,
         removeContainer: false,
@@ -112,7 +123,7 @@ export class KoreanAirPermitPdfGenerator {
         scrollX: 0,
         scrollY: 0,
         windowWidth: 794,
-        windowHeight: tempDiv.offsetHeight || 1123,
+        windowHeight: actualContentHeight,
         onclone: (clonedDoc) => {
           // 클론된 문서에서 CSS 완전히 리셋 및 강제 적용
           const clonedDiv = clonedDoc.querySelector('div')
@@ -184,46 +195,71 @@ export class KoreanAirPermitPdfGenerator {
 
       // 페이지가 길면 여러 페이지로 분할
       const pageHeight = this.pageHeight - (this.margin * 2)
-      let remainingHeight = imgHeight
-      let yPosition = 0
 
-      while (remainingHeight > 0) {
-        const currentPageHeight = Math.min(pageHeight, remainingHeight)
-        
-        // 이미지를 잘라서 현재 페이지에 추가
-        const cropCanvas = document.createElement('canvas')
-        const cropCtx = cropCanvas.getContext('2d')
-        
-        if (cropCtx) {
-          const cropRatio = currentPageHeight / imgHeight
-          cropCanvas.width = canvas.width
-          cropCanvas.height = canvas.height * cropRatio
+      // 콘텐츠가 한 페이지 안에 들어가는 경우 (가장 일반적인 케이스)
+      if (imgHeight <= pageHeight) {
+        // 단일 페이지: 전체 이미지를 그대로 추가
+        this.doc.addImage(
+          imgData,
+          'JPEG',
+          this.margin,
+          this.margin,
+          imgWidth,
+          imgHeight
+        )
+      } else {
+        // 다중 페이지: 이미지를 잘라서 여러 페이지에 나눠 추가
+        let remainingHeight = imgHeight
+        let yPosition = 0
+        let isFirstPage = true
 
-          cropCtx.drawImage(
-            canvas,
-            0, yPosition * (canvas.height / imgHeight),
-            canvas.width, canvas.height * cropRatio,
-            0, 0,
-            canvas.width, canvas.height * cropRatio
-          )
+        while (remainingHeight > 0) {
+          const currentPageHeight = Math.min(pageHeight, remainingHeight)
 
-          const cropImgData = cropCanvas.toDataURL('image/jpeg', 0.95)
-          
-          this.doc.addImage(
-            cropImgData,
-            'JPEG',
-            this.margin,
-            this.margin,
-            imgWidth,
-            currentPageHeight
-          )
-        }
+          // 너무 작은 높이(5mm 미만)의 페이지는 생성하지 않음
+          if (currentPageHeight < 5) {
+            break
+          }
 
-        remainingHeight -= currentPageHeight
-        yPosition += currentPageHeight
+          // 첫 페이지가 아니면 새 페이지 추가
+          if (!isFirstPage) {
+            this.doc.addPage()
+          }
 
-        if (remainingHeight > 0) {
-          this.doc.addPage()
+          // 이미지를 잘라서 현재 페이지에 추가
+          const cropCanvas = document.createElement('canvas')
+          const cropCtx = cropCanvas.getContext('2d')
+
+          if (cropCtx) {
+            const sourceY = yPosition * (canvas.height / imgHeight)
+            const sourceHeight = currentPageHeight * (canvas.height / imgHeight)
+
+            cropCanvas.width = canvas.width
+            cropCanvas.height = sourceHeight
+
+            cropCtx.drawImage(
+              canvas,
+              0, sourceY,
+              canvas.width, sourceHeight,
+              0, 0,
+              canvas.width, sourceHeight
+            )
+
+            const cropImgData = cropCanvas.toDataURL('image/jpeg', 0.95)
+
+            this.doc.addImage(
+              cropImgData,
+              'JPEG',
+              this.margin,
+              this.margin,
+              imgWidth,
+              currentPageHeight
+            )
+          }
+
+          remainingHeight -= currentPageHeight
+          yPosition += currentPageHeight
+          isFirstPage = false
         }
       }
 
@@ -240,7 +276,7 @@ export class KoreanAirPermitPdfGenerator {
     const localGovernment = this.escapeHtml(data.permitInfo.localGovernment)
     
     return `
-      <div style="font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif; padding: 20px; line-height: 1.6; font-weight: 400; letter-spacing: -0.02em; background-color: #ffffff; color: #000000; min-height: 100vh;">
+      <div style="font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif; padding: 20px; line-height: 1.6; font-weight: 400; letter-spacing: -0.02em; background-color: #ffffff; color: #000000;">
         <!-- 제목 -->
         <div style="text-align: center; margin-bottom: 30px; background-color: #ffffff;">
           <h1 style="font-size: 24px; font-weight: bold; margin: 0; color: #1a1a1a; border-bottom: 3px solid #2563eb; padding-bottom: 10px; background-color: #ffffff;">
@@ -329,21 +365,30 @@ export class KoreanAirPermitPdfGenerator {
             <table style="width: 100%; border-collapse: collapse; background-color: #ffffff;">
               <thead>
                 <tr style="background-color: #f8f9fa;">
-                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 15%;">시설번호</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 40%;">시설명</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 30%;">용량</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 15%;">수량</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 10%;">시설번호</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 28%;">시설명</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 17%;">용량</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 8%;">수량</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 17%;">그린링크</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 20%;">메모</th>
                 </tr>
               </thead>
               <tbody>
-                ${outlet.dischargeFacilities.map((facility, facilityIndex) => `
+                ${outlet.dischargeFacilities.map((facility, facilityIndex) => {
+                  const defaultNum = facility.defaultFacilityNumber || `배${facilityIndex + 1}`
+                  const userNum = facility.facilityNumber || ''
+                  // 기본값과 사용자 입력값을 함께 표시 (사용자 입력값이 있는 경우)
+                  const displayNum = userNum ? `${defaultNum} (${userNum})` : defaultNum
+                  return `
                 <tr>
-                  <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background-color: #ffffff; color: #000000; font-weight: bold;">배${facilityIndex + 1}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background-color: #ffffff; color: #000000; font-weight: bold;">${this.escapeHtml(displayNum)}</td>
                   <td style="border: 1px solid #ddd; padding: 8px; background-color: #ffffff; color: #000000;">${this.escapeHtml(facility.name)}</td>
                   <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background-color: #ffffff; color: #000000;">${this.escapeHtml(facility.capacity)}</td>
                   <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background-color: #ffffff; color: #000000;">${facility.quantity}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background-color: #ffffff; color: #000000;">${this.escapeHtml(facility.greenLinkCode || '')}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; background-color: #ffffff; color: #000000;">${this.escapeHtml(facility.memo || '')}</td>
                 </tr>
-                `).join('')}
+                `}).join('')}
               </tbody>
             </table>
           </div>
@@ -358,21 +403,30 @@ export class KoreanAirPermitPdfGenerator {
             <table style="width: 100%; border-collapse: collapse; background-color: #ffffff;">
               <thead>
                 <tr style="background-color: #f8f9fa;">
-                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 15%;">시설번호</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 40%;">시설명</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 30%;">용량</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 15%;">수량</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 10%;">시설번호</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 28%;">시설명</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 17%;">용량</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 8%;">수량</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 17%;">그린링크</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: center; background-color: #f8f9fa; color: #000000; width: 20%;">메모</th>
                 </tr>
               </thead>
               <tbody>
-                ${outlet.preventionFacilities.map((facility, facilityIndex) => `
+                ${outlet.preventionFacilities.map((facility, facilityIndex) => {
+                  const defaultNum = facility.defaultFacilityNumber || `방${facilityIndex + 1}`
+                  const userNum = facility.facilityNumber || ''
+                  // 기본값과 사용자 입력값을 함께 표시 (사용자 입력값이 있는 경우)
+                  const displayNum = userNum ? `${defaultNum} (${userNum})` : defaultNum
+                  return `
                 <tr>
-                  <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background-color: #ffffff; color: #000000; font-weight: bold;">방${facilityIndex + 1}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background-color: #ffffff; color: #000000; font-weight: bold;">${this.escapeHtml(displayNum)}</td>
                   <td style="border: 1px solid #ddd; padding: 8px; background-color: #ffffff; color: #000000;">${this.escapeHtml(facility.name)}</td>
                   <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background-color: #ffffff; color: #000000;">${this.escapeHtml(facility.capacity)}</td>
                   <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background-color: #ffffff; color: #000000;">${facility.quantity}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background-color: #ffffff; color: #000000;">${this.escapeHtml(facility.greenLinkCode || '')}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; background-color: #ffffff; color: #000000;">${this.escapeHtml(facility.memo || '')}</td>
                 </tr>
-                `).join('')}
+                `}).join('')}
               </tbody>
             </table>
           </div>

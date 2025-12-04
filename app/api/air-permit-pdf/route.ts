@@ -18,9 +18,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 대기필증 상세 정보 조회 (배출구 및 시설 정보 포함)
-    const permitDetail = await DatabaseService.getAirPermitWithDetails(permitId)
-    
+    // 대기필증 상세 정보 조회 (배출구 및 시설 정보 포함) - forcePrimary=true로 최신 데이터 보장
+    const permitDetail = await DatabaseService.getAirPermitWithDetails(permitId, true)
+
     if (!permitDetail) {
       return NextResponse.json(
         { error: '대기필증 정보를 찾을 수 없습니다' },
@@ -46,25 +46,34 @@ export async function POST(request: NextRequest) {
       outlets: permitDetail.outlets?.map((outlet, index) => ({
         outletNumber: outlet.outlet_number || index + 1,
         outletName: outlet.outlet_name || `배출구 ${index + 1}`,
-        dischargeFacilities: outlet.discharge_facilities?.map(facility => ({
-          name: facility.facility_name,
-          capacity: facility.capacity || '',
-          quantity: facility.quantity || 1
-        })) || [],
-        preventionFacilities: outlet.prevention_facilities?.map(facility => ({
-          name: facility.facility_name,
-          capacity: facility.capacity || '',
-          quantity: facility.quantity || 1
-        })) || []
+        dischargeFacilities: outlet.discharge_facilities?.map((facility, facilityIdx) => {
+          const additionalInfo = facility.additional_info || {}
+          return {
+            name: facility.facility_name,
+            capacity: facility.capacity || '',
+            quantity: facility.quantity || 1,
+            // 기본 시설번호 (배1, 배2...) + 사용자 입력값을 함께 전달
+            defaultFacilityNumber: `배${facilityIdx + 1}`,
+            facilityNumber: additionalInfo.facility_number || '',
+            greenLinkCode: additionalInfo.green_link_code || '',
+            memo: additionalInfo.memo || ''
+          }
+        }) || [],
+        preventionFacilities: outlet.prevention_facilities?.map((facility, facilityIdx) => {
+          const additionalInfo = facility.additional_info || {}
+          return {
+            name: facility.facility_name,
+            capacity: facility.capacity || '',
+            quantity: facility.quantity || 1,
+            // 기본 시설번호 (방1, 방2...) + 사용자 입력값을 함께 전달
+            defaultFacilityNumber: `방${facilityIdx + 1}`,
+            facilityNumber: additionalInfo.facility_number || '',
+            greenLinkCode: additionalInfo.green_link_code || '',
+            memo: additionalInfo.memo || ''
+          }
+        }) || []
       })) || []
     }
-
-    console.log('📋 PDF 생성용 데이터 구성 완료:', {
-      businessName: pdfData.permitInfo.businessName,
-      outletCount: pdfData.outlets.length,
-      totalDischargeFacilities: pdfData.outlets.reduce((sum, outlet) => sum + outlet.dischargeFacilities.length, 0),
-      totalPreventionFacilities: pdfData.outlets.reduce((sum, outlet) => sum + outlet.preventionFacilities.length, 0)
-    })
 
     return NextResponse.json({
       success: true,
