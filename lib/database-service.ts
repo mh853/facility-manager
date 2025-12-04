@@ -543,13 +543,13 @@ export class DatabaseService {
             facility_name: facility.name || '',
             capacity: facility.capacity || null,
             quantity: facility.quantity || 1,
-            additional_info: {}
+            additional_info: facility.additional_info || {}  // ✅ 프론트엔드에서 전달된 additional_info 사용
           }
           const createdFacility = await this.createDischargeFacility(facilityData)
           dischargeFacilities.push(createdFacility)
         }
       }
-      
+
       // 방지시설 생성
       const preventionFacilities: PreventionFacility[] = []
       if (outlet.prevention_facilities && Array.isArray(outlet.prevention_facilities)) {
@@ -559,7 +559,7 @@ export class DatabaseService {
             facility_name: facility.name || '',
             capacity: facility.capacity || null,
             quantity: facility.quantity || 1,
-            additional_info: {}
+            additional_info: facility.additional_info || {}  // ✅ 프론트엔드에서 전달된 additional_info 사용
           }
           const createdFacility = await this.createPreventionFacility(facilityData)
           preventionFacilities.push(createdFacility)
@@ -625,14 +625,14 @@ export class DatabaseService {
                 facility_name: facility.name,
                 capacity: facility.capacity || null,
                 quantity: facility.quantity || 1,
-                additional_info: {}
+                additional_info: facility.additional_info || {}  // ✅ 프론트엔드에서 전달된 additional_info 사용
               }
               const createdFacility = await this.createDischargeFacility(facilityData)
               dischargeFacilities.push(createdFacility)
             }
           }
         }
-        
+
         // 방지시설 생성
         const preventionFacilities: PreventionFacility[] = []
         if (outlet.prevention_facilities && Array.isArray(outlet.prevention_facilities)) {
@@ -643,7 +643,7 @@ export class DatabaseService {
                 facility_name: facility.name,
                 capacity: facility.capacity || null,
                 quantity: facility.quantity || 1,
-                additional_info: {}
+                additional_info: facility.additional_info || {}  // ✅ 프론트엔드에서 전달된 additional_info 사용
               }
               const createdFacility = await this.createPreventionFacility(facilityData)
               preventionFacilities.push(createdFacility)

@@ -273,8 +273,9 @@ export async function PUT(request: NextRequest) {
           business_name: rawUpdateData.additional_info?.business_name || rawUpdateData.business_name || null,
           pollutants: rawUpdateData.additional_info?.pollutants || (Array.isArray(rawUpdateData.pollutants) ? rawUpdateData.pollutants : []),
           // PDF 출력용 필드는 additional_info에 저장
-          facility_number: rawUpdateData.facility_number || null,
-          green_link_code: rawUpdateData.green_link_code || null
+          facility_number: rawUpdateData.facility_number ?? rawUpdateData.additional_info?.facility_number ?? null,
+          green_link_code: rawUpdateData.green_link_code ?? rawUpdateData.additional_info?.green_link_code ?? null,
+          memo: rawUpdateData.memo ?? rawUpdateData.additional_info?.memo ?? null
         }
       }
       console.log('✅ 업데이트 데이터 구성 완료')
