@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, AlertCircle, Factory, Shield } from 'lucide-react';
+import { X, Save, AlertCircle, Factory, Shield, Minus, Plus } from 'lucide-react';
 import { Facility } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -67,20 +67,20 @@ export default function FacilityEditModal({
   }, [isOpen, facility]);
 
   const handleSave = async () => {
-    // ID 체크 - outlet과 number로 시설 식별 (ID가 없을 수 있음)
-    if (!facility.outlet || !facility.number) {
-      toast.error('시설 정보가 부족합니다.');
+    // ID 체크 - API가 ID 기반으로 업데이트하므로 ID 필수
+    if (!facility.id) {
+      toast.error('시설 ID가 없습니다. 페이지를 새로고침 후 다시 시도해주세요.');
       return;
     }
 
     setIsSaving(true);
     try {
+      // API 요구사항에 맞춰 간소화된 요청 데이터
       let updateData: any = {
-        business_name: businessName,
-        outlet: facility.outlet,
-        number: facility.number,
-        type: facilityType || 'discharge',
-        remarks: remarks.trim() || null
+        id: facility.id, // 시설 ID (필수)
+        type: facilityType || 'discharge', // 시설 타입
+        remarks: remarks.trim() || null, // 비고
+        last_updated_by: '관리자' // 수정자 정보
       };
 
       // 배출시설 데이터 추가
@@ -97,14 +97,6 @@ export default function FacilityEditModal({
         updateData.pump = pump;
         updateData.fan = fan;
       }
-
-      // facility.id가 있으면 사용
-      if (facility.id) {
-        updateData.id = facility.id;
-      }
-
-      // 수정자 정보 추가 (로그인 없이 사용하는 페이지이므로 관리자로 고정)
-      updateData.last_updated_by = '관리자';
 
       const response = await fetch('/api/facility-measurement', {
         method: 'PUT',
@@ -169,8 +161,11 @@ export default function FacilityEditModal({
               <Shield className="w-6 h-6" />
             )}
             <div>
-              <h2 className="text-xl font-bold">{facility.displayName || facility.name}</h2>
-              <p className="text-sm text-white/80 mt-1">
+              <h2 className="text-xl font-bold">{facility.displayName}</h2>
+              <p className="text-sm text-white/90 mt-0.5 font-medium">
+                {facility.name}
+              </p>
+              <p className="text-xs text-white/70 mt-0.5">
                 {facilityType === 'discharge' ? '배출시설' : '방지시설'} 측정기기 정보
               </p>
             </div>
@@ -188,6 +183,13 @@ export default function FacilityEditModal({
         <div className="p-6 space-y-6">
           {/* 시설 기본 정보 */}
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            {/* 시설명 - 전체 너비로 강조 표시 */}
+            <div className="mb-3 pb-3 border-b border-gray-300">
+              <div className="text-sm text-gray-600 mb-1">시설명</div>
+              <div className="text-base font-semibold text-gray-900">{facility.name}</div>
+            </div>
+
+            {/* 나머지 정보 - 그리드 레이아웃 */}
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">배출구:</span>
@@ -222,6 +224,31 @@ export default function FacilityEditModal({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     배출CT 개수
                   </label>
+
+                  {/* 빠른 입력 버튼 */}
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDischargeCT('1');
+                        setExemptionReason('none');
+                      }}
+                      className="flex-1 px-4 py-2.5 bg-orange-100 hover:bg-orange-200 text-orange-700 font-semibold rounded-lg transition-all border-2 border-orange-300 hover:border-orange-400 hover:shadow-md"
+                    >
+                      1개
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDischargeCT('0');
+                        setExemptionReason('무동력');
+                      }}
+                      className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all border-2 border-gray-300 hover:border-gray-400 hover:shadow-md"
+                    >
+                      무동력
+                    </button>
+                  </div>
+
                   <input
                     type="number"
                     inputMode="numeric"
@@ -265,85 +292,160 @@ export default function FacilityEditModal({
                 방지시설 측정기기
               </h3>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3">
                 {/* pH 센서 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="bg-white rounded-lg p-2.5 border border-blue-200">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
                     pH 센서
                   </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    value={ph}
-                    onChange={(e) => setPh(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    placeholder="pH 센서 수량"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPh(String(Math.max(0, parseInt(ph) - 1)))}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center active:scale-95 touch-manipulation"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      value={ph}
+                      onChange={(e) => setPh(e.target.value)}
+                      className="flex-1 min-w-0 px-2 py-2 text-center text-base font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPh(String(parseInt(ph) + 1))}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center active:scale-95 touch-manipulation"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* 차압계 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="bg-white rounded-lg p-2.5 border border-blue-200">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
                     차압계
                   </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    value={pressure}
-                    onChange={(e) => setPressure(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    placeholder="차압계 수량"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPressure(String(Math.max(0, parseInt(pressure) - 1)))}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center active:scale-95 touch-manipulation"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      value={pressure}
+                      onChange={(e) => setPressure(e.target.value)}
+                      className="flex-1 min-w-0 px-2 py-2 text-center text-base font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPressure(String(parseInt(pressure) + 1))}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center active:scale-95 touch-manipulation"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* 온도계 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="bg-white rounded-lg p-2.5 border border-blue-200">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
                     온도계
                   </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    value={temperature}
-                    onChange={(e) => setTemperature(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    placeholder="온도계 수량"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setTemperature(String(Math.max(0, parseInt(temperature) - 1)))}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center active:scale-95 touch-manipulation"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      value={temperature}
+                      onChange={(e) => setTemperature(e.target.value)}
+                      className="flex-1 min-w-0 px-2 py-2 text-center text-base font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setTemperature(String(parseInt(temperature) + 1))}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center active:scale-95 touch-manipulation"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* 펌프CT */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="bg-white rounded-lg p-2.5 border border-blue-200">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
                     펌프CT
                   </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    value={pump}
-                    onChange={(e) => setPump(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    placeholder="펌프CT 수량"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPump(String(Math.max(0, parseInt(pump) - 1)))}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center active:scale-95 touch-manipulation"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      value={pump}
+                      onChange={(e) => setPump(e.target.value)}
+                      className="flex-1 min-w-0 px-2 py-2 text-center text-base font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPump(String(parseInt(pump) + 1))}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center active:scale-95 touch-manipulation"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* 송풍CT */}
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="bg-white rounded-lg p-2.5 border border-blue-200">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
                     송풍CT
                   </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    value={fan}
-                    onChange={(e) => setFan(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    placeholder="송풍CT 수량"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setFan(String(Math.max(0, parseInt(fan) - 1)))}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center active:scale-95 touch-manipulation"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      value={fan}
+                      onChange={(e) => setFan(e.target.value)}
+                      className="flex-1 min-w-0 px-2 py-2 text-center text-base font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFan(String(parseInt(fan) + 1))}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors flex items-center justify-center active:scale-95 touch-manipulation"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

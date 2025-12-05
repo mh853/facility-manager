@@ -241,6 +241,7 @@ export async function GET(
 
       if (outletNumber) {
         dischargeData.push({
+          id: facility.id, // 🔧 시설 ID 추가 (측정기기 업데이트용)
           outlet_number: outletNumber,
           facility_number: facility.facility_number,
           facility_name: facility.facility_name,
@@ -277,6 +278,7 @@ export async function GET(
 
       if (outletNumber) {
         preventionData.push({
+          id: facility.id, // 🔧 시설 ID 추가 (측정기기 업데이트용)
           outlet_number: outletNumber,
           facility_number: facility.facility_number,
           facility_name: facility.facility_name,
@@ -305,6 +307,7 @@ export async function GET(
     // 🎯 시설 데이터 변환 (어드민과 동일한 데이터베이스 번호 사용)
     const facilities: FacilitiesData = {
       discharge: dischargeData.map(facility => ({
+        id: facility.id, // 🔧 시설 ID 추가 (측정기기 업데이트용)
         outlet: facility.outlet_number,
         number: facility.facility_number, // 🔧 어드민과 동일한 데이터베이스 값 사용
         name: facility.facility_name,
@@ -330,6 +333,7 @@ export async function GET(
         });
 
         return {
+          id: facility.id, // 🔧 시설 ID 추가 (측정기기 업데이트용)
           outlet: facility.outlet_number,
           number: facility.facility_number, // 🔧 어드민과 동일한 데이터베이스 값 사용
           name: facility.facility_name,

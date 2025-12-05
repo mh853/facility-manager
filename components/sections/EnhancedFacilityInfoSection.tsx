@@ -661,10 +661,20 @@ export default function EnhancedFacilityInfoSection({
                 <Factory className="w-5 h-5 text-orange-600" />
                 배출시설 ({facilities.discharge?.length || 0}개)
               </h3>
-              
+
               {facilities.discharge && facilities.discharge.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {facilities.discharge.map(facility => renderFacilityCard(facility, 'discharge'))}
+                  {[...facilities.discharge]
+                    .sort((a, b) => {
+                      // 1차: 배출구 번호로 정렬
+                      if (a.outlet !== b.outlet) {
+                        return a.outlet - b.outlet;
+                      }
+                      // 2차: 시설 번호로 정렬
+                      return a.number - b.number;
+                    })
+                    .map(facility => renderFacilityCard(facility, 'discharge'))
+                  }
                 </div>
               ) : (
                 <div className="text-center py-6 text-gray-500">
@@ -679,10 +689,20 @@ export default function EnhancedFacilityInfoSection({
                 <Shield className="w-5 h-5 text-blue-600" />
                 방지시설 ({facilities.prevention?.length || 0}개)
               </h3>
-              
+
               {facilities.prevention && facilities.prevention.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {facilities.prevention.map(facility => renderFacilityCard(facility, 'prevention'))}
+                  {[...facilities.prevention]
+                    .sort((a, b) => {
+                      // 1차: 배출구 번호로 정렬
+                      if (a.outlet !== b.outlet) {
+                        return a.outlet - b.outlet;
+                      }
+                      // 2차: 시설 번호로 정렬
+                      return a.number - b.number;
+                    })
+                    .map(facility => renderFacilityCard(facility, 'prevention'))
+                  }
                 </div>
               ) : (
                 <div className="text-center py-6 text-gray-500">

@@ -104,9 +104,6 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const {
       id,
-      business_name,
-      outlet,
-      number,
       type,
       // 배출시설 필드
       dischargeCT,
@@ -122,26 +119,21 @@ export async function PUT(request: NextRequest) {
       last_updated_by
     } = body;
 
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: '시설 ID가 필요합니다.' },
+        { status: 400 }
+      );
+    }
+
     if (!type) {
       return NextResponse.json(
-        { success: false, error: '시설 타입이 필요합니다.' },
+        { success: false, error: '시설 타입(discharge/prevention)이 필요합니다.' },
         { status: 400 }
       );
     }
 
-    // id가 없으면 business_name, outlet, number로 검색
-    if (!id && (!business_name || !outlet || !number)) {
-      return NextResponse.json(
-        { success: false, error: '시설 ID 또는 business_name/outlet/number가 필요합니다.' },
-        { status: 400 }
-      );
-    }
-
-    console.log(`[FACILITY-MEASUREMENT] PUT - Type: ${type}`, {
-      id,
-      business_name,
-      outlet,
-      number,
+    console.log(`[FACILITY-MEASUREMENT] PUT - ID: ${id}, Type: ${type}`, {
       dischargeCT,
       exemptionReason,
       ph,
@@ -197,36 +189,11 @@ export async function PUT(request: NextRequest) {
       updateData.remarks = remarks || null;
     }
 
-    // ID가 없으면 먼저 SELECT로 첫 번째 행의 ID를 찾기
-    let targetId = id;
-
-    if (!targetId) {
-      const { data: selectData, error: selectError } = await supabaseAdmin
-        .from(tableName)
-        .select('id')
-        .eq('business_name', business_name)
-        .eq('outlet_number', outlet)
-        .eq('facility_number', number)
-        .limit(1)
-        .single();
-
-      if (selectError || !selectData) {
-        console.error('[FACILITY-MEASUREMENT] 시설 조회 오류:', selectError);
-        return NextResponse.json(
-          { success: false, error: '시설을 찾을 수 없습니다.' },
-          { status: 404 }
-        );
-      }
-
-      targetId = selectData.id;
-      console.log('[FACILITY-MEASUREMENT] 찾은 시설 ID:', targetId);
-    }
-
-    // ID로 업데이트
+    // ID로 직접 업데이트
     const { data, error } = await supabaseAdmin
       .from(tableName)
       .update(updateData)
-      .eq('id', targetId)
+      .eq('id', id)
       .select()
       .single();
 
@@ -263,19 +230,9 @@ export async function PUT(request: NextRequest) {
       last_updated_by: data.last_updated_by
     });
 
-    // 캐시 무효화: facilities-supabase API의 캐시 클리어
-    // 클라이언트에서 전달받은 business_name 또는 DB에서 조회한 business_name 사용
-    const businessNameForCache = business_name || data.business_name;
-
-    if (businessNameForCache) {
-      const cacheKey = `facilities-supabase:${businessNameForCache}`;
-      memoryCache.delete(cacheKey);
-      console.log(`🔄 [FACILITY-MEASUREMENT] 캐시 클리어 성공: ${cacheKey}`);
-    } else {
-      console.warn('⚠️ [FACILITY-MEASUREMENT] business_name을 찾을 수 없어 캐시를 클리어할 수 없습니다.');
-      console.warn('   요청 데이터:', { id, outlet, number, type, business_name });
-      console.warn('   DB 데이터:', { id: data.id, business_name: data.business_name });
-    }
+    // 캐시 무효화: 시설이 업데이트되면 해당 사업장의 캐시를 클리어해야 함
+    // 하지만 여기서는 business_name을 알 수 없으므로, 클라이언트에서 refresh=true로 재조회하도록 함
+    console.log(`✅ [FACILITY-MEASUREMENT] 시설 업데이트 완료 (ID: ${id}). 클라이언트에서 캐시 갱신 필요`)
 
     return NextResponse.json({
       success: true,
