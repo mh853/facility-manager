@@ -656,6 +656,33 @@ function AirPermitManagementPage() {
     loadBusinessesWithPermits()
   }, [])
 
+  // 🔄 페이지가 다시 보여질 때마다 데이터 새로고침 (디테일 페이지에서 돌아왔을 때 게이트웨이 변경사항 반영)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && selectedBusiness) {
+        console.log('🔄 페이지 visibility 복원 - 대기필증 데이터 새로고침')
+        loadAirPermits(selectedBusiness.id)
+      }
+    }
+
+    const handleFocus = () => {
+      if (selectedBusiness) {
+        console.log('🔄 페이지 focus 복원 - 대기필증 데이터 새로고침')
+        loadAirPermits(selectedBusiness.id)
+      }
+    }
+
+    // Visibility API로 탭 전환 감지
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    // Focus 이벤트로 다른 페이지에서 돌아온 경우 감지
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [selectedBusiness])
+
   // 사업장 선택 시 대기필증 목록 로드
   const handleBusinessSelect = (business: BusinessInfo) => {
     setSelectedBusiness(business)
@@ -962,7 +989,17 @@ function AirPermitManagementPage() {
                           {(() => {
                             const facilityNumbering = facilityNumberingMap.get(permit.id)
                             if (!facilityNumbering || facilityNumbering.outlets.length === 0) return null
-                            
+
+                            // 게이트웨이 색상 매핑
+                            const gatewayColors = {
+                              'gateway1': 'bg-blue-100 text-blue-700 border-blue-300',
+                              'gateway2': 'bg-green-100 text-green-700 border-green-300',
+                              'gateway3': 'bg-yellow-100 text-yellow-700 border-yellow-300',
+                              'gateway4': 'bg-red-100 text-red-700 border-red-300',
+                              'gateway5': 'bg-purple-100 text-purple-700 border-purple-300',
+                              'gateway6': 'bg-pink-100 text-pink-700 border-pink-300',
+                            }
+
                             return (
                               <div className="mt-2 p-2 bg-gray-50 rounded border">
                                 <div className="text-[9px] sm:text-[10px] md:text-xs font-medium text-gray-600 mb-1">시설 번호 현황</div>
@@ -970,10 +1007,21 @@ function AirPermitManagementPage() {
                                   {facilityNumbering.outlets.map(outlet => {
                                     const summary = generateOutletFacilitySummary(outlet)
                                     if (!summary) return null
-                                    
+
+                                    // 게이트웨이 정보 가져오기
+                                    const outletData = permit.outlets?.find((o: any) => o.id === outlet.outletId) as any
+                                    const gateway = outletData?.additional_info?.gateway || ''
+                                    const gatewayColorClass = gateway ? (gatewayColors[gateway as keyof typeof gatewayColors] || '') : ''
+
                                     return (
-                                      <div key={outlet.outletId} className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-700">
-                                        <span className="font-medium">배출구 {outlet.outletNumber}:</span> {summary}
+                                      <div key={outlet.outletId} className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-700 flex items-center gap-1">
+                                        <span className="font-medium">배출구 {outlet.outletNumber}:</span>
+                                        {gateway && (
+                                          <span className={`text-[7px] sm:text-[8px] px-1.5 py-0.5 rounded-full border ${gatewayColorClass}`}>
+                                            GW{gateway.replace('gateway', '')}
+                                          </span>
+                                        )}
+                                        <span>{summary}</span>
                                       </div>
                                     )
                                   })}

@@ -217,6 +217,8 @@ export async function PUT(request: NextRequest) {
       hasOutletsData,
       outletsData: outlets.map((o: any) => ({
         number: o.outlet_number,
+        gateway: o.additional_info?.gateway, // 🎯 게이트웨이 확인
+        additional_info: o.additional_info, // 🎯 전체 additional_info 확인
         discharge: o.discharge_facilities?.length || 0,
         prevention: o.prevention_facilities?.length || 0
       }))
@@ -309,6 +311,7 @@ export async function PUT(request: NextRequest) {
       if (hasOutletsData) {
         // 배출구 데이터가 포함된 경우: 전체 업데이트 (배출구 포함)
         console.log('💾 전체 정보 업데이트 (기본 정보 + 배출구 포함)')
+
         updatedPermit = await DatabaseService.updateAirPermitWithOutlets(id, updateData, outlets)
       } else {
         // 배출구 데이터가 없는 경우: 기본 정보만 업데이트 (배출구 데이터 보존)

@@ -612,7 +612,7 @@ export class DatabaseService {
           outlet_name: outlet.outlet_name || null,
           additional_info: outlet.additional_info || {}
         }
-        
+
         const createdOutlet = await this.createDischargeOutlet(outletData)
         
         // 배출시설 생성
@@ -805,6 +805,7 @@ export class DatabaseService {
       .single()
 
     if (error) throw new Error(`배출구 생성 실패: ${error.message}`)
+
     return data
   }
 
