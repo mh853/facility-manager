@@ -126,6 +126,8 @@ export default function InspectorInfoSection({ inspectorInfo, onUpdate, onSave, 
             type="date"
             value={editData.date}
             onChange={(e) => setEditData({...editData, date: e.target.value})}
+            min="1900-01-01"
+            max="9999-12-31"
             className="w-full min-w-0 px-3 py-2.5 md:px-4 text-base border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
             style={{
               WebkitAppearance: 'none',
