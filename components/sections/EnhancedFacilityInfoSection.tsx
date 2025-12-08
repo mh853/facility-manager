@@ -215,10 +215,19 @@ export default function EnhancedFacilityInfoSection({
     }
   };
 
-  const renderFacilityCard = (facility: Facility, type: 'discharge' | 'prevention') => {
+  const renderFacilityCard = (facility: Facility, type: 'discharge' | 'prevention', quantityIndex: number = 0) => {
+    // quantity가 2 이상인 경우 카드 제목에 번호 표시 (예: "도장시설(전사) #1", "도장시설(전사) #2")
+    const cardTitle = facility.quantity && facility.quantity > 1
+      ? `${facility.displayName} #${quantityIndex + 1}`
+      : facility.displayName;
+
+    const cardSubtitle = facility.quantity && facility.quantity > 1
+      ? `배출구 ${facility.outlet}번 - ${facility.name} #${quantityIndex + 1}`
+      : `배출구 ${facility.outlet}번 - ${facility.name}`;
+
     return (
       <div
-        key={`${facility.outlet}-${facility.number}`}
+        key={facility.id ? `${facility.id}-${quantityIndex}` : `${type}-${facility.outlet}-${facility.number}-${facility.name}-${quantityIndex}`}
         onClick={() => handleEditFacility(facility, type)}
         className="bg-white rounded-lg border border-gray-200 p-4 cursor-pointer hover:shadow-lg hover:border-blue-300 hover:bg-blue-50/30 transition-all duration-200"
       >
@@ -230,8 +239,8 @@ export default function EnhancedFacilityInfoSection({
               <Shield className="w-5 h-5 text-blue-500" />
             )}
             <div>
-              <h3 className="font-semibold text-gray-900">{facility.displayName}</h3>
-              <p className="text-sm text-gray-600">배출구 {facility.outlet}번 - {facility.name}</p>
+              <h3 className="font-semibold text-gray-900">{cardTitle}</h3>
+              <p className="text-sm text-gray-600">{cardSubtitle}</p>
               <p className="text-xs text-gray-500">용량: {facility.capacity}</p>
             </div>
           </div>
@@ -659,7 +668,7 @@ export default function EnhancedFacilityInfoSection({
             <div className="bg-white rounded-lg border border-gray-100 p-4">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <Factory className="w-5 h-5 text-orange-600" />
-                배출시설 ({facilities.discharge?.length || 0}개)
+                배출시설 ({facilities.discharge?.reduce((sum, f) => sum + (f.quantity || 1), 0) || 0}개)
               </h3>
 
               {facilities.discharge && facilities.discharge.length > 0 ? (
@@ -673,7 +682,12 @@ export default function EnhancedFacilityInfoSection({
                       // 2차: 시설 번호로 정렬
                       return a.number - b.number;
                     })
-                    .map(facility => renderFacilityCard(facility, 'discharge'))
+                    .flatMap(facility =>
+                      // quantity 만큼 카드 복제 (quantity가 2이면 2개의 카드 생성)
+                      Array.from({ length: facility.quantity || 1 }, (_, index) =>
+                        renderFacilityCard(facility, 'discharge', index)
+                      )
+                    )
                   }
                 </div>
               ) : (
@@ -687,7 +701,7 @@ export default function EnhancedFacilityInfoSection({
             <div className="bg-white rounded-lg border border-gray-100 p-4">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-blue-600" />
-                방지시설 ({facilities.prevention?.length || 0}개)
+                방지시설 ({facilities.prevention?.reduce((sum, f) => sum + (f.quantity || 1), 0) || 0}개)
               </h3>
 
               {facilities.prevention && facilities.prevention.length > 0 ? (
@@ -701,7 +715,12 @@ export default function EnhancedFacilityInfoSection({
                       // 2차: 시설 번호로 정렬
                       return a.number - b.number;
                     })
-                    .map(facility => renderFacilityCard(facility, 'prevention'))
+                    .flatMap(facility =>
+                      // quantity 만큼 카드 복제 (quantity가 2이면 2개의 카드 생성)
+                      Array.from({ length: facility.quantity || 1 }, (_, index) =>
+                        renderFacilityCard(facility, 'prevention', index)
+                      )
+                    )
                   }
                 </div>
               ) : (

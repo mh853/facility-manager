@@ -174,8 +174,12 @@ export async function GET(
       console.error('🏭 [FACILITIES-SUPABASE] 배출시설 조회 실패:', dischargeError);
     }
 
+    // 배출시설 총 수량 계산 (quantity 필드 합산)
+    const totalDischargeQuantity = dischargeFacilities?.reduce((sum, f) => sum + (f.quantity || 1), 0) || 0;
+
     console.log(`🔍 [FACILITIES-SUPABASE] 배출시설 조회 완료:`, {
-      count: dischargeFacilities?.length || 0,
+      레코드수: dischargeFacilities?.length || 0,
+      총수량: totalDischargeQuantity,
       facilities: dischargeFacilities
     });
 
