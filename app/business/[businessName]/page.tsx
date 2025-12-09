@@ -748,7 +748,7 @@ export default function BusinessDetailPage() {
 
 
                 {/* 2-1. Supabase 시설 정보 */}
-                <SupabaseFacilitiesSection businessName={businessName} />
+                {/* <SupabaseFacilitiesSection businessName={businessName} /> */}
 
                 {/* 2-2. 강화된 시설 정보 섹션 (사전조사용) */}
                 {facilities && (
