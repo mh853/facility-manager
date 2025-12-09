@@ -756,6 +756,7 @@ export default function BusinessDetailPage() {
                     businessName={businessName}
                     businessId={businessInfo?.id}
                     facilities={facilities}
+                    facilityNumbering={facilityNumbering}
                     systemType={systemType}
                     onFacilitiesUpdate={setFacilities}
                   />
@@ -807,6 +808,7 @@ export default function BusinessDetailPage() {
                     businessName={businessName}
                     businessId={businessInfo?.id}
                     facilities={facilities}
+                    facilityNumbering={facilityNumbering}
                     systemType={systemType}
                     onFacilitiesUpdate={setFacilities}
                   />
