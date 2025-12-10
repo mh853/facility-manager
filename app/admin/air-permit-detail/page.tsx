@@ -1329,7 +1329,7 @@ function AirPermitDetailContent() {
                     )}
                     {/* 게이트웨이 정보 항상 표시 */}
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">게이트웨이:</span>
+                      <span className="text-xs text-gray-500">게이트웨이:</span>
                       <span className={`px-2 py-1 rounded-md text-xs font-medium ${gatewayColor}`}>
                         {generateGatewayInfo(currentGateway).name}
                       </span>
@@ -1339,11 +1339,11 @@ function AirPermitDetailContent() {
                   {/* 게이트웨이 할당 및 배출구 삭제 버튼 */}
                   {isEditing && (
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">게이트웨이:</span>
+                      <span className="text-xs font-medium">게이트웨이:</span>
                       <select
                         value={currentGateway}
                         onChange={(e) => handleGatewayChange(outlet.id, e.target.value)}
-                        className="px-3 py-1 border border-gray-300 rounded-md text-base focus:ring-2 focus:ring-blue-500"
+                        className="px-2 py-1 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500"
                       >
                         {generateGatewayOptions(gatewayAssignments).map((gw) => (
                           <option key={gw.value} value={gw.value}>
