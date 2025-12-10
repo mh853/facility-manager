@@ -1457,7 +1457,7 @@ function AirPermitDetailContent() {
                               {/* 배출시설 추가 정보 */}
                               <td className="border border-gray-300 px-1.5 py-1.5">
                                 {dischargeFacility ? (
-                                  <div className="space-y-1">
+                                  <div className="flex items-center gap-1">
                                     {/* 자동 생성 시설번호 */}
                                     {(() => {
                                       if (!facilityNumbering) return null
@@ -1476,7 +1476,7 @@ function AirPermitDetailContent() {
                                           : null
 
                                       return rangeDisplay ? (
-                                        <div className="inline-block px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
+                                        <div className="inline-block px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded whitespace-nowrap">
                                           {rangeDisplay}
                                         </div>
                                       ) : null
@@ -1489,7 +1489,7 @@ function AirPermitDetailContent() {
                                         value={dischargeFacility.additional_info?.facility_number || ''}
                                         onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'facility_number', e.target.value)}
                                         placeholder="시설번호"
-                                        className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                        className="flex-1 px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                       />
                                     ) : (
                                       dischargeFacility.additional_info?.facility_number && (
@@ -1594,7 +1594,7 @@ function AirPermitDetailContent() {
                               {/* 방지시설 추가 정보 */}
                               <td className="border border-gray-300 px-1.5 py-1.5">
                                 {preventionFacility ? (
-                                  <div className="space-y-1">
+                                  <div className="flex items-center gap-1">
                                     {/* 자동 생성 시설번호 */}
                                     {(() => {
                                       if (!facilityNumbering) return null
@@ -1613,7 +1613,7 @@ function AirPermitDetailContent() {
                                           : null
 
                                       return rangeDisplay ? (
-                                        <div className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                                        <div className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded whitespace-nowrap">
                                           {rangeDisplay}
                                         </div>
                                       ) : null
@@ -1626,7 +1626,7 @@ function AirPermitDetailContent() {
                                         value={preventionFacility.additional_info?.facility_number || ''}
                                         onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'facility_number', e.target.value)}
                                         placeholder="시설번호"
-                                        className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                        className="flex-1 px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                       />
                                     ) : (
                                       preventionFacility.additional_info?.facility_number && (
