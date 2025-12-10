@@ -216,7 +216,8 @@ export const GET = withApiHandler(
                 }
 
                 // 제조사 한글 → 영문 변환
-                const manufacturerKey = MANUFACTURER_MAP[bi.manufacturer] || null
+                const trimmedManufacturer = bi.manufacturer?.trim() || ''
+                const manufacturerKey = MANUFACTURER_MAP[trimmedManufacturer] || null
 
                 // 제조사 필터
                 if (manufacturer !== 'all' && manufacturerKey !== manufacturer) {
@@ -273,7 +274,8 @@ export const GET = withApiHandler(
         } else if (businesses) {
           // business_info 데이터를 order 형식으로 변환
           orders = businesses.map((bi: any) => {
-            const manufacturerKey = MANUFACTURER_MAP[bi.manufacturer] || null
+            const trimmedManufacturer = bi.manufacturer?.trim() || ''
+            const manufacturerKey = MANUFACTURER_MAP[trimmedManufacturer] || null
             return {
               id: bi.id,
               business_id: bi.id,
@@ -317,7 +319,8 @@ export const GET = withApiHandler(
         } else if (businesses) {
           // business_info 데이터를 order 형식으로 변환
           orders = businesses.map((bi: any) => {
-            const manufacturerKey = MANUFACTURER_MAP[bi.manufacturer] || null
+            const trimmedManufacturer = bi.manufacturer?.trim() || ''
+            const manufacturerKey = MANUFACTURER_MAP[trimmedManufacturer] || null
             return {
               id: bi.id,
               business_id: bi.id,
@@ -359,7 +362,8 @@ export const GET = withApiHandler(
         } else if (businesses) {
           orders = businesses.map((bi: any) => {
             const hasOrderDate = !!bi.order_date
-            const manufacturerKey = MANUFACTURER_MAP[bi.manufacturer] || null
+            const trimmedManufacturer = bi.manufacturer?.trim() || ''
+            const manufacturerKey = MANUFACTURER_MAP[trimmedManufacturer] || null
             return {
               id: bi.id,
               business_id: bi.id,

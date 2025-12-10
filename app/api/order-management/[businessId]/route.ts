@@ -132,12 +132,14 @@ export const GET = withApiHandler(
       }
 
       // 3. 제조사별 워크플로우 정보
-      const manufacturerKey = MANUFACTURER_MAP[business.manufacturer] || business.manufacturer as Manufacturer
+      const trimmedManufacturer = business.manufacturer?.trim() || ''
+      const manufacturerKey = MANUFACTURER_MAP[trimmedManufacturer] || trimmedManufacturer as Manufacturer
       const workflow = MANUFACTURER_WORKFLOWS[manufacturerKey]
 
       if (!workflow) {
         console.error('[ORDER-DETAIL] 워크플로우를 찾을 수 없음:', {
           original: business.manufacturer,
+          trimmed: trimmedManufacturer,
           mapped: manufacturerKey
         })
         return createErrorResponse('제조사 정보가 올바르지 않습니다', 400)
