@@ -1370,21 +1370,21 @@ function AirPermitDetailContent() {
                   <table className="w-full border-collapse border border-gray-300 bg-white rounded-lg table-fixed min-w-[1400px]">
                     <thead>
                       <tr className="bg-gray-50">
-                        <th className="border border-gray-300 px-2 py-3 text-center font-semibold text-gray-700 text-sm w-[50px]">구분</th>
-                        <th className="border border-gray-300 px-3 py-3 text-left font-semibold text-gray-700 text-sm w-[140px]">배출시설</th>
-                        <th className="border border-gray-300 px-3 py-3 text-left font-semibold text-gray-700 text-sm w-[100px]">용량</th>
-                        <th className="border border-gray-300 px-2 py-3 text-center font-semibold text-gray-700 text-sm w-[60px]">수량</th>
-                        <th className="border border-gray-300 px-3 py-3 text-left font-semibold text-gray-700 text-sm w-[100px]">시설번호</th>
-                        <th className="border border-gray-300 px-3 py-3 text-left font-semibold text-gray-700 text-sm w-[120px]">그린링크</th>
-                        <th className="border border-gray-300 px-3 py-3 text-left font-semibold text-gray-700 text-sm w-[120px]">메모</th>
-                        {isEditing && <th className="border border-gray-300 px-1 py-3 text-center font-semibold text-gray-700 text-sm w-[40px]">삭제</th>}
-                        <th className="border border-gray-300 px-3 py-3 text-left font-semibold text-gray-700 text-sm w-[140px]">방지시설</th>
-                        <th className="border border-gray-300 px-3 py-3 text-left font-semibold text-gray-700 text-sm w-[100px]">용량</th>
-                        <th className="border border-gray-300 px-2 py-3 text-center font-semibold text-gray-700 text-sm w-[60px]">수량</th>
-                        <th className="border border-gray-300 px-3 py-3 text-left font-semibold text-gray-700 text-sm w-[100px]">시설번호</th>
-                        <th className="border border-gray-300 px-3 py-3 text-left font-semibold text-gray-700 text-sm w-[120px]">그린링크</th>
-                        <th className="border border-gray-300 px-3 py-3 text-left font-semibold text-gray-700 text-sm w-[120px]">메모</th>
-                        {isEditing && <th className="border border-gray-300 px-1 py-3 text-center font-semibold text-gray-700 text-sm w-[40px]">삭제</th>}
+                        <th className="border border-gray-300 px-1.5 py-2 text-center font-semibold text-gray-700 text-xs w-[50px]">구분</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[140px]">배출시설</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[100px]">용량</th>
+                        <th className="border border-gray-300 px-1.5 py-2 text-center font-semibold text-gray-700 text-xs w-[60px]">수량</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[100px]">시설번호</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[120px]">그린링크</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[120px]">메모</th>
+                        {isEditing && <th className="border border-gray-300 px-1 py-2 text-center font-semibold text-gray-700 text-xs w-[40px]">삭제</th>}
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[140px]">방지시설</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[100px]">용량</th>
+                        <th className="border border-gray-300 px-1.5 py-2 text-center font-semibold text-gray-700 text-xs w-[60px]">수량</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[100px]">시설번호</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[120px]">그린링크</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[120px]">메모</th>
+                        {isEditing && <th className="border border-gray-300 px-1 py-2 text-center font-semibold text-gray-700 text-xs w-[40px]">삭제</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -1403,12 +1403,12 @@ function AirPermitDetailContent() {
                           return (
                             <tr key={rowIndex} className="hover:bg-gray-50">
                               {/* 구분 */}
-                              <td className="border border-gray-300 px-2 py-2 text-center text-sm font-medium text-gray-600">
+                              <td className="border border-gray-300 px-1.5 py-1.5 text-center text-xs font-medium text-gray-600">
                                 {rowIndex + 1}
                               </td>
 
                               {/* 배출시설 정보 */}
-                              <td className="border border-gray-300 px-2 py-2">
+                              <td className="border border-gray-300 px-1.5 py-1.5">
                                 {dischargeFacility ? (
                                   isEditing ? (
                                     <input
@@ -1417,28 +1417,28 @@ function AirPermitDetailContent() {
                                       inputMode="text"
                                       value={dischargeFacility.facility_name}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'facility_name', e.target.value)}
-                                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                     />
                                   ) : (
-                                    <span className="text-sm">{dischargeFacility.facility_name}</span>
+                                    <span className="text-xs">{dischargeFacility.facility_name}</span>
                                   )
                                 ) : '-'}
                               </td>
-                              <td className="border border-gray-300 px-2 py-2">
+                              <td className="border border-gray-300 px-1.5 py-1.5">
                                 {dischargeFacility ? (
                                   isEditing ? (
                                     <input
                                       type="text"
                                       value={dischargeFacility.capacity || ''}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'capacity', e.target.value)}
-                                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                     />
                                   ) : (
-                                    <span className="text-sm">{dischargeFacility.capacity || '-'}</span>
+                                    <span className="text-xs">{dischargeFacility.capacity || '-'}</span>
                                   )
                                 ) : '-'}
                               </td>
-                              <td className="border border-gray-300 px-2 py-2 text-center">
+                              <td className="border border-gray-300 px-1.5 py-1.5 text-center">
                                 {dischargeFacility ? (
                                   isEditing ? (
                                     <input
@@ -1446,16 +1446,16 @@ function AirPermitDetailContent() {
                                       min="1"
                                       value={dischargeFacility.quantity}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'quantity', parseInt(e.target.value) || 1)}
-                                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
                                     />
                                   ) : (
-                                    <span className="text-sm">{dischargeFacility.quantity}</span>
+                                    <span className="text-xs">{dischargeFacility.quantity}</span>
                                   )
                                 ) : '-'}
                               </td>
                               
                               {/* 배출시설 추가 정보 */}
-                              <td className="border border-gray-300 px-2 py-2">
+                              <td className="border border-gray-300 px-1.5 py-1.5">
                                 {dischargeFacility ? (
                                   <div className="space-y-1">
                                     {/* 자동 생성 시설번호 */}
@@ -1489,7 +1489,7 @@ function AirPermitDetailContent() {
                                         value={dischargeFacility.additional_info?.facility_number || ''}
                                         onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'facility_number', e.target.value)}
                                         placeholder="시설번호"
-                                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                        className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                       />
                                     ) : (
                                       dischargeFacility.additional_info?.facility_number && (
@@ -1501,36 +1501,36 @@ function AirPermitDetailContent() {
                                   </div>
                                 ) : '-'}
                               </td>
-                              <td className="border border-gray-300 px-2 py-2">
+                              <td className="border border-gray-300 px-1.5 py-1.5">
                                 {dischargeFacility && isEditing ? (
                                   <input
                                     type="text"
                                     value={dischargeFacility.additional_info?.green_link_code ?? ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'green_link_code', e.target.value)}
                                     placeholder="그린링크"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                   />
                                 ) : (
-                                  <span className="text-sm">{dischargeFacility?.additional_info?.green_link_code || '-'}</span>
+                                  <span className="text-xs">{dischargeFacility?.additional_info?.green_link_code || '-'}</span>
                                 )}
                               </td>
-                              <td className="border border-gray-300 px-2 py-2">
+                              <td className="border border-gray-300 px-1.5 py-1.5">
                                 {dischargeFacility && isEditing ? (
                                   <input
                                     type="text"
                                     value={dischargeFacility.additional_info?.memo || ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'memo', e.target.value)}
                                     placeholder="메모"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                   />
                                 ) : (
-                                  <span className="text-sm truncate block max-w-[100px]" title={dischargeFacility?.additional_info?.memo || ''}>{dischargeFacility?.additional_info?.memo || '-'}</span>
+                                  <span className="text-xs truncate block max-w-[100px]" title={dischargeFacility?.additional_info?.memo || ''}>{dischargeFacility?.additional_info?.memo || '-'}</span>
                                 )}
                               </td>
                               
                               {/* 배출시설 삭제 버튼 */}
                               {isEditing && (
-                                <td className="border border-gray-300 px-2 py-2 text-center">
+                                <td className="border border-gray-300 px-1.5 py-1.5 text-center">
                                   {dischargeFacility && (
                                     <button
                                       type="button"
@@ -1545,7 +1545,7 @@ function AirPermitDetailContent() {
                               )}
 
                               {/* 방지시설 정보 */}
-                              <td className="border border-gray-300 px-2 py-2">
+                              <td className="border border-gray-300 px-1.5 py-1.5">
                                 {preventionFacility ? (
                                   isEditing ? (
                                     <input
@@ -1554,28 +1554,28 @@ function AirPermitDetailContent() {
                                       inputMode="text"
                                       value={preventionFacility.facility_name}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'facility_name', e.target.value)}
-                                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                     />
                                   ) : (
-                                    <span className="text-sm">{preventionFacility.facility_name}</span>
+                                    <span className="text-xs">{preventionFacility.facility_name}</span>
                                   )
                                 ) : '-'}
                               </td>
-                              <td className="border border-gray-300 px-2 py-2">
+                              <td className="border border-gray-300 px-1.5 py-1.5">
                                 {preventionFacility ? (
                                   isEditing ? (
                                     <input
                                       type="text"
                                       value={preventionFacility.capacity || ''}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'capacity', e.target.value)}
-                                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                     />
                                   ) : (
-                                    <span className="text-sm">{preventionFacility.capacity || '-'}</span>
+                                    <span className="text-xs">{preventionFacility.capacity || '-'}</span>
                                   )
                                 ) : '-'}
                               </td>
-                              <td className="border border-gray-300 px-2 py-2 text-center">
+                              <td className="border border-gray-300 px-1.5 py-1.5 text-center">
                                 {preventionFacility ? (
                                   isEditing ? (
                                     <input
@@ -1583,16 +1583,16 @@ function AirPermitDetailContent() {
                                       min="1"
                                       value={preventionFacility.quantity}
                                       onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'quantity', parseInt(e.target.value) || 1)}
-                                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
                                     />
                                   ) : (
-                                    <span className="text-sm">{preventionFacility.quantity}</span>
+                                    <span className="text-xs">{preventionFacility.quantity}</span>
                                   )
                                 ) : '-'}
                               </td>
                               
                               {/* 방지시설 추가 정보 */}
-                              <td className="border border-gray-300 px-2 py-2">
+                              <td className="border border-gray-300 px-1.5 py-1.5">
                                 {preventionFacility ? (
                                   <div className="space-y-1">
                                     {/* 자동 생성 시설번호 */}
@@ -1626,7 +1626,7 @@ function AirPermitDetailContent() {
                                         value={preventionFacility.additional_info?.facility_number || ''}
                                         onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'facility_number', e.target.value)}
                                         placeholder="시설번호"
-                                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                        className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                       />
                                     ) : (
                                       preventionFacility.additional_info?.facility_number && (
@@ -1638,36 +1638,36 @@ function AirPermitDetailContent() {
                                   </div>
                                 ) : '-'}
                               </td>
-                              <td className="border border-gray-300 px-2 py-2">
+                              <td className="border border-gray-300 px-1.5 py-1.5">
                                 {preventionFacility && isEditing ? (
                                   <input
                                     type="text"
                                     value={preventionFacility.additional_info?.green_link_code ?? ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'green_link_code', e.target.value)}
                                     placeholder="그린링크"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                   />
                                 ) : (
-                                  <span className="text-sm">{preventionFacility?.additional_info?.green_link_code || '-'}</span>
+                                  <span className="text-xs">{preventionFacility?.additional_info?.green_link_code || '-'}</span>
                                 )}
                               </td>
-                              <td className="border border-gray-300 px-2 py-2">
+                              <td className="border border-gray-300 px-1.5 py-1.5">
                                 {preventionFacility && isEditing ? (
                                   <input
                                     type="text"
                                     value={preventionFacility.additional_info?.memo || ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'memo', e.target.value)}
                                     placeholder="메모"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                   />
                                 ) : (
-                                  <span className="text-sm truncate block max-w-[100px]" title={preventionFacility?.additional_info?.memo || ''}>{preventionFacility?.additional_info?.memo || '-'}</span>
+                                  <span className="text-xs truncate block max-w-[100px]" title={preventionFacility?.additional_info?.memo || ''}>{preventionFacility?.additional_info?.memo || '-'}</span>
                                 )}
                               </td>
                               
                               {/* 방지시설 삭제 버튼 */}
                               {isEditing && (
-                                <td className="border border-gray-300 px-2 py-2 text-center">
+                                <td className="border border-gray-300 px-1.5 py-1.5 text-center">
                                   {preventionFacility && (
                                     <button
                                       type="button"
@@ -1693,7 +1693,7 @@ function AirPermitDetailContent() {
                   {/* 배출시설 섹션 */}
                   {outlet.discharge_facilities && outlet.discharge_facilities.length > 0 && (
                     <div className="bg-red-50 rounded-lg p-3">
-                      <h4 className="text-sm font-semibold text-red-700 mb-3 flex items-center gap-2">
+                      <h4 className="text-xs font-semibold text-red-700 mb-3 flex items-center gap-2">
                         <span className="w-2 h-2 bg-red-500 rounded-full"></span>
                         배출시설
                       </h4>
