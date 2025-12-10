@@ -961,34 +961,43 @@ async function createAutoProgressNote(params: {
   }
 
   if (content) {
-    // business_name을 business_id로 변환
-    const { data: businessInfo } = await supabaseAdmin
-      .from('business_info')
-      .select('id')
-      .eq('business_name', task.business_name)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .single();
+    try {
+      // business_name을 business_id로 변환
+      const { data: businessInfo, error: businessError } = await supabaseAdmin
+        .from('business_info')
+        .select('id')
+        .eq('business_name', task.business_name)
+        .eq('is_active', true)
+        .eq('is_deleted', false)
+        .single();
 
-    if (!businessInfo) {
-      console.warn(`⚠️ [FACILITY-TASKS] 사업장을 찾을 수 없음: ${task.business_name}`);
-      return; // 메모 생성 실패하지만 업무는 계속 진행
-    }
+      if (businessError) {
+        console.warn(`⚠️ [FACILITY-TASKS] 사업장 조회 오류 (메모 생성 생략): ${task.business_name}`, businessError.message);
+        return; // business_info 테이블이 없으면 메모 생성 건너뛰기
+      }
 
-    const { error } = await supabaseAdmin
-      .from('business_memos')
-      .insert({
-        business_id: businessInfo.id,
-        title: `[자동] ${task.task_type === 'self' ? '자비' : task.task_type === 'subsidy' ? '보조금' : task.task_type === 'as' ? 'AS' : '기타'} 업무 상태 변경`,
-        content,
-        created_by: 'system',
-        updated_by: 'system'
-      });
+      if (!businessInfo) {
+        console.warn(`⚠️ [FACILITY-TASKS] 사업장을 찾을 수 없음 (메모 생성 생략): ${task.business_name}`);
+        return; // 메모 생성 실패하지만 업무는 계속 진행
+      }
 
-    if (error) {
-      console.error('🔴 [AUTO-PROGRESS] 메모 생성 오류:', error);
-    } else {
-      console.log('✅ [AUTO-PROGRESS] 자동 메모 생성 성공:', task.id);
+      const { error } = await supabaseAdmin
+        .from('business_memos')
+        .insert({
+          business_id: businessInfo.id,
+          title: `[자동] ${task.task_type === 'self' ? '자비' : task.task_type === 'subsidy' ? '보조금' : task.task_type === 'as' ? 'AS' : '기타'} 업무 상태 변경`,
+          content,
+          created_by: 'system',
+          updated_by: 'system'
+        });
+
+      if (error) {
+        console.error('🔴 [AUTO-PROGRESS] 메모 생성 오류:', error);
+      } else {
+        console.log('✅ [AUTO-PROGRESS] 자동 메모 생성 성공:', task.id);
+      }
+    } catch (memoError) {
+      console.warn('⚠️ [AUTO-PROGRESS] 메모 생성 중 예외 (계속 진행):', memoError);
     }
   }
 }
@@ -1131,34 +1140,43 @@ async function createTaskCreationNote(task: any) {
       creation_timestamp: new Date().toISOString()
     };
 
-    // business_name을 business_id로 변환
-    const { data: businessInfo } = await supabaseAdmin
-      .from('business_info')
-      .select('id')
-      .eq('business_name', task.business_name)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .single();
+    try {
+      // business_name을 business_id로 변환
+      const { data: businessInfo, error: businessError } = await supabaseAdmin
+        .from('business_info')
+        .select('id')
+        .eq('business_name', task.business_name)
+        .eq('is_active', true)
+        .eq('is_deleted', false)
+        .single();
 
-    if (!businessInfo) {
-      console.warn(`⚠️ [FACILITY-TASKS] 사업장을 찾을 수 없음: ${task.business_name}`);
-      return; // 메모 생성 실패하지만 업무는 계속 진행
-    }
+      if (businessError) {
+        console.warn(`⚠️ [TASK-CREATION] 사업장 조회 오류 (메모 생성 생략): ${task.business_name}`, businessError.message);
+        return; // business_info 테이블이 없으면 메모 생성 건너뛰기
+      }
 
-    const { error } = await supabaseAdmin
-      .from('business_memos')
-      .insert({
-        business_id: businessInfo.id,
-        title: `[자동] ${task.task_type === 'self' ? '자비' : task.task_type === 'subsidy' ? '보조금' : task.task_type === 'as' ? 'AS' : '기타'} 업무 상태 변경`,
-        content,
-        created_by: 'system',
-        updated_by: 'system'
-      });
+      if (!businessInfo) {
+        console.warn(`⚠️ [TASK-CREATION] 사업장을 찾을 수 없음 (메모 생성 생략): ${task.business_name}`);
+        return; // 메모 생성 실패하지만 업무는 계속 진행
+      }
 
-    if (error) {
-      console.error('🔴 [TASK-CREATION] 생성 메모 오류:', error);
-    } else {
-      console.log('✅ [TASK-CREATION] 생성 메모 성공:', task.id);
+      const { error } = await supabaseAdmin
+        .from('business_memos')
+        .insert({
+          business_id: businessInfo.id,
+          title: `[자동] ${task.task_type === 'self' ? '자비' : task.task_type === 'subsidy' ? '보조금' : task.task_type === 'as' ? 'AS' : '기타'} 업무 상태 변경`,
+          content,
+          created_by: 'system',
+          updated_by: 'system'
+        });
+
+      if (error) {
+        console.error('🔴 [TASK-CREATION] 생성 메모 오류:', error);
+      } else {
+        console.log('✅ [TASK-CREATION] 생성 메모 성공:', task.id);
+      }
+    } catch (memoError) {
+      console.warn('⚠️ [TASK-CREATION] 메모 생성 중 예외 (계속 진행):', memoError);
     }
 
     // 알림은 이미 createTaskAssignmentNotifications에서 생성됨 (중복 제거)
