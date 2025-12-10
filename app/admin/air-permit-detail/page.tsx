@@ -1374,14 +1374,14 @@ function AirPermitDetailContent() {
                         <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[140px]">배출시설</th>
                         <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[100px]">용량</th>
                         <th className="border border-gray-300 px-1.5 py-2 text-center font-semibold text-gray-700 text-xs w-[60px]">수량</th>
-                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[100px]">시설번호</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[160px]">시설번호</th>
                         <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[120px]">그린링크</th>
                         <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[120px]">메모</th>
                         {isEditing && <th className="border border-gray-300 px-1 py-2 text-center font-semibold text-gray-700 text-xs w-[40px]">삭제</th>}
                         <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[140px]">방지시설</th>
                         <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[100px]">용량</th>
                         <th className="border border-gray-300 px-1.5 py-2 text-center font-semibold text-gray-700 text-xs w-[60px]">수량</th>
-                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[100px]">시설번호</th>
+                        <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[160px]">시설번호</th>
                         <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[120px]">그린링크</th>
                         <th className="border border-gray-300 px-1.5 py-1.5 text-left font-semibold text-gray-700 text-xs w-[120px]">메모</th>
                         {isEditing && <th className="border border-gray-300 px-1 py-2 text-center font-semibold text-gray-700 text-xs w-[40px]">삭제</th>}
@@ -1457,7 +1457,7 @@ function AirPermitDetailContent() {
                               {/* 배출시설 추가 정보 */}
                               <td className="border border-gray-300 px-1.5 py-1.5">
                                 {dischargeFacility ? (
-                                  <div className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-1.5">
                                     {/* 자동 생성 시설번호 */}
                                     {(() => {
                                       if (!facilityNumbering) return null
@@ -1476,7 +1476,7 @@ function AirPermitDetailContent() {
                                           : null
 
                                       return rangeDisplay ? (
-                                        <div className="inline-block px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded whitespace-nowrap">
+                                        <div className="inline-block px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded whitespace-nowrap shrink-0">
                                           {rangeDisplay}
                                         </div>
                                       ) : null
@@ -1489,11 +1489,11 @@ function AirPermitDetailContent() {
                                         value={dischargeFacility.additional_info?.facility_number || ''}
                                         onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'facility_number', e.target.value)}
                                         placeholder="시설번호"
-                                        className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                        className="flex-1 min-w-0 px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                       />
                                     ) : (
                                       dischargeFacility.additional_info?.facility_number && (
-                                        <div className="text-xs text-gray-600">
+                                        <div className="text-xs text-gray-600 flex-1 min-w-0">
                                           {dischargeFacility.additional_info.facility_number}
                                         </div>
                                       )
@@ -1594,7 +1594,7 @@ function AirPermitDetailContent() {
                               {/* 방지시설 추가 정보 */}
                               <td className="border border-gray-300 px-1.5 py-1.5">
                                 {preventionFacility ? (
-                                  <div className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-1.5">
                                     {/* 자동 생성 시설번호 */}
                                     {(() => {
                                       if (!facilityNumbering) return null
@@ -1613,7 +1613,7 @@ function AirPermitDetailContent() {
                                           : null
 
                                       return rangeDisplay ? (
-                                        <div className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded whitespace-nowrap">
+                                        <div className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded whitespace-nowrap shrink-0">
                                           {rangeDisplay}
                                         </div>
                                       ) : null
@@ -1626,11 +1626,11 @@ function AirPermitDetailContent() {
                                         value={preventionFacility.additional_info?.facility_number || ''}
                                         onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'facility_number', e.target.value)}
                                         placeholder="시설번호"
-                                        className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                        className="flex-1 min-w-0 px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                       />
                                     ) : (
                                       preventionFacility.additional_info?.facility_number && (
-                                        <div className="text-xs text-gray-600">
+                                        <div className="text-xs text-gray-600 flex-1 min-w-0">
                                           {preventionFacility.additional_info.facility_number}
                                         </div>
                                       )
