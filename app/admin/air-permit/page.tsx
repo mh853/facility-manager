@@ -68,7 +68,21 @@ const DateInput = ({ value, onChange, placeholder = "YYYY-MM-DD" }: {
   const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     if (val.length <= 2 && /^\d*$/.test(val)) {
-      const dayVal = val === '' ? '' : Math.min(parseInt(val) || 1, 31).toString().padStart(val.length === 2 ? 2 : 1, '0')
+      let dayVal = val
+      // 빈 값이 아닐 때만 처리
+      if (val !== '') {
+        const numVal = parseInt(val)
+        // 유효한 날짜 범위 제한 (1-31)
+        if (numVal > 31) {
+          dayVal = '31'
+        } else if (val.length === 2) {
+          // 두 자리 입력 완료 시 0 패딩 (예: 06, 09)
+          dayVal = numVal.toString().padStart(2, '0')
+        } else {
+          // 한 자리 입력 중에는 그대로 유지 (선행 0 포함)
+          dayVal = val
+        }
+      }
       const newValue = `${year}-${month}-${dayVal}`
       onChange(newValue)
     }
