@@ -654,6 +654,11 @@ function AirPermitDetailContent() {
             console.log('✅ UI 업데이트 완료 - permitDetail이 최신 데이터로 업데이트됨')
             console.log(`⏱️ [TIME] UI 업데이트 완료: ${(performance.now() - startTime).toFixed(0)}ms`)
 
+            // ✅ 목록 페이지에 업데이트 알림 (localStorage 이벤트 트리거)
+            if (permitDetail?.business_id) {
+              localStorage.setItem('air-permit-updated', permitDetail.business_id)
+            }
+
             // ✅ UI 업데이트 완료 후 성공 메시지 표시 (DOM 렌더링 완료 보장)
             // requestAnimationFrame을 두 번 사용하여 브라우저가 실제로 화면을 다시 그린 후에 alert 표시
             requestAnimationFrame(() => {
@@ -678,6 +683,11 @@ function AirPermitDetailContent() {
                 setGatewayAssignments(fallbackAssignments)
                 setFacilityNumbering(fallbackNumbering)
               })
+
+              // ✅ 목록 페이지에 업데이트 알림 (localStorage 이벤트 트리거)
+              if (permitDetail?.business_id) {
+                localStorage.setItem('air-permit-updated', permitDetail.business_id)
+              }
 
               // Fallback에서도 DOM 렌더링 완료 후 alert 표시
               requestAnimationFrame(() => {
@@ -704,6 +714,11 @@ function AirPermitDetailContent() {
               setGatewayAssignments(fallbackAssignments)
               setFacilityNumbering(fallbackNumbering)
             })
+
+            // ✅ 목록 페이지에 업데이트 알림 (localStorage 이벤트 트리거)
+            if (permitDetail?.business_id) {
+              localStorage.setItem('air-permit-updated', permitDetail.business_id)
+            }
 
             // Fallback 경로에서도 DOM 렌더링 완료 후 alert 표시
             requestAnimationFrame(() => {

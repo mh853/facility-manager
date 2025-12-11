@@ -32,7 +32,9 @@ export const GET = withApiHandler(async (request: NextRequest) => {
           .select(`
             id,
             business_name,
+            local_government,
             address,
+            business_registration_number,
             presurvey_inspector_name,
             presurvey_inspector_date,
             postinstall_installer_name,

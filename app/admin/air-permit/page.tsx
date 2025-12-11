@@ -672,14 +672,30 @@ function AirPermitManagementPage() {
       }
     }
 
+    // ✅ Storage 이벤트로 같은 탭/다른 탭에서 대기필증 변경 감지
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'air-permit-updated' && selectedBusiness) {
+        const updatedBusinessId = e.newValue
+        if (updatedBusinessId === selectedBusiness.id) {
+          console.log('🔄 대기필증 업데이트 감지 - 데이터 새로고침')
+          loadAirPermits(selectedBusiness.id)
+          // 즉시 제거하여 중복 호출 방지
+          localStorage.removeItem('air-permit-updated')
+        }
+      }
+    }
+
     // Visibility API로 탭 전환 감지
     document.addEventListener('visibilitychange', handleVisibilityChange)
     // Focus 이벤트로 다른 페이지에서 돌아온 경우 감지
     window.addEventListener('focus', handleFocus)
+    // Storage 이벤트로 대기필증 변경 감지
+    window.addEventListener('storage', handleStorageChange)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('storage', handleStorageChange)
     }
   }, [selectedBusiness])
 
@@ -755,14 +771,14 @@ function AirPermitManagementPage() {
       const result = await response.json()
 
       if (response.ok) {
-        // 실제 데이터로 교체
-        setAirPermits(prev => prev.map(permit => 
-          permit.id === tempPermit.id ? result.data : permit
-        ))
-        
         // 대기필증이 등록된 사업장 목록 업데이트
         await loadBusinessesWithPermits()
-        
+
+        // ✅ 서버에서 최신 데이터 재조회하여 UI 동기화 (낙관적 업데이트 대신 정확한 데이터 표시)
+        if (newPermitData.business_id) {
+          await loadAirPermits(newPermitData.business_id)
+        }
+
         alert('대기필증이 성공적으로 생성되었습니다.')
         console.log('✅ 대기필증 생성 성공:', result.data)
       } else {
