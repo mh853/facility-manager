@@ -477,7 +477,9 @@ export class DatabaseService {
         business:business_info!business_id (
           business_name,
           business_management_code,
-          local_government
+          local_government,
+          vpn_wired,
+          vpn_wireless
         )
       `)
       .eq('id', permitId)

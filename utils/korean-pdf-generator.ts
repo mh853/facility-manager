@@ -15,10 +15,13 @@ interface PermitPdfData {
     operationStartDate: string
     createdAt: string
     updatedAt: string
+    vpnWired: number
+    vpnWireless: number
   }
   outlets: Array<{
     outletNumber: number
     outletName: string
+    gateway: string
     dischargeFacilities: Array<{
       name: string
       capacity: string
@@ -309,6 +312,17 @@ export class KoreanAirPermitPdfGenerator {
               <td style="border: 1px solid #ddd; padding: 12px; background-color: #ffffff; color: #000000;">${this.formatDate(data.permitInfo.operationStartDate)}</td>
             </tr>
           </table>
+
+          <!-- VPN 정보 -->
+          ${(data.permitInfo.vpnWired > 0 || data.permitInfo.vpnWireless > 0) ? `
+          <div style="margin-top: 15px; padding: 12px; background-color: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 4px;">
+            <div style="font-weight: bold; color: #1e40af; margin-bottom: 8px;">VPN 정보</div>
+            <div style="display: flex; gap: 20px; color: #1e3a8a;">
+              ${data.permitInfo.vpnWired > 0 ? `<span>• 유선 VPN: ${data.permitInfo.vpnWired}개</span>` : ''}
+              ${data.permitInfo.vpnWireless > 0 ? `<span>• 무선 VPN: ${data.permitInfo.vpnWireless}개</span>` : ''}
+            </div>
+          </div>
+          ` : ''}
         </div>
 
         <!-- 배출구별 시설 정보 -->
@@ -342,11 +356,19 @@ export class KoreanAirPermitPdfGenerator {
   }
 
   private generateOutletHtml(outlet: PermitPdfData['outlets'][0], index: number): string {
+    // 게이트웨이 표시 이름 생성
+    const gatewayDisplay = outlet.gateway
+      ? (outlet.gateway.match(/gateway(\d+)/)
+          ? `Gateway ${outlet.gateway.match(/gateway(\d+)/)?.[1]}`
+          : outlet.gateway)
+      : '미할당'
+
     return `
       <div style="margin-bottom: 25px; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; background-color: #ffffff;">
         <div style="background-color: #f3f4f6; padding: 12px; border-bottom: 1px solid #e5e7eb;">
           <h3 style="margin: 0; font-size: 16px; font-weight: bold; color: #374151; background-color: #f3f4f6;">
             ${this.escapeHtml(outlet.outletName)} (배출구 #${outlet.outletNumber})
+            ${outlet.gateway ? `<span style="margin-left: 10px; font-size: 13px; font-weight: normal; color: #059669; background-color: #d1fae5; padding: 3px 8px; border-radius: 3px;">🌐 ${gatewayDisplay}</span>` : ''}
           </h3>
         </div>
         

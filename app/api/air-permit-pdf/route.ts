@@ -40,11 +40,14 @@ export async function POST(request: NextRequest) {
         firstReportDate: (permitDetail as any).first_report_date || '',
         operationStartDate: (permitDetail as any).operation_start_date || '',
         createdAt: permitDetail.created_at,
-        updatedAt: permitDetail.updated_at
+        updatedAt: permitDetail.updated_at,
+        vpnWired: permitDetail.business?.vpn_wired || 0,
+        vpnWireless: permitDetail.business?.vpn_wireless || 0
       },
       outlets: permitDetail.outlets?.map((outlet, index) => ({
         outletNumber: outlet.outlet_number || index + 1,
         outletName: outlet.outlet_name || `배출구 ${index + 1}`,
+        gateway: outlet.additional_info?.gateway || '',
         dischargeFacilities: outlet.discharge_facilities?.map((facility, facilityIdx) => {
           const additionalInfo = facility.additional_info || {}
           return {
