@@ -130,8 +130,7 @@ export const GET = withApiHandler(
           .from('order_management')
           .insert({
             business_id: businessId,
-            status: 'in_progress',
-            created_by: user.id
+            status: 'in_progress'
           })
           .select()
           .single()
@@ -254,9 +253,7 @@ export const PUT = withApiHandler(
       }
 
       // 2. 발주 정보 업데이트
-      const updateData: any = {
-        updated_by: user.id
-      }
+      const updateData: any = {}
 
       // 날짜 필드만 업데이트 (null 포함)
       if ('layout_date' in body) updateData.layout_date = body.layout_date
