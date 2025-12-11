@@ -33,10 +33,9 @@ export async function POST(request: NextRequest) {
       permitInfo: {
         id: permitDetail.id,
         businessName: permitDetail.business?.business_name || '사업장명 없음',
+        businessManagementCode: permitDetail.business?.business_management_code || '',
         localGovernment: permitDetail.business?.local_government || '',
         businessType: permitDetail.business_type || '',
-        facilityNumber: permitDetail.facility_number || '',
-        greenLinkCode: permitDetail.green_link_code || '',
         memo: permitDetail.memo || '',
         firstReportDate: (permitDetail as any).first_report_date || '',
         operationStartDate: (permitDetail as any).operation_start_date || '',

@@ -7,10 +7,9 @@ interface PermitPdfData {
   permitInfo: {
     id: string
     businessName: string
+    businessManagementCode: string
     localGovernment: string
     businessType: string
-    facilityNumber: string
-    greenLinkCode: string
     memo: string
     firstReportDate: string
     operationStartDate: string
@@ -294,24 +293,20 @@ export class KoreanAirPermitPdfGenerator {
             <tr>
               <td style="border: 1px solid #ddd; padding: 12px; background-color: #f8f9fa; font-weight: bold; width: 25%; color: #000000;">사업장명</td>
               <td style="border: 1px solid #ddd; padding: 12px; width: 25%; background-color: #ffffff; color: #000000;">${businessName}</td>
-              <td style="border: 1px solid #ddd; padding: 12px; background-color: #f8f9fa; font-weight: bold; width: 25%; color: #000000;">지자체</td>
-              <td style="border: 1px solid #ddd; padding: 12px; width: 25%; background-color: #ffffff; color: #000000;">${localGovernment}</td>
+              <td style="border: 1px solid #ddd; padding: 12px; background-color: #f8f9fa; font-weight: bold; width: 25%; color: #000000;">사업장관리코드</td>
+              <td style="border: 1px solid #ddd; padding: 12px; width: 25%; background-color: #ffffff; color: #000000;">${this.escapeHtml(data.permitInfo.businessManagementCode)}</td>
             </tr>
             <tr>
+              <td style="border: 1px solid #ddd; padding: 12px; background-color: #f8f9fa; font-weight: bold; color: #000000;">지자체</td>
+              <td style="border: 1px solid #ddd; padding: 12px; background-color: #ffffff; color: #000000;">${localGovernment}</td>
               <td style="border: 1px solid #ddd; padding: 12px; background-color: #f8f9fa; font-weight: bold; color: #000000;">업종</td>
               <td style="border: 1px solid #ddd; padding: 12px; background-color: #ffffff; color: #000000;">${this.escapeHtml(data.permitInfo.businessType)}</td>
-              <td style="border: 1px solid #ddd; padding: 12px; background-color: #f8f9fa; font-weight: bold; color: #000000;">시설번호</td>
-              <td style="border: 1px solid #ddd; padding: 12px; background-color: #ffffff; color: #000000;">${this.escapeHtml(data.permitInfo.facilityNumber)}</td>
             </tr>
             <tr>
-              <td style="border: 1px solid #ddd; padding: 12px; background-color: #f8f9fa; font-weight: bold; color: #000000;">그린링크코드</td>
-              <td style="border: 1px solid #ddd; padding: 12px; background-color: #ffffff; color: #000000;">${this.escapeHtml(data.permitInfo.greenLinkCode)}</td>
               <td style="border: 1px solid #ddd; padding: 12px; background-color: #f8f9fa; font-weight: bold; color: #000000;">최초신고일</td>
               <td style="border: 1px solid #ddd; padding: 12px; background-color: #ffffff; color: #000000;">${this.formatDate(data.permitInfo.firstReportDate)}</td>
-            </tr>
-            <tr>
               <td style="border: 1px solid #ddd; padding: 12px; background-color: #f8f9fa; font-weight: bold; color: #000000;">가동개시일</td>
-              <td style="border: 1px solid #ddd; padding: 12px; background-color: #ffffff; color: #000000;" colspan="3">${this.formatDate(data.permitInfo.operationStartDate)}</td>
+              <td style="border: 1px solid #ddd; padding: 12px; background-color: #ffffff; color: #000000;">${this.formatDate(data.permitInfo.operationStartDate)}</td>
             </tr>
           </table>
         </div>
