@@ -128,6 +128,10 @@ export interface OrderListItem {
   // 최근 활동
   latest_step: string | null
   latest_step_date: string | null
+
+  // 담당자 정보
+  assignee?: string | null // 단일 담당자
+  assignees?: string[] // 다중 담당자 (2단계 확장)
 }
 
 /**
@@ -140,6 +144,7 @@ export interface OrderListFilter {
   sort?: 'latest' | 'name' | 'updated' // 정렬
   page?: number // 페이지 번호
   limit?: number // 페이지 크기
+  assignee?: string | 'all' // 담당자 필터
 }
 
 /**

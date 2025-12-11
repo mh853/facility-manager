@@ -27,6 +27,7 @@ export default function OrderManagementPage() {
   const [manufacturerFilter, setManufacturerFilter] = useState<
     Manufacturer | 'all'
   >('all')
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'latest' | 'name' | 'updated'>('latest')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -37,6 +38,9 @@ export default function OrderManagementPage() {
     completed: 0,
     by_manufacturer: { ecosense: 0, gaia_cns: 0, cleanearth: 0, evs: 0 }
   })
+
+  // 담당자 목록 (발주 필요 탭에서만 사용)
+  const [assigneeList, setAssigneeList] = useState<string[]>([])
 
   // 라우터 통계 상태
   const [routerSummary, setRouterSummary] = useState({
@@ -65,6 +69,34 @@ export default function OrderManagementPage() {
   useEffect(() => {
     loadOrders()
   }, [manufacturerFilter, activeTab, sortBy, currentPage])
+
+  // 담당자 목록 자동 추출 (발주 필요 탭에서만)
+  useEffect(() => {
+    if (activeTab === 'in_progress' && orders.length > 0) {
+      console.log('[ASSIGNEE-FILTER] 담당자 추출 시작:', {
+        totalOrders: orders.length,
+        ordersWithAssignee: orders.filter(o => o.assignee).length,
+        assigneeValues: orders.map(o => ({
+          businessName: o.business_name,
+          assignee: o.assignee,
+          assignees: o.assignees
+        }))
+      })
+
+      const uniqueAssignees = Array.from(
+        new Set(
+          orders
+            .filter(order => order.assignee)
+            .map(order => order.assignee as string)
+        )
+      ).sort()
+
+      console.log('[ASSIGNEE-FILTER] 추출된 담당자 목록:', uniqueAssignees)
+      setAssigneeList(uniqueAssignees)
+    } else {
+      setAssigneeList([])
+    }
+  }, [orders, activeTab])
 
   const loadOrders = async () => {
     // 라우터 관리 탭에서는 발주 목록을 로드하지 않음
@@ -108,7 +140,9 @@ export default function OrderManagementPage() {
         orders: result.data?.orders?.map(o => ({
           id: o.id,
           business_name: o.business_name,
-          business_id: o.business_id
+          business_id: o.business_id,
+          assignee: o.assignee,
+          assignees: o.assignees
         })) || [],
         summary: result.data?.summary
       })
@@ -150,6 +184,7 @@ export default function OrderManagementPage() {
   const handleResetFilters = () => {
     setSearchTerm('')
     setManufacturerFilter('all')
+    setAssigneeFilter('all')
     setSortBy('latest')
     setCurrentPage(1)
   }
@@ -338,7 +373,7 @@ export default function OrderManagementPage() {
         <>
       {/* 필터 및 검색 */}
       <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4">
           {/* 검색 */}
           <div className="lg:col-span-2">
             <div className="relative">
@@ -375,8 +410,29 @@ export default function OrderManagementPage() {
             </select>
           </div>
 
+          {/* 담당자 필터 (발주 필요 탭에서만 표시) */}
+          {activeTab === 'in_progress' && (
+            <div>
+              <select
+                value={assigneeFilter}
+                onChange={(e) => {
+                  setAssigneeFilter(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
+              >
+                <option value="all">전체 담당자</option>
+                {assigneeList.map((assignee) => (
+                  <option key={assignee} value={assignee}>
+                    {assignee}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* 정렬 */}
-          <div className="flex gap-1.5 sm:gap-2">
+          <div className={`flex gap-1.5 sm:gap-2 ${activeTab !== 'in_progress' ? 'lg:col-start-4' : ''}`}>
             <select
               value={sortBy}
               onChange={(e) =>
@@ -410,35 +466,53 @@ export default function OrderManagementPage() {
           <div className="py-12 text-center text-gray-500 text-sm">
             발주 대상 사업장이 없습니다
           </div>
-        ) : (
-          <>
-            {/* 데스크톱: 테이블 뷰 */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                      사업장명
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                      주소
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                      제조사
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                      진행률
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                      상태
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                      최종 업데이트
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {orders.map((order) => (
+        ) : (() => {
+          // 담당자 필터 적용
+          const filteredOrders = orders.filter(order => {
+            // 담당자 필터 (발주 필요 탭에서만 적용)
+            if (activeTab === 'in_progress' && assigneeFilter !== 'all') {
+              if (order.assignee !== assigneeFilter) {
+                return false
+              }
+            }
+            return true
+          })
+
+          return filteredOrders.length === 0 ? (
+            <div className="py-12 text-center text-gray-500 text-sm">
+              {assigneeFilter !== 'all'
+                ? `담당자 "${assigneeFilter}"의 발주 대상 사업장이 없습니다`
+                : '발주 대상 사업장이 없습니다'}
+            </div>
+          ) : (
+            <>
+              {/* 데스크톱: 테이블 뷰 */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                        사업장명
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                        주소
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                        제조사
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                        진행률
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                        상태
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                        최종 업데이트
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredOrders.map((order) => (
                     <tr
                       key={order.id}
                       onClick={() => {
@@ -516,7 +590,7 @@ export default function OrderManagementPage() {
 
             {/* 모바일: 카드 뷰 */}
             <div className="md:hidden divide-y divide-gray-100">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <button
                   key={order.id}
                   onClick={() => {
@@ -597,7 +671,8 @@ export default function OrderManagementPage() {
               ))}
             </div>
           </>
-        )}
+          )
+        })()}
 
         {/* 페이지네이션 */}
         {totalPages > 1 && (

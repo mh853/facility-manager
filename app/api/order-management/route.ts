@@ -98,7 +98,7 @@ export const GET = withApiHandler(
         // 발주 필요: facility_tasks에서 status='product_order'인 사업장
         const { data: tasks, error: taskErr } = await supabaseAdmin
           .from('facility_tasks')
-          .select('id, business_id, business_name, task_type, status, updated_at')
+          .select('*')
           .eq('status', 'product_order')
           .eq('is_deleted', false)
 
@@ -108,7 +108,14 @@ export const GET = withApiHandler(
           console.log('[ORDER-MANAGEMENT] facility_tasks 조회 결과:', {
             totalTasks: tasks.length,
             taskIds: tasks.map(t => t.id),
-            businessIds: tasks.map(t => ({ taskId: t.id, businessId: t.business_id }))
+            businessIds: tasks.map(t => ({ taskId: t.id, businessId: t.business_id })),
+            assigneeData: tasks.map(t => ({
+              businessName: t.business_name,
+              assignee: t.assignee,
+              assignees: t.assignees
+            })),
+            firstTaskAllFields: tasks.length > 0 ? tasks[0] : null,
+            firstTaskKeys: tasks.length > 0 ? Object.keys(tasks[0]) : []
           })
 
           // business_id로 business_info 조회 (null 값 필터링)
@@ -206,7 +213,9 @@ export const GET = withApiHandler(
                     progress_percentage: 0,
                     last_updated: task.updated_at,
                     steps_completed: 0,
-                    steps_total: 3
+                    steps_total: 3,
+                    assignee: task.assignee,
+                    assignees: task.assignees || []
                   }
                 }
 
@@ -234,7 +243,9 @@ export const GET = withApiHandler(
                   progress_percentage: 0,
                   last_updated: task.updated_at || bi.updated_at || new Date().toISOString(),
                   steps_completed: 0,
-                  steps_total: manufacturerKey === 'ecosense' ? 2 : 3
+                  steps_total: manufacturerKey === 'ecosense' ? 2 : 3,
+                  assignee: task.assignee,
+                  assignees: task.assignees || []
                 }
               })
               .filter((o: any) => o !== null)
@@ -418,7 +429,9 @@ export const GET = withApiHandler(
           steps_completed: order.steps_completed || 0,
           steps_total: order.steps_total || 2,
           latest_step: null,
-          latest_step_date: null
+          latest_step_date: null,
+          assignee: order.assignee,
+          assignees: order.assignees
         }
       })
 
