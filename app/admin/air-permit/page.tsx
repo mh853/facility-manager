@@ -162,7 +162,15 @@ const UnitInput = ({ value, onChange, placeholder, unit, className }: {
     // 값이 있고 단위가 없으면 자동으로 단위 추가
     if (value && value.trim() && !value.trim().endsWith(unit)) {
       const numericValue = value.trim()
-      onChange(`${numericValue} ${unit}`)
+
+      // 숫자가 포함되어 있는지 확인 (정수, 소수점, 쉼표 등 허용)
+      const hasNumber = /[\d]/.test(numericValue)
+
+      // 숫자가 있을 때만 단위 추가
+      if (hasNumber) {
+        onChange(`${numericValue} ${unit}`)
+      }
+      // 숫자가 없으면 단위 추가하지 않음 (텍스트만 있는 경우)
     }
   }
 
