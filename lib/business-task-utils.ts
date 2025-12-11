@@ -39,7 +39,7 @@ export interface FacilityTask {
 }
 
 // 업무 상태별 한글 레이블 매핑
-const STATUS_LABELS: Record<TaskStatus, string> = {
+const STATUS_LABELS: Record<string, string> = {
   // 자비/공통 단계
   customer_contact: '고객 상담',
   site_inspection: '현장 실사',
@@ -58,8 +58,14 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   document_supplement: '서류 보완',
   pre_construction_inspection: '착공 전 실사',
   pre_construction_supplement: '착공 보완',
+  pre_construction_supplement_1st: '착공 보완 1차',
+  pre_construction_supplement_2nd: '착공 보완 2차',
+  pre_construction_supplement_3rd: '착공 보완 3차',
   completion_inspection: '준공 실사',
   completion_supplement: '준공 보완',
+  completion_supplement_1st: '준공 보완 1차',
+  completion_supplement_2nd: '준공 보완 2차',
+  completion_supplement_3rd: '준공 보완 3차',
   final_document_submit: '서류 제출',
   subsidy_payment: '보조금 입금',
 
