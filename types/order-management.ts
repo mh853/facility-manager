@@ -181,6 +181,7 @@ export interface OrderDetailResponse {
     business: {
       id: string
       business_name: string
+      row_number: number | null
       address: string | null
       manager_name: string | null
       manager_position: string | null

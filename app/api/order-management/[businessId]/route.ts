@@ -82,6 +82,7 @@ export const GET = withApiHandler(
           `
           id,
           business_name,
+          row_number,
           address,
           manager_name,
           manager_position,
@@ -161,6 +162,7 @@ export const GET = withApiHandler(
           business: {
             id: business.id,
             business_name: business.business_name,
+            row_number: business.row_number,
             address: business.address,
             manager_name: business.manager_name,
             manager_position: business.manager_position,

@@ -92,6 +92,17 @@ export default function BusinessQuickView({
 
           {/* 기본 정보 */}
           <div className="space-y-4">
+            {/* 사업장관리코드 */}
+            <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <Building2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-blue-700 mb-1 font-medium">사업장관리코드</div>
+                <div className="text-lg font-bold text-blue-900">
+                  {business.row_number || '-'}
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
               <MapPin className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
