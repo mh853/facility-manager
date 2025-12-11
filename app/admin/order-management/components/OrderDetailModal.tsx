@@ -24,6 +24,7 @@ import type { OrderDetailResponse, OrderStepKey } from '@/types/order-management
 import { MANUFACTURER_WORKFLOWS } from '@/types/order-management'
 import OrderTimeline from './OrderTimeline'
 import PurchaseOrderModal from '@/app/admin/document-automation/components/PurchaseOrderModal'
+import BusinessQuickView from './BusinessQuickView'
 
 interface OrderDetailModalProps {
   businessId: string
@@ -42,6 +43,7 @@ export default function OrderDetailModal({
   const [data, setData] = useState<OrderDetailResponse['data'] | null>(null)
   const [activeTab, setActiveTab] = useState<'info' | 'timeline'>('info')
   const [showPurchaseOrderModal, setShowPurchaseOrderModal] = useState(false)
+  const [showBusinessQuickView, setShowBusinessQuickView] = useState(false)
 
   // 단계별 날짜 상태
   const [stepDates, setStepDates] = useState<Record<string, string | null>>({
@@ -279,10 +281,19 @@ export default function OrderDetailModal({
             <div>
               {/* 사업장 정보 */}
           <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-green-600" />
-              사업장 정보
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-green-600" />
+                사업장 정보
+              </h3>
+              <button
+                onClick={() => setShowBusinessQuickView(true)}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
+              >
+                <FileText className="w-4 h-4" />
+                상세보기
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
@@ -426,6 +437,16 @@ export default function OrderDetailModal({
             onClose={() => setShowPurchaseOrderModal(false)}
             businessId={businessId}
             businessName={data.business.business_name}
+          />
+        )}
+
+        {/* 사업장 간단 뷰 모달 */}
+        {showBusinessQuickView && data && (
+          <BusinessQuickView
+            isOpen={showBusinessQuickView}
+            business={data.business}
+            manufacturer={workflow.name}
+            onClose={() => setShowBusinessQuickView(false)}
           />
         )}
 
