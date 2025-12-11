@@ -490,6 +490,25 @@ export default function OrderDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Business Quick View Modal */}
+      {showBusinessQuickView && data && (
+        <BusinessQuickView
+          isOpen={showBusinessQuickView}
+          business={data.business}
+          manufacturer={workflow.name}
+          onClose={() => setShowBusinessQuickView(false)}
+        />
+      )}
+
+      {/* Purchase Order Modal */}
+      {showPurchaseOrderModal && data && (
+        <PurchaseOrderModal
+          businessId={businessId}
+          businessName={data.business.business_name}
+          onClose={() => setShowPurchaseOrderModal(false)}
+        />
+      )}
     </div>
   )
 }
