@@ -163,14 +163,16 @@ const UnitInput = ({ value, onChange, placeholder, unit, className }: {
     if (value && value.trim() && !value.trim().endsWith(unit)) {
       const numericValue = value.trim()
 
-      // 숫자가 포함되어 있는지 확인 (정수, 소수점, 쉼표 등 허용)
-      const hasNumber = /[\d]/.test(numericValue)
+      // 순수 숫자만 허용 (정수, 소수점, 쉼표만 허용, 알파벳 불허)
+      // 예: "100", "100.5", "1,200" → 단위 추가
+      // 예: "75HP", "abc", "100kW" → 단위 추가 안함
+      const isPureNumeric = /^[\d.,\s]+$/.test(numericValue)
 
-      // 숫자가 있을 때만 단위 추가
-      if (hasNumber) {
+      // 순수 숫자일 때만 단위 추가
+      if (isPureNumeric) {
         onChange(`${numericValue} ${unit}`)
       }
-      // 숫자가 없으면 단위 추가하지 않음 (텍스트만 있는 경우)
+      // 알파벳이나 다른 문자가 섞여있으면 단위 추가하지 않음
     }
   }
 
