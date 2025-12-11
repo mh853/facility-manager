@@ -139,6 +139,58 @@ const DateInput = ({ value, onChange, placeholder = "YYYY-MM-DD" }: {
   )
 }
 
+// 단위 자동 입력 컴포넌트 (용량 필드용)
+const UnitInput = ({ value, onChange, placeholder, unit, className }: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  unit: string
+  className?: string
+}) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let inputValue = e.target.value
+
+    // 단위가 붙어있는 경우 제거
+    if (inputValue.endsWith(unit)) {
+      inputValue = inputValue.slice(0, -unit.length).trim()
+    }
+
+    onChange(inputValue)
+  }
+
+  const handleBlur = () => {
+    // 값이 있고 단위가 없으면 자동으로 단위 추가
+    if (value && value.trim() && !value.trim().endsWith(unit)) {
+      const numericValue = value.trim()
+      onChange(`${numericValue} ${unit}`)
+    }
+  }
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    // 포커스 시 단위 제거하여 순수 숫자만 편집 가능
+    if (value && value.endsWith(unit)) {
+      const numericValue = value.slice(0, -unit.length).trim()
+      onChange(numericValue)
+      // 커서를 끝으로 이동
+      setTimeout(() => {
+        e.target.setSelectionRange(numericValue.length, numericValue.length)
+      }, 0)
+    }
+  }
+
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      onFocus={handleFocus}
+      placeholder={placeholder}
+      className={className}
+    />
+  )
+}
+
 
 function AirPermitManagementPage() {
   const router = useRouter()
@@ -1645,11 +1697,11 @@ function AirPermitManagementPage() {
                                 placeholder="시설명"
                                 className="flex-1 px-1.5 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                               />
-                              <input
-                                type="text"
+                              <UnitInput
                                 value={facility.capacity}
-                                onChange={(e) => updateFacility(outletIndex, 'discharge', facilityIndex, 'capacity', e.target.value)}
+                                onChange={(value) => updateFacility(outletIndex, 'discharge', facilityIndex, 'capacity', value)}
                                 placeholder="용량"
+                                unit="m³"
                                 className="w-12 sm:w-16 md:w-20 px-1 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                               />
                               <input
@@ -1699,11 +1751,11 @@ function AirPermitManagementPage() {
                                 placeholder="시설명"
                                 className="flex-1 px-1.5 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                               />
-                              <input
-                                type="text"
+                              <UnitInput
                                 value={facility.capacity}
-                                onChange={(e) => updateFacility(outletIndex, 'prevention', facilityIndex, 'capacity', e.target.value)}
+                                onChange={(value) => updateFacility(outletIndex, 'prevention', facilityIndex, 'capacity', value)}
                                 placeholder="용량"
+                                unit="m³/분"
                                 className="w-12 sm:w-16 md:w-20 px-1 sm:px-2 py-1 text-[9px] sm:text-[10px] md:text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                               />
                               <input
