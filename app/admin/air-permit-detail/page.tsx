@@ -1313,6 +1313,29 @@ function AirPermitDetailContent() {
             />
           </div>
         </div>
+
+        {/* VPN 정보 */}
+        {(permitDetail.business?.vpn_wired || permitDetail.business?.vpn_wireless) && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-6">
+              <span className="font-semibold text-blue-900">VPN 정보</span>
+              <div className="flex gap-4 text-sm">
+                {permitDetail.business.vpn_wired > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-700">• 유선 VPN:</span>
+                    <span className="font-medium text-blue-900">{permitDetail.business.vpn_wired}개</span>
+                  </div>
+                )}
+                {permitDetail.business.vpn_wireless > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-700">• 무선 VPN:</span>
+                    <span className="font-medium text-blue-900">{permitDetail.business.vpn_wireless}개</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 배출구별 시설 정보 테이블 */}
