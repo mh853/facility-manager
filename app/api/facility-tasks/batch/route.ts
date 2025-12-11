@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
 
         const topTask = sortedTasks[0]
         const statusLabels: Record<string, string> = {
+          // 자비/공통 단계
           customer_contact: '고객 상담',
           site_inspection: '현장 실사',
           quotation: '견적서 작성',
@@ -156,14 +157,24 @@ export async function POST(request: NextRequest) {
           installation: '제품 설치',
           balance_payment: '잔금 입금',
           document_complete: '서류 발송 완료',
+
+          // 보조금 전용 단계
           application_submit: '신청서 제출',
           document_supplement: '서류 보완',
           pre_construction_inspection: '착공 전 실사',
           pre_construction_supplement: '착공 보완',
+          pre_construction_supplement_1st: '착공 보완 1차',
+          pre_construction_supplement_2nd: '착공 보완 2차',
+          pre_construction_supplement_3rd: '착공 보완 3차',
           completion_inspection: '준공 실사',
           completion_supplement: '준공 보완',
+          completion_supplement_1st: '준공 보완 1차',
+          completion_supplement_2nd: '준공 보완 2차',
+          completion_supplement_3rd: '준공 보완 3차',
           final_document_submit: '서류 제출',
           subsidy_payment: '보조금 입금',
+
+          // 기타
           etc_status: '기타'
         }
 
