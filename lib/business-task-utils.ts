@@ -73,11 +73,43 @@ const STATUS_LABELS: Record<string, string> = {
   etc_status: '기타'
 }
 
-// 우선순위별 색상 클래스
-const PRIORITY_COLORS: Record<Priority, string> = {
-  high: 'bg-red-100 text-red-800',
-  medium: 'bg-blue-100 text-blue-800',
-  low: 'bg-yellow-100 text-yellow-800'
+// 단계별 고유 색상 클래스 (우선순위 대신 단계로 통일감 부여)
+const STATUS_COLORS: Record<string, string> = {
+  // 영업/계약 단계 (초기)
+  customer_contact: 'bg-purple-100 text-purple-800',      // 고객 상담
+  site_inspection: 'bg-blue-100 text-blue-800',           // 현장 실사
+  quotation: 'bg-yellow-100 text-yellow-800',             // 견적서 작성
+  contract: 'bg-green-100 text-green-800',                // 계약 체결
+
+  // 진행 단계 (중기)
+  deposit_confirm: 'bg-emerald-100 text-emerald-800',     // 계약금 확인
+  product_order: 'bg-indigo-100 text-indigo-800',         // 제품 발주
+  product_shipment: 'bg-cyan-100 text-cyan-800',          // 제품 출고
+  installation_schedule: 'bg-amber-100 text-amber-800',   // 설치 협의
+  installation: 'bg-orange-100 text-orange-800',          // 제품 설치
+
+  // 완료 단계 (후기)
+  balance_payment: 'bg-teal-100 text-teal-800',           // 잔금 입금
+  document_complete: 'bg-sky-100 text-sky-800',           // 서류 발송 완료
+
+  // 보조금 전용 단계
+  application_submit: 'bg-violet-100 text-violet-800',    // 신청서 제출
+  document_supplement: 'bg-yellow-100 text-yellow-800',   // 서류 보완
+  pre_construction_inspection: 'bg-blue-100 text-blue-800', // 착공 전 실사
+  pre_construction_supplement: 'bg-orange-100 text-orange-800', // 착공 보완
+  pre_construction_supplement_1st: 'bg-orange-100 text-orange-800', // 착공 보완 1차
+  pre_construction_supplement_2nd: 'bg-orange-100 text-orange-800', // 착공 보완 2차
+  pre_construction_supplement_3rd: 'bg-orange-100 text-orange-800', // 착공 보완 3차
+  completion_inspection: 'bg-cyan-100 text-cyan-800',     // 준공 실사
+  completion_supplement: 'bg-amber-100 text-amber-800',   // 준공 보완
+  completion_supplement_1st: 'bg-amber-100 text-amber-800', // 준공 보완 1차
+  completion_supplement_2nd: 'bg-amber-100 text-amber-800', // 준공 보완 2차
+  completion_supplement_3rd: 'bg-amber-100 text-amber-800', // 준공 보완 3차
+  final_document_submit: 'bg-green-100 text-green-800',   // 서류 제출
+  subsidy_payment: 'bg-emerald-100 text-emerald-800',     // 보조금 입금
+
+  // 기타
+  etc_status: 'bg-gray-100 text-gray-600'                 // 기타
 }
 
 // 기본 색상 (업무 없음)
@@ -208,7 +240,7 @@ export async function getBusinessTaskStatus(businessName: string, token?: string
 
     return {
       statusText,
-      colorClass: PRIORITY_COLORS[topTask.priority] || DEFAULT_COLOR,
+      colorClass: STATUS_COLORS[topTask.status] || DEFAULT_COLOR,
       lastUpdated: topTask.updated_at,
       taskCount: activeTasks.length,
       hasActiveTasks: true
