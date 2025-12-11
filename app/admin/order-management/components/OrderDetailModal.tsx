@@ -103,6 +103,39 @@ export default function OrderDetailModal({
     }))
   }
 
+  // 날짜 포맷 변환 (YYYY-MM-DD → 연도. 월. 일.)
+  const formatDateDisplay = (dateStr: string | null): string => {
+    if (!dateStr) return ''
+    const [year, month, day] = dateStr.split('-')
+    return `${year}. ${month}. ${day}.`
+  }
+
+  // 날짜 파싱 (연도. 월. 일. → YYYY-MM-DD)
+  const parseDateInput = (input: string): string | null => {
+    if (!input) return null
+    // "연도. 월. 일." 형식 파싱
+    const match = input.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?/)
+    if (match) {
+      const [, year, month, day] = match
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+    }
+    return null
+  }
+
+  // 텍스트 입력 핸들러 (연도 4자리 제한)
+  const handleTextDateChange = (field: string, value: string) => {
+    // 숫자, 점, 공백만 허용
+    const sanitized = value.replace(/[^\d.\s]/g, '')
+
+    // 파싱 시도
+    const parsedDate = parseDateInput(sanitized)
+    if (parsedDate) {
+      handleDateChange(field, parsedDate)
+    } else if (sanitized === '') {
+      handleDateChange(field, null)
+    }
+  }
+
   // 저장
   const handleSave = async () => {
     try {
@@ -435,17 +468,21 @@ export default function OrderDetailModal({
                         완료일
                       </label>
                       <input
-                        type="date"
-                        value={stepDates[step.field] || ''}
-                        onChange={(e) =>
-                          handleDateChange(
-                            step.field,
-                            e.target.value || null
-                          )
-                        }
+                        type="text"
+                        value={formatDateDisplay(stepDates[step.field])}
+                        onChange={(e) => handleTextDateChange(step.field, e.target.value)}
+                        onBlur={(e) => {
+                          // 포커스 아웃 시 유효성 검사 및 재포맷
+                          const parsed = parseDateInput(e.target.value)
+                          if (parsed) {
+                            handleDateChange(step.field, parsed)
+                          }
+                        }}
                         disabled={isCompleted}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        placeholder="연도. 월. 일."
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed w-48"
                       />
+                      <p className="text-xs text-gray-500 mt-1">예: 2025. 12. 11.</p>
                     </div>
                   </div>
                 )
