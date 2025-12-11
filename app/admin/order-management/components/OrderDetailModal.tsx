@@ -440,16 +440,6 @@ export default function OrderDetailModal({
           />
         )}
 
-        {/* 사업장 간단 뷰 모달 */}
-        {showBusinessQuickView && data && (
-          <BusinessQuickView
-            isOpen={showBusinessQuickView}
-            business={data.business}
-            manufacturer={workflow.name}
-            onClose={() => setShowBusinessQuickView(false)}
-          />
-        )}
-
         {/* 푸터 */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
           <button
