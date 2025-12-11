@@ -54,6 +54,15 @@ export default function OrderDetailModal({
     router_request_date: null
   })
 
+  // 날짜 입력 상태 (연도, 월, 일 분리)
+  const [dateInputs, setDateInputs] = useState<Record<string, { year: string; month: string; day: string }>>({
+    layout_date: { year: '', month: '', day: '' },
+    order_form_date: { year: '', month: '', day: '' },
+    ip_request_date: { year: '', month: '', day: '' },
+    greenlink_ip_setting_date: { year: '', month: '', day: '' },
+    router_request_date: { year: '', month: '', day: '' }
+  })
+
   // 데이터 로드
   useEffect(() => {
     loadOrderDetail()
@@ -78,13 +87,29 @@ export default function OrderDetailModal({
 
       if (result.success && result.data) {
         setData(result.data)
-        setStepDates({
+        const dates = {
           layout_date: result.data.order.layout_date,
           order_form_date: result.data.order.order_form_date,
           ip_request_date: result.data.order.ip_request_date,
           greenlink_ip_setting_date:
             result.data.order.greenlink_ip_setting_date,
           router_request_date: result.data.order.router_request_date
+        }
+        setStepDates(dates)
+
+        // 날짜를 연도, 월, 일로 분리하여 초기화
+        const parseDate = (dateStr: string | null) => {
+          if (!dateStr) return { year: '', month: '', day: '' }
+          const [year, month, day] = dateStr.split('-')
+          return { year, month, day }
+        }
+
+        setDateInputs({
+          layout_date: parseDate(dates.layout_date),
+          order_form_date: parseDate(dates.order_form_date),
+          ip_request_date: parseDate(dates.ip_request_date),
+          greenlink_ip_setting_date: parseDate(dates.greenlink_ip_setting_date),
+          router_request_date: parseDate(dates.router_request_date)
         })
       }
     } catch (error) {
@@ -103,36 +128,95 @@ export default function OrderDetailModal({
     }))
   }
 
-  // 날짜 포맷 변환 (YYYY-MM-DD → 연도. 월. 일.)
-  const formatDateDisplay = (dateStr: string | null): string => {
-    if (!dateStr) return ''
-    const [year, month, day] = dateStr.split('-')
-    return `${year}. ${month}. ${day}.`
+  // 개별 날짜 필드 변경 핸들러
+  const handleDateFieldChange = (stepField: string, dateField: 'year' | 'month' | 'day', value: string) => {
+    // 숫자만 허용
+    const numeric = value.replace(/\D/g, '')
+
+    // 최대 길이 제한: year=4, month=2, day=2
+    const maxLengths = { year: 4, month: 2, day: 2 }
+    const truncated = numeric.slice(0, maxLengths[dateField])
+
+    // 상태 업데이트
+    setDateInputs(prev => {
+      const updated = {
+        ...prev[stepField],
+        [dateField]: truncated
+      }
+
+      // 모든 필드가 입력되었으면 자동으로 날짜 조합 및 저장
+      if (updated.year.length === 4 && updated.month && updated.day) {
+        const assembled = `${updated.year}-${updated.month.padStart(2, '0')}-${updated.day.padStart(2, '0')}`
+
+        // 유효한 날짜인지 검증
+        const date = new Date(assembled)
+        const isValid = date instanceof Date && !isNaN(date.getTime())
+
+        if (isValid) {
+          handleDateChange(stepField, assembled)
+        }
+      } else {
+        // 불완전한 입력이면 null로 설정
+        handleDateChange(stepField, null)
+      }
+
+      return {
+        ...prev,
+        [stepField]: updated
+      }
+    })
   }
 
-  // 날짜 파싱 (연도. 월. 일. → YYYY-MM-DD)
-  const parseDateInput = (input: string): string | null => {
-    if (!input) return null
-    // "연도. 월. 일." 형식 파싱
-    const match = input.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?/)
-    if (match) {
-      const [, year, month, day] = match
-      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  // 날짜 필드 blur 핸들러 (유효성 검증)
+  const handleDateFieldBlur = (stepField: string) => {
+    const input = dateInputs[stepField]
+
+    // 빈 값이면 초기화
+    if (!input.year && !input.month && !input.day) {
+      handleDateChange(stepField, null)
+      return
     }
-    return null
-  }
 
-  // 텍스트 입력 핸들러 (연도 4자리 제한)
-  const handleTextDateChange = (field: string, value: string) => {
-    // 숫자, 점, 공백만 허용
-    const sanitized = value.replace(/[^\d.\s]/g, '')
+    // 모든 필드가 입력되었는지 확인
+    if (input.year.length === 4 && input.month && input.day) {
+      const assembled = `${input.year}-${input.month.padStart(2, '0')}-${input.day.padStart(2, '0')}`
 
-    // 파싱 시도
-    const parsedDate = parseDateInput(sanitized)
-    if (parsedDate) {
-      handleDateChange(field, parsedDate)
-    } else if (sanitized === '') {
-      handleDateChange(field, null)
+      // 유효한 날짜인지 검증
+      const date = new Date(assembled)
+      const isValid = date instanceof Date && !isNaN(date.getTime())
+
+      if (!isValid) {
+        alert('올바른 날짜를 입력해주세요.')
+        // 이전 값으로 복원
+        if (stepDates[stepField]) {
+          const [year, month, day] = stepDates[stepField]!.split('-')
+          setDateInputs(prev => ({
+            ...prev,
+            [stepField]: { year, month, day }
+          }))
+        } else {
+          setDateInputs(prev => ({
+            ...prev,
+            [stepField]: { year: '', month: '', day: '' }
+          }))
+        }
+      }
+    } else if (input.year || input.month || input.day) {
+      // 일부만 입력된 경우
+      alert('연도, 월, 일을 모두 입력해주세요.')
+      // 이전 값으로 복원
+      if (stepDates[stepField]) {
+        const [year, month, day] = stepDates[stepField]!.split('-')
+        setDateInputs(prev => ({
+          ...prev,
+          [stepField]: { year, month, day }
+        }))
+      } else {
+        setDateInputs(prev => ({
+          ...prev,
+          [stepField]: { year: '', month: '', day: '' }
+        }))
+      }
     }
   }
 
@@ -467,22 +551,52 @@ export default function OrderDetailModal({
                       <label className="block text-sm text-gray-600 mb-1">
                         완료일
                       </label>
-                      <input
-                        type="text"
-                        value={formatDateDisplay(stepDates[step.field])}
-                        onChange={(e) => handleTextDateChange(step.field, e.target.value)}
-                        onBlur={(e) => {
-                          // 포커스 아웃 시 유효성 검사 및 재포맷
-                          const parsed = parseDateInput(e.target.value)
-                          if (parsed) {
-                            handleDateChange(step.field, parsed)
-                          }
-                        }}
-                        disabled={isCompleted}
-                        placeholder="연도. 월. 일."
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed w-48"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">예: 2025. 12. 11.</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={dateInputs[step.field].year}
+                            onChange={(e) => handleDateFieldChange(step.field, 'year', e.target.value)}
+                            onBlur={() => handleDateFieldBlur(step.field)}
+                            disabled={isCompleted}
+                            placeholder="연도"
+                            maxLength={4}
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed w-20 text-center"
+                          />
+                          <span className="text-xs text-gray-500 mt-1 text-center">연도</span>
+                        </div>
+                        <span className="text-gray-400">-</span>
+                        <div className="flex flex-col">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={dateInputs[step.field].month}
+                            onChange={(e) => handleDateFieldChange(step.field, 'month', e.target.value)}
+                            onBlur={() => handleDateFieldBlur(step.field)}
+                            disabled={isCompleted}
+                            placeholder="월"
+                            maxLength={2}
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed w-16 text-center"
+                          />
+                          <span className="text-xs text-gray-500 mt-1 text-center">월</span>
+                        </div>
+                        <span className="text-gray-400">-</span>
+                        <div className="flex flex-col">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={dateInputs[step.field].day}
+                            onChange={(e) => handleDateFieldChange(step.field, 'day', e.target.value)}
+                            onBlur={() => handleDateFieldBlur(step.field)}
+                            disabled={isCompleted}
+                            placeholder="일"
+                            maxLength={2}
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed w-16 text-center"
+                          />
+                          <span className="text-xs text-gray-500 mt-1 text-center">일</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )
