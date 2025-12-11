@@ -232,7 +232,7 @@ export const GET = withApiHandler(
                   manufacturer: manufacturerKey,
                   status: 'in_progress',
                   progress_percentage: 0,
-                  last_updated: task.updated_at,
+                  last_updated: task.updated_at || bi.updated_at || new Date().toISOString(),
                   steps_completed: 0,
                   steps_total: manufacturerKey === 'ecosense' ? 2 : 3
                 }
@@ -284,7 +284,7 @@ export const GET = withApiHandler(
               manufacturer: manufacturerKey,
               status: 'not_started',
               progress_percentage: 0,
-              last_updated: bi.updated_at,
+              last_updated: bi.updated_at || new Date().toISOString(),
               steps_completed: 0,
               steps_total: manufacturerKey === 'ecosense' ? 2 : 3
             }
@@ -329,7 +329,7 @@ export const GET = withApiHandler(
               manufacturer: manufacturerKey,
               status: 'completed',
               progress_percentage: 100,
-              last_updated: bi.updated_at,
+              last_updated: bi.updated_at || new Date().toISOString(),
               steps_completed: manufacturerKey === 'ecosense' ? 2 : 3,
               steps_total: manufacturerKey === 'ecosense' ? 2 : 3
             }
@@ -372,7 +372,7 @@ export const GET = withApiHandler(
               manufacturer: manufacturerKey,
               status: hasOrderDate ? 'completed' : 'in_progress',
               progress_percentage: hasOrderDate ? 100 : 0,
-              last_updated: bi.updated_at,
+              last_updated: bi.updated_at || new Date().toISOString(),
               steps_completed: hasOrderDate ? (manufacturerKey === 'ecosense' ? 2 : 3) : 0,
               steps_total: manufacturerKey === 'ecosense' ? 2 : 3
             }
