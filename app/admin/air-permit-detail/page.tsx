@@ -1232,12 +1232,18 @@ function AirPermitDetailContent() {
       {/* 대기필증 기본 정보 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">기본 정보</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <div>
             <span className="text-sm text-gray-500">사업장명</span>
             <div className="font-medium">
-              {permitDetail.business?.business_name || 
+              {permitDetail.business?.business_name ||
                permitDetail.additional_info?.business_name || '-'}
+            </div>
+          </div>
+          <div>
+            <span className="text-sm text-gray-500">사업장관리코드</span>
+            <div className="font-medium text-gray-700">
+              {permitDetail.business?.business_management_code || '-'}
             </div>
           </div>
           <div>

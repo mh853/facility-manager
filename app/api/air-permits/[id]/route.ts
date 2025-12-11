@@ -41,6 +41,7 @@ export async function GET(
           business_info!inner(
             id,
             business_name,
+            business_management_code,
             local_government,
             address,
             manager_name,

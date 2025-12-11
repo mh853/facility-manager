@@ -427,6 +427,7 @@ export class DatabaseService {
         *,
         business:business_info!business_id (
           business_name,
+          business_management_code,
           local_government
         )
       `)
@@ -475,6 +476,7 @@ export class DatabaseService {
         *,
         business:business_info!business_id (
           business_name,
+          business_management_code,
           local_government
         )
       `)
