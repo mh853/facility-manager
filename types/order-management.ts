@@ -181,7 +181,7 @@ export interface OrderDetailResponse {
     business: {
       id: string
       business_name: string
-      row_number: number | null
+      business_management_code: string | null
       address: string | null
       manager_name: string | null
       manager_position: string | null
@@ -190,6 +190,7 @@ export interface OrderDetailResponse {
       vpn: VpnType
       greenlink_id: string | null
       greenlink_pw: string | null
+      air_permit_id: string | null
     }
 
     // 발주 진행 정보

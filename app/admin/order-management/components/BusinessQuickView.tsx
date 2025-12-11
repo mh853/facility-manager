@@ -98,7 +98,7 @@ export default function BusinessQuickView({
               <div className="flex-1 min-w-0">
                 <div className="text-sm text-blue-700 mb-1 font-medium">사업장관리코드</div>
                 <div className="text-lg font-bold text-blue-900">
-                  {business.row_number || '-'}
+                  {business.business_management_code || '-'}
                 </div>
               </div>
             </div>

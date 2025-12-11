@@ -286,13 +286,41 @@ export default function OrderDetailModal({
                 <Building2 className="w-5 h-5 text-green-600" />
                 사업장 정보
               </h3>
-              <button
-                onClick={() => setShowBusinessQuickView(true)}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
-              >
-                <FileText className="w-4 h-4" />
-                상세보기
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    console.log('상세보기 버튼 클릭!')
+                    setShowBusinessQuickView(true)
+                  }}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                  data-testid="business-detail-button"
+                >
+                  <FileText className="w-4 h-4" />
+                  상세보기
+                </button>
+
+                {/* 대기필증 수정 버튼 */}
+                <button
+                  onClick={() => {
+                    if (!data.business.air_permit_id) {
+                      alert('이 사업장의 대기필증 정보가 없습니다.\n대기필증 관리 페이지에서 먼저 생성해주세요.')
+                      return
+                    }
+                    const url = `/admin/air-permit-detail?permitId=${data.business.air_permit_id}&edit=true`
+                    window.open(url, '_blank')
+                  }}
+                  disabled={!data.business.air_permit_id}
+                  className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${
+                    data.business.air_permit_id
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                  title={data.business.air_permit_id ? '대기필증 수정' : '대기필증 정보 없음'}
+                >
+                  <FileText className="w-4 h-4" />
+                  대기필증 수정
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">

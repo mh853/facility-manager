@@ -75,14 +75,14 @@ export const GET = withApiHandler(
         businessId
       })
 
-      // 1. 사업장 정보 조회
+      // 1. 사업장 정보 조회 (대기필증 정보 포함)
       const { data: business, error: businessError } = await supabaseAdmin
         .from('business_info')
         .select(
           `
           id,
           business_name,
-          row_number,
+          business_management_code,
           address,
           manager_name,
           manager_position,
@@ -90,7 +90,11 @@ export const GET = withApiHandler(
           manufacturer,
           vpn,
           greenlink_id,
-          greenlink_pw
+          greenlink_pw,
+          air_permit_info!air_permit_info_business_id_fkey(
+            id,
+            is_active
+          )
         `
         )
         .eq('id', businessId)
@@ -101,6 +105,17 @@ export const GET = withApiHandler(
         console.error('[ORDER-DETAIL] 사업장 조회 오류:', businessError)
         return createErrorResponse('사업장을 찾을 수 없습니다', 404)
       }
+
+      // 활성 대기필증 찾기
+      const activePermit = business.air_permit_info?.find((permit: any) => permit.is_active)
+      const airPermitId = activePermit?.id || null
+
+      console.log('[ORDER-DETAIL] 조회된 사업장 정보:', {
+        id: business.id,
+        business_name: business.business_name,
+        business_management_code: business.business_management_code,
+        air_permit_id: airPermitId
+      })
 
       // 2. 발주 정보 조회 (없으면 생성)
       let { data: order, error: orderError } = await supabaseAdmin
@@ -162,7 +177,7 @@ export const GET = withApiHandler(
           business: {
             id: business.id,
             business_name: business.business_name,
-            row_number: business.row_number,
+            business_management_code: business.business_management_code,
             address: business.address,
             manager_name: business.manager_name,
             manager_position: business.manager_position,
@@ -170,7 +185,8 @@ export const GET = withApiHandler(
             manufacturer: manufacturerKey,
             vpn: business.vpn,
             greenlink_id: business.greenlink_id,
-            greenlink_pw: business.greenlink_pw
+            greenlink_pw: business.greenlink_pw,
+            air_permit_id: airPermitId
           },
           order: {
             id: order!.id,
