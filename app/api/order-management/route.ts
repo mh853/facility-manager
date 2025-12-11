@@ -15,6 +15,7 @@ import type {
   OrderListFilter,
   Manufacturer
 } from '@/types/order-management'
+import { MANUFACTURER_WORKFLOWS } from '@/types/order-management'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -180,6 +181,28 @@ export const GET = withApiHandler(
               businesses.map(b => [b.business_name, b])
             )
 
+            // order_management 데이터 조회 (진행률 계산용)
+            const businessIdsForOrder = businessIds.filter(id => id !== null && id !== undefined)
+            let orderManagementData: any[] = []
+
+            if (businessIdsForOrder.length > 0) {
+              const { data: omData, error: omError } = await supabaseAdmin
+                .from('order_management')
+                .select('*')
+                .in('business_id', businessIdsForOrder)
+
+              if (omError) {
+                console.error('[ORDER-MANAGEMENT] order_management 조회 오류:', omError)
+              } else {
+                orderManagementData = omData || []
+              }
+            }
+
+            // order_management를 Map으로 변환
+            const orderManagementMap = new Map(
+              orderManagementData.map(om => [om.business_id, om])
+            )
+
             // facility_tasks와 business_info 결합
             orders = tasks
               .map((task: any) => {
@@ -233,6 +256,21 @@ export const GET = withApiHandler(
                   return null
                 }
 
+                // order_management 데이터로 진행률 계산
+                const orderData = orderManagementMap.get(bi.id)
+                const workflow = manufacturerKey ? MANUFACTURER_WORKFLOWS[manufacturerKey] : null
+                let stepsCompleted = 0
+                let stepsTotal = workflow?.total_steps || 3
+                let progressPercentage = 0
+
+                if (orderData && workflow) {
+                  // 완료된 단계 계산
+                  stepsCompleted = workflow.steps.filter(
+                    (step) => orderData[step.field] != null
+                  ).length
+                  progressPercentage = Math.round((stepsCompleted / stepsTotal) * 100)
+                }
+
                 return {
                   id: task.id,
                   business_id: bi.id,
@@ -240,10 +278,10 @@ export const GET = withApiHandler(
                   address: bi.address,
                   manufacturer: manufacturerKey,
                   status: 'in_progress',
-                  progress_percentage: 0,
+                  progress_percentage: progressPercentage,
                   last_updated: task.updated_at || bi.updated_at || new Date().toISOString(),
-                  steps_completed: 0,
-                  steps_total: manufacturerKey === 'ecosense' ? 2 : 3,
+                  steps_completed: stepsCompleted,
+                  steps_total: stepsTotal,
                   assignee: task.assignee,
                   assignees: task.assignees || []
                 }
