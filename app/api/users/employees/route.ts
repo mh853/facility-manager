@@ -60,13 +60,14 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     // 검색 기능 (이름, 이메일, 직원번호, 부서, 직급으로 검색)
     if (search && search.trim().length >= 2) {
       const searchTerm = search.trim().toLowerCase();
-      query = query.or(`
-        name.ilike.%${searchTerm}%,
-        email.ilike.%${searchTerm}%,
-        employee_id.ilike.%${searchTerm}%,
-        department.ilike.%${searchTerm}%,
-        position.ilike.%${searchTerm}%
-      `);
+      const searchConditions = [
+        `name.ilike.%${searchTerm}%`,
+        `email.ilike.%${searchTerm}%`,
+        `employee_id.ilike.%${searchTerm}%`,
+        `department.ilike.%${searchTerm}%`,
+        `position.ilike.%${searchTerm}%`
+      ].join(',');
+      query = query.or(searchConditions);
     }
 
     // 결과 개수 제한
