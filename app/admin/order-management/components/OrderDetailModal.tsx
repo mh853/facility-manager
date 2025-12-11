@@ -167,8 +167,8 @@ export default function OrderDetailModal({
     })
   }
 
-  // 날짜 필드 blur 핸들러 (유효성 검증)
-  const handleDateFieldBlur = (stepField: string) => {
+  // 날짜 필드 blur 핸들러 (유효성 검증 - 마지막 필드에서만)
+  const handleDateFieldBlur = (stepField: string, dateField: 'year' | 'month' | 'day') => {
     const input = dateInputs[stepField]
 
     // 빈 값이면 초기화
@@ -177,16 +177,35 @@ export default function OrderDetailModal({
       return
     }
 
-    // 모든 필드가 입력되었는지 확인
-    if (input.year.length === 4 && input.month && input.day) {
-      const assembled = `${input.year}-${input.month.padStart(2, '0')}-${input.day.padStart(2, '0')}`
+    // 마지막 필드(일)를 벗어날 때만 최종 검증
+    if (dateField === 'day') {
+      // 모든 필드가 입력되었는지 확인
+      if (input.year.length === 4 && input.month && input.day) {
+        const assembled = `${input.year}-${input.month.padStart(2, '0')}-${input.day.padStart(2, '0')}`
 
-      // 유효한 날짜인지 검증
-      const date = new Date(assembled)
-      const isValid = date instanceof Date && !isNaN(date.getTime())
+        // 유효한 날짜인지 검증
+        const date = new Date(assembled)
+        const isValid = date instanceof Date && !isNaN(date.getTime())
 
-      if (!isValid) {
-        alert('올바른 날짜를 입력해주세요.')
+        if (!isValid) {
+          alert('올바른 날짜를 입력해주세요.')
+          // 이전 값으로 복원
+          if (stepDates[stepField]) {
+            const [year, month, day] = stepDates[stepField]!.split('-')
+            setDateInputs(prev => ({
+              ...prev,
+              [stepField]: { year, month, day }
+            }))
+          } else {
+            setDateInputs(prev => ({
+              ...prev,
+              [stepField]: { year: '', month: '', day: '' }
+            }))
+          }
+        }
+      } else if (input.year || input.month || input.day) {
+        // 일부만 입력된 경우 (마지막 필드에서만 경고)
+        alert('연도, 월, 일을 모두 입력해주세요.')
         // 이전 값으로 복원
         if (stepDates[stepField]) {
           const [year, month, day] = stepDates[stepField]!.split('-')
@@ -201,23 +220,8 @@ export default function OrderDetailModal({
           }))
         }
       }
-    } else if (input.year || input.month || input.day) {
-      // 일부만 입력된 경우
-      alert('연도, 월, 일을 모두 입력해주세요.')
-      // 이전 값으로 복원
-      if (stepDates[stepField]) {
-        const [year, month, day] = stepDates[stepField]!.split('-')
-        setDateInputs(prev => ({
-          ...prev,
-          [stepField]: { year, month, day }
-        }))
-      } else {
-        setDateInputs(prev => ({
-          ...prev,
-          [stepField]: { year: '', month: '', day: '' }
-        }))
-      }
     }
+    // 연도나 월 필드에서는 검증하지 않고 자유롭게 이동 허용
   }
 
   // 저장
@@ -558,7 +562,7 @@ export default function OrderDetailModal({
                             inputMode="numeric"
                             value={dateInputs[step.field].year}
                             onChange={(e) => handleDateFieldChange(step.field, 'year', e.target.value)}
-                            onBlur={() => handleDateFieldBlur(step.field)}
+                            onBlur={() => handleDateFieldBlur(step.field, 'year')}
                             disabled={isCompleted}
                             placeholder="연도"
                             maxLength={4}
@@ -573,7 +577,7 @@ export default function OrderDetailModal({
                             inputMode="numeric"
                             value={dateInputs[step.field].month}
                             onChange={(e) => handleDateFieldChange(step.field, 'month', e.target.value)}
-                            onBlur={() => handleDateFieldBlur(step.field)}
+                            onBlur={() => handleDateFieldBlur(step.field, 'month')}
                             disabled={isCompleted}
                             placeholder="월"
                             maxLength={2}
@@ -588,7 +592,7 @@ export default function OrderDetailModal({
                             inputMode="numeric"
                             value={dateInputs[step.field].day}
                             onChange={(e) => handleDateFieldChange(step.field, 'day', e.target.value)}
-                            onBlur={() => handleDateFieldBlur(step.field)}
+                            onBlur={() => handleDateFieldBlur(step.field, 'day')}
                             disabled={isCompleted}
                             placeholder="일"
                             maxLength={2}
