@@ -1229,117 +1229,137 @@ function AirPermitDetailContent() {
         </div>
       )}
     >
-      {/* 대기필증 기본 정보 */}
-      <div className="sticky top-0 z-10 bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">기본 정보</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          <div>
-            <span className="text-sm text-gray-500">사업장명</span>
-            <div className="font-medium">
-              {permitDetail.business?.business_name ||
-               permitDetail.additional_info?.business_name || '-'}
-            </div>
-          </div>
-          <div>
-            <span className="text-sm text-gray-500">사업장관리코드</span>
-            <div className="font-medium text-gray-700">
-              {permitDetail.business?.business_management_code || '-'}
-            </div>
-          </div>
-          <div>
-            <span className="text-sm text-gray-500">업종</span>
-            <input
-              type="text"
-              value={permitDetail.business_type || ''}
-              onChange={(e) => handleBasicInfoChange('business_type', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-              placeholder="업종을 입력하세요"
-            />
-          </div>
-          <div>
-            <span className="text-sm text-gray-500">종별</span>
-            <input
-              type="text"
-              value={permitDetail.additional_info?.category || ''}
-              onChange={(e) => handleBasicInfoChange('category', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-              placeholder="종별을 입력하세요"
-            />
-          </div>
-          <div>
-            <span className="text-sm text-gray-500">최초신고일</span>
-            <input
-              type="date"
-              value={permitDetail.first_report_date || ''}
-              onChange={(e) => handleBasicInfoChange('first_report_date', e.target.value)}
-              min="1000-01-01"
-              max="9999-12-31"
-              onInput={(e) => {
-                const input = e.target as HTMLInputElement
-                const value = input.value
-                if (value) {
-                  const year = parseInt(value.split('-')[0])
-                  if (year < 1000 || year > 9999) {
-                    input.setCustomValidity('연도는 4자리 숫자(1000-9999)로 입력해주세요')
-                  } else {
-                    input.setCustomValidity('')
-                  }
-                }
+      {/* 대기필증 기본 정보 - Sticky Header */}
+      <div className="sticky top-0 z-50 bg-white border-b border-gray-300 shadow-lg">
+        <div className="px-4 py-2">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xs font-semibold text-gray-900">기본 정보</h2>
+            <button
+              onClick={() => {
+                const element = document.getElementById('outlet-section')
+                element?.scrollIntoView({ behavior: 'smooth' })
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-            />
+              className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              ↓ 배출구 정보
+            </button>
           </div>
-          <div>
-            <span className="text-sm text-gray-500">가동개시일</span>
-            <input
-              type="date"
-              value={permitDetail.operation_start_date || ''}
-              onChange={(e) => handleBasicInfoChange('operation_start_date', e.target.value)}
-              min="1000-01-01"
-              max="9999-12-31"
-              onInput={(e) => {
-                const input = e.target as HTMLInputElement
-                const value = input.value
-                if (value) {
-                  const year = parseInt(value.split('-')[0])
-                  if (year < 1000 || year > 9999) {
-                    input.setCustomValidity('연도는 4자리 숫자(1000-9999)로 입력해주세요')
-                  } else {
-                    input.setCustomValidity('')
-                  }
-                }
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-            />
-          </div>
-        </div>
-
-        {/* VPN 정보 */}
-        {(permitDetail.business?.vpn_wired || permitDetail.business?.vpn_wireless) && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-6">
-              <span className="font-semibold text-blue-900">VPN 정보</span>
-              <div className="flex gap-4 text-sm">
-                {permitDetail.business.vpn_wired > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-blue-700">• 유선 VPN:</span>
-                    <span className="font-medium text-blue-900">{permitDetail.business.vpn_wired}개</span>
-                  </div>
-                )}
-                {permitDetail.business.vpn_wireless > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-blue-700">• 무선 VPN:</span>
-                    <span className="font-medium text-blue-900">{permitDetail.business.vpn_wireless}개</span>
-                  </div>
-                )}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+            <div>
+              <span className="text-gray-500 text-xs">사업장명</span>
+              <div className="font-medium text-gray-900 truncate" title={permitDetail.business?.business_name || permitDetail.additional_info?.business_name}>
+                {permitDetail.business?.business_name ||
+                 permitDetail.additional_info?.business_name || '-'}
               </div>
             </div>
+            <div>
+              <span className="text-gray-500 text-xs">사업장관리코드</span>
+              <div className="font-medium text-gray-700 truncate" title={permitDetail.business?.business_management_code}>
+                {permitDetail.business?.business_management_code || '-'}
+              </div>
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">업종</span>
+              <input
+                type="text"
+                value={permitDetail.business_type || ''}
+                onChange={(e) => handleBasicInfoChange('business_type', e.target.value)}
+                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="업종"
+              />
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">종별</span>
+              <input
+                type="text"
+                value={permitDetail.additional_info?.category || ''}
+                onChange={(e) => handleBasicInfoChange('category', e.target.value)}
+                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="종별"
+              />
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">최초신고일</span>
+              <input
+                type="date"
+                value={permitDetail.first_report_date || ''}
+                onChange={(e) => handleBasicInfoChange('first_report_date', e.target.value)}
+                min="1000-01-01"
+                max="9999-12-31"
+                onInput={(e) => {
+                  const input = e.target as HTMLInputElement
+                  const value = input.value
+                  if (value) {
+                    const year = parseInt(value.split('-')[0])
+                    if (year < 1000 || year > 9999) {
+                      input.setCustomValidity('연도는 4자리 숫자(1000-9999)로 입력해주세요')
+                    } else {
+                      input.setCustomValidity('')
+                    }
+                  }
+                }}
+                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">가동개시일</span>
+              <input
+                type="date"
+                value={permitDetail.operation_start_date || ''}
+                onChange={(e) => handleBasicInfoChange('operation_start_date', e.target.value)}
+                min="1000-01-01"
+                max="9999-12-31"
+                onInput={(e) => {
+                  const input = e.target as HTMLInputElement
+                  const value = input.value
+                  if (value) {
+                    const year = parseInt(value.split('-')[0])
+                    if (year < 1000 || year > 9999) {
+                      input.setCustomValidity('연도는 4자리 숫자(1000-9999)로 입력해주세요')
+                    } else {
+                      input.setCustomValidity('')
+                    }
+                  }
+                }}
+                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
-        )}
+
+          {/* VPN 및 제조사 정보 */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {(((permitDetail.business as any)?.vpn_wired ?? 0) > 0 || ((permitDetail.business as any)?.vpn_wireless ?? 0) > 0) && (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded text-xs">
+                <span className="font-semibold text-blue-900">VPN</span>
+                <div className="flex gap-2">
+                  {((permitDetail.business as any)?.vpn_wired ?? 0) > 0 && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-blue-700">유선:</span>
+                      <span className="font-medium text-blue-900">{(permitDetail.business as any).vpn_wired}</span>
+                    </div>
+                  )}
+                  {((permitDetail.business as any)?.vpn_wireless ?? 0) > 0 && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-blue-700">무선:</span>
+                      <span className="font-medium text-blue-900">{(permitDetail.business as any).vpn_wireless}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {(permitDetail.business as any)?.manufacturer && (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded text-xs">
+                <span className="font-semibold text-green-900">제조사</span>
+                <span className="font-medium text-green-900">{(permitDetail.business as any).manufacturer}</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 배출구별 시설 정보 테이블 */}
-      <div className="space-y-6">
+      <div id="outlet-section" className="space-y-4 mt-4">
         {permitDetail.outlets?.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Factory className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -1360,16 +1380,16 @@ function AirPermitDetailContent() {
             return (
               <div
                 key={outlet.id}
-                className={`rounded-xl shadow-sm border-2 p-6 ${gatewayColor} border-opacity-50`}
+                className={`rounded-lg shadow-sm border-2 p-3 ${gatewayColor} border-opacity-50`}
               >
                 {/* 배출구 헤더 */}
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-4">
-                    <h2 className="text-xl font-semibold">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-sm font-semibold">
                       배출구 #{outlet.outlet_number}
                     </h2>
                     {outlet.outlet_name && (
-                      <span className="text-gray-600">({fixKoreanText(outlet.outlet_name)})</span>
+                      <span className="text-xs text-gray-600">({fixKoreanText(outlet.outlet_name)})</span>
                     )}
                     {/* 게이트웨이 정보 항상 표시 */}
                     <div className="flex items-center gap-2">
@@ -1560,13 +1580,35 @@ function AirPermitDetailContent() {
                               </td>
                               <td className="border border-gray-300 px-1.5 py-1.5">
                                 {dischargeFacility && isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={dischargeFacility.additional_info?.memo || ''}
-                                    onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'memo', e.target.value)}
-                                    placeholder="메모"
-                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-                                  />
+                                  <div className="flex flex-col gap-1">
+                                    <input
+                                      type="text"
+                                      value={dischargeFacility.additional_info?.memo || ''}
+                                      onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'memo', e.target.value)}
+                                      placeholder="메모"
+                                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <div className="flex gap-1">
+                                      {[
+                                        { char: '무', text: '무동력' },
+                                        { char: '연', text: '연속공정' },
+                                        { char: '통', text: '통합전원' }
+                                      ].map(({ char, text }) => (
+                                        <button
+                                          key={char}
+                                          type="button"
+                                          onClick={() => {
+                                            const currentMemo = dischargeFacility.additional_info?.memo || ''
+                                            handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'memo', currentMemo + text)
+                                          }}
+                                          className="px-2 py-0.5 text-xs bg-green-100 hover:bg-green-200 text-green-800 rounded border border-green-300 transition-colors"
+                                          title={text}
+                                        >
+                                          {char}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
                                 ) : (
                                   <span className="text-xs truncate block max-w-[100px]" title={dischargeFacility?.additional_info?.memo || ''}>{dischargeFacility?.additional_info?.memo || '-'}</span>
                                 )}
@@ -1697,13 +1739,30 @@ function AirPermitDetailContent() {
                               </td>
                               <td className="border border-gray-300 px-1.5 py-1.5">
                                 {preventionFacility && isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={preventionFacility.additional_info?.memo || ''}
-                                    onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'memo', e.target.value)}
-                                    placeholder="메모"
-                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-                                  />
+                                  <div className="flex flex-col gap-1">
+                                    <input
+                                      type="text"
+                                      value={preventionFacility.additional_info?.memo || ''}
+                                      onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'memo', e.target.value)}
+                                      placeholder="메모"
+                                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <div className="flex gap-1">
+                                      {['차', '온', '송'].map((char) => (
+                                        <button
+                                          key={char}
+                                          type="button"
+                                          onClick={() => {
+                                            const currentMemo = preventionFacility.additional_info?.memo || ''
+                                            handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'memo', currentMemo + char)
+                                          }}
+                                          className="px-2 py-0.5 text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 rounded border border-blue-300 transition-colors"
+                                        >
+                                          {char}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
                                 ) : (
                                   <span className="text-xs truncate block max-w-[100px]" title={preventionFacility?.additional_info?.memo || ''}>{preventionFacility?.additional_info?.memo || '-'}</span>
                                 )}
@@ -1733,20 +1792,20 @@ function AirPermitDetailContent() {
                 </div>
 
                 {/* 모바일 카드 레이아웃 */}
-                <div className="lg:hidden space-y-4">
+                <div className="lg:hidden space-y-3">
                   {/* 배출시설 섹션 */}
                   {outlet.discharge_facilities && outlet.discharge_facilities.length > 0 && (
-                    <div className="bg-red-50 rounded-lg p-3">
-                      <h4 className="text-xs font-semibold text-red-700 mb-3 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                    <div className="bg-red-50 rounded-lg p-2">
+                      <h4 className="text-xs font-semibold text-red-700 mb-2 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
                         배출시설
                       </h4>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {outlet.discharge_facilities.map((facility, idx) => (
-                          <div key={facility.id} className="bg-white rounded-lg p-3 shadow-sm border border-red-100">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-red-600 bg-red-100 px-1.5 py-0.5 rounded">배{idx + 1}</span>
+                          <div key={facility.id} className="bg-white rounded-lg p-2 shadow-sm border border-red-100">
+                            <div className="flex items-start justify-between mb-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-medium text-red-600 bg-red-100 px-1 py-0.5 rounded">배{idx + 1}</span>
                                 {(() => {
                                   if (!facilityNumbering) return null
                                   const facilityNumbers = facilityNumbering.outlets
@@ -1759,7 +1818,7 @@ function AirPermitDetailContent() {
                                       ? `${facilityNumbers[0]}-${facilityNumbers[facilityNumbers.length - 1]}`
                                       : null
                                   return rangeDisplay ? (
-                                    <span className="text-xs font-medium text-red-700 bg-red-100 px-1.5 py-0.5 rounded">{rangeDisplay}</span>
+                                    <span className="text-[10px] font-medium text-red-700 bg-red-100 px-1 py-0.5 rounded">{rangeDisplay}</span>
                                   ) : null
                                 })()}
                               </div>
@@ -1767,29 +1826,29 @@ function AirPermitDetailContent() {
                                 <button
                                   type="button"
                                   onClick={() => deleteFacility(outlet.id, 'discharge', facility.id)}
-                                  className="text-red-500 hover:text-red-700 p-1"
+                                  className="text-red-500 hover:text-red-700 p-0.5"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-3 h-3" />
                                 </button>
                               )}
                             </div>
 
                             {isEditing ? (
-                              <div className="space-y-2">
+                              <div className="space-y-1.5">
                                 <input
                                   type="text"
                                   value={facility.facility_name}
                                   onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', facility.id, 'facility_name', e.target.value)}
                                   placeholder="시설명"
-                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                  className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                 />
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-1.5">
                                   <input
                                     type="text"
                                     value={facility.capacity || ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', facility.id, 'capacity', e.target.value)}
                                     placeholder="용량"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                   />
                                   <input
                                     type="number"
@@ -1797,23 +1856,23 @@ function AirPermitDetailContent() {
                                     value={facility.quantity}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', facility.id, 'quantity', parseInt(e.target.value) || 1)}
                                     placeholder="수량"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded text-center"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded text-center"
                                   />
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-1.5">
                                   <input
                                     type="text"
                                     value={facility.additional_info?.facility_number || ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', facility.id, 'facility_number', e.target.value)}
                                     placeholder="시설번호"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                   />
                                   <input
                                     type="text"
                                     value={facility.additional_info?.green_link_code ?? ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', facility.id, 'green_link_code', e.target.value)}
                                     placeholder="그린링크"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                   />
                                 </div>
                                 <input
@@ -1821,24 +1880,24 @@ function AirPermitDetailContent() {
                                   value={facility.additional_info?.memo || ''}
                                   onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', facility.id, 'memo', e.target.value)}
                                   placeholder="메모"
-                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                  className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                 />
                               </div>
                             ) : (
-                              <div className="space-y-1">
-                                <p className="text-sm font-medium text-gray-900">{facility.facility_name}</p>
-                                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
+                              <div className="space-y-0.5">
+                                <p className="text-xs font-medium text-gray-900">{facility.facility_name}</p>
+                                <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-600">
                                   <span>용량: {facility.capacity || '-'}</span>
                                   <span>수량: {facility.quantity}</span>
                                 </div>
                                 {(facility.additional_info?.facility_number || facility.additional_info?.green_link_code) && (
-                                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                                  <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-500">
                                     {facility.additional_info?.facility_number && <span>시설번호: {facility.additional_info.facility_number}</span>}
                                     {facility.additional_info?.green_link_code && <span>그린링크: {facility.additional_info.green_link_code}</span>}
                                   </div>
                                 )}
                                 {facility.additional_info?.memo && (
-                                  <p className="text-xs text-gray-500 mt-1">메모: {facility.additional_info.memo}</p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5">메모: {facility.additional_info.memo}</p>
                                 )}
                               </div>
                             )}
@@ -1850,17 +1909,17 @@ function AirPermitDetailContent() {
 
                   {/* 방지시설 섹션 */}
                   {outlet.prevention_facilities && outlet.prevention_facilities.length > 0 && (
-                    <div className="bg-blue-50 rounded-lg p-3">
-                      <h4 className="text-sm font-semibold text-blue-700 mb-3 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    <div className="bg-blue-50 rounded-lg p-2">
+                      <h4 className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
                         방지시설
                       </h4>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {outlet.prevention_facilities.map((facility, idx) => (
-                          <div key={facility.id} className="bg-white rounded-lg p-3 shadow-sm border border-blue-100">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">방{idx + 1}</span>
+                          <div key={facility.id} className="bg-white rounded-lg p-2 shadow-sm border border-blue-100">
+                            <div className="flex items-start justify-between mb-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-medium text-blue-600 bg-blue-100 px-1 py-0.5 rounded">방{idx + 1}</span>
                                 {(() => {
                                   if (!facilityNumbering) return null
                                   const facilityNumbers = facilityNumbering.outlets
@@ -1873,7 +1932,7 @@ function AirPermitDetailContent() {
                                       ? `${facilityNumbers[0]}-${facilityNumbers[facilityNumbers.length - 1]}`
                                       : null
                                   return rangeDisplay ? (
-                                    <span className="text-xs font-medium text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">{rangeDisplay}</span>
+                                    <span className="text-[10px] font-medium text-blue-700 bg-blue-100 px-1 py-0.5 rounded">{rangeDisplay}</span>
                                   ) : null
                                 })()}
                               </div>
@@ -1881,29 +1940,29 @@ function AirPermitDetailContent() {
                                 <button
                                   type="button"
                                   onClick={() => deleteFacility(outlet.id, 'prevention', facility.id)}
-                                  className="text-red-500 hover:text-red-700 p-1"
+                                  className="text-red-500 hover:text-red-700 p-0.5"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-3 h-3" />
                                 </button>
                               )}
                             </div>
 
                             {isEditing ? (
-                              <div className="space-y-2">
+                              <div className="space-y-1.5">
                                 <input
                                   type="text"
                                   value={facility.facility_name}
                                   onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', facility.id, 'facility_name', e.target.value)}
                                   placeholder="시설명"
-                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                  className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                 />
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-1.5">
                                   <input
                                     type="text"
                                     value={facility.capacity || ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', facility.id, 'capacity', e.target.value)}
                                     placeholder="용량"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                   />
                                   <input
                                     type="number"
@@ -1911,23 +1970,23 @@ function AirPermitDetailContent() {
                                     value={facility.quantity}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', facility.id, 'quantity', parseInt(e.target.value) || 1)}
                                     placeholder="수량"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded text-center"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded text-center"
                                   />
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-1.5">
                                   <input
                                     type="text"
                                     value={facility.additional_info?.facility_number || ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', facility.id, 'facility_number', e.target.value)}
                                     placeholder="시설번호"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                   />
                                   <input
                                     type="text"
                                     value={facility.additional_info?.green_link_code ?? ''}
                                     onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', facility.id, 'green_link_code', e.target.value)}
                                     placeholder="그린링크"
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                    className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                   />
                                 </div>
                                 <input
@@ -1935,24 +1994,24 @@ function AirPermitDetailContent() {
                                   value={facility.additional_info?.memo || ''}
                                   onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', facility.id, 'memo', e.target.value)}
                                   placeholder="메모"
-                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                  className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                 />
                               </div>
                             ) : (
-                              <div className="space-y-1">
-                                <p className="text-sm font-medium text-gray-900">{facility.facility_name}</p>
-                                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
+                              <div className="space-y-0.5">
+                                <p className="text-xs font-medium text-gray-900">{facility.facility_name}</p>
+                                <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-600">
                                   <span>용량: {facility.capacity || '-'}</span>
                                   <span>수량: {facility.quantity}</span>
                                 </div>
                                 {(facility.additional_info?.facility_number || facility.additional_info?.green_link_code) && (
-                                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                                  <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-500">
                                     {facility.additional_info?.facility_number && <span>시설번호: {facility.additional_info.facility_number}</span>}
                                     {facility.additional_info?.green_link_code && <span>그린링크: {facility.additional_info.green_link_code}</span>}
                                   </div>
                                 )}
                                 {facility.additional_info?.memo && (
-                                  <p className="text-xs text-gray-500 mt-1">메모: {facility.additional_info.memo}</p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5">메모: {facility.additional_info.memo}</p>
                                 )}
                               </div>
                             )}
@@ -1965,7 +2024,7 @@ function AirPermitDetailContent() {
                   {/* 시설이 없을 때 표시 */}
                   {(!outlet.discharge_facilities || outlet.discharge_facilities.length === 0) &&
                    (!outlet.prevention_facilities || outlet.prevention_facilities.length === 0) && (
-                    <div className="text-center py-6 text-gray-500 text-sm">
+                    <div className="text-center py-4 text-gray-500 text-xs">
                       등록된 시설이 없습니다
                     </div>
                   )}
@@ -1973,21 +2032,21 @@ function AirPermitDetailContent() {
 
                 {/* 시설 추가 버튼 (편집모드에서만) */}
                 {isEditing && (
-                  <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                  <div className="mt-3 flex flex-col sm:flex-row gap-1.5">
                     <button
                       type="button"
                       onClick={() => addDischargeFacility(outlet.id)}
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs font-medium"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-3 h-3" />
                       배출시설 추가
                     </button>
                     <button
                       type="button"
                       onClick={() => addPreventionFacility(outlet.id)}
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs font-medium"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-3 h-3" />
                       방지시설 추가
                     </button>
                   </div>
@@ -1996,16 +2055,16 @@ function AirPermitDetailContent() {
             )
           })
         )}
-        
+
         {/* 배출구 추가 버튼 (편집모드에서만) */}
         {isEditing && (
-          <div className="mt-6">
+          <div className="mt-4">
             <button
               type="button"
               onClick={addOutlet}
-              className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-xs font-medium"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               배출구 추가
             </button>
           </div>

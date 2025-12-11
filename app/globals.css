@@ -525,6 +525,30 @@ input[type="date"] {
   box-sizing: border-box;
 }
 
+/* 컴팩트 헤더용 날짜 입력 필드 (text-[10px] 적용) */
+input[type="date"].text-\[10px\] {
+  font-size: 10px !important;
+}
+
+/* 컴팩트 헤더용 날짜 입력 필드 (text-xs 적용) */
+input[type="date"].text-xs {
+  font-size: 12px !important;
+}
+
+/* 날짜 입력 플레이스홀더 스타일 */
+input[type="date"]::-webkit-datetime-edit-text,
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field {
+  font-size: inherit;
+}
+
+/* 날짜 입력 플레이스홀더 (값이 없을 때) */
+input[type="date"]::-webkit-date-and-time-value {
+  font-size: inherit;
+  text-align: left;
+}
+
 /* iOS Safari 전용 날짜 입력 컨테이너 */
 @supports (-webkit-touch-callout: none) {
   /* iOS Safari에서만 적용 */
