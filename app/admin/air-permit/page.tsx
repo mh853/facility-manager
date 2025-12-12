@@ -938,7 +938,7 @@ function AirPermitManagementPage() {
       actions={
         <button
           onClick={openAddModal}
-          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 md:px-4 md:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-base lg:text-base"
+          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 md:px-3 md:py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm"
           title="새 대기필증 추가"
         >
           <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -947,11 +947,11 @@ function AirPermitManagementPage() {
         </button>
       }
     >
-      <div className="grid grid-cols-1 lg:grid-cols-[23%_77%] gap-4 sm:gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[23%_77%] gap-3 sm:gap-4 lg:gap-6">
         {/* Business Selection Panel */}
         <div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
+            <h2 className="text-sm font-semibold text-gray-900 mb-2 sm:mb-2 flex items-center justify-between">
               <div className="flex items-center gap-1">
                 <Building2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600" />
                 <span className="whitespace-nowrap">대기필증 보유 사업장</span>
@@ -966,7 +966,7 @@ function AirPermitManagementPage() {
             </h2>
             
             {/* 사업장 검색 입력 */}
-            <div className="mb-4 relative">
+            <div className="mb-3 relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-gray-400" />
               </div>
@@ -975,7 +975,7 @@ function AirPermitManagementPage() {
                 placeholder="사업장명, 지역, 담당자명으로 검색..."
                 value={businessListSearchTerm}
                 onChange={(e) => setBusinessListSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                className="block w-full pl-10 pr-10 py-1.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
               {businessListSearchTerm && (
                 <button
@@ -987,18 +987,18 @@ function AirPermitManagementPage() {
               )}
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-2">
               {filteredBusinessesWithPermits.slice(0, 8).map((business) => (
                 <div
                   key={business.id}
-                  className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                     selectedBusiness?.id === business.id
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                   onClick={() => handleBusinessSelect(business)}
                 >
-                  <h3 className="font-medium text-gray-900 text-base">
+                  <h3 className="font-medium text-gray-900 text-sm">
                     {businessListSearchTerm ? highlightBusinessSearchTerm(business.business_name, businessListSearchTerm) : business.business_name}
                   </h3>
                   <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 mt-1">
@@ -1013,16 +1013,16 @@ function AirPermitManagementPage() {
         {/* Air Permit Detail Panel */}
         <div>
           {!selectedBusiness ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
               <div className="text-center text-gray-500">
-                <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-lg font-medium mb-2">사업장을 선택해주세요</h3>
-                <p>좌측에서 사업장을 선택하면 해당 대기필증 정보가 표시됩니다.</p>
+                <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <h3 className="text-base font-medium mb-2">사업장을 선택해주세요</h3>
+                <p className="text-sm">좌측에서 사업장을 선택하면 해당 대기필증 정보가 표시됩니다.</p>
               </div>
             </div>
           ) : !selectedPermit ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <h2 className="text-base font-semibold text-gray-900 mb-3 flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-blue-600" />
                   {selectedBusiness.business_name} - 대기필증 목록
@@ -1033,7 +1033,7 @@ function AirPermitManagementPage() {
               </h2>
               
               {/* 대기필증 검색 입력 */}
-              <div className="mb-4 relative">
+              <div className="mb-3 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search className="h-4 w-4 text-gray-400" />
                 </div>
@@ -1042,7 +1042,7 @@ function AirPermitManagementPage() {
                   placeholder="대기필증 번호, 업종, 시설명, 설치장소, 오염물질로 검색..."
                   value={permitSearchQuery}
                   onChange={(e) => setPermitSearchQuery(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                  className="block w-full pl-10 pr-10 py-1.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />
                 {permitSearchQuery && (
                   <button
@@ -1054,18 +1054,18 @@ function AirPermitManagementPage() {
                 )}
               </div>
               
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {filteredAirPermits.map((permit) => (
-                  <div 
+                  <div
                     key={permit.id}
-                    className="p-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                    className="p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
                   >
                     <div className="flex items-center justify-between">
-                      <div 
+                      <div
                         className="flex-1 cursor-pointer"
                         onClick={() => setSelectedPermit(permit)}
                       >
-                        <h3 className="font-medium text-gray-900 text-base">
+                        <h3 className="font-medium text-gray-900 text-sm">
                           {permitSearchQuery ? (
                             <>
                               대기필증 #{highlightPermitSearchTerm(permit.id || '', permitSearchQuery)}
@@ -1190,10 +1190,10 @@ function AirPermitManagementPage() {
                       <FileText className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
                     </div>
                     <div>
-                      <h2 className="text-xs sm:text-sm md:text-base lg:text-xl font-bold text-gray-900">
+                      <h2 className="text-xs sm:text-sm md:text-base lg:text-base font-bold text-gray-900">
                         대기필증 상세정보
                       </h2>
-                      <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600">
+                      <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs text-gray-600">
                         {selectedBusiness.business_name}
                       </p>
                     </div>
@@ -1210,14 +1210,14 @@ function AirPermitManagementPage() {
                 </div>
               </div>
 
-              <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
+              <div className="p-3 sm:p-4 md:p-4 space-y-3 sm:space-y-4 md:space-y-4">
                 {/* Basic Information */}
                 <div>
-                  <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+                  <h3 className="text-sm lg:text-base font-semibold text-gray-900 mb-2 sm:mb-2 flex items-center gap-1 sm:gap-2">
                     <Factory className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
                     기본 정보
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4 bg-gray-50 rounded-lg p-2 sm:p-3 md:p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-2 md:gap-3 bg-gray-50 rounded-lg p-2 sm:p-3 md:p-3">
                     <div>
                       <label className="block text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm font-medium text-gray-700">업종</label>
                       <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-900">
@@ -1247,7 +1247,7 @@ function AirPermitManagementPage() {
 
                 {/* Outlets and Facilities Information */}
                 <div>
-                  <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4 flex items-center gap-1 sm:gap-2">
+                  <h3 className="text-sm lg:text-base font-semibold text-gray-900 mb-2 sm:mb-2 md:mb-3 flex items-center gap-1 sm:gap-2">
                     <Factory className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-green-600" />
                     배출구별 시설 현황
                   </h3>
@@ -1458,8 +1458,8 @@ function AirPermitManagementPage() {
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl p-2 sm:p-4 md:p-6 lg:p-8 max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-7xl w-full max-h-[95vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6 lg:mb-8 pb-2 sm:pb-3 md:pb-4 lg:pb-6 border-b border-gray-200">
               <div>
-                <h2 className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">새 대기필증 추가</h2>
-                <p className="text-base lg:text-base text-gray-600">새로운 대기필증 정보를 입력하고 등록하세요.</p>
+                <h2 className="text-sm sm:text-base md:text-base lg:text-lg font-bold text-gray-900 mb-1 sm:mb-2">새 대기필증 추가</h2>
+                <p className="text-sm lg:text-sm text-gray-600">새로운 대기필증 정보를 입력하고 등록하세요.</p>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -1469,15 +1469,15 @@ function AirPermitManagementPage() {
               </button>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); handleCreatePermit(); }} className="space-y-3 sm:space-y-4 md:space-y-6 lg:space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
+            <form onSubmit={(e) => { e.preventDefault(); handleCreatePermit(); }} className="space-y-3 sm:space-y-4 md:space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
               {/* 사업장 선택 */}
               <div className="relative business-dropdown-container">
-                <label className="block text-base lg:text-base font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3">
+                <label className="block text-sm font-semibold text-gray-800 mb-1 sm:mb-2">
                   사업장 선택 <span className="text-red-500">*</span>
                 </label>
                 {isLoadingBusinesses ? (
-                  <div className="w-full px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center text-base">
+                  <div className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center text-sm">
                     <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-1 sm:mr-2"></div>
                     사업장 목록을 불러오는 중...
                   </div>
@@ -1508,7 +1508,7 @@ function AirPermitManagementPage() {
                           setSearchTerm('')
                         }
                       }}
-                      className="w-full px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8 sm:pr-10 text-base"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8 sm:pr-10 text-sm"
                       placeholder="사업장명 또는 지자체명으로 검색..."
                       required={!newPermitData.business_id}
                     />
@@ -1543,13 +1543,13 @@ function AirPermitManagementPage() {
                                 }}
                                 className="px-2 sm:px-3 py-1.5 sm:py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                               >
-                                <div className="font-medium text-gray-900 text-base">{business.business_name}</div>
+                                <div className="font-medium text-gray-900 text-sm">{business.business_name}</div>
                                 <div className="text-[9px] sm:text-[10px] md:text-xs text-gray-500">{business.local_government}</div>
                               </div>
                             ))}
                           </>
                         ) : (
-                          <div className="px-2 sm:px-3 py-2 sm:py-4 text-gray-500 text-center text-base">
+                          <div className="px-2 sm:px-3 py-2 sm:py-4 text-gray-500 text-center text-sm">
                             {isLoadingBusinesses ? (
                               <div className="flex items-center justify-center">
                                 <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-1 sm:mr-2"></div>
@@ -1569,7 +1569,7 @@ function AirPermitManagementPage() {
                 {newPermitData.business_id && !showBusinessDropdown && (
                   <div className="mt-1 sm:mt-2 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2">
                     <div>
-                      <div className="font-medium text-blue-900 text-base">{selectedBusinessName.split(' - ')[0]}</div>
+                      <div className="font-medium text-blue-900 text-sm">{selectedBusinessName.split(' - ')[0]}</div>
                       <div className="text-[9px] sm:text-[10px] md:text-xs text-blue-700">{selectedBusinessName.split(' - ')[1]}</div>
                     </div>
                     <button
@@ -1595,35 +1595,35 @@ function AirPermitManagementPage() {
 
               {/* 업종 */}
               <div>
-                <label className="block text-base lg:text-base font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3">
+                <label className="block text-sm font-semibold text-gray-800 mb-1 sm:mb-2">
                   업종
                 </label>
                 <input
                   type="text"
                   value={newPermitData.business_type}
                   onChange={(e) => setNewPermitData(prev => ({...prev, business_type: e.target.value}))}
-                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                   placeholder="업종을 입력하세요"
                 />
               </div>
 
               {/* 종별 */}
               <div>
-                <label className="block text-base lg:text-base font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3">
+                <label className="block text-sm font-semibold text-gray-800 mb-1 sm:mb-2">
                   종별
                 </label>
                 <input
                   type="text"
                   value={newPermitData.category}
                   onChange={(e) => setNewPermitData(prev => ({...prev, category: e.target.value}))}
-                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                   placeholder="종별을 입력하세요"
                 />
               </div>
 
               {/* 최초 신고일 */}
               <div>
-                <label className="block text-base lg:text-base font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3">
+                <label className="block text-sm font-semibold text-gray-800 mb-1 sm:mb-2">
                   최초 신고일
                 </label>
                 <DateInput
@@ -1635,7 +1635,7 @@ function AirPermitManagementPage() {
 
               {/* 가동 개시일 */}
               <div>
-                <label className="block text-base lg:text-base font-semibold text-gray-800 mb-1 sm:mb-2 md:mb-3">
+                <label className="block text-sm font-semibold text-gray-800 mb-1 sm:mb-2">
                   가동 개시일
                 </label>
                 <DateInput
@@ -1648,27 +1648,27 @@ function AirPermitManagementPage() {
 
 
               {/* 배출구 및 시설 정보 섹션 */}
-              <div className="bg-blue-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-blue-200">
-                <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
-                  <h3 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-gray-900 flex items-center gap-1 sm:gap-2">
-                    <Factory className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
+              <div className="bg-blue-50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-blue-200">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <h3 className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 flex items-center gap-1 sm:gap-2">
+                    <Factory className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
                     배출구 및 시설 정보
                   </h3>
                   <button
                     type="button"
                     onClick={addOutlet}
-                    className="flex items-center gap-1 px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] md:text-xs lg:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-1 px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] md:text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                     배출구 추가
                   </button>
                 </div>
 
-                <div className="space-y-2 sm:space-y-3 md:space-y-4 max-h-80 sm:max-h-[30rem] overflow-y-auto">
+                <div className="space-y-2 sm:space-y-3 max-h-80 sm:max-h-[30rem] overflow-y-auto">
                   {newPermitData.outlets.map((outlet, outletIndex) => (
-                    <div key={outletIndex} className="border border-gray-200 rounded-lg p-2 sm:p-3 md:p-4">
-                      <div className="flex items-center justify-between mb-2 sm:mb-3">
-                        <h4 className="font-medium text-gray-900 text-base">
+                    <div key={outletIndex} className="border border-gray-200 rounded-lg p-2 sm:p-3">
+                      <div className="flex items-center justify-between mb-2 sm:mb-2">
+                        <h4 className="font-medium text-gray-900 text-sm">
                           배출구 {outlet.outlet_number}
                         </h4>
                         {newPermitData.outlets.length > 1 && (
@@ -1683,7 +1683,7 @@ function AirPermitManagementPage() {
                       </div>
 
                       {/* 배출구명 */}
-                      <div className="mb-2 sm:mb-3">
+                      <div className="mb-2 sm:mb-2">
                         <label className="block text-[9px] sm:text-[10px] md:text-xs font-medium text-gray-600 mb-1">
                           배출구명
                         </label>
@@ -1702,7 +1702,7 @@ function AirPermitManagementPage() {
                       </div>
 
                       {/* 배출시설 */}
-                      <div className="mb-2 sm:mb-3">
+                      <div className="mb-2 sm:mb-2">
                         <div className="flex items-center justify-between mb-1 sm:mb-2">
                           <label className="block text-[9px] sm:text-[10px] md:text-xs font-medium text-gray-600">
                             배출시설
@@ -1814,17 +1814,17 @@ function AirPermitManagementPage() {
               </div>
 
               {/* 버튼들 */}
-              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 md:gap-4 pt-3 sm:pt-4 md:pt-6 lg:pt-8 mt-3 sm:mt-4 md:mt-6 lg:mt-8 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 mt-3 sm:mt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 border-2 border-gray-300 text-gray-700 font-medium rounded-lg sm:rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-base lg:text-base"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 border-2 border-gray-300 text-gray-700 font-medium rounded-lg sm:rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-sm"
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg sm:rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 text-base lg:text-base"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg sm:rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 text-sm"
                 >
                   <span className="flex items-center justify-center gap-1 sm:gap-2">
                     <span className="sm:hidden">생성</span>
