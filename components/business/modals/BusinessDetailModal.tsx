@@ -301,7 +301,7 @@ export default function BusinessDetailModal({
     <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50">
       <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl max-w-sm sm:max-w-2xl md:max-w-4xl lg:max-w-7xl w-full max-h-[95vh] overflow-hidden">
         {/* Header with gradient background */}
-        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 text-white relative overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-3 sm:px-4 md:px-5 lg:px-6 py-3 sm:py-3 md:py-4 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-white bg-opacity-10 backdrop-blur-sm"></div>
           <div className="relative">
             {/* Mobile Layout */}
@@ -359,8 +359,8 @@ export default function BusinessDetailModal({
                   <Building2 className="w-5 h-5 md:w-6 md:h-6 text-white" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-lg md:text-xl lg:text-2xl font-bold truncate">{business?.사업장명 || business?.business_name || '사업장명 없음'}</h2>
-                  <p className="text-blue-100 flex items-center mt-1 text-sm md:text-base truncate">
+                  <h2 className="text-base md:text-lg lg:text-xl font-bold truncate">{business?.사업장명 || business?.business_name || '사업장명 없음'}</h2>
+                  <p className="text-blue-100 flex items-center mt-1 text-sm md:text-sm truncate">
                     <MapPin className="w-3 h-3 md:w-4 md:h-4 mr-1 flex-shrink-0" />
                     {business?.주소 || business?.local_government || '주소 미등록'}
                   </p>
@@ -368,7 +368,7 @@ export default function BusinessDetailModal({
               </div>
               <div className="flex items-center space-x-2 md:space-x-3 flex-shrink-0">
                 <div className="text-right">
-                  <div className={`inline-flex items-center px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium ${
+                  <div className={`inline-flex items-center px-2 md:px-3 py-1 rounded-full text-xs md:text-xs font-medium ${
                     business?.is_active || business?.상태 === '활성'
                       ? 'bg-green-500 bg-opacity-20 text-green-100 border border-green-300 border-opacity-30'
                       : 'bg-gray-500 bg-opacity-20 text-gray-200 border border-gray-300 border-opacity-30'
@@ -385,7 +385,7 @@ export default function BusinessDetailModal({
                       onClose()
                       onEdit(business)
                     }}
-                    className="flex items-center px-2 md:px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-xs md:text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                    className="flex items-center px-2 md:px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-xs md:text-xs font-medium border border-white border-opacity-30 hover:border-opacity-50"
                   >
                     <Edit className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-1.5" />
                     <span className="hidden md:inline">정보수정</span>
@@ -393,7 +393,7 @@ export default function BusinessDetailModal({
                   </button>
                   <button
                     onClick={onClose}
-                    className="flex items-center px-2 md:px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-xs md:text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                    className="flex items-center px-2 md:px-3 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-all duration-200 text-xs md:text-xs font-medium border border-white border-opacity-30 hover:border-opacity-50"
                   >
                     <X className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-1.5" />
                     <span className="hidden md:inline">닫기</span>
@@ -417,7 +417,7 @@ export default function BusinessDetailModal({
                     <div className="p-1.5 sm:p-2 bg-blue-600 rounded-lg mr-2 sm:mr-3">
                       <Building className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">기본 정보</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">기본 정보</h3>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
@@ -426,7 +426,7 @@ export default function BusinessDetailModal({
                         <Factory className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-blue-500 flex-shrink-0" />
                         사업장명
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{business.사업장명}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">{business.사업장명}</div>
                     </div>
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
@@ -434,7 +434,7 @@ export default function BusinessDetailModal({
                         <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-500 flex-shrink-0" />
                         지자체
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{business.지자체 || '-'}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">{business.지자체 || '-'}</div>
                     </div>
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm md:col-span-2">
@@ -442,7 +442,7 @@ export default function BusinessDetailModal({
                         <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-red-500 flex-shrink-0" />
                         주소
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{business.주소 || '-'}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">{business.주소 || '-'}</div>
                     </div>
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
@@ -450,7 +450,7 @@ export default function BusinessDetailModal({
                         <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-purple-500 flex-shrink-0" />
                         대표자명
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{business.대표자 || '-'}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">{business.대표자 || '-'}</div>
                     </div>
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
@@ -459,7 +459,7 @@ export default function BusinessDetailModal({
                         <span className="hidden sm:inline">사업자등록번호</span>
                         <span className="sm:hidden">사업자번호</span>
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{business.사업자등록번호 || '-'}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">{business.사업자등록번호 || '-'}</div>
                     </div>
                   </div>
                 </div>
@@ -470,7 +470,7 @@ export default function BusinessDetailModal({
                     <div className="p-1.5 sm:p-2 bg-green-600 rounded-lg mr-2 sm:mr-3">
                       <Contact className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">담당자 정보</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">담당자 정보</h3>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
@@ -479,7 +479,7 @@ export default function BusinessDetailModal({
                         <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-500 flex-shrink-0" />
                         담당자명
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">
                         {business.담당자명 || '-'}
                       </div>
                     </div>
@@ -489,7 +489,7 @@ export default function BusinessDetailModal({
                         <Briefcase className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-blue-500 flex-shrink-0" />
                         직급
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">
                         {business.담당자직급 || '-'}
                       </div>
                     </div>
@@ -500,7 +500,7 @@ export default function BusinessDetailModal({
                         <span className="hidden sm:inline">담당자 연락처</span>
                         <span className="sm:hidden">담당자전화</span>
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">
                         {business.담당자연락처 || '-'}
                       </div>
                     </div>
@@ -511,7 +511,7 @@ export default function BusinessDetailModal({
                         <span className="hidden sm:inline">사업장 연락처</span>
                         <span className="sm:hidden">사업장전화</span>
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{business.사업장연락처 || '-'}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">{business.사업장연락처 || '-'}</div>
                     </div>
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
@@ -519,7 +519,7 @@ export default function BusinessDetailModal({
                         <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-gray-500 flex-shrink-0" />
                         팩스번호
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{business.fax_number || '-'}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">{business.fax_number || '-'}</div>
                     </div>
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
@@ -527,7 +527,7 @@ export default function BusinessDetailModal({
                         <Mail className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-red-500 flex-shrink-0" />
                         이메일
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-all">{business.email || '-'}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-all">{business.email || '-'}</div>
                     </div>
 
                     {business.representative_birth_date && (
@@ -537,7 +537,7 @@ export default function BusinessDetailModal({
                           <span className="hidden sm:inline">대표자생년월일</span>
                           <span className="sm:hidden">대표자생일</span>
                         </div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">{business.representative_birth_date}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">{business.representative_birth_date}</div>
                       </div>
                     )}
                   </div>
@@ -550,7 +550,7 @@ export default function BusinessDetailModal({
                       <div className="p-1.5 sm:p-2 bg-orange-600 rounded-lg mr-2 sm:mr-3">
                         <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                       </div>
-                      <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">업무 진행 현황</h3>
+                      <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">업무 진행 현황</h3>
                     </div>
                     <button
                       onClick={() => setIsAddingMemo(true)}
@@ -815,13 +815,13 @@ export default function BusinessDetailModal({
                     <div className="p-1.5 sm:p-2 bg-purple-600 rounded-lg mr-2 sm:mr-3">
                       <Database className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">시스템 정보</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">시스템 정보</h3>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                       <div className="text-xs sm:text-sm text-gray-600 mb-1">제조사</div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">
                         {business.manufacturer === '에코센스' ? '🏭 에코센스' :
                          business.manufacturer === '크린어스' ? '🌍 크린어스' :
                          business.manufacturer === '가이아씨앤에스' ? '🌿 가이아씨앤에스' :
@@ -832,7 +832,7 @@ export default function BusinessDetailModal({
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                       <div className="text-xs sm:text-sm text-gray-600 mb-1">VPN 연결</div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">
                         {business.vpn === 'wired' ? '🔗 유선' :
                          business.vpn === 'wireless' ? '📶 무선' :
                          business.vpn || '-'}
@@ -841,12 +841,12 @@ export default function BusinessDetailModal({
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                       <div className="text-xs sm:text-sm text-gray-600 mb-1">그린링크 ID</div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.greenlink_id || '-'}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.greenlink_id || '-'}</div>
                     </div>
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                       <div className="text-xs sm:text-sm text-gray-600 mb-1">그린링크 PW</div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 flex items-center">
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 flex items-center">
                         {business.greenlink_pw ? (
                           <>
                             <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-500" />
@@ -858,12 +858,12 @@ export default function BusinessDetailModal({
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                       <div className="text-xs sm:text-sm text-gray-600 mb-1">사업장관리코드</div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.business_management_code || '-'}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.business_management_code || '-'}</div>
                     </div>
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                       <div className="text-xs sm:text-sm text-gray-600 mb-1">영업점</div>
-                      <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.sales_office || '-'}</div>
+                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.sales_office || '-'}</div>
                     </div>
                   </div>
                 </div>
@@ -874,7 +874,7 @@ export default function BusinessDetailModal({
                     <div className="p-1.5 sm:p-2 bg-teal-600 rounded-lg mr-2 sm:mr-3">
                       <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">측정기기 및 네트워크</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">측정기기 및 네트워크</h3>
                   </div>
 
                   {/* Equipment Quantities with Facility Management Comparison */}
@@ -987,7 +987,7 @@ export default function BusinessDetailModal({
                     <div className="p-1.5 sm:p-2 bg-orange-600 rounded-lg mr-2 sm:mr-3">
                       <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">프로젝트 정보</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">프로젝트 정보</h3>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
@@ -1057,14 +1057,14 @@ export default function BusinessDetailModal({
                     {business.department && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">담당부서</div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.department}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.department}</div>
                       </div>
                     )}
 
                     {business.revenue_source && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">매출처</div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.revenue_source}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.revenue_source}</div>
                       </div>
                     )}
 
@@ -1078,7 +1078,7 @@ export default function BusinessDetailModal({
                             </span>
                           )}
                         </div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900 break-words">
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900 break-words">
                           {airPermitData?.business_type || business.업종}
                         </div>
                         {airPermitData?.business_type && business.업종 &&
@@ -1120,49 +1120,49 @@ export default function BusinessDetailModal({
                     <div className="p-1.5 sm:p-2 bg-blue-600 rounded-lg mr-2 sm:mr-3">
                       <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">일정 정보</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">일정 정보</h3>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                     {business.order_date && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">발주일</div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.order_date}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.order_date}</div>
                       </div>
                     )}
 
                     {business.shipment_date && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">출고일</div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.shipment_date}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.shipment_date}</div>
                       </div>
                     )}
 
                     {business.installation_date && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">설치일</div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.installation_date}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.installation_date}</div>
                       </div>
                     )}
 
                     {business.construction_report_submitted_at && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">착공신고서 제출일</div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.construction_report_submitted_at}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.construction_report_submitted_at}</div>
                       </div>
                     )}
 
                     {business.greenlink_confirmation_submitted_at && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">그린링크 전송확인서 제출일</div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.greenlink_confirmation_submitted_at}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.greenlink_confirmation_submitted_at}</div>
                       </div>
                     )}
 
                     {business.attachment_completion_submitted_at && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">부착완료통보서 제출일</div>
-                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">{business.attachment_completion_submitted_at}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.attachment_completion_submitted_at}</div>
                       </div>
                     )}
 
@@ -1182,7 +1182,7 @@ export default function BusinessDetailModal({
                       <div className="p-1.5 sm:p-2 bg-yellow-600 rounded-lg mr-2 sm:mr-3">
                         <Database className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                       </div>
-                      <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">비용 및 매출 정보</h3>
+                      <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">비용 및 매출 정보</h3>
                     </div>
                   </div>
 
@@ -1247,7 +1247,7 @@ export default function BusinessDetailModal({
                     <div className="p-1.5 sm:p-2 bg-purple-600 rounded-lg mr-2 sm:mr-3">
                       <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">계산서 및 입금 현황</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">계산서 및 입금 현황</h3>
                   </div>
                   {(() => {
                     const category = business.business_category || business.진행구분 || (business as any).progress_status;
