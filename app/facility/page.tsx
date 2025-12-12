@@ -230,7 +230,7 @@ export default memo(function FacilityPage() {
         actions={
           <button
             onClick={loadBusinessList}
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
           >
             🔄 새로고침
           </button>
@@ -238,8 +238,8 @@ export default memo(function FacilityPage() {
       >
         <div className="flex items-center justify-center min-h-64 sm:min-h-96">
           <div className="text-center text-gray-800 px-4">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3 sm:mb-4" />
-            <p className="text-base sm:text-lg font-semibold">사업장 목록을 불러오는 중...</p>
+            <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3 sm:mb-3" />
+            <p className="text-sm sm:text-base font-semibold">사업장 목록을 불러오는 중...</p>
             <p className="text-xs sm:text-sm text-gray-600 mt-1.5 sm:mt-2">데이터베이스에서 시설 정보를 가져오고 있습니다</p>
           </div>
         </div>
@@ -254,13 +254,13 @@ export default memo(function FacilityPage() {
       actions={
         <button
           onClick={loadBusinessList}
-          className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
+          className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
         >
           🔄 새로고침
         </button>
       }
     >
-      <div className="max-w-6xl mx-auto space-y-3 sm:space-y-6">
+      <div className="max-w-6xl mx-auto space-y-3 sm:space-y-4">
         {/* 필터 패널 */}
         <FilterPanel
           searchTerm={searchTerm}
@@ -307,15 +307,15 @@ export default memo(function FacilityPage() {
               />
             </>
           ) : (
-            <div className="text-center py-12 sm:py-16">
-              <div className="p-3 sm:p-4 bg-gray-100 rounded-full w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
+            <div className="text-center py-8 sm:py-12">
+              <div className="p-3 sm:p-3 bg-gray-100 rounded-full w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-3 sm:mb-3 flex items-center justify-center">
                 <span className="text-2xl sm:text-3xl">🔍</span>
               </div>
               <p className="text-gray-500 text-sm sm:text-base font-medium">검색 결과가 없습니다</p>
               <p className="text-gray-400 text-xs sm:text-sm mt-1">다른 검색어나 필터를 시도해보세요</p>
               <button
                 onClick={handleResetFilters}
-                className="mt-3 sm:mt-4 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
+                className="mt-3 sm:mt-3 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
               >
                 필터 초기화
               </button>
