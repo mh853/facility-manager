@@ -297,10 +297,10 @@ export default function SubsidyAnnouncementsPage() {
         title="보조금 공고 모니터링"
         description="IoT 지원사업 관련 공고를 확인하세요"
       >
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-8 sm:py-12">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">공고 목록을 불러오는 중...</p>
+            <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-600">공고 목록을 불러오는 중...</p>
           </div>
         </div>
       </AdminLayout>
@@ -315,34 +315,34 @@ export default function SubsidyAnnouncementsPage() {
       <div className="space-y-6">
         {/* 통계 카드 */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-sm text-gray-500">전체 공고</div>
-              <div className="text-2xl font-bold text-gray-900">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-3 mb-4 sm:mb-6">
+            <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-3">
+              <div className="text-xs sm:text-xs text-gray-500">전체 공고</div>
+              <div className="text-base sm:text-lg md:text-xl font-bold text-gray-900">
                 {stats.total_announcements}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-sm text-gray-500">관련 공고</div>
-              <div className="text-2xl font-bold text-blue-600">
+            <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-3">
+              <div className="text-xs sm:text-xs text-gray-500">관련 공고</div>
+              <div className="text-base sm:text-lg md:text-xl font-bold text-blue-600">
                 {stats.relevant_announcements}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-sm text-gray-500">읽지 않음</div>
-              <div className="text-2xl font-bold text-red-600">
+            <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-3">
+              <div className="text-xs sm:text-xs text-gray-500">읽지 않음</div>
+              <div className="text-base sm:text-lg md:text-xl font-bold text-red-600">
                 {stats.unread_count}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-sm text-gray-500">이번 주 신규</div>
-              <div className="text-2xl font-bold text-green-600">
+            <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-3">
+              <div className="text-xs sm:text-xs text-gray-500">이번 주 신규</div>
+              <div className="text-base sm:text-lg md:text-xl font-bold text-green-600">
                 {stats.new_this_week}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-sm text-gray-500">마감 임박 (7일)</div>
-              <div className="text-2xl font-bold text-orange-600">
+            <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-3">
+              <div className="text-xs sm:text-xs text-gray-500">마감 임박 (7일)</div>
+              <div className="text-base sm:text-lg md:text-xl font-bold text-orange-600">
                 {stats.expiring_soon}
               </div>
             </div>
@@ -350,17 +350,17 @@ export default function SubsidyAnnouncementsPage() {
         )}
 
         {/* 필터 */}
-        <div className="bg-white rounded-lg shadow mb-6 p-4">
-          <div className="flex flex-wrap gap-4 items-center">
+        <div className="bg-white rounded-md md:rounded-lg shadow mb-4 sm:mb-6 p-2 sm:p-3 md:p-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">상태</label>
+              <label className="block text-[10px] sm:text-xs text-gray-500 mb-1">상태</label>
               <select
                 value={filterStatus}
                 onChange={e => {
                   setFilterStatus(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="border rounded px-3 py-1.5 text-sm"
+                className="border rounded px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm"
               >
                 <option value="all">전체</option>
                 <option value="new">신규</option>
@@ -370,14 +370,14 @@ export default function SubsidyAnnouncementsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">관련성</label>
+              <label className="block text-[10px] sm:text-xs text-gray-500 mb-1">관련성</label>
               <select
                 value={filterRelevant}
                 onChange={e => {
                   setFilterRelevant(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="border rounded px-3 py-1.5 text-sm"
+                className="border rounded px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm"
               >
                 <option value="true">관련 공고만 (75%↑)</option>
                 <option value="all">전체</option>
@@ -385,7 +385,7 @@ export default function SubsidyAnnouncementsPage() {
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-xs text-gray-500 mb-1">검색 (실시간 필터링)</label>
+              <label className="block text-[10px] sm:text-xs text-gray-500 mb-1">검색 (실시간 필터링)</label>
               <input
                 type="text"
                 value={searchQuery}
@@ -394,19 +394,19 @@ export default function SubsidyAnnouncementsPage() {
                   setCurrentPage(1);
                 }}
                 placeholder="제목, 지역명으로 검색..."
-                className="w-full border rounded px-3 py-1.5 text-sm"
+                className="w-full border rounded px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm"
               />
             </div>
           </div>
         </div>
 
         {/* 공고 목록 */}
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white rounded-md md:rounded-lg shadow">
           {paginatedAnnouncements.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <div className="text-4xl mb-4">📋</div>
-              <p>조회된 공고가 없습니다.</p>
-              <p className="text-sm mt-2">
+            <div className="p-8 sm:p-12 text-center text-gray-500">
+              <div className="text-3xl sm:text-4xl mb-3 sm:mb-4">📋</div>
+              <p className="text-sm sm:text-base">조회된 공고가 없습니다.</p>
+              <p className="text-xs sm:text-sm mt-2">
                 {searchQuery || filterStatus !== 'all' || filterRelevant !== 'true'
                   ? '필터 조건을 변경해보세요.'
                   : '크롤러가 실행되면 공고가 자동으로 수집됩니다.'}
@@ -421,7 +421,7 @@ export default function SubsidyAnnouncementsPage() {
                 return (
                   <div
                     key={`${announcement.id}-${announcement.is_read}`}
-                    className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    className={`p-2 sm:p-3 md:p-3 hover:bg-gray-50 cursor-pointer transition-colors ${
                       !announcement.is_read ? 'bg-blue-50/50' : ''
                     }`}
                     onClick={() => {
@@ -429,42 +429,42 @@ export default function SubsidyAnnouncementsPage() {
                       markAsRead(announcement);
                     }}
                   >
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-2 sm:gap-3">
                       {/* 읽지 않음 표시 */}
                       <div className="flex-shrink-0 pt-1">
                         {!announcement.is_read && (
-                          <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-600 rounded-full"></div>
                         )}
                       </div>
 
                       {/* 메인 콘텐츠 */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs px-2 py-0.5 rounded ${statusColors[announcement.status].bg} ${statusColors[announcement.status].text}`}>
+                        <div className="flex items-center gap-1 sm:gap-2 mb-0.5 sm:mb-1">
+                          <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded ${statusColors[announcement.status].bg} ${statusColors[announcement.status].text}`}>
                             {statusColors[announcement.status].label}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-[10px] sm:text-xs text-gray-500">
                             {extractRegionFromTitle(announcement.title, announcement.region_name)}
                           </span>
                           {isUrgent && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                            <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded bg-red-100 text-red-700 font-medium">
                               D-{daysRemaining}
                             </span>
                           )}
                         </div>
 
-                        <h3 className="font-medium text-gray-900 truncate">
+                        <h3 className="font-medium text-xs sm:text-sm text-gray-900 truncate">
                           {cleanTitle(announcement.title)}
                         </h3>
 
-                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                        <div className="flex items-center gap-2 sm:gap-4 mt-1 sm:mt-2 text-[10px] sm:text-xs text-gray-500">
                           {announcement.application_period_end && (
                             <span>
                               마감: {formatDate(announcement.application_period_end)}
                             </span>
                           )}
                           {announcement.budget && (
-                            <span>예산: {announcement.budget}</span>
+                            <span className="hidden sm:inline">예산: {announcement.budget}</span>
                           )}
                           {announcement.relevance_score && (
                             <span>
@@ -475,7 +475,7 @@ export default function SubsidyAnnouncementsPage() {
                       </div>
 
                       {/* 게시일 */}
-                      <div className="flex-shrink-0 text-xs text-gray-400">
+                      <div className="flex-shrink-0 text-[10px] sm:text-xs text-gray-400">
                         {formatDate(announcement.published_at)}
                       </div>
                     </div>
@@ -487,29 +487,29 @@ export default function SubsidyAnnouncementsPage() {
 
           {/* 페이지네이션 */}
           {filteredAnnouncements.length > 0 && (
-            <div className="flex items-center justify-between border-t pt-4 mt-4 px-4">
-              <div className="text-sm text-gray-600">
+            <div className="flex items-center justify-between border-t pt-2 sm:pt-3 mt-2 sm:mt-3 px-2 sm:px-3 pb-2 sm:pb-3">
+              <div className="text-xs sm:text-sm text-gray-600">
                 총 <span className="font-medium">{filteredAnnouncements.length}</span>건 중{' '}
                 <span className="font-medium">
                   {(currentPage - 1) * pageSize + 1}-
                   {Math.min(currentPage * pageSize, filteredAnnouncements.length)}
                 </span>건 표시
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <button
                   onClick={() => setCurrentPage(p => p - 1)}
                   disabled={currentPage <= 1}
-                  className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ← 이전
                 </button>
-                <span className="text-sm text-gray-600">
+                <span className="text-xs sm:text-sm text-gray-600">
                   {currentPage} / {totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPage(p => p + 1)}
                   disabled={!hasMore}
-                  className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   다음 →
                 </button>
@@ -520,74 +520,74 @@ export default function SubsidyAnnouncementsPage() {
 
         {/* 상세 모달 */}
         {selectedAnnouncement && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-              <div className="p-4 border-b flex items-center justify-between">
-                <h2 className="font-bold text-lg">공고 상세</h2>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-white rounded-md md:rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+              <div className="p-2 sm:p-3 border-b flex items-center justify-between">
+                <h2 className="font-bold text-sm sm:text-base md:text-lg">공고 상세</h2>
                 <button
                   onClick={() => setSelectedAnnouncement(null)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 text-lg sm:text-xl"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="p-4 overflow-y-auto max-h-[calc(90vh-140px)]">
-                <div className="mb-4">
-                  <span className={`text-xs px-2 py-0.5 rounded ${statusColors[selectedAnnouncement.status].bg} ${statusColors[selectedAnnouncement.status].text}`}>
+              <div className="p-2 sm:p-3 md:p-4 overflow-y-auto max-h-[calc(90vh-140px)]">
+                <div className="mb-3 sm:mb-4">
+                  <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded ${statusColors[selectedAnnouncement.status].bg} ${statusColors[selectedAnnouncement.status].text}`}>
                     {statusColors[selectedAnnouncement.status].label}
                   </span>
-                  <span className="text-sm text-gray-500 ml-2">
+                  <span className="text-xs sm:text-sm text-gray-500 ml-2">
                     {extractRegionFromTitle(selectedAnnouncement.title, selectedAnnouncement.region_name)}
                   </span>
                 </div>
 
-                <h3 className="text-xl font-bold mb-4">
+                <h3 className="text-base sm:text-lg md:text-xl font-bold mb-3 sm:mb-4">
                   {cleanTitle(selectedAnnouncement.title)}
                 </h3>
 
-                <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                  <div className="bg-gray-50 rounded p-3">
-                    <div className="text-gray-500 text-xs">신청기간</div>
-                    <div className="font-medium">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4 text-xs sm:text-sm">
+                  <div className="bg-gray-50 rounded p-2 sm:p-3">
+                    <div className="text-gray-500 text-[10px] sm:text-xs">신청기간</div>
+                    <div className="font-medium text-xs sm:text-sm">
                       {formatDate(selectedAnnouncement.application_period_start)} ~{' '}
                       {formatDate(selectedAnnouncement.application_period_end)}
                     </div>
                   </div>
-                  <div className="bg-gray-50 rounded p-3">
-                    <div className="text-gray-500 text-xs">예산</div>
-                    <div className="font-medium">
+                  <div className="bg-gray-50 rounded p-2 sm:p-3">
+                    <div className="text-gray-500 text-[10px] sm:text-xs">예산</div>
+                    <div className="font-medium text-xs sm:text-sm">
                       {selectedAnnouncement.budget || '-'}
                     </div>
                   </div>
                 </div>
 
                 {selectedAnnouncement.target_description && (
-                  <div className="mb-4">
-                    <div className="text-sm text-gray-500 mb-1">지원대상</div>
-                    <div className="bg-gray-50 rounded p-3 text-sm">
+                  <div className="mb-3 sm:mb-4">
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1">지원대상</div>
+                    <div className="bg-gray-50 rounded p-2 sm:p-3 text-xs sm:text-sm">
                       {selectedAnnouncement.target_description}
                     </div>
                   </div>
                 )}
 
                 {selectedAnnouncement.support_amount && (
-                  <div className="mb-4">
-                    <div className="text-sm text-gray-500 mb-1">지원금액</div>
-                    <div className="bg-gray-50 rounded p-3 text-sm">
+                  <div className="mb-3 sm:mb-4">
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1">지원금액</div>
+                    <div className="bg-gray-50 rounded p-2 sm:p-3 text-xs sm:text-sm">
                       {selectedAnnouncement.support_amount}
                     </div>
                   </div>
                 )}
 
                 {selectedAnnouncement.keywords_matched && selectedAnnouncement.keywords_matched.length > 0 && (
-                  <div className="mb-4">
-                    <div className="text-sm text-gray-500 mb-1">매칭 키워드</div>
+                  <div className="mb-3 sm:mb-4">
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1">매칭 키워드</div>
                     <div className="flex flex-wrap gap-1">
                       {selectedAnnouncement.keywords_matched.map((kw, i) => (
                         <span
                           key={i}
-                          className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded"
+                          className="text-[10px] sm:text-xs bg-blue-100 text-blue-700 px-1.5 sm:px-2 py-0.5 rounded"
                         >
                           {kw}
                         </span>
@@ -600,22 +600,22 @@ export default function SubsidyAnnouncementsPage() {
                   href={selectedAnnouncement.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm mb-4"
+                  className="inline-flex items-center gap-1 text-blue-600 hover:underline text-xs sm:text-sm mb-3 sm:mb-4"
                 >
                   원문 보기 →
                 </a>
               </div>
 
               {/* 액션 버튼 */}
-              <div className="p-4 border-t bg-gray-50">
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-sm text-gray-500 mr-2">상태 변경:</span>
+              <div className="p-2 sm:p-3 md:p-4 border-t bg-gray-50">
+                <div className="flex flex-wrap gap-1 sm:gap-2">
+                  <span className="text-xs sm:text-sm text-gray-500 mr-1 sm:mr-2">상태 변경:</span>
                   {(['new', 'reviewing', 'applied', 'expired', 'not_relevant'] as AnnouncementStatus[]).map(
                     status => (
                       <button
                         key={status}
                         onClick={() => updateAnnouncementStatus(selectedAnnouncement.id, status)}
-                        className={`text-xs px-3 py-1 rounded border transition-colors ${
+                        className={`text-[10px] sm:text-xs px-2 sm:px-3 py-0.5 sm:py-1 rounded border transition-colors ${
                           selectedAnnouncement.status === status
                             ? `${statusColors[status].bg} ${statusColors[status].text} border-current`
                             : 'bg-white hover:bg-gray-100'
