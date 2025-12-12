@@ -3603,9 +3603,9 @@ function BusinessManagementPage() {
         </>
       }
     >
-      <div className="space-y-3 md:space-y-6">
+      <div className="space-y-3 md:space-y-4">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-2 lg:gap-3">
           <StatsCard
             title="올해 진행 사업장"
             value={stats.thisYear.toString()}
@@ -3638,8 +3638,8 @@ function BusinessManagementPage() {
 
         {/* Business List Panel - Single Column Layout */}
         <div className="bg-white rounded-md md:rounded-xl shadow-sm border border-gray-200 max-w-full overflow-hidden">
-          <div className="p-2 md:p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-3 md:mb-4">
+          <div className="p-2 md:p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-2 md:mb-3">
               <h2 className="text-sm md:text-sm lg:text-base font-semibold text-gray-900 flex items-center gap-1 md:gap-2">
                 <Building2 className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
                 사업장 목록
@@ -3666,24 +3666,24 @@ function BusinessManagementPage() {
             </div>
             
             {/* 실시간 검색창 */}
-            <div className="space-y-2 md:space-y-3">
+            <div className="space-y-2 md:space-y-2">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-2 md:pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
+                  <Search className="h-3.5 w-3.5 md:h-4 md:w-4 text-gray-400" />
                 </div>
                 <input
                   type="text"
                   placeholder="콤마로 구분하여 다중 검색: 청주, 보조금, 에코센스 (사업장명, 주소, 담당자, 제조사, 진행상태 등)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full pl-7 md:pl-10 pr-8 md:pr-10 py-1.5 md:py-2 text-sm border border-gray-300 rounded-md md:rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="block w-full pl-7 md:pl-9 pr-7 md:pr-8 py-1.5 md:py-1.5 text-sm border border-gray-300 rounded-md md:rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-2 flex items-center"
                   >
-                    <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                    <X className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600" />
                   </button>
                 )}
               </div>
@@ -3716,7 +3716,7 @@ function BusinessManagementPage() {
               )}
 
               {/* 필터 드롭다운 */}
-              <div className="space-y-2 md:space-y-3 mt-2 md:mt-3 pt-2 md:pt-3 border-t border-gray-200">
+              <div className="space-y-2 md:space-y-2 mt-2 md:mt-2 pt-2 md:pt-2 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm font-medium text-gray-700">필터</span>
                   {(filterOffices.length > 0 || filterRegions.length > 0 || filterCategories.length > 0 || filterProjectYears.length > 0 || filterCurrentSteps.length > 0) && (
@@ -3735,7 +3735,7 @@ function BusinessManagementPage() {
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-2">
                   <MultiSelectDropdown
                     label="영업점"
                     options={filterOptions.offices}
@@ -3778,10 +3778,10 @@ function BusinessManagementPage() {
                 </div>
 
                 {/* 제출일 필터 (접기/펼치기 지원) */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center justify-between mb-3">
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <CalendarClock className="w-5 h-5 text-blue-600" />
+                      <CalendarClock className="w-4 h-4 text-blue-600" />
                       <h4 className="text-sm md:text-sm font-semibold text-gray-800">제출일 필터</h4>
                       <button
                         onClick={() => setIsSubmissionFilterExpanded(!isSubmissionFilterExpanded)}
