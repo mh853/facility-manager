@@ -1259,6 +1259,12 @@ function AirPermitDetailContent() {
               </div>
             </div>
             <div>
+              <span className="text-gray-500 text-xs">지자체</span>
+              <div className="font-medium text-gray-700 truncate" title={(permitDetail.business as any)?.local_government}>
+                {(permitDetail.business as any)?.local_government || '-'}
+              </div>
+            </div>
+            <div>
               <span className="text-gray-500 text-xs">업종</span>
               <input
                 type="text"
