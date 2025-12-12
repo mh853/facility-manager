@@ -515,7 +515,7 @@ export default function BusinessDetailPage() {
           aftersales: 'AS 담당자'
         };
         const toast = document.createElement('div');
-        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
+        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-3 py-2 rounded-lg z-50 animate-fade-in text-sm';
         toast.textContent = `${phaseNames[currentPhase]} 정보가 저장되었습니다.`;
         document.body.appendChild(toast);
 
@@ -530,7 +530,7 @@ export default function BusinessDetailPage() {
       const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
 
       const toast = document.createElement('div');
-      toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
+      toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-3 py-2 rounded-lg z-50 animate-fade-in text-sm';
       toast.textContent = errorMessage;
       document.body.appendChild(toast);
 
@@ -572,7 +572,7 @@ export default function BusinessDetailPage() {
 
       if (response.ok && result.success) {
         const toast = document.createElement('div');
-        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
+        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-3 py-2 rounded-lg z-50 animate-fade-in text-sm';
         toast.textContent = '특이사항이 저장되었습니다.';
         document.body.appendChild(toast);
 
@@ -590,7 +590,7 @@ export default function BusinessDetailPage() {
       const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
 
       const toast = document.createElement('div');
-      toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in';
+      toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-3 py-2 rounded-lg z-50 animate-fade-in text-sm';
       toast.textContent = errorMessage;
       document.body.appendChild(toast);
 
@@ -627,12 +627,12 @@ export default function BusinessDetailPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-red-600 mb-2">데이터 로드 실패</h1>
-          <p className="text-red-500 mb-4">{error}</p>
+          <div className="text-red-500 text-5xl mb-3">⚠️</div>
+          <h1 className="text-xl font-bold text-red-600 mb-2">데이터 로드 실패</h1>
+          <p className="text-red-500 mb-3 text-sm">{error}</p>
           <button
             onClick={() => router.back()}
-            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
           >
             돌아가기
           </button>
@@ -645,12 +645,12 @@ export default function BusinessDetailPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-gray-400 text-6xl mb-4">📭</div>
-          <h1 className="text-2xl font-bold text-gray-600 mb-2">데이터 없음</h1>
-          <p className="text-gray-500 mb-4">사업장 데이터를 찾을 수 없습니다</p>
+          <div className="text-gray-400 text-5xl mb-3">📭</div>
+          <h1 className="text-xl font-bold text-gray-600 mb-2">데이터 없음</h1>
+          <p className="text-gray-500 mb-3 text-sm">사업장 데이터를 찾을 수 없습니다</p>
           <button
             onClick={() => router.back()}
-            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
           >
             돌아가기
           </button>
@@ -665,14 +665,14 @@ export default function BusinessDetailPage() {
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
         {/* Header with system type dropdown */}
         <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100/50">
-          <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-3 md:py-4">
+          <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-3">
             <div className="text-center text-gray-800">
-              <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold mb-1 sm:mb-2 flex items-center justify-center gap-1 sm:gap-2">
-                <Building2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+              <h1 className="text-lg sm:text-xl md:text-xl lg:text-2xl font-bold mb-1 sm:mb-2 flex items-center justify-center gap-1 sm:gap-2">
+                <Building2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-5 md:h-5" />
                 {businessName}
               </h1>
-              <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4">
-                <p className="text-gray-600 text-[10px] sm:text-xs md:text-sm lg:text-base font-medium">
+              <div className="flex items-center justify-center gap-2 sm:gap-3">
+                <p className="text-gray-600 text-[10px] sm:text-xs md:text-sm font-medium">
                   시설 관리 및 보고서 작성
                 </p>
                 
@@ -680,7 +680,7 @@ export default function BusinessDetailPage() {
                 <div className="relative system-type-dropdown">
                   <button
                     onClick={() => setShowSystemTypeDropdown(!showSystemTypeDropdown)}
-                    className="bg-gray-700 hover:bg-gray-800 text-white px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs md:text-sm font-medium flex items-center gap-2 transition-colors"
+                    className="bg-gray-700 hover:bg-gray-800 text-white px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-xs md:text-sm font-medium flex items-center gap-2 transition-colors"
                   >
                     {currentPhase === 'presurvey' && '🔍 설치 전 실사'}
                     {currentPhase === 'postinstall' && '📸 설치 후 사진'}
@@ -696,7 +696,7 @@ export default function BusinessDetailPage() {
                           setSystemType('presurvey');
                           setShowSystemTypeDropdown(false);
                         }}
-                        className={`w-full px-3 py-2 md:px-4 md:py-3 text-left hover:bg-gray-50 transition-colors text-xs md:text-sm ${
+                        className={`w-full px-3 py-2 md:px-3 md:py-2 text-left hover:bg-gray-50 transition-colors text-xs md:text-sm ${
                           currentPhase === 'presurvey' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                         }`}
                       >
@@ -708,7 +708,7 @@ export default function BusinessDetailPage() {
                           setSystemType('completion');
                           setShowSystemTypeDropdown(false);
                         }}
-                        className={`w-full px-3 py-2 md:px-4 md:py-3 text-left hover:bg-gray-50 transition-colors text-xs md:text-sm ${
+                        className={`w-full px-3 py-2 md:px-3 md:py-2 text-left hover:bg-gray-50 transition-colors text-xs md:text-sm ${
                           currentPhase === 'postinstall' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
                         }`}
                       >
@@ -720,7 +720,7 @@ export default function BusinessDetailPage() {
                           setSystemType('completion');
                           setShowSystemTypeDropdown(false);
                         }}
-                        className={`w-full px-3 py-2 md:px-4 md:py-3 text-left hover:bg-gray-50 transition-colors text-xs md:text-sm ${
+                        className={`w-full px-3 py-2 md:px-3 md:py-2 text-left hover:bg-gray-50 transition-colors text-xs md:text-sm ${
                           currentPhase === 'aftersales' ? 'bg-orange-50 text-orange-700 font-medium' : 'text-gray-700'
                         }`}
                       >
@@ -735,8 +735,8 @@ export default function BusinessDetailPage() {
         </div>
 
         {/* Main Content */}
-        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 md:py-6">
-          <div className="max-w-sm sm:max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto space-y-3 sm:space-y-4 md:space-y-6 lg:space-y-8">
+        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4">
+          <div className="max-w-sm sm:max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto space-y-3 sm:space-y-4 md:space-y-4">
 
             {/* ========== PRESURVEY MODE SECTIONS ========== */}
             {systemType === 'presurvey' && (
