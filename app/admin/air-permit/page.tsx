@@ -1199,14 +1199,7 @@ function AirPermitManagementPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3">
-                    {/* FAB 스타일 상세관리 버튼 */}
-                    <button
-                      onClick={() => router.push(`/admin/air-permit-detail?permitId=${selectedPermit.id}&edit=true`)}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-medium hover:scale-105"
-                    >
-                      <Edit className="w-4 h-4" />
-                      상세관리
-                    </button>
+                    {/* X 버튼만 헤더에 유지 */}
                     <button
                       onClick={() => setSelectedPermit(null)}
                       className="p-2 hover:bg-white/50 rounded-lg transition-colors"
@@ -1445,6 +1438,15 @@ function AirPermitManagementPage() {
                 </div>
 
               </div>
+
+              {/* Fixed FAB 버튼 - 스크롤해도 고정 위치 유지 */}
+              <button
+                onClick={() => router.push(`/admin/air-permit-detail?permitId=${selectedPermit.id}&edit=true`)}
+                className="fixed top-[170px] right-[90px] z-30 flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-medium hover:scale-105"
+              >
+                <Edit className="w-4 h-4" />
+                상세관리
+              </button>
             </div>
           )}
         </div>
