@@ -655,54 +655,54 @@ export default function CalendarBoard() {
   }
 
   return (
-    <div ref={calendarRef} className="bg-white rounded-lg shadow">
+    <div ref={calendarRef} className="bg-white rounded-md md:rounded-lg shadow">
       {/* 헤더 */}
-      <div className="p-4 md:p-6 border-b space-y-3">
+      <div className="p-3 sm:p-4 md:p-6 border-b space-y-2 sm:space-y-3">
         {/* 모바일: 세로 레이아웃, 데스크톱: 가로 레이아웃 */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 sm:gap-3">
           {/* 타이틀 */}
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-purple-600" />
-            <h2 className="text-lg font-semibold">캘린더</h2>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+            <h2 className="text-base sm:text-lg font-semibold">캘린더</h2>
           </div>
 
           {/* 네비게이션 컨트롤 */}
           <div className="flex items-center justify-between md:justify-start gap-2 md:gap-4">
             {/* 월 네비게이션 */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={handlePrevMonth}
-                className="p-2 md:p-1 hover:bg-gray-100 rounded transition-colors touch-manipulation"
+                className="p-1.5 sm:p-2 md:p-1 hover:bg-gray-100 rounded transition-colors touch-manipulation"
                 aria-label="이전 달"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
-              <span className="text-sm md:text-base font-medium min-w-[100px] md:min-w-[120px] text-center">
+              <span className="text-xs sm:text-sm md:text-base font-medium min-w-[90px] sm:min-w-[100px] md:min-w-[120px] text-center">
                 {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
               </span>
               <button
                 onClick={handleNextMonth}
-                className="p-2 md:p-1 hover:bg-gray-100 rounded transition-colors touch-manipulation"
+                className="p-1.5 sm:p-2 md:p-1 hover:bg-gray-100 rounded transition-colors touch-manipulation"
                 aria-label="다음 달"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
 
             {/* 오늘/일정 추가 버튼 */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={handleToday}
-                className="px-2.5 py-1.5 md:px-3 md:py-1 text-xs md:text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors touch-manipulation"
+                className="px-2 py-1 sm:px-2.5 sm:py-1.5 md:px-3 md:py-1 text-[10px] sm:text-xs md:text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors touch-manipulation"
               >
                 오늘
               </button>
               {userLevel >= 1 && (
                 <button
                   onClick={handleCreateClick}
-                  className="flex items-center gap-1 px-2.5 py-1.5 md:px-3 md:py-1.5 text-xs md:text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors touch-manipulation"
+                  className="flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 md:px-3 md:py-1.5 text-[10px] sm:text-xs md:text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors touch-manipulation"
                 >
-                  <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
                   <span className="hidden sm:inline">일정 추가</span>
                   <span className="sm:hidden">추가</span>
                 </button>
@@ -715,18 +715,18 @@ export default function CalendarBoard() {
         <div className="space-y-2">
           {/* 검색 입력 */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="일정 검색 (제목, 설명)..."
-              className="w-full pl-10 pr-10 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full pl-9 pr-9 sm:pl-10 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded transition-colors"
+                className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 p-0.5 sm:p-1 hover:bg-gray-100 rounded transition-colors"
                 aria-label="검색어 지우기"
               >
                 <X className="w-4 h-4 text-gray-400" />
@@ -735,8 +735,8 @@ export default function CalendarBoard() {
           </div>
 
           {/* 라벨 필터 */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-gray-600 font-medium">라벨:</span>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="text-[10px] sm:text-xs text-gray-600 font-medium">라벨:</span>
             {availableLabels.length > 0 ? (
               <>
                 {availableLabels.map(label => {
@@ -747,7 +747,7 @@ export default function CalendarBoard() {
                       key={label}
                       onClick={() => handleToggleLabel(label)}
                       className={`
-                        px-2.5 py-1 rounded-full text-xs font-medium transition-all
+                        px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium transition-all
                         ${isSelected
                           ? `${labelColors.bg} ${labelColors.text} ring-2 ring-offset-1 ring-purple-500`
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -761,21 +761,21 @@ export default function CalendarBoard() {
                 {(searchQuery || selectedLabels.length > 0) && (
                   <button
                     onClick={handleClearFilters}
-                    className="ml-2 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                    className="ml-1.5 sm:ml-2 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs text-red-600 hover:bg-red-50 rounded-full transition-colors"
                   >
                     필터 초기화
                   </button>
                 )}
               </>
             ) : (
-              <span className="text-xs text-gray-400 italic">라벨이 없습니다. 일정에 라벨을 추가해보세요.</span>
+              <span className="text-[10px] sm:text-xs text-gray-400 italic">라벨이 없습니다. 일정에 라벨을 추가해보세요.</span>
             )}
           </div>
 
           {/* 필터 결과 표시 */}
           {(searchQuery || selectedLabels.length > 0) && (
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="text-xs text-gray-500">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <div className="text-[10px] sm:text-xs text-gray-500">
                 {allEventsLoading ? (
                   <span className="text-purple-600">🔍 전체 일정 검색 중...</span>
                 ) : (
@@ -790,7 +790,7 @@ export default function CalendarBoard() {
               {filteredEvents.length > 0 && !allEventsLoading && (
                 <button
                   onClick={() => setIsListViewOpen(true)}
-                  className="px-2.5 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded transition-colors font-medium whitespace-nowrap"
+                  className="px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded transition-colors font-medium whitespace-nowrap"
                 >
                   📋 리스트 보기
                 </button>
@@ -801,13 +801,13 @@ export default function CalendarBoard() {
       </div>
 
       {/* 캘린더 그리드 */}
-      <div className="p-3 md:p-6">
+      <div className="p-2 sm:p-3 md:p-6">
         {/* 요일 헤더 */}
-        <div className="grid grid-cols-7 gap-0.5 md:gap-1 mb-2">
+        <div className="grid grid-cols-7 gap-0.5 md:gap-1 mb-1 sm:mb-2">
           {['일', '월', '화', '수', '목', '금', '토'].map((day, index) => (
             <div
               key={day}
-              className={`text-center text-xs md:text-sm font-medium py-1 md:py-2 ${
+              className={`text-center text-[10px] sm:text-xs md:text-sm font-medium py-0.5 sm:py-1 md:py-2 ${
                 index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : 'text-gray-700'
               }`}
             >
@@ -836,13 +836,13 @@ export default function CalendarBoard() {
                 key={index}
                 onClick={() => handleDayClick(day)}
                 className={`
-                  h-[70px] md:h-[110px] p-1 md:p-2 border rounded cursor-pointer flex flex-col touch-manipulation
+                  h-[65px] sm:h-[70px] md:h-[110px] p-0.5 sm:p-1 md:p-2 border rounded cursor-pointer flex flex-col touch-manipulation
                   ${isCurrentMonth ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'}
                   ${isToday ? 'ring-2 ring-purple-500' : ''}
                   transition-colors
                 `}
               >
-                <div className={`text-xs md:text-sm font-medium mb-0.5 flex-shrink-0 ${
+                <div className={`text-[10px] sm:text-xs md:text-sm font-medium mb-0.5 flex-shrink-0 ${
                   !isCurrentMonth ? 'text-gray-400' :
                   index % 7 === 0 ? 'text-red-600' :
                   index % 7 === 6 ? 'text-blue-600' :
@@ -925,7 +925,7 @@ export default function CalendarBoard() {
                     );
                   })}
                   {sortedDayEvents.length > 2 && (
-                    <div className="text-xs text-gray-600 font-semibold pl-1">
+                    <div className="text-[10px] sm:text-xs text-gray-600 font-semibold pl-0.5 sm:pl-1">
                       +{sortedDayEvents.length - 2}
                     </div>
                   )}
@@ -934,7 +934,7 @@ export default function CalendarBoard() {
                 {/* 모바일: 이벤트 도트 표시 */}
                 <div className="md:hidden flex flex-1 items-center justify-center gap-0.5">
                   {dayEvents.length > 0 && (
-                    <div className="flex flex-wrap gap-0.5 justify-center">
+                    <div className="flex flex-wrap gap-0.5 justify-center items-center">
                       {dayEvents.slice(0, 3).map((event) => {
                         const isPeriod = isPeriodEvent(event);
                         const position = getPeriodPosition(event, day);
@@ -960,7 +960,7 @@ export default function CalendarBoard() {
                         );
                       })}
                       {dayEvents.length > 3 && (
-                        <span className="text-[10px] text-gray-600 ml-0.5">
+                        <span className="text-[9px] sm:text-[10px] text-gray-600 ml-0.5">
                           +{dayEvents.length - 3}
                         </span>
                       )}
@@ -973,7 +973,7 @@ export default function CalendarBoard() {
         </div>
 
         {/* 범례 */}
-        <div className="flex flex-wrap items-center gap-3 md:gap-4 mt-3 md:mt-4 text-xs text-gray-600">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 md:gap-4 mt-2 sm:mt-3 md:mt-4 text-[10px] sm:text-xs text-gray-600">
           {/* 데스크톱: 박스 표시 */}
           <div className="hidden md:flex items-center gap-1">
             <div className="w-3 h-3 bg-blue-100 rounded"></div>
