@@ -1181,43 +1181,42 @@ function AirPermitManagementPage() {
             </div>
           ) : (
             /* Permit Detail View */
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 relative">
-              {/* Header - 자연스럽게 스크롤됨 */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              {/* Header - 제목 부분만 표시 */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
-                    <div className="p-1 sm:p-1.5 md:p-2 bg-blue-100 rounded-lg">
-                      <FileText className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-xs sm:text-sm md:text-base lg:text-xl font-bold text-gray-900">
-                        대기필증 상세정보
-                      </h2>
-                      <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600">
-                        {selectedBusiness.business_name}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+                  <div className="p-1 sm:p-1.5 md:p-2 bg-blue-100 rounded-lg">
+                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
                   </div>
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    {/* 닫기 버튼만 헤더에 유지 */}
-                    <button
-                      onClick={() => setSelectedPermit(null)}
-                      className="p-1 sm:p-2 hover:bg-white rounded-lg transition-colors"
-                    >
-                      <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                    </button>
+                  <div>
+                    <h2 className="text-xs sm:text-sm md:text-base lg:text-xl font-bold text-gray-900">
+                      대기필증 상세정보
+                    </h2>
+                    <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600">
+                      {selectedBusiness.business_name}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {/* Floating Action Button - 우측 하단 고정 */}
-              <button
-                onClick={() => router.push(`/admin/air-permit-detail?permitId=${selectedPermit.id}&edit=true`)}
-                className="fixed bottom-6 right-6 z-30 flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-medium"
-              >
-                <Edit className="w-5 h-5" />
-                상세관리
-              </button>
+              {/* Sticky Action Bar - 버튼 영역만 고정 */}
+              <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-3 sm:px-4 md:px-6 py-2 shadow-sm">
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => router.push(`/admin/air-permit-detail?permitId=${selectedPermit.id}&edit=true`)}
+                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm"
+                  >
+                    <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
+                    상세관리
+                  </button>
+                  <button
+                    onClick={() => setSelectedPermit(null)}
+                    className="p-1 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                  </button>
+                </div>
+              </div>
 
               <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
                 {/* Basic Information */}
