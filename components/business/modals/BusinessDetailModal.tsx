@@ -104,7 +104,7 @@ interface UnifiedBusinessInfo {
   construction_report_submitted_at?: string | null
   greenlink_confirmation_submitted_at?: string | null
   attachment_completion_submitted_at?: string | null
-  manufacturer?: 'ecosense' | 'cleanearth' | 'gaia_cns' | 'evs' | null
+  manufacturer?: '에코센스' | '크린어스' | '가이아씨앤에스' | '이브이에스' | null
   vpn?: 'wired' | 'wireless' | null
   greenlink_id?: string | null
   greenlink_pw?: string | null
@@ -822,10 +822,10 @@ export default function BusinessDetailModal({
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                       <div className="text-xs sm:text-sm text-gray-600 mb-1">제조사</div>
                       <div className="text-xs sm:text-sm md:text-base font-medium text-gray-900">
-                        {business.manufacturer === 'ecosense' ? '🏭 에코센스' :
-                         business.manufacturer === 'cleanearth' ? '🌍 크린어스' :
-                         business.manufacturer === 'gaia_cns' ? '🌿 가이아씨앤에스' :
-                         business.manufacturer === 'evs' ? '⚡ 이브이에스' :
+                        {business.manufacturer === '에코센스' ? '🏭 에코센스' :
+                         business.manufacturer === '크린어스' ? '🌍 크린어스' :
+                         business.manufacturer === '가이아씨앤에스' ? '🌿 가이아씨앤에스' :
+                         business.manufacturer === '이브이에스' ? '⚡ 이브이에스' :
                          business.manufacturer || '-'}
                       </div>
                     </div>

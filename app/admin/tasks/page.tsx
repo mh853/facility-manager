@@ -1268,7 +1268,7 @@ function TaskManagementPage() {
           {/* 핵심 액션 - 모든 화면에서 표시 */}
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base"
+            className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-sm"
           >
             <Plus className="w-4 h-4" />
             <span className="sm:hidden">추가</span>
@@ -1284,7 +1284,7 @@ function TaskManagementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs sm:text-xs md:text-sm text-gray-600">전체 업무</p>
-                <p className="text-lg sm:text-lg md:text-2xl font-semibold text-gray-900">{dynamicStats.totalTasks}</p>
+                <p className="text-base sm:text-base md:text-lg font-semibold text-gray-900">{dynamicStats.totalTasks}</p>
               </div>
               <Target className="w-4 h-4 md:w-6 md:h-6 text-blue-500" />
             </div>
@@ -1304,7 +1304,7 @@ function TaskManagementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs sm:text-xs md:text-sm text-gray-600">활성 단계</p>
-                <p className="text-lg sm:text-lg md:text-2xl font-semibold text-orange-600">{dynamicStats.stepsWithTasks}</p>
+                <p className="text-base sm:text-base md:text-lg font-semibold text-orange-600">{dynamicStats.stepsWithTasks}</p>
               </div>
               <TrendingUp className="w-4 h-4 md:w-6 md:h-6 text-orange-500" />
             </div>
@@ -1324,7 +1324,7 @@ function TaskManagementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs sm:text-xs md:text-sm text-gray-600">높은 우선순위</p>
-                <p className="text-lg sm:text-lg md:text-2xl font-semibold text-red-600">{dynamicStats.highPriorityTasks}</p>
+                <p className="text-base sm:text-base md:text-lg font-semibold text-red-600">{dynamicStats.highPriorityTasks}</p>
               </div>
               <AlertCircle className="w-4 h-4 md:w-6 md:h-6 text-red-500" />
             </div>
@@ -1347,7 +1347,7 @@ function TaskManagementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs sm:text-xs md:text-sm text-red-600">지연 업무</p>
-                <p className="text-lg sm:text-lg md:text-2xl font-semibold text-red-700">{dynamicStats.delayedTasks}</p>
+                <p className="text-base sm:text-base md:text-lg font-semibold text-red-700">{dynamicStats.delayedTasks}</p>
               </div>
               <Clock className="w-4 h-4 md:w-6 md:h-6 text-red-500" />
             </div>
@@ -1370,7 +1370,7 @@ function TaskManagementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs sm:text-xs md:text-sm text-yellow-600">위험 업무</p>
-                <p className="text-lg sm:text-lg md:text-2xl font-semibold text-yellow-700">{dynamicStats.atRiskTasks}</p>
+                <p className="text-base sm:text-base md:text-lg font-semibold text-yellow-700">{dynamicStats.atRiskTasks}</p>
               </div>
               <AlertCircle className="w-4 h-4 md:w-6 md:h-6 text-yellow-500" />
             </div>
@@ -1397,7 +1397,7 @@ function TaskManagementPage() {
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value as TaskType | 'all')}
-                className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm"
               >
                 <option value="all">전체 타입</option>
                 <option value="self">자비</option>
@@ -1410,7 +1410,7 @@ function TaskManagementPage() {
               <select
                 value={selectedPriority}
                 onChange={(e) => setSelectedPriority(e.target.value as Priority | 'all')}
-                className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm"
               >
                 <option value="all">전체 우선순위</option>
                 <option value="high">높음</option>
@@ -1422,7 +1422,7 @@ function TaskManagementPage() {
               <select
                 value={selectedAssignee}
                 onChange={(e) => setSelectedAssignee(e.target.value)}
-                className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm"
               >
                 <option value="all">전체 담당자</option>
                 {assignees.map(assignee => (
@@ -1437,7 +1437,7 @@ function TaskManagementPage() {
               <input
                 type="text"
                 placeholder="사업장명, 담당자, 설명으로 검색..."
-                className="w-full pl-8 pr-3 py-1.5 sm:pl-10 sm:pr-4 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                className="w-full pl-8 pr-3 py-1.5 sm:pl-10 sm:pr-4 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm"
                 onChange={(e) => debouncedSearch(e.target.value)}
               />
             </div>
@@ -1500,14 +1500,14 @@ function TaskManagementPage() {
               <table className="w-full min-w-[800px]">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">사업장</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800 w-32 sm:w-80 max-w-32 sm:max-w-80">업무 설명</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">업무 단계</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">담당자</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">상태</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">우선순위</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">마감일</th>
-                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base font-semibold text-gray-800">작업</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm font-semibold text-gray-800">사업장</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm font-semibold text-gray-800 w-32 sm:w-80 max-w-32 sm:max-w-80">업무 설명</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm font-semibold text-gray-800">업무 단계</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm font-semibold text-gray-800">담당자</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm font-semibold text-gray-800">상태</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm font-semibold text-gray-800">우선순위</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm font-semibold text-gray-800">마감일</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm font-semibold text-gray-800">작업</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1517,7 +1517,7 @@ function TaskManagementPage() {
                                    task.type === 'etc' ? etcSteps : asSteps).find(s => s.status === task.status)
                     return (
                       <tr key={task.id} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm">
                           <button
                             onClick={() => handleOpenEditModal(task)}
                             className="font-medium text-gray-900 hover:text-blue-600 transition-colors cursor-pointer text-left block truncate max-w-[120px] sm:max-w-none"
@@ -1526,7 +1526,7 @@ function TaskManagementPage() {
                             {task.businessName}
                           </button>
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm">
                           <div
                             className="font-medium text-gray-900 max-w-xs leading-tight"
                             style={{
@@ -1540,12 +1540,12 @@ function TaskManagementPage() {
                             {task.description || '-'}
                           </div>
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm">
                           <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getColorClasses(step?.color || 'gray')}`}>
                             {step?.label || task.status}
                           </span>
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base text-gray-600">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm text-gray-600">
                           {task.assignees && task.assignees.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {task.assignees.slice(0, 3).map((assignee) => (
@@ -1567,7 +1567,7 @@ function TaskManagementPage() {
                             task.assignee || '미배정'
                           )}
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm">
                           <span className={`inline-flex px-2 py-1 text-xs rounded ${
                             task.type === 'self'
                               ? 'bg-blue-100 text-blue-800'
@@ -1582,16 +1582,16 @@ function TaskManagementPage() {
                              task.type === 'etc' ? '기타' : 'AS'}
                           </span>
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm">
                           <div className="flex items-center gap-1">
                             {getPriorityIcon(task.priority)}
                             <span className="capitalize">{task.priority}</span>
                           </div>
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base text-gray-600">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm text-gray-600">
                           {task.dueDate ? formatDate(task.dueDate) : '-'}
                         </td>
-                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-base">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-sm">
                           <div className="flex items-center gap-1">
                             <button
                               onClick={(e) => {
@@ -1853,7 +1853,7 @@ function TaskManagementPage() {
                   </div>
                   <div>
                     <h1 className="text-lg sm:text-2xl font-bold">새 업무 등록</h1>
-                    <p className="text-green-100 mt-1 text-sm sm:text-base hidden sm:block">새로운 업무를 시스템에 등록합니다</p>
+                    <p className="text-green-100 mt-1 text-sm sm:text-sm hidden sm:block">새로운 업무를 시스템에 등록합니다</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1875,13 +1875,13 @@ function TaskManagementPage() {
                   <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-4">
                     <button
                       onClick={() => setShowCreateModal(false)}
-                      className="px-2 sm:px-4 py-1 sm:py-2 text-white bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all font-medium backdrop-blur-sm border border-white border-opacity-30 text-sm sm:text-base"
+                      className="px-2 sm:px-4 py-1 sm:py-2 text-white bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all font-medium backdrop-blur-sm border border-white border-opacity-30 text-sm sm:text-sm"
                     >
                       취소
                     </button>
                     <button
                       onClick={handleCreateTask}
-                      className="px-3 sm:px-6 py-1 sm:py-2 bg-white text-green-700 rounded-lg hover:bg-green-50 transition-all font-medium shadow-lg text-sm sm:text-base"
+                      className="px-3 sm:px-6 py-1 sm:py-2 bg-white text-green-700 rounded-lg hover:bg-green-50 transition-all font-medium shadow-lg text-sm sm:text-sm"
                     >
                       등록
                     </button>
@@ -2146,7 +2146,7 @@ function TaskManagementPage() {
                   </div>
                   <div className="min-w-0 flex-1 max-w-[200px] sm:max-w-[300px]">
                     <h1 className="text-lg sm:text-2xl font-bold truncate" title={editingTask.title}>{editingTask.title}</h1>
-                    <p className="text-blue-100 mt-1 text-sm sm:text-base truncate" title={editingTask.businessName}>{editingTask.businessName}</p>
+                    <p className="text-blue-100 mt-1 text-sm sm:text-sm truncate" title={editingTask.businessName}>{editingTask.businessName}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
