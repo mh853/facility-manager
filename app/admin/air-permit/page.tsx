@@ -1181,9 +1181,9 @@ function AirPermitManagementPage() {
             </div>
           ) : (
             /* Permit Detail View */
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              {/* Sticky Header */}
-              <div className="sticky top-0 z-20 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 border-b border-gray-200 rounded-t-xl shadow-sm">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 relative">
+              {/* Header - 자연스럽게 스크롤됨 */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
                     <div className="p-1 sm:p-1.5 md:p-2 bg-blue-100 rounded-lg">
@@ -1199,13 +1199,7 @@ function AirPermitManagementPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 sm:gap-2">
-                    <button
-                      onClick={() => router.push(`/admin/air-permit-detail?permitId=${selectedPermit.id}&edit=true`)}
-                      className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm"
-                    >
-                      <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
-                      상세관리
-                    </button>
+                    {/* 닫기 버튼만 헤더에 유지 */}
                     <button
                       onClick={() => setSelectedPermit(null)}
                       className="p-1 sm:p-2 hover:bg-white rounded-lg transition-colors"
@@ -1215,6 +1209,15 @@ function AirPermitManagementPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Floating Action Button - 우측 하단 고정 */}
+              <button
+                onClick={() => router.push(`/admin/air-permit-detail?permitId=${selectedPermit.id}&edit=true`)}
+                className="fixed bottom-6 right-6 z-30 flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-medium"
+              >
+                <Edit className="w-5 h-5" />
+                상세관리
+              </button>
 
               <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
                 {/* Basic Information */}
