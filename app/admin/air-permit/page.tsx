@@ -1198,19 +1198,20 @@ function AirPermitManagementPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    {/* FAB 스타일 상세관리 버튼 */}
                     <button
                       onClick={() => router.push(`/admin/air-permit-detail?permitId=${selectedPermit.id}&edit=true`)}
-                      className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm"
+                      className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-medium hover:scale-105"
                     >
-                      <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <Edit className="w-4 h-4" />
                       상세관리
                     </button>
                     <button
                       onClick={() => setSelectedPermit(null)}
-                      className="p-1 sm:p-2 hover:bg-white rounded-lg transition-colors"
+                      className="p-2 hover:bg-white/50 rounded-lg transition-colors"
                     >
-                      <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                      <X className="w-5 h-5 text-gray-500" />
                     </button>
                   </div>
                 </div>
