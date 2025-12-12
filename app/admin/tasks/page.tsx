@@ -1848,15 +1848,15 @@ function TaskManagementPage() {
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 backdrop-blur-sm p-2 sm:p-4">
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[98vh] sm:max-h-[95vh] overflow-hidden">
             {/* 세련된 헤더 섹션 */}
-            <div className="bg-gradient-to-r from-green-600 to-green-700 px-4 sm:px-8 py-4 sm:py-6 text-white">
+            <div className="bg-gradient-to-r from-green-600 to-green-700 px-4 sm:px-6 py-3 sm:py-4 text-white">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 sm:gap-4">
-                  <div className="bg-white bg-opacity-20 rounded-xl p-2 sm:p-3">
-                    <Plus className="w-4 h-4 sm:w-6 sm:h-6" />
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="bg-white bg-opacity-20 rounded-xl p-2 sm:p-2.5">
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <div>
-                    <h1 className="text-lg sm:text-2xl font-bold">새 업무 등록</h1>
-                    <p className="text-green-100 mt-1 text-sm sm:text-sm hidden sm:block">새로운 업무를 시스템에 등록합니다</p>
+                    <h1 className="text-base sm:text-xl font-bold">새 업무 등록</h1>
+                    <p className="text-green-100 mt-0.5 text-xs sm:text-xs hidden sm:block">새로운 업무를 시스템에 등록합니다</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1875,16 +1875,16 @@ function TaskManagementPage() {
                   </span>
 
                   {/* 액션 버튼들 */}
-                  <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-4">
+                  <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-3">
                     <button
                       onClick={() => setShowCreateModal(false)}
-                      className="px-2 sm:px-4 py-1 sm:py-2 text-white bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all font-medium backdrop-blur-sm border border-white border-opacity-30 text-sm sm:text-sm"
+                      className="px-2 sm:px-3 py-1 sm:py-1.5 text-white bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all font-medium backdrop-blur-sm border border-white border-opacity-30 text-xs sm:text-sm"
                     >
                       취소
                     </button>
                     <button
                       onClick={handleCreateTask}
-                      className="px-3 sm:px-6 py-1 sm:py-2 bg-white text-green-700 rounded-lg hover:bg-green-50 transition-all font-medium shadow-lg text-sm sm:text-sm"
+                      className="px-3 sm:px-4 py-1 sm:py-1.5 bg-white text-green-700 rounded-lg hover:bg-green-50 transition-all font-medium shadow-lg text-xs sm:text-sm"
                     >
                       등록
                     </button>
@@ -1893,9 +1893,9 @@ function TaskManagementPage() {
               </div>
             </div>
 
-            <div className="p-4 sm:p-8 overflow-y-auto max-h-[calc(98vh-120px)] sm:max-h-[calc(95vh-120px)]">
+            <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(98vh-120px)] sm:max-h-[calc(95vh-120px)]">
               {/* 핵심 정보 카드들 */}
-              <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-3 sm:mb-4">
+              <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-3 sm:mb-3">
                 {/* 업무 정보 카드 */}
                 <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-md p-2 border border-green-200">
                   <div className="flex items-center gap-1 mb-1">
@@ -1946,8 +1946,8 @@ function TaskManagementPage() {
               </div>
 
               {/* 수정 폼 */}
-              <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">업무 정보 입력</h3>
+              <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+                <h3 className="text-base font-semibold text-gray-900 mb-4">업무 정보 입력</h3>
                 <div className="space-y-4">
                 {/* 사업장 선택 (기타 타입일 때는 선택사항) */}
                 <div className="relative">
@@ -2129,7 +2129,7 @@ function TaskManagementPage() {
                 </div>
 
                 {/* 하단 여백 */}
-                <div className="mt-6"></div>
+                <div className="mt-4"></div>
               </div>
             </div>
           </div>
@@ -2141,15 +2141,15 @@ function TaskManagementPage() {
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 backdrop-blur-sm p-2 sm:p-4">
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[98vh] sm:max-h-[95vh] overflow-hidden">
             {/* 세련된 헤더 섹션 */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-8 py-3 sm:py-4 text-white">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-6 py-3 sm:py-4 text-white">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-                  <div className="bg-white bg-opacity-20 rounded-xl p-2 sm:p-3 flex-shrink-0">
-                    <Building2 className="w-4 h-4 sm:w-6 sm:h-6" />
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  <div className="bg-white bg-opacity-20 rounded-xl p-2 sm:p-2.5 flex-shrink-0">
+                    <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <div className="min-w-0 flex-1 max-w-[200px] sm:max-w-[300px]">
-                    <h1 className="text-lg sm:text-2xl font-bold truncate" title={editingTask.title}>{editingTask.title}</h1>
-                    <p className="text-blue-100 mt-1 text-sm sm:text-sm truncate" title={editingTask.businessName}>{editingTask.businessName}</p>
+                    <h1 className="text-base sm:text-xl font-bold truncate" title={editingTask.title}>{editingTask.title}</h1>
+                    <p className="text-blue-100 mt-0.5 text-xs sm:text-xs truncate" title={editingTask.businessName}>{editingTask.businessName}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
@@ -2196,9 +2196,9 @@ function TaskManagementPage() {
               </div>
             </div>
 
-            <div className="p-4 sm:p-8 overflow-y-auto max-h-[calc(98vh-120px)] sm:max-h-[calc(95vh-120px)]">
+            <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(98vh-120px)] sm:max-h-[calc(95vh-120px)]">
               {/* 핵심 정보 카드들 */}
-              <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-3 sm:mb-4">
+              <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-3 sm:mb-3">
                 {/* 진행 상태 카드 */}
                 <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-md p-2 border border-green-200">
                   <div className="flex items-center gap-1 mb-1">
@@ -2262,8 +2262,8 @@ function TaskManagementPage() {
               </div>
 
               {/* 수정 폼 */}
-              <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">업무 정보 수정</h3>
+              <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+                <h3 className="text-base font-semibold text-gray-900 mb-4">업무 정보 수정</h3>
                 <div className="space-y-4">
                 {/* 사업장 선택 (기타 타입일 때는 선택사항) */}
                 <div className="relative">
@@ -2467,7 +2467,7 @@ function TaskManagementPage() {
                 </div>
 
                 {/* 하단 여백 */}
-                <div className="mt-6"></div>
+                <div className="mt-4"></div>
               </div>
             </div>
           </div>
