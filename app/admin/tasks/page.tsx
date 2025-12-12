@@ -69,7 +69,7 @@ type TaskStatus =
 
 type Priority = 'high' | 'medium' | 'low'
 
-interface Task {
+export interface Task {
   id: string
   title: string
   businessName?: string
@@ -1812,8 +1812,11 @@ function TaskManagementPage() {
                   </div>
 
                   {/* 업무 카드들 */}
-                  <div className={`space-y-1.5 sm:space-y-2 ${isCompactMode ? 'min-h-[80px] sm:min-h-[100px]' : 'max-h-[300px] sm:max-h-[400px] overflow-y-auto'}`}>
-                    {getDisplayTasks(tasksByStatus.grouped[step.status] || []).map((task) => (
+                  <div className={`space-y-1.5 sm:space-y-2 ${isCompactMode ? 'min-h-[80px] sm:min-h-[100px]' : 'max-h-[400px] sm:max-h-[500px] overflow-y-auto scrollbar-thin'}`}>
+                    {(isCompactMode
+                      ? getDisplayTasks(tasksByStatus.grouped[step.status] || [])
+                      : (tasksByStatus.grouped[step.status] || [])
+                    ).map((task) => (
                       <div
                         key={task.id}
                         draggable
