@@ -3585,7 +3585,7 @@ function BusinessManagementPage() {
           {/* 데스크탑에서는 모든 버튼 표시 */}
           <button
             onClick={() => setIsUploadModalOpen(true)}
-            className="hidden md:flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 md:px-4 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-base lg:text-base"
+            className="hidden md:flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 md:px-4 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm lg:text-sm"
           >
             <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
             엑셀 업로드
@@ -3594,7 +3594,7 @@ function BusinessManagementPage() {
           {/* 모바일과 데스크탑 모두에서 표시 - 핵심 액션 */}
           <button
             onClick={openAddModal}
-            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 md:px-4 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-base lg:text-base"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 md:px-4 md:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm lg:text-sm"
           >
             <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="sm:hidden">추가</span>
@@ -3640,7 +3640,7 @@ function BusinessManagementPage() {
         <div className="bg-white rounded-md md:rounded-xl shadow-sm border border-gray-200 max-w-full overflow-hidden">
           <div className="p-2 md:p-6 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3 md:mb-4">
-              <h2 className="text-sm md:text-base lg:text-lg font-semibold text-gray-900 flex items-center gap-1 md:gap-2">
+              <h2 className="text-sm md:text-sm lg:text-base font-semibold text-gray-900 flex items-center gap-1 md:gap-2">
                 <Building2 className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
                 사업장 목록
               </h2>
@@ -3676,7 +3676,7 @@ function BusinessManagementPage() {
                   placeholder="콤마로 구분하여 다중 검색: 청주, 보조금, 에코센스 (사업장명, 주소, 담당자, 제조사, 진행상태 등)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full pl-7 md:pl-10 pr-8 md:pr-10 py-1.5 md:py-2 text-base border border-gray-300 rounded-md md:rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="block w-full pl-7 md:pl-10 pr-8 md:pr-10 py-1.5 md:py-2 text-sm border border-gray-300 rounded-md md:rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {searchQuery && (
                   <button
@@ -3691,11 +3691,11 @@ function BusinessManagementPage() {
               {/* 검색 태그 표시 */}
               {searchTerms.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 md:gap-2 mt-2">
-                  <span className="text-base text-gray-600 font-medium">활성 필터:</span>
+                  <span className="text-sm text-gray-600 font-medium">활성 필터:</span>
                   {searchTerms.map((term, index) => (
                     <span
                       key={index}
-                      className="inline-flex items-center px-2 md:px-3 py-0.5 md:py-1 rounded-full text-base font-medium text-blue-700 bg-blue-100 border border-blue-200"
+                      className="inline-flex items-center px-2 md:px-3 py-0.5 md:py-1 rounded-full text-sm font-medium text-blue-700 bg-blue-100 border border-blue-200"
                     >
                       {term}
                       <button
@@ -3709,7 +3709,7 @@ function BusinessManagementPage() {
                       </button>
                     </span>
                   ))}
-                  <span className="text-base text-gray-500">
+                  <span className="text-sm text-gray-500">
                     총 {filteredBusinesses.length}개 사업장
                   </span>
                 </div>
@@ -3782,7 +3782,7 @@ function BusinessManagementPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <CalendarClock className="w-5 h-5 text-blue-600" />
-                      <h4 className="text-sm md:text-base font-semibold text-gray-800">제출일 필터</h4>
+                      <h4 className="text-sm md:text-sm font-semibold text-gray-800">제출일 필터</h4>
                       <button
                         onClick={() => setIsSubmissionFilterExpanded(!isSubmissionFilterExpanded)}
                         className="ml-1 text-gray-500 hover:text-gray-700 transition-colors"
@@ -3987,7 +3987,7 @@ function BusinessManagementPage() {
                   <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-white bg-opacity-20 rounded-lg sm:rounded-xl flex items-center justify-center mr-2 sm:mr-3 md:mr-4">
                     <Edit className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white" />
                   </div>
-                  <h2 className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-bold">
+                  <h2 className="text-sm sm:text-base md:text-lg lg:text-lg xl:text-xl font-bold">
                     {editingBusiness ? '사업장 정보 수정' : '새 사업장 추가'}
                   </h2>
                 </div>
@@ -3996,7 +3996,7 @@ function BusinessManagementPage() {
                   <button
                     type="submit"
                     form="business-form"
-                    className="flex items-center px-2 sm:px-3 py-1 sm:py-2 bg-white bg-opacity-20 text-white rounded-md sm:rounded-lg hover:bg-opacity-30 transition-all duration-200 text-base font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                    className="flex items-center px-2 sm:px-3 py-1 sm:py-2 bg-white bg-opacity-20 text-white rounded-md sm:rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
                   >
                     <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
                     <span className="hidden sm:inline">{editingBusiness ? '수정완료' : '추가완료'}</span>
@@ -4008,7 +4008,7 @@ function BusinessManagementPage() {
                       setIsModalOpen(false)
                       setShowLocalGovSuggestions(false)
                     }}
-                    className="flex items-center px-2 sm:px-3 py-1 sm:py-2 bg-white bg-opacity-20 text-white rounded-md sm:rounded-lg hover:bg-opacity-30 transition-all duration-200 text-base font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                    className="flex items-center px-2 sm:px-3 py-1 sm:py-2 bg-white bg-opacity-20 text-white rounded-md sm:rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
                   >
                     <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
                     <span className="hidden sm:inline">취소</span>
@@ -4026,25 +4026,25 @@ function BusinessManagementPage() {
                     <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
                       <Building2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">기본 정보</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">기본 정보</h3>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">사업장명 *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업장명 *</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.business_name || ''}
                         onChange={(e) => setFormData({...formData, business_name: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">지자체</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">지자체</label>
                       <div className="relative">
                         <input
                           type="text"
@@ -4065,7 +4065,7 @@ function BusinessManagementPage() {
                               setShowLocalGovSuggestions(false)
                             }
                           }}
-                          className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                          className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                           placeholder="예: 서울특별시, 부산광역시..."
                         />
                         
@@ -4090,31 +4090,31 @@ function BusinessManagementPage() {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">주소</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">주소</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.address || ''}
                         onChange={(e) => setFormData({...formData, address: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">대표자명</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">대표자명</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.representative_name || ''}
                         onChange={(e) => setFormData({...formData, representative_name: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">사업자등록번호</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업자등록번호</label>
                       <input
                         type="text"
                         value={formData.business_registration_number || ''}
@@ -4128,7 +4128,7 @@ function BusinessManagementPage() {
                           }
                           setFormData({...formData, business_registration_number: formatted})
                         }}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="000-00-00000"
                         maxLength={12}
                       />
@@ -4143,38 +4143,38 @@ function BusinessManagementPage() {
                     <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
                       <User className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">담당자 정보</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">담당자 정보</h3>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">담당자명</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">담당자명</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.manager_name || ''}
                         onChange={(e) => setFormData({...formData, manager_name: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="김태훈"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">직급</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">직급</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.manager_position || ''}
                         onChange={(e) => setFormData({...formData, manager_position: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="팀장"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">담당자 연락처</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">담당자 연락처</label>
                       <input
                         type="tel"
                         value={formData.manager_contact || ''}
@@ -4182,14 +4182,14 @@ function BusinessManagementPage() {
                           const formatted = formatMobilePhone(e.target.value)
                           setFormData({...formData, manager_contact: formatted})
                         }}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="010-1234-5678"
                         maxLength={13}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">사업장 연락처</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업장 연락처</label>
                       <input
                         type="tel"
                         value={formData.business_contact || ''}
@@ -4197,14 +4197,14 @@ function BusinessManagementPage() {
                           const formatted = formatLandlinePhone(e.target.value)
                           setFormData({...formData, business_contact: formatted})
                         }}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="02-000-0000"
                         maxLength={13}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">팩스번호</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">팩스번호</label>
                       <input
                         type="tel"
                         value={formData.fax_number || ''}
@@ -4212,25 +4212,25 @@ function BusinessManagementPage() {
                           const formatted = formatLandlinePhone(e.target.value)
                           setFormData({...formData, fax_number: formatted})
                         }}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="02-000-0000"
                         maxLength={13}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">이메일</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">이메일</label>
                       <input
                         type="email"
                         value={formData.email || ''}
                         onChange={(e) => setFormData({...formData, email: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="example@company.com"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">대표자생년월일</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">대표자생년월일</label>
                       <DateInput
                         value={formData.representative_birth_date || ''}
                         onChange={(value) => setFormData({...formData, representative_birth_date: value})}
@@ -4247,7 +4247,7 @@ function BusinessManagementPage() {
                     <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
                       <Briefcase className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">사업장 정보</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">사업장 정보</h3>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
                     {/* 대기필증 연동 정보 안내 */}
@@ -4290,7 +4290,7 @@ function BusinessManagementPage() {
                         inputMode="text"
                         value={formData.business_type || airPermitData?.business_type || ''}
                         onChange={(e) => setFormData({...formData, business_type: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="예: 제조업, 서비스업..."
                       />
                       {airPermitData?.business_type && airPermitData.business_type !== (formData.business_type || '') && (
@@ -4315,7 +4315,7 @@ function BusinessManagementPage() {
                         inputMode="text"
                         value={formData.business_category || airPermitData?.category || ''}
                         onChange={(e) => setFormData({...formData, business_category: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="사업 종별"
                       />
                       {airPermitData?.category && airPermitData.category !== (formData.business_category || '') && (
@@ -4326,14 +4326,14 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">담당부서</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">담당부서</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.department || ''}
                         onChange={(e) => setFormData({...formData, department: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="담당부서명"
                       />
                     </div>
@@ -4348,16 +4348,16 @@ function BusinessManagementPage() {
                     <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
                       <ClipboardList className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">프로젝트 관리</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">프로젝트 관리</h3>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">진행구분</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">진행구분</label>
                       <select
                         value={formData.progress_status || ''}
                         onChange={(e) => setFormData({...formData, progress_status: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                       >
                         <option value="">선택하세요</option>
                         <option value="자비">자비</option>
@@ -4369,53 +4369,53 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">사업 진행연도</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업 진행연도</label>
                       <input
                         type="number"
                         min="2020"
                         max="2050"
                         value={formData.project_year || ''}
                         onChange={(e) => setFormData({...formData, project_year: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="예: 2024"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">설치팀</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">설치팀</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.installation_team || ''}
                         onChange={(e) => setFormData({...formData, installation_team: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="설치 담당팀"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">발주담당</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">발주담당</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.order_manager || ''}
                         onChange={(e) => setFormData({...formData, order_manager: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="발주 담당자명"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">매출처</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">매출처</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.revenue_source || ''}
                         onChange={(e) => setFormData({...formData, revenue_source: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         placeholder="계산서 발행 대상"
                       />
                     </div>
@@ -4429,12 +4429,12 @@ function BusinessManagementPage() {
                     <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
                       <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">일정 관리</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">일정 관리</h3>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">발주일</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">발주일</label>
                       <DateInput
                         value={formData.order_date || ''}
                         onChange={(value) => setFormData({...formData, order_date: value})}
@@ -4442,7 +4442,7 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">출고일</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">출고일</label>
                       <DateInput
                         value={formData.shipment_date || ''}
                         onChange={(value) => setFormData({...formData, shipment_date: value})}
@@ -4450,7 +4450,7 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">설치일</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">설치일</label>
                       <DateInput
                         value={formData.installation_date || ''}
                         onChange={(value) => setFormData({...formData, installation_date: value})}
@@ -4458,7 +4458,7 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">착공신고서 제출일</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">착공신고서 제출일</label>
                       <DateInput
                         value={formData.construction_report_submitted_at || ''}
                         onChange={(value) => setFormData({...formData, construction_report_submitted_at: value})}
@@ -4466,7 +4466,7 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">그린링크 전송확인서 제출일</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">그린링크 전송확인서 제출일</label>
                       <DateInput
                         value={formData.greenlink_confirmation_submitted_at || ''}
                         onChange={(value) => setFormData({...formData, greenlink_confirmation_submitted_at: value})}
@@ -4474,7 +4474,7 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">부착완료통보서 제출일</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">부착완료통보서 제출일</label>
                       <DateInput
                         value={formData.attachment_completion_submitted_at || ''}
                         onChange={(value) => setFormData({...formData, attachment_completion_submitted_at: value})}
@@ -4491,7 +4491,7 @@ function BusinessManagementPage() {
                     <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
                       <FileCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">실사 관리</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">실사 관리</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                     {/* 견적실사 */}
@@ -4499,7 +4499,7 @@ function BusinessManagementPage() {
                       <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">견적실사</h4>
                       <div className="space-y-2 sm:space-y-3">
                         <div>
-                          <label className="block text-base font-medium text-gray-700 mb-1">담당자</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">담당자</label>
                           <input
                             type="text"
                             value={formData.estimate_survey_manager || ''}
@@ -4509,7 +4509,7 @@ function BusinessManagementPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-base font-medium text-gray-700 mb-1">실사일</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">실사일</label>
                           <DateInput
                             value={formData.estimate_survey_date || ''}
                             onChange={(value) => setFormData({...formData, estimate_survey_date: value})}
@@ -4517,7 +4517,7 @@ function BusinessManagementPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">시작 시간</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">시작 시간</label>
                             <input
                               type="time"
                               value={formData.estimate_survey_start_time || ''}
@@ -4526,7 +4526,7 @@ function BusinessManagementPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">종료 시간</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">종료 시간</label>
                             <input
                               type="time"
                               value={formData.estimate_survey_end_time || ''}
@@ -4543,7 +4543,7 @@ function BusinessManagementPage() {
                       <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">착공전실사</h4>
                       <div className="space-y-2 sm:space-y-3">
                         <div>
-                          <label className="block text-base font-medium text-gray-700 mb-1">담당자</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">담당자</label>
                           <input
                             type="text"
                             value={formData.pre_construction_survey_manager || ''}
@@ -4553,7 +4553,7 @@ function BusinessManagementPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-base font-medium text-gray-700 mb-1">실사일</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">실사일</label>
                           <DateInput
                             value={formData.pre_construction_survey_date || ''}
                             onChange={(value) => setFormData({...formData, pre_construction_survey_date: value})}
@@ -4561,7 +4561,7 @@ function BusinessManagementPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">시작 시간</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">시작 시간</label>
                             <input
                               type="time"
                               value={formData.pre_construction_survey_start_time || ''}
@@ -4570,7 +4570,7 @@ function BusinessManagementPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">종료 시간</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">종료 시간</label>
                             <input
                               type="time"
                               value={formData.pre_construction_survey_end_time || ''}
@@ -4587,7 +4587,7 @@ function BusinessManagementPage() {
                       <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">준공실사</h4>
                       <div className="space-y-2 sm:space-y-3">
                         <div>
-                          <label className="block text-base font-medium text-gray-700 mb-1">담당자</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">담당자</label>
                           <input
                             type="text"
                             value={formData.completion_survey_manager || ''}
@@ -4597,7 +4597,7 @@ function BusinessManagementPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-base font-medium text-gray-700 mb-1">실사일</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">실사일</label>
                           <DateInput
                             value={formData.completion_survey_date || ''}
                             onChange={(value) => setFormData({...formData, completion_survey_date: value})}
@@ -4605,7 +4605,7 @@ function BusinessManagementPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">시작 시간</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">시작 시간</label>
                             <input
                               type="time"
                               value={formData.completion_survey_start_time || ''}
@@ -4614,7 +4614,7 @@ function BusinessManagementPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">종료 시간</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">종료 시간</label>
                             <input
                               type="time"
                               value={formData.completion_survey_end_time || ''}
@@ -4634,16 +4634,16 @@ function BusinessManagementPage() {
                     <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-2 sm:mr-2.5 md:mr-3">
                       <Settings className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-white" />
                     </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800">시스템 정보</h3>
+                    <h3 className="text-sm sm:text-sm md:text-base font-semibold text-slate-800">시스템 정보</h3>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">제조사</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">제조사</label>
                       <select
                         value={formData.manufacturer || ''}
                         onChange={(e) => setFormData({...formData, manufacturer: (e.target.value || null) as '에코센스' | '크린어스' | '가이아씨앤에스' | '이브이에스' | null})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                       >
                         <option value="">선택하세요</option>
                         <option value="에코센스">에코센스</option>
@@ -4654,11 +4654,11 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">VPN</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">VPN</label>
                       <select
                         value={formData.vpn || ''}
                         onChange={(e) => setFormData({...formData, vpn: (e.target.value || null) as 'wired' | 'wireless' | null})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                       >
                         <option value="">선택하세요</option>
                         <option value="wired">유선</option>
@@ -4667,47 +4667,47 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">그린링크 ID</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">그린링크 ID</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.greenlink_id || ''}
                         onChange={(e) => setFormData({...formData, greenlink_id: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">그린링크 PW</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">그린링크 PW</label>
                       <input
                         type="text"
                         lang="ko"
                         inputMode="text"
                         value={formData.greenlink_pw || ''}
                         onChange={(e) => setFormData({...formData, greenlink_pw: e.target.value})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">사업장관리코드</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">사업장관리코드</label>
                       <input
                         type="number"
                         value={formData.business_management_code || ''}
                         onChange={(e) => setFormData({...formData, business_management_code: parseInt(e.target.value) || 0})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">영업점</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">영업점</label>
                       <AutocompleteInput
                         value={formData.sales_office || ''}
                         onChange={(value) => setFormData({...formData, sales_office: value})}
                         options={salesOfficeList}
                         placeholder="영업점 선택 또는 입력"
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         disabled={salesOfficeLoading}
                       />
                     </div>
@@ -4721,182 +4721,182 @@ function BusinessManagementPage() {
                     <div className="p-1.5 sm:p-2 bg-purple-600 rounded-lg mr-2 sm:mr-3">
                       <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-base lg:text-base font-semibold text-gray-800">측정기기</h3>
+                    <h3 className="text-sm lg:text-sm font-semibold text-gray-800">측정기기</h3>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">PH센서</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">PH센서</label>
                       <input
                         type="number"
                         value={formData.ph_meter ?? ''}
                         onChange={(e) => setFormData({...formData, ph_meter: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">차압계</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">차압계</label>
                       <input
                         type="number"
                         value={formData.differential_pressure_meter ?? ''}
                         onChange={(e) => setFormData({...formData, differential_pressure_meter: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">온도계</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">온도계</label>
                       <input
                         type="number"
                         value={formData.temperature_meter ?? ''}
                         onChange={(e) => setFormData({...formData, temperature_meter: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">배출전류계</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">배출전류계</label>
                       <input
                         type="number"
                         value={formData.discharge_current_meter ?? ''}
                         onChange={(e) => setFormData({...formData, discharge_current_meter: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">송풍전류계</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">송풍전류계</label>
                       <input
                         type="number"
                         value={formData.fan_current_meter ?? ''}
                         onChange={(e) => setFormData({...formData, fan_current_meter: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">펌프전류계</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">펌프전류계</label>
                       <input
                         type="number"
                         value={formData.pump_current_meter ?? ''}
                         onChange={(e) => setFormData({...formData, pump_current_meter: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">게이트웨이</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">게이트웨이</label>
                       <input
                         type="number"
                         value={formData.gateway ?? ''}
                         onChange={(e) => setFormData({...formData, gateway: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">VPN(유선)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">VPN(유선)</label>
                       <input
                         type="number"
                         value={formData.vpn_wired ?? ''}
                         onChange={(e) => setFormData({...formData, vpn_wired: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">VPN(무선)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">VPN(무선)</label>
                       <input
                         type="number"
                         value={formData.vpn_wireless ?? ''}
                         onChange={(e) => setFormData({...formData, vpn_wireless: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">방폭차압계(국산)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">방폭차압계(국산)</label>
                       <input
                         type="number"
                         value={formData.explosion_proof_differential_pressure_meter_domestic ?? ''}
                         onChange={(e) => setFormData({...formData, explosion_proof_differential_pressure_meter_domestic: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">방폭온도계(국산)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">방폭온도계(국산)</label>
                       <input
                         type="number"
                         value={formData.explosion_proof_temperature_meter_domestic ?? ''}
                         onChange={(e) => setFormData({...formData, explosion_proof_temperature_meter_domestic: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">확장디바이스</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">확장디바이스</label>
                       <input
                         type="number"
                         value={formData.expansion_device ?? ''}
                         onChange={(e) => setFormData({...formData, expansion_device: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">중계기(8채널)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">중계기(8채널)</label>
                       <input
                         type="number"
                         value={formData.relay_8ch ?? ''}
                         onChange={(e) => setFormData({...formData, relay_8ch: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">중계기(16채널)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">중계기(16채널)</label>
                       <input
                         type="number"
                         value={formData.relay_16ch ?? ''}
                         onChange={(e) => setFormData({...formData, relay_16ch: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">메인보드교체</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">메인보드교체</label>
                       <input
                         type="number"
                         value={formData.main_board_replacement ?? ''}
                         onChange={(e) => setFormData({...formData, main_board_replacement: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">복수굴뚝</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">복수굴뚝</label>
                       <input
                         type="number"
                         value={formData.multiple_stack ?? ''}
                         onChange={(e) => setFormData({...formData, multiple_stack: e.target.value ? parseInt(e.target.value) : null})}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"
                       />
@@ -4911,12 +4911,12 @@ function BusinessManagementPage() {
                     <div className="p-1.5 sm:p-2 bg-yellow-600 rounded-lg mr-2 sm:mr-3">
                       <Database className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-base lg:text-base font-semibold text-gray-800">비용 정보</h3>
+                    <h3 className="text-sm lg:text-sm font-semibold text-gray-800">비용 정보</h3>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4 sm:p-5 md:p-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">추가공사비 (원)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">추가공사비 (원)</label>
                       <input
                         type="text"
                         value={formData.additional_cost ? formData.additional_cost.toLocaleString() : ''}
@@ -4924,12 +4924,12 @@ function BusinessManagementPage() {
                           const value = e.target.value.replace(/,/g, '');
                           setFormData({...formData, additional_cost: value ? parseInt(value) : null});
                         }}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         placeholder="매출에 추가될 금액 (예: 500,000)"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                         추가설치비 (원)
                         <span className="ml-1 text-[9px] sm:text-[10px] text-gray-500">(설치팀 요청 추가 비용)</span>
                       </label>
@@ -4940,7 +4940,7 @@ function BusinessManagementPage() {
                           const value = e.target.value.replace(/,/g, '');
                           setFormData({...formData, installation_extra_cost: value ? parseInt(value) : null});
                         }}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         placeholder="순이익에서 차감될 금액 (예: 300,000)"
                       />
                       <p className="mt-0.5 sm:mt-1 text-[8px] sm:text-[9px] md:text-[10px] text-orange-600">
@@ -4948,7 +4948,7 @@ function BusinessManagementPage() {
                       </p>
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">협의사항 (할인 금액, 원)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">협의사항 (할인 금액, 원)</label>
                       <input
                         type="text"
                         value={formData.negotiation ? parseInt(formData.negotiation).toLocaleString() : ''}
@@ -4956,12 +4956,12 @@ function BusinessManagementPage() {
                           const value = e.target.value.replace(/,/g, '');
                           setFormData({...formData, negotiation: value});
                         }}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         placeholder="매출에서 차감될 금액 (예: 100,000)"
                       />
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                         실사비 조정 (원)
                         <span className="ml-1 text-[9px] sm:text-[10px] text-gray-500">(기본 100,000원 기준 ±조정)</span>
                       </label>
@@ -4984,7 +4984,7 @@ function BusinessManagementPage() {
                           const numValue = parseInt(value, 10);
                           setFormData({...formData, survey_fee_adjustment: isNaN(numValue) ? null : numValue});
                         }}
-                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-base focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         placeholder="실사비 조정 금액 (예: -50,000 또는 50,000)"
                       />
                       <p className="mt-0.5 sm:mt-1 text-[8px] sm:text-[9px] md:text-[10px] text-purple-600">
@@ -5006,7 +5006,7 @@ function BusinessManagementPage() {
                         <div className="p-1.5 sm:p-2 bg-purple-600 rounded-lg mr-2 sm:mr-3">
                           <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
-                        <h3 className="text-base lg:text-base font-semibold text-gray-800">
+                        <h3 className="text-sm lg:text-sm font-semibold text-gray-800">
                           계산서 및 입금 정보 ({formData.progress_status})
                         </h3>
                       </div>
@@ -5019,14 +5019,14 @@ function BusinessManagementPage() {
                           <h4 className="text-xs sm:text-sm font-semibold text-blue-900 mb-3">1차 계산서</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">계산서 발행일</label>
                               <DateInput
                                 value={formData.invoice_1st_date || ''}
                                 onChange={(value) => setFormData({...formData, invoice_1st_date: value || null})}
                               />
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.invoice_1st_amount ? formData.invoice_1st_amount.toLocaleString() : ''}
@@ -5039,14 +5039,14 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">입금일</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">입금일</label>
                               <DateInput
                                 value={formData.payment_1st_date || ''}
                                 onChange={(value) => setFormData({...formData, payment_1st_date: value || null})}
                               />
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">입금 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.payment_1st_amount ? formData.payment_1st_amount.toLocaleString() : ''}
@@ -5079,14 +5079,14 @@ function BusinessManagementPage() {
                           <h4 className="text-xs sm:text-sm font-semibold text-green-900 mb-3">2차 계산서</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">계산서 발행일</label>
                               <DateInput
                                 value={formData.invoice_2nd_date || ''}
                                 onChange={(value) => setFormData({...formData, invoice_2nd_date: value || null})}
                               />
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.invoice_2nd_amount ? formData.invoice_2nd_amount.toLocaleString() : ''}
@@ -5099,14 +5099,14 @@ function BusinessManagementPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">입금일</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">입금일</label>
                               <DateInput
                                 value={formData.payment_2nd_date || ''}
                                 onChange={(value) => setFormData({...formData, payment_2nd_date: value || null})}
                               />
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">입금 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.payment_2nd_amount ? formData.payment_2nd_amount.toLocaleString() : ''}
@@ -5140,14 +5140,14 @@ function BusinessManagementPage() {
                             <h4 className="text-xs sm:text-sm font-semibold text-amber-900 mb-3">추가공사비 계산서</h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div>
-                                <label className="block text-base font-medium text-gray-700 mb-1">계산서 발행일</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">계산서 발행일</label>
                                 <DateInput
                                   value={formData.invoice_additional_date || ''}
                                   onChange={(value) => setFormData({...formData, invoice_additional_date: value || null})}
                                 />
                               </div>
                               <div>
-                                <label className="block text-base font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                                 <input
                                   type="text"
                                   value={Math.round(formData.additional_cost * 1.1).toLocaleString()}
@@ -5157,14 +5157,14 @@ function BusinessManagementPage() {
                                 <p className="text-[9px] text-gray-500 mt-1">※ 추가공사비 + 부가세 10% (공급가액: {formData.additional_cost.toLocaleString()}원)</p>
                               </div>
                               <div>
-                                <label className="block text-base font-medium text-gray-700 mb-1">입금일</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">입금일</label>
                                 <DateInput
                                   value={formData.payment_additional_date || ''}
                                   onChange={(value) => setFormData({...formData, payment_additional_date: value || null})}
                                 />
                               </div>
                               <div>
-                                <label className="block text-base font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">입금 금액 (원)</label>
                                 <input
                                   type="text"
                                   value={formData.payment_additional_amount ? formData.payment_additional_amount.toLocaleString() : ''}
@@ -5257,14 +5257,14 @@ function BusinessManagementPage() {
                           <h4 className="text-xs sm:text-sm font-semibold text-purple-900 mb-3">선금 계산서</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">계산서 발행일</label>
                               <DateInput
                                 value={formData.invoice_advance_date || ''}
                                 onChange={(value) => setFormData({...formData, invoice_advance_date: value || null})}
                               />
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.invoice_advance_amount ? formData.invoice_advance_amount.toLocaleString() : ''}
@@ -5278,14 +5278,14 @@ function BusinessManagementPage() {
                               <p className="text-[9px] text-gray-500 mt-1">※ 기본 50%, 사업장에 따라 100%도 가능</p>
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">입금일</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">입금일</label>
                               <DateInput
                                 value={formData.payment_advance_date || ''}
                                 onChange={(value) => setFormData({...formData, payment_advance_date: value || null})}
                               />
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">입금 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.payment_advance_amount ? formData.payment_advance_amount.toLocaleString() : ''}
@@ -5318,14 +5318,14 @@ function BusinessManagementPage() {
                           <h4 className="text-xs sm:text-sm font-semibold text-cyan-900 mb-3">잔금 계산서</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">계산서 발행일</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">계산서 발행일</label>
                               <DateInput
                                 value={formData.invoice_balance_date || ''}
                                 onChange={(value) => setFormData({...formData, invoice_balance_date: value || null})}
                               />
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">계산서 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.invoice_balance_amount ? formData.invoice_balance_amount.toLocaleString() : ''}
@@ -5339,14 +5339,14 @@ function BusinessManagementPage() {
                               <p className="text-[9px] text-gray-500 mt-1">※ 선금 100% 경우 0원 가능</p>
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">입금일</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">입금일</label>
                               <DateInput
                                 value={formData.payment_balance_date || ''}
                                 onChange={(value) => setFormData({...formData, payment_balance_date: value || null})}
                               />
                             </div>
                             <div>
-                              <label className="block text-base font-medium text-gray-700 mb-1">입금 금액 (원)</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">입금 금액 (원)</label>
                               <input
                                 type="text"
                                 value={formData.payment_balance_amount ? formData.payment_balance_amount.toLocaleString() : ''}
@@ -5425,15 +5425,15 @@ function BusinessManagementPage() {
                     <div className="p-1.5 sm:p-2 bg-green-600 rounded-lg mr-2 sm:mr-3">
                       <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-base lg:text-base font-semibold text-gray-800">상태 설정</h3>
+                    <h3 className="text-sm lg:text-sm font-semibold text-gray-800">상태 설정</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-base font-medium text-gray-700 mb-1 sm:mb-2">활성 상태</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">활성 상태</label>
                       <select
                         value={formData.is_active ? 'true' : 'false'}
                         onChange={(e) => setFormData({...formData, is_active: e.target.value === 'true'})}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-base"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                       >
                         <option value="true">활성</option>
                         <option value="false">비활성</option>
