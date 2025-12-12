@@ -1,8 +1,8 @@
 // app/admin/air-permit/page.tsx - 대기필증 관리 페이지
 'use client'
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { BusinessInfo, AirPermitInfo } from '@/lib/database-service'
 import { AirPermitWithOutlets } from '@/types/database'
 import AdminLayout from '@/components/ui/AdminLayout'
@@ -204,6 +204,7 @@ const UnitInput = ({ value, onChange, placeholder, unit, className }: {
 
 function AirPermitManagementPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [businessesWithPermits, setBusinessesWithPermits] = useState<BusinessInfo[]>([])
   const [businessListSearchTerm, setBusinessListSearchTerm] = useState('')
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessInfo | null>(null)
@@ -731,6 +732,20 @@ function AirPermitManagementPage() {
   useEffect(() => {
     loadBusinessesWithPermits()
   }, [])
+
+  // 🔄 URL 파라미터에서 사업장 복원 (목록으로 버튼으로 돌아왔을 때)
+  useEffect(() => {
+    const businessId = searchParams?.get('businessId')
+    if (businessId && businessesWithPermits.length > 0 && !selectedBusiness) {
+      const business = businessesWithPermits.find(b => b.id === businessId)
+      if (business) {
+        console.log('🔄 URL 파라미터에서 사업장 복원:', business.business_name)
+        handleBusinessSelect(business)
+        // URL에서 파라미터 제거 (깔끔한 URL 유지)
+        router.replace('/admin/air-permit', { scroll: false })
+      }
+    }
+  }, [searchParams, businessesWithPermits, selectedBusiness])
 
   // 🔄 페이지가 다시 보여질 때마다 데이터 새로고침 (디테일 페이지에서 돌아왔을 때 게이트웨이 변경사항 반영)
   useEffect(() => {
@@ -1835,4 +1850,20 @@ function AirPermitManagementPage() {
   );
 }
 
-export default withAuth(AirPermitManagementPage, undefined, 1)
+// Suspense로 감싸서 useSearchParams 사용 가능하게 함
+function AirPermitPageWithSuspense() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <AirPermitManagementPage />
+    </Suspense>
+  )
+}
+
+export default withAuth(AirPermitPageWithSuspense, undefined, 1)

@@ -72,7 +72,9 @@
       "Bash(npm view:*)",
       "Bash(open:*)",
       "Bash(npm uninstall:*)",
-      "Bash(jq:*)"
+      "Bash(jq:*)",
+      "Bash(app/admin/tasks/page.tsx)",
+      "Bash(app/admin/air-permit-detail/page.tsx)"
     ],
     "deny": [],
     "ask": [],

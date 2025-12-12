@@ -1200,7 +1200,14 @@ function AirPermitDetailContent() {
       actions={(
         <div className="flex gap-3">
           <button
-            onClick={() => router.push('/admin/air-permit')}
+            onClick={() => {
+              const businessId = permitDetail?.business_id
+              if (businessId) {
+                router.push(`/admin/air-permit?businessId=${businessId}`)
+              } else {
+                router.push('/admin/air-permit')
+              }
+            }}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
