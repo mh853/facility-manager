@@ -322,10 +322,10 @@ export default function AdminDashboard() {
 
         {/* ✅ 차트 로딩 상태 표시 */}
         {chartsLoading && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              <p className="text-blue-800 font-medium">대시보드 데이터를 불러오는 중...</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <p className="text-sm text-blue-800 font-medium">대시보드 데이터를 불러오는 중...</p>
             </div>
           </div>
         )}
@@ -335,16 +335,16 @@ export default function AdminDashboard() {
 
         {/* 미수금과 설치는 2열 그리드로 렌더링 */}
         {otherCharts.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {otherCharts.map(widget => renderWidget(widget.id))}
           </div>
         )}
 
         {/* 차트 위젯이 모두 숨겨진 경우 */}
         {chartWidgets.length === 0 && !showOrganization && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">표시할 위젯이 없습니다.</p>
-            <p className="text-sm text-gray-400">
+          <div className="text-center py-8">
+            <p className="text-sm text-gray-500 mb-2">표시할 위젯이 없습니다.</p>
+            <p className="text-xs text-gray-400">
               우측 하단의 설정 버튼을 클릭하여 위젯을 표시하세요.
             </p>
           </div>
@@ -352,26 +352,26 @@ export default function AdminDashboard() {
 
         {/* 조직 현황 - 하단에 접이식으로 배치 */}
         {showOrganization && (
-          <div className="mt-8">
+          <div className="mt-6">
             <button
               onClick={() => setIsOrgExpanded(!isOrgExpanded)}
-              className="w-full flex items-center justify-between p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200"
+              className="w-full flex items-center justify-between p-3 bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200"
             >
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-gray-800">조직 현황</h2>
-                <span className="text-sm text-gray-500">
+                <h2 className="text-base font-bold text-gray-800">조직 현황</h2>
+                <span className="text-xs text-gray-500">
                   {isOrgExpanded ? '클릭하여 접기' : '클릭하여 펼치기'}
                 </span>
               </div>
               {isOrgExpanded ? (
-                <ChevronUp className="w-6 h-6 text-gray-600" />
+                <ChevronUp className="w-5 h-5 text-gray-600" />
               ) : (
-                <ChevronDown className="w-6 h-6 text-gray-600" />
+                <ChevronDown className="w-5 h-5 text-gray-600" />
               )}
             </button>
 
             {isOrgExpanded && (
-              <div className="mt-4 bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200">
+              <div className="mt-3 bg-white p-3 md:p-4 rounded-lg shadow border border-gray-200">
                 <OrganizationChart />
               </div>
             )}
@@ -379,7 +379,7 @@ export default function AdminDashboard() {
         )}
 
         {/* 푸터 정보 */}
-        <div className="mt-8 text-center text-sm text-gray-500">
+        <div className="mt-6 text-center text-xs text-gray-500">
           <p>
             데이터는 최근 12개월 기준으로 표시됩니다.
             실시간 업데이트를 원하시면 각 차트의 새로고침 버튼을 클릭하세요.
