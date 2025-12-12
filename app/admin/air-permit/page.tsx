@@ -1182,7 +1182,8 @@ function AirPermitManagementPage() {
           ) : (
             /* Permit Detail View */
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 border-b border-gray-200">
+              {/* Sticky Header */}
+              <div className="sticky top-0 z-20 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 border-b border-gray-200 rounded-t-xl shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
                     <div className="p-1 sm:p-1.5 md:p-2 bg-blue-100 rounded-lg">
