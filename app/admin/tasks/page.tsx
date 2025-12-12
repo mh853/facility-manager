@@ -1951,7 +1951,7 @@ function TaskManagementPage() {
                 <div className="space-y-4">
                 {/* 사업장 선택 (기타 타입일 때는 선택사항) */}
                 <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">
                     사업장 {createTaskForm.type !== 'etc' && <span className="text-red-500">*</span>}
                   </label>
                   <input
@@ -1961,7 +1961,7 @@ function TaskManagementPage() {
                     onFocus={() => setShowBusinessDropdown(businessSearchTerm.length >= 2)}
                     onKeyDown={(e) => handleBusinessKeyDown(e)}
                     placeholder="사업장명을 입력하세요 (최소 2글자)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
                   />
 
                   {/* 자동완성 드롭다운 */}
@@ -1995,11 +1995,11 @@ function TaskManagementPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* 업무 타입 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">업무 타입</label>
+                    <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">업무 타입</label>
                     <select
                       value={createTaskForm.type}
                       onChange={(e) => setCreateTaskForm(prev => ({ ...prev, type: e.target.value as TaskType }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
                     >
                       <option value="self">자비</option>
                       <option value="subsidy">보조금</option>
@@ -2010,11 +2010,11 @@ function TaskManagementPage() {
 
                   {/* 우선순위 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">우선순위</label>
+                    <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">우선순위</label>
                     <select
                       value={createTaskForm.priority}
                       onChange={(e) => setCreateTaskForm(prev => ({ ...prev, priority: e.target.value as Priority }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
                     >
                       <option value="high">높음</option>
                       <option value="medium">보통</option>
@@ -2025,13 +2025,13 @@ function TaskManagementPage() {
 
                 {/* 현재 단계 (필수) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">
                     현재 단계 <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={createTaskForm.status}
                     onChange={(e) => setCreateTaskForm(prev => ({ ...prev, status: e.target.value as TaskStatus }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
                     required
                   >
                     {(createTaskForm.type === 'self' ? selfSteps :
@@ -2045,7 +2045,7 @@ function TaskManagementPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* 담당자 (다중 선택) */}
                   <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">
                       담당자 <span className="text-gray-500 text-xs">(여러 명 선택 가능)</span>
                     </label>
                     <MultiAssigneeSelector
@@ -2067,23 +2067,23 @@ function TaskManagementPage() {
 
                   {/* 시작일 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">시작일</label>
+                    <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">시작일</label>
                     <input
                       type="date"
                       value={createTaskForm.startDate}
                       onChange={(e) => setCreateTaskForm(prev => ({ ...prev, startDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
                     />
                   </div>
 
                   {/* 마감일 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">마감일</label>
+                    <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">마감일</label>
                     <input
                       type="date"
                       value={createTaskForm.dueDate}
                       onChange={(e) => setCreateTaskForm(prev => ({ ...prev, dueDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
                     />
                   </div>
                 </div>
@@ -2091,7 +2091,7 @@ function TaskManagementPage() {
 
                 {/* 업무 설명 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">업무 설명</label>
+                  <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">업무 설명</label>
                   <textarea
                     ref={createDescriptionRef}
                     value={createTaskForm.description}
@@ -2103,14 +2103,14 @@ function TaskManagementPage() {
                       target.style.height = Math.min(target.scrollHeight, window.innerHeight * 0.5) + 'px'
                     }}
                     placeholder="업무에 대한 설명을 입력하세요"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none text-xs sm:text-sm"
                     style={{ minHeight: '80px', maxHeight: '50vh' }}
                   />
                 </div>
 
                 {/* 메모 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">메모</label>
+                  <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">메모</label>
                   <textarea
                     ref={createNotesRef}
                     value={createTaskForm.notes}
@@ -2122,7 +2122,7 @@ function TaskManagementPage() {
                       target.style.height = Math.min(target.scrollHeight, window.innerHeight * 0.5) + 'px'
                     }}
                     placeholder="메모나 추가 정보를 입력하세요"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none text-xs sm:text-sm"
                     style={{ minHeight: '60px', maxHeight: '50vh' }}
                   />
                 </div>
@@ -2267,7 +2267,7 @@ function TaskManagementPage() {
                 <div className="space-y-4">
                 {/* 사업장 선택 (기타 타입일 때는 선택사항) */}
                 <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">
                     사업장 {editingTask?.type !== 'etc' && <span className="text-red-500">*</span>}
                   </label>
                   <input
@@ -2277,7 +2277,7 @@ function TaskManagementPage() {
                     onFocus={() => setShowEditBusinessDropdown(editBusinessSearchTerm.length >= 2)}
                     onKeyDown={(e) => handleBusinessKeyDown(e, true)}
                     placeholder="사업장명을 입력하세요 (최소 2글자)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
                   />
 
                   {/* 자동완성 드롭다운 */}
@@ -2311,11 +2311,11 @@ function TaskManagementPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* 업무 타입 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">업무 타입</label>
+                    <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">업무 타입</label>
                     <select
                       value={editingTask.type}
                       onChange={(e) => setEditingTask(prev => prev ? { ...prev, type: e.target.value as TaskType } : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
                     >
                       <option value="self">자비</option>
                       <option value="subsidy">보조금</option>
@@ -2326,11 +2326,11 @@ function TaskManagementPage() {
 
                   {/* 우선순위 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">우선순위</label>
+                    <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">우선순위</label>
                     <select
                       value={editingTask.priority}
                       onChange={(e) => setEditingTask(prev => prev ? { ...prev, priority: e.target.value as Priority } : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
                     >
                       <option value="high">높음</option>
                       <option value="medium">보통</option>
@@ -2341,7 +2341,7 @@ function TaskManagementPage() {
 
                 {/* 현재 단계 (필수) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">
                     현재 단계 <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -2361,7 +2361,7 @@ function TaskManagementPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* 담당자 (다중 선택) */}
                   <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">
                       담당자 <span className="text-gray-500 text-xs">(여러 명 선택 가능)</span>
                     </label>
                     <MultiAssigneeSelector
@@ -2383,23 +2383,23 @@ function TaskManagementPage() {
 
                   {/* 시작일 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">시작일</label>
+                    <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">시작일</label>
                     <input
                       type="date"
                       value={editingTask.startDate || ''}
                       onChange={(e) => setEditingTask(prev => prev ? { ...prev, startDate: e.target.value || undefined } : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
                     />
                   </div>
 
                   {/* 마감일 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">마감일</label>
+                    <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">마감일</label>
                     <input
                       type="date"
                       value={editingTask.dueDate || ''}
                       onChange={(e) => setEditingTask(prev => prev ? { ...prev, dueDate: e.target.value || undefined } : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
                     />
                   </div>
                 </div>
@@ -2407,7 +2407,7 @@ function TaskManagementPage() {
 
                 {/* 업무 설명 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">업무 설명</label>
+                  <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">업무 설명</label>
                   <textarea
                     ref={editDescriptionRef}
                     value={editingTask.description || ''}
@@ -2419,14 +2419,14 @@ function TaskManagementPage() {
                       target.style.height = Math.min(target.scrollHeight, window.innerHeight * 0.5) + 'px'
                     }}
                     placeholder="업무에 대한 설명을 입력하세요"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none text-xs sm:text-sm"
                     style={{ minHeight: '80px', maxHeight: '50vh' }}
                   />
                 </div>
 
                 {/* 메모 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">메모</label>
+                  <label className="block text-xs sm:text-xs font-medium text-gray-700 mb-2">메모</label>
                   <textarea
                     ref={editNotesRef}
                     value={editingTask.notes || ''}
@@ -2438,7 +2438,7 @@ function TaskManagementPage() {
                       target.style.height = Math.min(target.scrollHeight, window.innerHeight * 0.5) + 'px'
                     }}
                     placeholder="메모나 추가 정보를 입력하세요"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none text-xs sm:text-sm"
                     style={{ minHeight: '60px', maxHeight: '50vh' }}
                   />
                 </div>
