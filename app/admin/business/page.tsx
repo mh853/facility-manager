@@ -3605,7 +3605,7 @@ function BusinessManagementPage() {
     >
       <div className="space-y-2 sm:space-y-3 md:space-y-4">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-1 sm:gap-1.5">
           <StatsCard
             title="올해 진행 사업장"
             value={stats.thisYear.toString()}

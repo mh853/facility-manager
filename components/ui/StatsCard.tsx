@@ -110,14 +110,14 @@ export default function StatsCard({
   
   if (loading) {
     return (
-      <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-2.5 md:p-3">
+      <div className="bg-white rounded-md shadow-sm border border-gray-200 p-1.5 sm:p-2">
         <div className="animate-pulse">
-          <div className="flex items-center justify-between mb-1 sm:mb-1.5">
-            <div className="h-2 sm:h-2.5 bg-gray-200 rounded w-16 sm:w-18"></div>
-            <div className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 bg-gray-200 rounded-lg"></div>
+          <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+            <div className="h-1.5 sm:h-2 bg-gray-200 rounded w-12 sm:w-14"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-gray-200 rounded"></div>
           </div>
-          <div className="h-3 sm:h-4 md:h-5 bg-gray-200 rounded w-10 sm:w-12 md:w-14 mb-1"></div>
-          <div className="h-1.5 sm:h-2 bg-gray-200 rounded w-12 sm:w-14"></div>
+          <div className="h-2.5 sm:h-3 md:h-4 bg-gray-200 rounded w-8 sm:w-10 md:w-12 mb-0.5"></div>
+          <div className="h-1.5 sm:h-2 bg-gray-200 rounded w-10 sm:w-12"></div>
         </div>
       </div>
     )
@@ -147,44 +147,44 @@ export default function StatsCard({
   return (
     <div
       className={`
-        bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-2.5 md:p-3 transition-all duration-200
+        bg-white rounded-md shadow-sm border border-gray-200 p-1.5 sm:p-2 transition-all duration-200
         ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-1' : ''}
       `}
       onClick={onClick}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-1 sm:mb-1.5">
-        <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">{title}</h3>
-        <div className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded-md flex items-center justify-center ${colorScheme.icon}`}>
-          <Icon className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4" />
+      <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+        <h3 className="text-[9px] sm:text-[10px] md:text-xs font-medium text-gray-600">{title}</h3>
+        <div className={`w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 rounded flex items-center justify-center ${colorScheme.icon}`}>
+          <Icon className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3" />
         </div>
       </div>
 
       {/* Value */}
-      <div className="mb-1">
-        <div className="text-sm sm:text-base md:text-lg font-bold text-gray-900">
+      <div className="mb-0.5">
+        <div className="text-xs sm:text-sm md:text-base font-bold text-gray-900">
           {formatValue(value)}
         </div>
         {description && (
-          <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">{description}</p>
+          <p className="text-[9px] sm:text-[10px] text-gray-500 mt-0.5">{description}</p>
         )}
       </div>
 
       {/* Trend */}
       {trend && (
         <div className={`
-          inline-flex items-center gap-1 px-1 py-0.5 sm:px-1.5 sm:py-0.5 rounded-full text-[9px] sm:text-xs font-medium
+          inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium
           ${colorScheme.trend[trend.direction]}
         `}>
           {getTrendIcon()}
           <span>{trend.value > 0 ? '+' : ''}{trend.value}%</span>
-          {trend.label && <span className="ml-1 hidden sm:inline">{trend.label}</span>}
+          {trend.label && <span className="ml-0.5 hidden sm:inline">{trend.label}</span>}
         </div>
       )}
 
       {/* Additional Content */}
       {children && (
-        <div className="mt-1 pt-1 sm:mt-1.5 sm:pt-1.5 md:mt-2 md:pt-2 border-t border-gray-100">
+        <div className="mt-1 pt-1 sm:mt-1.5 sm:pt-1.5 border-t border-gray-100">
           {children}
         </div>
       )}
