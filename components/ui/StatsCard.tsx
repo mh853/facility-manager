@@ -110,14 +110,14 @@ export default function StatsCard({
   
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 sm:p-2 md:p-3 lg:p-4">
+      <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-2.5 md:p-3">
         <div className="animate-pulse">
-          <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2 lg:mb-3">
-            <div className="h-2 sm:h-2.5 md:h-3 bg-gray-200 rounded w-16 sm:w-18 md:w-20"></div>
-            <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 lg:w-9 lg:h-9 bg-gray-200 rounded-lg"></div>
+          <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+            <div className="h-2 sm:h-2.5 bg-gray-200 rounded w-16 sm:w-18"></div>
+            <div className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 bg-gray-200 rounded-lg"></div>
           </div>
-          <div className="h-4 sm:h-5 md:h-6 lg:h-7 bg-gray-200 rounded w-10 sm:w-12 md:w-14 lg:w-16 mb-1"></div>
-          <div className="h-1.5 sm:h-2 md:h-2.5 bg-gray-200 rounded w-12 sm:w-14 md:w-16"></div>
+          <div className="h-3 sm:h-4 md:h-5 bg-gray-200 rounded w-10 sm:w-12 md:w-14 mb-1"></div>
+          <div className="h-1.5 sm:h-2 bg-gray-200 rounded w-12 sm:w-14"></div>
         </div>
       </div>
     )
@@ -147,33 +147,33 @@ export default function StatsCard({
   return (
     <div
       className={`
-        bg-white rounded-xl shadow-sm border border-gray-200 p-2 sm:p-2 md:p-3 lg:p-4 transition-all duration-200
+        bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-2.5 md:p-3 transition-all duration-200
         ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-1' : ''}
       `}
       onClick={onClick}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2 lg:mb-3">
-        <h3 className="text-xs sm:text-xs md:text-sm font-medium text-gray-600">{title}</h3>
-        <div className={`w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 lg:w-9 lg:h-9 rounded-lg flex items-center justify-center ${colorScheme.icon}`}>
-          <Icon className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-5 lg:h-5" />
+      <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+        <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">{title}</h3>
+        <div className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded-md flex items-center justify-center ${colorScheme.icon}`}>
+          <Icon className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4" />
         </div>
       </div>
 
       {/* Value */}
-      <div className="mb-1 sm:mb-1 md:mb-1.5">
-        <div className="text-base sm:text-lg md:text-lg lg:text-xl font-bold text-gray-900">
+      <div className="mb-1">
+        <div className="text-sm sm:text-base md:text-lg font-bold text-gray-900">
           {formatValue(value)}
         </div>
         {description && (
-          <p className="text-xs sm:text-xs md:text-sm text-gray-500 mt-0.5">{description}</p>
+          <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">{description}</p>
         )}
       </div>
 
       {/* Trend */}
       {trend && (
         <div className={`
-          inline-flex items-center gap-1 px-1 py-0.5 sm:px-1.5 sm:py-0.5 md:px-2 md:py-1 rounded-full text-[9px] sm:text-xs font-medium
+          inline-flex items-center gap-1 px-1 py-0.5 sm:px-1.5 sm:py-0.5 rounded-full text-[9px] sm:text-xs font-medium
           ${colorScheme.trend[trend.direction]}
         `}>
           {getTrendIcon()}
@@ -184,7 +184,7 @@ export default function StatsCard({
 
       {/* Additional Content */}
       {children && (
-        <div className="mt-1 pt-1 sm:mt-1.5 sm:pt-1.5 md:mt-2 md:pt-2 lg:mt-3 lg:pt-3 border-t border-gray-100">
+        <div className="mt-1 pt-1 sm:mt-1.5 sm:pt-1.5 md:mt-2 md:pt-2 border-t border-gray-100">
           {children}
         </div>
       )}
