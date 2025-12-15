@@ -3,14 +3,15 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { FixedSizeList } from 'react-window'
 import { BusinessInfo, AirPermitInfo } from '@/lib/database-service'
 import { AirPermitWithOutlets } from '@/types/database'
 import AdminLayout from '@/components/ui/AdminLayout'
 import { withAuth } from '@/contexts/AuthContext'
 import { ConfirmModal } from '@/components/ui/Modal'
 import { generateFacilityNumbering, generateOutletFacilitySummary, type FacilityNumberingResult } from '@/utils/facility-numbering'
-import { 
-  FileText, 
+import {
+  FileText,
   Plus,
   Building2,
   Trash2,
@@ -242,6 +243,9 @@ function AirPermitManagementPage() {
   const [filteredAirPermits, setFilteredAirPermits] = useState<AirPermitInfo[]>([])
   const [permitSearchQuery, setPermitSearchQuery] = useState('')
   const [facilityNumberingMap, setFacilityNumberingMap] = useState<Map<string, FacilityNumberingResult>>(new Map())
+
+  // 가상 스크롤 컨테이너 높이 상태
+  const [containerHeight, setContainerHeight] = useState(600)
 
   // 대기필증이 등록된 사업장만 필터링 (선택 리스트용)
   const filteredBusinessesWithPermits = useMemo(() => {
@@ -507,6 +511,19 @@ function AirPermitManagementPage() {
       setIsLoading(false)
     }
   }
+
+  // 반응형 컨테이너 높이 설정
+  useEffect(() => {
+    const updateHeight = () => {
+      const vh = window.innerHeight
+      const offset = vh < 768 ? 300 : vh < 1024 ? 250 : 200
+      setContainerHeight(vh - offset)
+    }
+
+    updateHeight()
+    window.addEventListener('resize', updateHeight)
+    return () => window.removeEventListener('resize', updateHeight)
+  }, [])
 
   // 대기필증 검색어 변경 시 필터링
   useEffect(() => {
@@ -957,10 +974,10 @@ function AirPermitManagementPage() {
                 <span className="whitespace-nowrap">대기필증 보유 사업장</span>
               </div>
               <span className="text-[8px] sm:text-[9px] md:text-[10px] font-normal bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full whitespace-nowrap">
-                {searchTerm ? (
-                  `${Math.min(filteredBusinessesWithPermits.length, 8)}개 표시 (검색결과 ${filteredBusinessesWithPermits.length}개 중)`
+                {businessListSearchTerm ? (
+                  `검색 ${filteredBusinessesWithPermits.length}개`
                 ) : (
-                  `${Math.min(filteredBusinessesWithPermits.length, 8)}개 표시 (전체 ${filteredBusinessesWithPermits.length}개 중)`
+                  `전체 ${filteredBusinessesWithPermits.length}개`
                 )}
               </span>
             </h2>
@@ -987,26 +1004,57 @@ function AirPermitManagementPage() {
               )}
             </div>
             
-            <div className="space-y-2">
-              {filteredBusinessesWithPermits.slice(0, 8).map((business) => (
-                <div
-                  key={business.id}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedBusiness?.id === business.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                  onClick={() => handleBusinessSelect(business)}
-                >
-                  <h3 className="font-medium text-gray-900 text-sm">
-                    {businessListSearchTerm ? highlightBusinessSearchTerm(business.business_name, businessListSearchTerm) : business.business_name}
-                  </h3>
-                  <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 mt-1">
-                    {business.business_registration_number || '등록번호 미등록'}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {filteredBusinessesWithPermits.length > 0 ? (
+              <FixedSizeList
+                height={containerHeight}
+                itemCount={filteredBusinessesWithPermits.length}
+                itemSize={80}
+                width="100%"
+                itemKey={(index: number) => filteredBusinessesWithPermits[index].id}
+                className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+              >
+                {({ index, style }: { index: number; style: React.CSSProperties }) => {
+                  const business = filteredBusinessesWithPermits[index]
+                  const isSelected = selectedBusiness?.id === business.id
+
+                  return (
+                    <div style={style} className="px-2">
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`사업장: ${business.business_name}`}
+                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => handleBusinessSelect(business)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            handleBusinessSelect(business)
+                          }
+                        }}
+                      >
+                        <h3 className="font-medium text-gray-900 text-sm">
+                          {businessListSearchTerm ? highlightBusinessSearchTerm(business.business_name, businessListSearchTerm) : business.business_name}
+                        </h3>
+                        <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 mt-1">
+                          {business.business_registration_number || '등록번호 미등록'}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                }}
+              </FixedSizeList>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p className="text-sm">
+                  {businessListSearchTerm ? '검색 결과가 없습니다' : '대기필증 보유 사업장이 없습니다'}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
