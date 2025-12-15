@@ -204,87 +204,87 @@ export default function OrderManagementPage() {
       {/* 통계 카드 */}
       {activeTab === 'router_management' ? (
         // 라우터 관리 통계
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm text-gray-600">전체 재고</span>
-              <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
+              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">전체 재고</span>
+              <Package className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-gray-400" />
             </div>
-            <div className="text-lg sm:text-2xl font-bold text-gray-900">{routerSummary.total}</div>
+            <div className="text-base sm:text-lg md:text-2xl font-bold text-gray-900">{routerSummary.total}</div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm text-gray-600">가용 재고</span>
-              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400" />
+          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
+              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">가용 재고</span>
+              <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-green-400" />
             </div>
-            <div className="text-lg sm:text-2xl font-bold text-green-600">{routerSummary.in_stock}</div>
+            <div className="text-base sm:text-lg md:text-2xl font-bold text-green-600">{routerSummary.in_stock}</div>
             {routerSummary.in_stock < 10 && (
-              <div className="flex items-center gap-1 mt-1">
+              <div className="flex items-center gap-0.5 sm:gap-1 mt-0.5 sm:mt-1">
                 <AlertCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-orange-500" />
-                <span className="text-[10px] sm:text-xs text-orange-500">재고 부족</span>
+                <span className="text-[9px] sm:text-[10px] md:text-xs text-orange-500">재고 부족</span>
               </div>
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm text-gray-600">할당됨</span>
-              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
+          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
+              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">할당됨</span>
+              <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-blue-400" />
             </div>
-            <div className="text-lg sm:text-2xl font-bold text-blue-600">{routerSummary.assigned}</div>
+            <div className="text-base sm:text-lg md:text-2xl font-bold text-blue-600">{routerSummary.assigned}</div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm text-gray-600">출고 대기</span>
-              <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-400" />
+          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
+              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">출고 대기</span>
+              <AlertCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-orange-400" />
             </div>
-            <div className="text-lg sm:text-2xl font-bold text-orange-600">{routerSummary.shipped_pending}</div>
+            <div className="text-base sm:text-lg md:text-2xl font-bold text-orange-600">{routerSummary.shipped_pending}</div>
           </div>
         </div>
       ) : (
         // 발주 관리 통계
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm text-gray-600">전체</span>
-              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
+              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">전체</span>
+              <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-gray-400" />
             </div>
-            <div className="text-lg sm:text-2xl font-bold text-gray-900">
+            <div className="text-base sm:text-lg md:text-2xl font-bold text-gray-900">
               {summary.total_orders}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm text-gray-600">진행중</span>
-              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
+          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
+              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">진행중</span>
+              <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-blue-400" />
             </div>
-            <div className="text-lg sm:text-2xl font-bold text-blue-600">
+            <div className="text-base sm:text-lg md:text-2xl font-bold text-blue-600">
               {summary.in_progress}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm text-gray-600">완료</span>
-              <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400" />
+          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
+            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
+              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">완료</span>
+              <Package className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-green-400" />
             </div>
-            <div className="text-lg sm:text-2xl font-bold text-green-600">
+            <div className="text-base sm:text-lg md:text-2xl font-bold text-green-600">
               {summary.completed}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-            <div className="text-xs sm:text-sm text-gray-600 mb-1.5 sm:mb-2">제조사별</div>
+          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
+            <div className="text-[10px] sm:text-xs md:text-sm text-gray-600 mb-1 sm:mb-1.5 md:mb-2">제조사별</div>
             <div className="space-y-0.5 sm:space-y-1">
               {Object.entries(summary.by_manufacturer).map(
                 ([key, value]) =>
                   value > 0 && (
                     <div
                       key={key}
-                      className="flex items-center justify-between text-[10px] sm:text-xs"
+                      className="flex items-center justify-between text-[9px] sm:text-[10px] md:text-xs"
                     >
                       <span className="text-gray-600">
                         {MANUFACTURERS[key as Manufacturer].name}
@@ -299,7 +299,7 @@ export default function OrderManagementPage() {
       )}
 
       {/* 탭 메뉴 */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-md md:rounded-lg shadow overflow-hidden">
         <div className="flex border-b border-gray-200 overflow-x-auto">
           <button
             onClick={() => handleTabChange('in_progress')}
@@ -372,8 +372,8 @@ export default function OrderManagementPage() {
       ) : (
         <>
       {/* 필터 및 검색 */}
-      <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4">
+      <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
           {/* 검색 */}
           <div className="lg:col-span-2">
             <div className="relative">
@@ -457,13 +457,13 @@ export default function OrderManagementPage() {
       </div>
 
       {/* 발주 목록 */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-md md:rounded-lg shadow overflow-hidden">
         {loading ? (
-          <div className="py-12 text-center text-gray-500 text-sm">
+          <div className="py-8 sm:py-10 md:py-12 text-center text-gray-500 text-xs sm:text-sm">
             로딩 중...
           </div>
         ) : orders.length === 0 ? (
-          <div className="py-12 text-center text-gray-500 text-sm">
+          <div className="py-8 sm:py-10 md:py-12 text-center text-gray-500 text-xs sm:text-sm">
             발주 대상 사업장이 없습니다
           </div>
         ) : (() => {
@@ -479,7 +479,7 @@ export default function OrderManagementPage() {
           })
 
           return filteredOrders.length === 0 ? (
-            <div className="py-12 text-center text-gray-500 text-sm">
+            <div className="py-8 sm:py-10 md:py-12 text-center text-gray-500 text-xs sm:text-sm">
               {assigneeFilter !== 'all'
                 ? `담당자 "${assigneeFilter}"의 발주 대상 사업장이 없습니다`
                 : '발주 대상 사업장이 없습니다'}
@@ -491,22 +491,22 @@ export default function OrderManagementPage() {
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-700">
                         사업장명
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-700">
                         주소
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-700">
                         제조사
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-700">
                         진행률
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-700">
                         상태
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-[10px] sm:text-xs md:text-sm font-semibold text-gray-700">
                         최종 업데이트
                       </th>
                     </tr>
@@ -524,13 +524,13 @@ export default function OrderManagementPage() {
                       }}
                       className={`hover:bg-gray-50 transition-colors ${order.business_id ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                     >
-                      <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                      <td className="py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-xs sm:text-sm font-medium text-gray-900">
                         {order.business_name}
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
+                      <td className="py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-xs sm:text-sm text-gray-600">
                         {order.address || '-'}
                       </td>
-                      <td className="py-3 px-4 text-sm">
+                      <td className="py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-xs sm:text-sm">
                         {order.manufacturer && MANUFACTURERS[order.manufacturer] ? (
                           <span
                             className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
@@ -550,7 +550,7 @@ export default function OrderManagementPage() {
                           <span className="text-gray-400 text-xs">-</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-sm">
+                      <td className="py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-xs sm:text-sm">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
                             <div
@@ -568,7 +568,7 @@ export default function OrderManagementPage() {
                           {order.steps_completed}/{order.steps_total} 단계
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-sm">
+                      <td className="py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-xs sm:text-sm">
                         {order.status === 'completed' ? (
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
                             완료
@@ -579,7 +579,7 @@ export default function OrderManagementPage() {
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
+                      <td className="py-2 px-3 sm:py-2.5 sm:px-3.5 md:py-3 md:px-4 text-xs sm:text-sm text-gray-600">
                         {new Date(order.last_updated).toLocaleDateString('ko-KR')}
                       </td>
                     </tr>
@@ -603,8 +603,8 @@ export default function OrderManagementPage() {
                   className={`w-full px-3 py-3 text-left hover:bg-gray-50 transition-colors ${order.business_id ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                 >
                   {/* 사업장명 + 상태 배지 */}
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="text-sm font-semibold text-gray-900 flex-1">
+                  <div className="flex items-start justify-between gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-900 flex-1">
                       {order.business_name}
                     </h3>
                     {order.status === 'completed' ? (
@@ -620,13 +620,13 @@ export default function OrderManagementPage() {
 
                   {/* 주소 */}
                   {order.address && (
-                    <p className="text-xs text-gray-500 mb-2 truncate">
+                    <p className="text-[10px] sm:text-xs text-gray-500 mb-1.5 sm:mb-2 truncate">
                       {order.address}
                     </p>
                   )}
 
                   {/* 제조사 + 최종 업데이트 */}
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2 flex-wrap">
                     {order.manufacturer && MANUFACTURERS[order.manufacturer] && (
                       <span
                         className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium
@@ -650,7 +650,7 @@ export default function OrderManagementPage() {
 
                   {/* 진행률 */}
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px]">
+                    <div className="flex items-center justify-between text-[9px] sm:text-[10px]">
                       <span className="text-gray-600">
                         {order.steps_completed}/{order.steps_total} 단계
                       </span>
@@ -677,14 +677,14 @@ export default function OrderManagementPage() {
         {/* 페이지네이션 */}
         {totalPages > 1 && (
           <div className="bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200">
-            <div className="text-xs sm:text-sm text-gray-600">
+            <div className="text-[10px] sm:text-xs md:text-sm text-gray-600">
               페이지 {currentPage} / {totalPages}
             </div>
-            <div className="flex gap-1.5 sm:gap-2">
+            <div className="flex gap-1 sm:gap-1.5 md:gap-2">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-2.5 sm:px-3 py-1 sm:py-1.5 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
+                className="px-2 sm:px-2.5 md:px-3 py-0.5 sm:py-1 md:py-1.5 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-[10px] sm:text-xs md:text-sm"
               >
                 이전
               </button>
@@ -693,7 +693,7 @@ export default function OrderManagementPage() {
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
                 disabled={currentPage === totalPages}
-                className="px-2.5 sm:px-3 py-1 sm:py-1.5 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
+                className="px-2 sm:px-2.5 md:px-3 py-0.5 sm:py-1 md:py-1.5 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-[10px] sm:text-xs md:text-sm"
               >
                 다음
               </button>
