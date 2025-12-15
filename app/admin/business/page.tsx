@@ -3639,35 +3639,15 @@ function BusinessManagementPage() {
         {/* Business List Panel - Single Column Layout */}
         <div className="bg-white rounded-md md:rounded-xl shadow-sm border border-gray-200 max-w-full overflow-hidden">
           <div className="p-2 md:p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-2 md:mb-3">
-              <h2 className="text-sm md:text-sm lg:text-base font-semibold text-gray-900 flex items-center gap-1 md:gap-2">
+            {/* 헤더 + 검색창 통합 행 */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-2">
+              <div className="flex items-center gap-1 md:gap-2 shrink-0">
                 <Building2 className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
-                사업장 목록
-              </h2>
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                  {(searchQuery || filterOffices.length > 0 || filterRegions.length > 0 || filterCategories.length > 0 || filterProjectYears.length > 0 || filterCurrentSteps.length > 0) ? (
-                    `필터링 결과 ${filteredBusinesses.length}개 (전체 ${allBusinesses.length}개 중)`
-                  ) : (
-                    `전체 ${allBusinesses.length}개 사업장`
-                  )}
-                </span>
-
-                {/* 검색 로딩 상태 표시 */}
-                {isSearchLoading && (
-                  <div className="flex items-center gap-1 text-sm text-blue-600">
-                    <div className="animate-spin rounded-full h-3 w-3 border border-blue-600 border-t-transparent"></div>
-                    <span>검색 상태 조회 중...</span>
-                  </div>
-                )}
-
-                {/* 페이지별 지연 로딩으로 백그라운드 로딩 UI 제거됨 */}
+                <h2 className="text-sm md:text-sm lg:text-base font-semibold text-gray-900">사업장 목록</h2>
               </div>
-            </div>
-            
-            {/* 실시간 검색창 */}
-            <div className="space-y-2 md:space-y-2">
-              <div className="relative">
+
+              {/* 실시간 검색창 */}
+              <div className="relative flex-1 w-full sm:w-auto">
                 <div className="absolute inset-y-0 left-0 pl-2 md:pl-3 flex items-center pointer-events-none">
                   <Search className="h-3.5 w-3.5 md:h-4 md:w-4 text-gray-400" />
                 </div>
@@ -3687,6 +3667,27 @@ function BusinessManagementPage() {
                   </button>
                 )}
               </div>
+
+              {/* 통계 + 로딩 상태 */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs sm:text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full whitespace-nowrap">
+                  {(searchQuery || filterOffices.length > 0 || filterRegions.length > 0 || filterCategories.length > 0 || filterProjectYears.length > 0 || filterCurrentSteps.length > 0) ? (
+                    `필터링 ${filteredBusinesses.length}개 (전체 ${allBusinesses.length}개)`
+                  ) : (
+                    `전체 ${allBusinesses.length}개`
+                  )}
+                </span>
+
+                {/* 검색 로딩 상태 표시 */}
+                {isSearchLoading && (
+                  <div className="flex items-center gap-1 text-sm text-blue-600">
+                    <div className="animate-spin rounded-full h-3 w-3 border border-blue-600 border-t-transparent"></div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2 md:space-y-2">
 
               {/* 검색 태그 표시 */}
               {searchTerms.length > 0 && (
@@ -3715,27 +3716,31 @@ function BusinessManagementPage() {
                 </div>
               )}
 
-              {/* 필터 드롭다운 */}
-              <div className="space-y-2 md:space-y-2 mt-2 md:mt-2 pt-2 md:pt-2 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-sm font-medium text-gray-700">필터</span>
-                  {(filterOffices.length > 0 || filterRegions.length > 0 || filterCategories.length > 0 || filterProjectYears.length > 0 || filterCurrentSteps.length > 0) && (
-                    <button
-                      onClick={() => {
-                        setFilterOffices([])
-                        setFilterRegions([])
-                        setFilterCategories([])
-                        setFilterProjectYears([])
-                        setFilterCurrentSteps([])
-                      }}
-                      className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-                    >
-                      <X className="w-3 h-3" />
-                      필터 초기화
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-2">
+              {/* 필터 드롭다운 - 헤더와 입력창 통합 행 */}
+              <div className="mt-2 md:mt-2 pt-2 md:pt-2 border-t border-gray-200">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                  {/* 필터 라벨 + 초기화 버튼 */}
+                  <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto shrink-0 gap-2">
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">필터</span>
+                    {(filterOffices.length > 0 || filterRegions.length > 0 || filterCategories.length > 0 || filterProjectYears.length > 0 || filterCurrentSteps.length > 0) && (
+                      <button
+                        onClick={() => {
+                          setFilterOffices([])
+                          setFilterRegions([])
+                          setFilterCategories([])
+                          setFilterProjectYears([])
+                          setFilterCurrentSteps([])
+                        }}
+                        className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" />
+                        초기화
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 필터 입력창들 */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 flex-1 w-full">
                   <MultiSelectDropdown
                     label="영업점"
                     options={filterOptions.offices}
@@ -3775,6 +3780,7 @@ function BusinessManagementPage() {
                     onChange={setFilterCurrentSteps}
                     placeholder="전체"
                   />
+                  </div>
                 </div>
 
                 {/* 제출일 필터 (접기/펼치기 지원) */}
