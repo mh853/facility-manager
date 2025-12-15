@@ -860,67 +860,67 @@ function UsersManagementPage() {
       <div className="space-y-8">
 
         {/* 헤더 통계 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-6">
-            <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
-              <div className="p-1 sm:p-1.5 md:p-2 bg-blue-100 rounded-md sm:rounded-lg">
-                <Users className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-600" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-blue-100 rounded">
+                <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-blue-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600 truncate">전체 사용자</p>
-                <p className="text-xs sm:text-sm md:text-lg lg:text-2xl font-bold text-gray-900">{employees.length}</p>
+                <p className="text-[10px] sm:text-xs md:text-sm text-gray-600 truncate">전체 사용자</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold text-gray-900">{employees.length}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-6">
-            <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
-              <div className="p-1 sm:p-1.5 md:p-2 bg-green-100 rounded-md sm:rounded-lg">
-                <UserCheck className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-600" />
+          <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-green-100 rounded">
+                <UserCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-green-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600 truncate">활성 사용자</p>
-                <p className="text-xs sm:text-sm md:text-lg lg:text-2xl font-bold text-gray-900">
+                <p className="text-[10px] sm:text-xs md:text-sm text-gray-600 truncate">활성 사용자</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold text-gray-900">
                   {employees.filter(emp => emp.is_active && !emp.is_deleted).length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-6">
-            <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
-              <div className="p-1 sm:p-1.5 md:p-2 bg-red-100 rounded-md sm:rounded-lg">
-                <Shield className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-red-600" />
+          <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-red-100 rounded">
+                <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-red-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600 truncate">관리자</p>
-                <p className="text-xs sm:text-sm md:text-lg lg:text-2xl font-bold text-gray-900">
+                <p className="text-[10px] sm:text-xs md:text-sm text-gray-600 truncate">관리자</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold text-gray-900">
                   {employees.filter(emp => emp.permission_level === 3).length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 lg:p-6">
-            <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
-              <div className="p-1 sm:p-1.5 md:p-2 bg-orange-100 rounded-md sm:rounded-lg">
-                <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-600" />
+          <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-orange-100 rounded">
+                <AlertTriangle className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-orange-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-600 truncate">승인 대기</p>
-                <p className="text-xs sm:text-sm md:text-lg lg:text-2xl font-bold text-gray-900">{socialApprovals.length}</p>
+                <p className="text-[10px] sm:text-xs md:text-sm text-gray-600 truncate">승인 대기</p>
+                <p className="text-sm sm:text-base md:text-lg font-bold text-gray-900">{socialApprovals.length}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* 탭 메뉴 */}
-        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200">
           <div className="border-b border-gray-200">
             <nav className="flex overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setActiveTab('users')}
-                className={`px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
+                className={`px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 text-[10px] sm:text-xs md:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'users'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -931,7 +931,7 @@ function UsersManagementPage() {
               </button>
               <button
                 onClick={() => setActiveTab('approvals')}
-                className={`px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
+                className={`px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 text-[10px] sm:text-xs md:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'approvals'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -942,7 +942,7 @@ function UsersManagementPage() {
               </button>
               <button
                 onClick={() => setActiveTab('settings')}
-                className={`px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
+                className={`px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 text-[10px] sm:text-xs md:text-sm font-medium border-b-2 whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'settings'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -956,27 +956,27 @@ function UsersManagementPage() {
 
           {/* 사용자 목록 탭 */}
           {activeTab === 'users' && (
-            <div className="p-2 sm:p-3 md:p-4 lg:p-6">
+            <div className="p-2 sm:p-3 md:p-4">
               {/* 검색 및 필터 */}
-              <div className="mb-3 sm:mb-4 md:mb-6 flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4">
+              <div className="mb-2 sm:mb-3 md:mb-4 flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4">
                 <div className="flex-1">
                   <div className="relative">
-                    <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4" />
+                    <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="검색..."
-                      className="w-full pl-8 sm:pl-10 pr-2 sm:pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-md sm:rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-[10px] sm:text-xs md:text-sm"
+                      className="w-full pl-8 sm:pl-10 pr-2 sm:pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-[10px] sm:text-xs md:text-sm"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-1 sm:gap-2 md:gap-3">
+                <div className="flex gap-2 sm:gap-2.5 md:gap-3">
                   <select
                     value={permissionFilter}
                     onChange={(e) => setPermissionFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-                    className="border border-gray-300 rounded-md sm:rounded-lg px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
+                    className="border border-gray-300 rounded-md px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                   >
                     <option value="all">모든 권한</option>
                     <option value={3}>관리자</option>
@@ -987,7 +987,7 @@ function UsersManagementPage() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="border border-gray-300 rounded-md sm:rounded-lg px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
+                    className="border border-gray-300 rounded-md px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                   >
                     <option value="all">모든 상태</option>
                     <option value="active">활성</option>
@@ -1001,45 +1001,45 @@ function UsersManagementPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">사용자</th>
-                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">부서/직급</th>
-                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">권한</th>
-                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">최근 로그인</th>
-                      <th className="px-1 sm:px-2 md:px-4 lg:px-6 py-1.5 sm:py-2 md:py-3 text-left text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs font-medium text-gray-500 uppercase tracking-wider">관리</th>
+                      <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 text-left text-[10px] sm:text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">사용자</th>
+                      <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 text-left text-[10px] sm:text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">부서/직급</th>
+                      <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 text-left text-[10px] sm:text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">권한</th>
+                      <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 text-left text-[10px] sm:text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                      <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 text-left text-[10px] sm:text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">최근 로그인</th>
+                      <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 text-left text-[10px] sm:text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">관리</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredEmployees.map((employee) => (
                       <tr key={employee.id} className="hover:bg-gray-50">
-                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap">
+                        <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-                              <span className="text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold text-white">
+                            <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-[10px] sm:text-xs md:text-sm font-bold text-white">
                                 {employee.name.charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            <div className="ml-1 sm:ml-2 md:ml-3 lg:ml-4 min-w-0 flex-1">
-                              <div className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm font-medium text-gray-900 truncate">{employee.name}</div>
-                              <div className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-500 truncate">{employee.email}</div>
+                            <div className="ml-2 sm:ml-2.5 md:ml-3 min-w-0 flex-1">
+                              <div className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-900 truncate">{employee.name}</div>
+                              <div className="text-[10px] sm:text-xs md:text-sm text-gray-500 truncate">{employee.email}</div>
                               {employee.employee_id && (
-                                <div className="text-[7px] sm:text-[8px] md:text-[9px] lg:text-xs text-gray-400 truncate hidden sm:block">ID: {employee.employee_id}</div>
+                                <div className="text-[10px] sm:text-xs text-gray-400 truncate hidden sm:block">ID: {employee.employee_id}</div>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap hidden sm:table-cell">
-                          <div className="text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-900">{employee.department || '-'}</div>
-                          <div className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-500">{employee.position || '-'}</div>
+                        <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 whitespace-nowrap hidden sm:table-cell">
+                          <div className="text-[10px] sm:text-xs md:text-sm text-gray-900">{employee.department || '-'}</div>
+                          <div className="text-[10px] sm:text-xs md:text-sm text-gray-500">{employee.position || '-'}</div>
                         </td>
-                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-1 sm:px-1.5 md:px-2.5 py-0.5 rounded-full text-[7px] sm:text-[8px] md:text-[9px] lg:text-xs font-medium border ${getPermissionLabel(employee.permission_level).color}`}>
+                        <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-1.5 sm:px-2 md:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs md:text-sm font-medium border ${getPermissionLabel(employee.permission_level).color}`}>
                             <span className="hidden sm:inline">{getPermissionLabel(employee.permission_level).text}</span>
                             <span className="sm:hidden">{getPermissionLabel(employee.permission_level).text.slice(0, 2)}</span>
                           </span>
                         </td>
-                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-1 sm:px-1.5 md:px-2.5 py-0.5 rounded-full text-[7px] sm:text-[8px] md:text-[9px] lg:text-xs font-medium ${
+                        <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-1.5 sm:px-2 md:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs md:text-sm font-medium ${
                             employee.is_active && !employee.is_deleted
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
@@ -1047,13 +1047,13 @@ function UsersManagementPage() {
                             {employee.is_active && !employee.is_deleted ? '활성' : '비활성'}
                           </span>
                         </td>
-                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm text-gray-500 hidden md:table-cell">
+                        <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 whitespace-nowrap text-[10px] sm:text-xs md:text-sm text-gray-500 hidden md:table-cell">
                           {employee.last_login_at
                             ? new Date(employee.last_login_at).toLocaleDateString('ko-KR')
                             : '없음'
                           }
                         </td>
-                        <td className="px-1 sm:px-2 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm font-medium">
+                        <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 whitespace-nowrap text-[10px] sm:text-xs md:text-sm font-medium">
                           <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2">
                             <button
                               onClick={() => loadUserDetails(employee)}

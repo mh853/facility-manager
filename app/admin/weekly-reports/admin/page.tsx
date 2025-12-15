@@ -213,49 +213,49 @@ function AdminWeeklyReportsPageV2() {
     >
       <div className="space-y-6">
         {/* 컨트롤 영역 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
-          <div className="space-y-4">
+        <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4">
+          <div className="space-y-2 sm:space-y-3 md:space-y-4">
             {/* 주간 선택 */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-2.5 md:gap-3">
               <button
                 onClick={() => changeWeek('prev')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-md transition-colors"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
-              <div className="flex items-center gap-2 flex-1">
-                <Calendar className="w-5 h-5 text-gray-500" />
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-1">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
                 <input
                   type="date"
                   value={selectedWeek}
                   onChange={(e) => setSelectedWeek(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {weekPeriod && (
-                  <div className="text-sm text-gray-600 hidden md:block">
+                  <div className="text-xs sm:text-sm text-gray-600 hidden md:block">
                     {weekPeriod.display}
                   </div>
                 )}
               </div>
               <button
                 onClick={() => changeWeek('next')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-md transition-colors"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
 
             {/* 검색 및 필터 */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5 md:gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
                 <input
                   type="text"
                   placeholder="업무명, 사업장명 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && fetchRealtimeReports()}
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-8 sm:pl-10 pr-8 sm:pr-10 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {searchQuery && (
                   <button
@@ -263,22 +263,22 @@ function AdminWeeklyReportsPageV2() {
                       setSearchQuery('')
                       setTimeout(fetchRealtimeReports, 0)
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                    className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2"
                   >
-                    <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                    <X className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 hover:text-gray-600" />
                   </button>
                 )}
               </div>
 
               <div className="relative flex-1 sm:flex-initial sm:w-48">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Filter className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
                 <input
                   type="text"
                   placeholder="담당자 필터..."
                   value={assigneeFilter}
                   onChange={(e) => setAssigneeFilter(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && fetchRealtimeReports()}
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-8 sm:pl-10 pr-8 sm:pr-10 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {assigneeFilter && (
                   <button
@@ -286,9 +286,9 @@ function AdminWeeklyReportsPageV2() {
                       setAssigneeFilter('')
                       setTimeout(fetchRealtimeReports, 0)
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                    className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2"
                   >
-                    <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                    <X className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 hover:text-gray-600" />
                   </button>
                 )}
               </div>
@@ -296,9 +296,9 @@ function AdminWeeklyReportsPageV2() {
               <button
                 onClick={fetchRealtimeReports}
                 disabled={loading}
-                className="flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${loading ? 'animate-spin' : ''}`} />
                 {loading ? '조회중...' : '조회'}
               </button>
             </div>
@@ -307,7 +307,7 @@ function AdminWeeklyReportsPageV2() {
 
         {/* 전체 통계 카드 */}
         {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
             <StatCard icon={Users} label="사용자" value={summary.total_users} color="blue" />
             <StatCard icon={BarChart3} label="총 업무" value={summary.total_tasks} color="purple" />
             <StatCard icon={CheckCircle} label="완료" value={summary.total_completed} color="green" />
@@ -319,10 +319,10 @@ function AdminWeeklyReportsPageV2() {
         )}
 
         {/* 사용자별 리포트 목록 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-4 md:p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">담당자별 주간 업무</h3>
-            <p className="text-sm text-gray-600 mt-1">
+        <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200">
+          <div className="p-2 sm:p-3 md:p-4 border-b border-gray-200">
+            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">담당자별 주간 업무</h3>
+            <p className="text-[10px] sm:text-xs md:text-sm text-gray-600 mt-0.5 sm:mt-1">
               {reports.length}명의 담당자 • 실시간 업데이트
             </p>
           </div>
@@ -341,10 +341,10 @@ function AdminWeeklyReportsPageV2() {
             ))}
 
             {reports.length === 0 && !loading && (
-              <div className="p-12 text-center">
-                <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">해당 주간의 업무가 없습니다</p>
-                <p className="text-sm text-gray-400 mt-2">
+              <div className="p-6 sm:p-8 md:p-12 text-center">
+                <Calendar className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-2 sm:mb-3 md:mb-4" />
+                <p className="text-xs sm:text-sm md:text-base text-gray-500">해당 주간의 업무가 없습니다</p>
+                <p className="text-[10px] sm:text-xs md:text-sm text-gray-400 mt-1 sm:mt-2">
                   다른 주간을 선택하거나 검색 조건을 변경해보세요
                 </p>
               </div>
@@ -368,14 +368,14 @@ function StatCard({ icon: Icon, label, value, color }: any) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-6">
-      <div className="flex items-center gap-2 md:gap-3">
-        <div className={`w-8 h-8 md:w-10 md:h-10 ${colorClasses[color]} rounded-lg flex items-center justify-center flex-shrink-0`}>
-          <Icon className="w-4 h-4 md:w-6 md:h-6" />
+    <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4">
+      <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
+        <div className={`w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 ${colorClasses[color]} rounded-md flex items-center justify-center flex-shrink-0`}>
+          <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-6 md:h-6" />
         </div>
         <div>
-          <div className="text-lg md:text-2xl font-bold text-gray-900">{value}</div>
-          <div className="text-xs text-gray-600">{label}</div>
+          <div className="text-sm sm:text-base md:text-xl font-bold text-gray-900">{value}</div>
+          <div className="text-[10px] sm:text-xs text-gray-600">{label}</div>
         </div>
       </div>
     </div>
@@ -386,27 +386,27 @@ function StatCard({ icon: Icon, label, value, color }: any) {
 function ReportCard({ report, isExpanded, onToggleExpand, getPerformanceColor, getStatusBadgeColor, formatDate }: any) {
   return (
     <div
-      className="p-4 md:p-6 hover:bg-gray-50 transition-colors cursor-pointer"
+      className="p-2 sm:p-3 md:p-4 hover:bg-gray-50 transition-colors cursor-pointer"
       onClick={onToggleExpand}
     >
-      <div className="space-y-3">
+      <div className="space-y-2 sm:space-y-2.5 md:space-y-3">
         {/* 헤더 */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h4 className="text-lg font-semibold text-gray-900">{report.user_name}</h4>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPerformanceColor(report.completion_rate)}`}>
+          <div className="flex items-center gap-2 sm:gap-2.5 md:gap-3">
+            <h4 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">{report.user_name}</h4>
+            <span className={`px-2 sm:px-2.5 md:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium ${getPerformanceColor(report.completion_rate)}`}>
               {report.completion_rate}%
             </span>
           </div>
-          <div className="text-sm text-blue-600 font-medium flex items-center gap-1">
+          <div className="text-xs sm:text-sm text-blue-600 font-medium flex items-center gap-1">
             {isExpanded ? (
               <>
-                <Eye className="w-4 h-4" />
+                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>접기</span>
               </>
             ) : (
               <>
-                <Eye className="w-4 h-4" />
+                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>상세보기</span>
               </>
             )}
@@ -414,57 +414,57 @@ function ReportCard({ report, isExpanded, onToggleExpand, getPerformanceColor, g
         </div>
 
         {/* 통계 */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 text-sm">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-2.5 md:gap-3 text-sm">
           <div>
-            <div className="text-xs text-gray-500">총 업무</div>
-            <div className="text-xl font-bold text-gray-900">{report.total_tasks}</div>
+            <div className="text-[10px] sm:text-xs text-gray-500">총 업무</div>
+            <div className="text-base sm:text-lg md:text-xl font-bold text-gray-900">{report.total_tasks}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500">완료</div>
-            <div className="text-xl font-bold text-green-600">{report.completed_tasks}</div>
+            <div className="text-[10px] sm:text-xs text-gray-500">완료</div>
+            <div className="text-base sm:text-lg md:text-xl font-bold text-green-600">{report.completed_tasks}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500">진행중</div>
-            <div className="text-xl font-bold text-blue-600">{report.in_progress_tasks}</div>
+            <div className="text-[10px] sm:text-xs text-gray-500">진행중</div>
+            <div className="text-base sm:text-lg md:text-xl font-bold text-blue-600">{report.in_progress_tasks}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500">대기</div>
-            <div className="text-xl font-bold text-gray-600">{report.pending_tasks}</div>
+            <div className="text-[10px] sm:text-xs text-gray-500">대기</div>
+            <div className="text-base sm:text-lg md:text-xl font-bold text-gray-600">{report.pending_tasks}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500">연체</div>
-            <div className={`text-xl font-bold ${report.overdue_tasks > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+            <div className="text-[10px] sm:text-xs text-gray-500">연체</div>
+            <div className={`text-base sm:text-lg md:text-xl font-bold ${report.overdue_tasks > 0 ? 'text-red-600' : 'text-gray-400'}`}>
               {report.overdue_tasks}
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-500">평균시간</div>
-            <div className="text-xl font-bold text-gray-900">{report.average_completion_time_days}일</div>
+            <div className="text-[10px] sm:text-xs text-gray-500">평균시간</div>
+            <div className="text-base sm:text-lg md:text-xl font-bold text-gray-900">{report.average_completion_time_days}일</div>
           </div>
         </div>
 
         {/* 상세 업무 목록 */}
         {isExpanded && (
-          <div className="mt-4 space-y-4 border-t pt-4">
+          <div className="mt-2 sm:mt-3 md:mt-4 space-y-2 sm:space-y-3 md:space-y-4 border-t pt-2 sm:pt-3 md:pt-4">
             {report.all_task_details.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-1.5 sm:space-y-2">
                 {report.all_task_details.map((task: TaskDetail) => (
                   <div
                     key={task.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm"
+                    className="flex items-center justify-between p-2 sm:p-2.5 md:p-3 bg-gray-50 rounded-md text-sm"
                   >
                     <div className="flex-1">
-                      <div className="font-medium text-gray-900">{task.title}</div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs sm:text-sm font-medium text-gray-900">{task.title}</div>
+                      <div className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1">
                         {task.business_name} • {formatDate(task.created_at)}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 rounded text-xs ${getStatusBadgeColor(task.status_color)}`}>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs ${getStatusBadgeColor(task.status_color)}`}>
                         {task.status_label}
                       </span>
                       {task.is_overdue && (
-                        <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">
+                        <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs bg-red-100 text-red-800">
                           연체
                         </span>
                       )}
@@ -473,7 +473,7 @@ function ReportCard({ report, isExpanded, onToggleExpand, getPerformanceColor, g
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 text-center py-4">
+              <p className="text-xs sm:text-sm text-gray-500 text-center py-2 sm:py-3 md:py-4">
                 업무가 없습니다
               </p>
             )}
