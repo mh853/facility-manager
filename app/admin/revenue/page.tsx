@@ -1163,6 +1163,7 @@ function RevenueDashboard() {
               selectedValues={selectedOffices}
               onChange={(values) => { setSelectedOffices(values); setCurrentPage(1); }}
               placeholder="전체 영업점"
+              inline
             />
 
             <MultiSelectDropdown
@@ -1171,6 +1172,7 @@ function RevenueDashboard() {
               selectedValues={selectedRegions}
               onChange={(values) => { setSelectedRegions(values); setCurrentPage(1); }}
               placeholder="전체 지역"
+              inline
             />
 
             <MultiSelectDropdown
@@ -1179,6 +1181,7 @@ function RevenueDashboard() {
               selectedValues={selectedCategories}
               onChange={(values) => { setSelectedCategories(values); setCurrentPage(1); }}
               placeholder="전체"
+              inline
             />
 
             <MultiSelectDropdown
@@ -1187,6 +1190,7 @@ function RevenueDashboard() {
               selectedValues={selectedProjectYears}
               onChange={(values) => { setSelectedProjectYears(values); setCurrentPage(1); }}
               placeholder="전체 연도"
+              inline
             />
 
             <MultiSelectDropdown
@@ -1195,11 +1199,12 @@ function RevenueDashboard() {
               selectedValues={selectedMonths}
               onChange={(values) => { setSelectedMonths(values); setCurrentPage(1); }}
               placeholder="전체 월"
+              inline
             />
 
-            <div className="sm:col-span-2 md:col-span-1">
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">미수금 필터</label>
-              <div className="flex items-center h-8 px-2 py-1.5 bg-gray-50 border border-gray-300 rounded">
+            <div className="flex items-center gap-2">
+              <label htmlFor="receivables-filter" className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">미수금 필터</label>
+              <div className="flex items-center h-8 px-2 py-1.5 bg-gray-50 border border-gray-300 rounded flex-1">
                 <input
                   type="checkbox"
                   id="receivables-filter"
@@ -1226,9 +1231,9 @@ function RevenueDashboard() {
           </div>
 
           <div className="mt-2 sm:mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
-            <div>
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">검색</label>
-              <div className="relative">
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">검색</label>
+              <div className="relative flex-1">
                 <Search className="w-4 h-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
@@ -1240,27 +1245,27 @@ function RevenueDashboard() {
               </div>
             </div>
 
-            <div>
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">최소 매출금액 (원)</label>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">최소 매출금액 (원)</label>
               <input
                 type="number"
                 placeholder="0"
                 value={revenueFilter.min}
                 onChange={(e) => { setRevenueFilter(prev => ({ ...prev, min: e.target.value })); setCurrentPage(1); }}
-                className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min="0"
                 step="100000"
               />
             </div>
 
-            <div>
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">최대 매출금액 (원)</label>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">최대 매출금액 (원)</label>
               <input
                 type="number"
                 placeholder="제한없음"
                 value={revenueFilter.max}
                 onChange={(e) => { setRevenueFilter(prev => ({ ...prev, max: e.target.value })); setCurrentPage(1); }}
-                className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min="0"
                 step="100000"
               />
