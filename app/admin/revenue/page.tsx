@@ -1151,12 +1151,12 @@ function RevenueDashboard() {
         */}
 
         {/* 필터 및 검색 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
-          <h3 className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2">
+        <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4">
+          <h3 className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4 flex items-center gap-1.5 sm:gap-2">
             <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             필터 및 검색
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
             <MultiSelectDropdown
               label="영업점"
               options={salesOffices}
@@ -1269,55 +1269,55 @@ function RevenueDashboard() {
         </div>
 
         {/* 요약 통계 */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-          <div className="bg-white p-2 sm:p-3 rounded-lg shadow-sm border border-gray-200">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="p-1 sm:p-1.5 bg-blue-50 rounded flex-shrink-0">
-                <Building2 className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+                <Building2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-blue-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs font-medium text-gray-600">총 사업장</p>
-                <p className="text-sm sm:text-lg font-bold text-gray-900">{sortedBusinesses.length}</p>
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 사업장</p>
+                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900">{sortedBusinesses.length}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-2 sm:p-3 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="p-1 sm:p-1.5 bg-green-50 rounded flex-shrink-0">
-                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-green-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs font-medium text-gray-600">총 매출금액</p>
-                <p className="text-xs sm:text-sm font-bold text-green-600 break-words">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 매출금액</p>
+                <p className="text-xs sm:text-sm md:text-base font-bold text-green-600 break-words">
                   {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.total_revenue, 0))}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-2 sm:p-3 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="p-1 sm:p-1.5 bg-purple-50 rounded flex-shrink-0">
-                <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />
+                <DollarSign className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-purple-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs font-medium text-gray-600">총 이익금액</p>
-                <p className="text-xs sm:text-sm font-bold text-purple-600 break-words">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 이익금액</p>
+                <p className="text-xs sm:text-sm md:text-base font-bold text-purple-600 break-words">
                   {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.net_profit, 0))}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-2 sm:p-3 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="p-1 sm:p-1.5 bg-orange-50 rounded flex-shrink-0">
-                <Calculator className="w-3 h-3 sm:w-4 sm:h-4 text-orange-600" />
+                <Calculator className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-orange-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs font-medium text-gray-600">총 영업비용</p>
-                <p className="text-xs sm:text-sm font-bold text-orange-600 break-words">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 영업비용</p>
+                <p className="text-xs sm:text-sm md:text-base font-bold text-orange-600 break-words">
                   {formatCurrency(sortedBusinesses.reduce((sum, b) => {
                     const salesCommission = b.adjusted_sales_commission || b.sales_commission || 0;
                     return sum + salesCommission;
@@ -1327,14 +1327,14 @@ function RevenueDashboard() {
             </div>
           </div>
 
-          <div className="bg-white p-2 sm:p-3 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="p-1 sm:p-1.5 bg-blue-50 rounded flex-shrink-0">
-                <Settings className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+                <Settings className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-blue-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs font-medium text-gray-600">총 설치비용</p>
-                <p className="text-xs sm:text-sm font-bold text-blue-600 break-words">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 설치비용</p>
+                <p className="text-xs sm:text-sm md:text-base font-bold text-blue-600 break-words">
                   {formatCurrency(sortedBusinesses.reduce((sum, b) => {
                     const installationCosts = (b.installation_costs || 0) + (b.installation_extra_cost || 0);
                     return sum + installationCosts;
@@ -1344,14 +1344,14 @@ function RevenueDashboard() {
             </div>
           </div>
 
-          <div className="bg-white p-2 sm:p-3 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="p-1 sm:p-1.5 bg-indigo-50 rounded flex-shrink-0">
-                <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-600" />
+                <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-indigo-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs font-medium text-gray-600">사업장 평균 이익률</p>
-                <p className="text-xs sm:text-sm font-bold text-indigo-600">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">사업장 평균 이익률</p>
+                <p className="text-xs sm:text-sm md:text-base font-bold text-indigo-600">
                   {sortedBusinesses.length > 0 ?
                     ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
                     : '0'}%
@@ -1362,15 +1362,15 @@ function RevenueDashboard() {
         </div>
 
         {/* 사업장별 매출 현황 테이블 */}
-        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200">
-          <div className="p-3 sm:p-4 md:p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
-              <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 flex items-center gap-1.5 sm:gap-2">
-                <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
+        <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200">
+          <div className="p-2 sm:p-3 md:p-4 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
+              <h3 className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 flex items-center gap-1.5 sm:gap-2">
+                <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                 사업장별 매출 현황 ({sortedBusinesses.length}건)
               </h3>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 md:gap-4 w-full sm:w-auto">
-                <div className="text-xs sm:text-sm text-gray-500">
+                <div className="text-[10px] sm:text-xs md:text-sm text-gray-500">
                   사업장 평균 이익률: {sortedBusinesses.length > 0 ?
                     ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
                     : '0'}%
@@ -1413,11 +1413,11 @@ function RevenueDashboard() {
               </div>
             </div>
           </div>
-          <div className="p-3 sm:p-4 md:p-6">
+          <div className="p-2 sm:p-3 md:p-4">
             {loading ? (
-              <div className="text-center py-8">
-                <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto mb-2" />
-                <div className="text-gray-500 text-xs sm:text-sm">사업장 매출 데이터를 불러오는 중...</div>
+              <div className="text-center py-6 sm:py-8">
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 animate-spin mx-auto mb-2" />
+                <div className="text-gray-500 text-[10px] sm:text-xs md:text-sm">사업장 매출 데이터를 불러오는 중...</div>
               </div>
             ) : sortedBusinesses.length === 0 && calculations.length === 0 ? (
               <div className="text-center py-8 sm:py-12">
@@ -1502,7 +1502,7 @@ function RevenueDashboard() {
             ) : (
               <>
                 {/* 모바일 카드뷰 */}
-                <div className="md:hidden space-y-2 sm:space-y-3">
+                <div className="md:hidden space-y-2 sm:space-y-3 md:space-y-4">
                   {paginatedBusinesses.map((business) => {
                     const profitMargin = business.total_revenue > 0
                       ? ((business.net_profit / business.total_revenue) * 100).toFixed(1)
@@ -1511,19 +1511,19 @@ function RevenueDashboard() {
                     return (
                       <div
                         key={business.id}
-                        className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm"
+                        className="bg-white border border-gray-200 rounded-md md:rounded-lg p-2 sm:p-3 shadow-sm"
                       >
-                        <div className="flex items-start justify-between mb-2 sm:mb-3">
+                        <div className="flex items-start justify-between mb-1.5 sm:mb-2">
                           <button
                             onClick={() => {
                               setSelectedEquipmentBusiness(business);
                               setShowEquipmentModal(true);
                             }}
-                            className="text-sm sm:text-base font-semibold text-blue-600 hover:text-blue-800 hover:underline text-left flex-1"
+                            className="text-xs sm:text-sm md:text-base font-semibold text-blue-600 hover:text-blue-800 hover:underline text-left flex-1"
                           >
                             {business.business_name}
                           </button>
-                          <span className={`ml-2 inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium flex-shrink-0 ${
+                          <span className={`ml-2 inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs md:text-sm font-medium flex-shrink-0 ${
                             business.category === '보조금' || business.category === '보조금 동시진행'
                               ? 'bg-purple-100 text-purple-800' :
                             business.category === '자비' ? 'bg-green-100 text-green-800' :
@@ -1534,14 +1534,14 @@ function RevenueDashboard() {
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 text-[10px] sm:text-xs md:text-sm">
                           <div>
                             <span className="text-gray-500">지역:</span>{' '}
                             <span className="font-medium">{business.address ? business.address.split(' ').slice(0, 2).join(' ') : '미등록'}</span>
                           </div>
                           <div>
                             <span className="text-gray-500">영업점:</span>{' '}
-                            <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-blue-100 text-blue-800">
+                            <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs md:text-sm font-medium bg-blue-100 text-blue-800">
                               {business.sales_office || '미배정'}
                             </span>
                           </div>
@@ -1551,7 +1551,7 @@ function RevenueDashboard() {
                           </div>
                           <div>
                             <span className="text-gray-500">이익률:</span>{' '}
-                            <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${
+                            <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs md:text-sm font-medium ${
                               parseFloat(profitMargin) >= 10 ? 'bg-green-100 text-green-800' :
                               parseFloat(profitMargin) >= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                             }`}>
@@ -1560,25 +1560,25 @@ function RevenueDashboard() {
                           </div>
                         </div>
 
-                        <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200 grid grid-cols-2 gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                        <div className="mt-1.5 sm:mt-2 pt-1.5 sm:pt-2 border-t border-gray-200 grid grid-cols-2 gap-1.5 sm:gap-2 text-[10px] sm:text-xs md:text-sm">
                           <div>
-                            <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 sm:mb-1">매출금액</div>
-                            <div className="font-mono font-semibold text-green-600 text-xs sm:text-sm">{formatCurrency(business.total_revenue)}</div>
+                            <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5">매출금액</div>
+                            <div className="font-mono font-semibold text-green-600 text-[10px] sm:text-xs md:text-sm">{formatCurrency(business.total_revenue)}</div>
                           </div>
                           <div>
-                            <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 sm:mb-1">매입금액</div>
-                            <div className="font-mono font-semibold text-orange-600 text-xs sm:text-sm">{formatCurrency(business.total_cost)}</div>
+                            <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5">매입금액</div>
+                            <div className="font-mono font-semibold text-orange-600 text-[10px] sm:text-xs md:text-sm">{formatCurrency(business.total_cost)}</div>
                           </div>
                           <div className="col-span-2">
-                            <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 sm:mb-1">이익금액</div>
-                            <div className={`font-mono font-bold text-base sm:text-lg ${business.net_profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                            <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5">이익금액</div>
+                            <div className={`font-mono font-bold text-sm sm:text-base md:text-lg ${business.net_profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                               {formatCurrency(business.net_profit)}
                             </div>
                           </div>
                           {showReceivablesOnly && business.total_receivables > 0 && (
-                            <div className="col-span-2 bg-red-50 p-2 rounded">
-                              <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 sm:mb-1">미수금</div>
-                              <div className="font-mono font-bold text-red-600 text-xs sm:text-sm">
+                            <div className="col-span-2 bg-red-50 p-1.5 sm:p-2 rounded">
+                              <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5">미수금</div>
+                              <div className="font-mono font-bold text-red-600 text-[10px] sm:text-xs md:text-sm">
                                 {formatCurrency(business.total_receivables)} ⚠️
                               </div>
                             </div>
@@ -1595,39 +1595,39 @@ function RevenueDashboard() {
                     <thead>
                       <tr className="bg-gray-50">
                         <th
-                          className="border border-gray-300 px-4 py-2 text-left cursor-pointer hover:bg-gray-100"
+                          className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-left cursor-pointer hover:bg-gray-100 text-[10px] sm:text-xs md:text-sm"
                           onClick={() => handleSort('business_name')}
                         >
                           사업장명 {sortField === 'business_name' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">지역</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">담당자</th>
-                        <th className="border border-gray-300 px-4 py-2 text-center">카테고리</th>
+                        <th className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-left text-[10px] sm:text-xs md:text-sm">지역</th>
+                        <th className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-left text-[10px] sm:text-xs md:text-sm">담당자</th>
+                        <th className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-center text-[10px] sm:text-xs md:text-sm">카테고리</th>
                         <th
-                          className="border border-gray-300 px-4 py-2 text-left cursor-pointer hover:bg-gray-100"
+                          className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-left cursor-pointer hover:bg-gray-100 text-[10px] sm:text-xs md:text-sm"
                           onClick={() => handleSort('sales_office')}
                         >
                           영업점 {sortField === 'sales_office' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
-                          className="border border-gray-300 px-4 py-2 text-right cursor-pointer hover:bg-gray-100"
+                          className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-right cursor-pointer hover:bg-gray-100 text-[10px] sm:text-xs md:text-sm"
                           onClick={() => handleSort('total_revenue')}
                         >
                           매출금액 {sortField === 'total_revenue' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
-                          className="border border-gray-300 px-4 py-2 text-right cursor-pointer hover:bg-gray-100"
+                          className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-right cursor-pointer hover:bg-gray-100 text-[10px] sm:text-xs md:text-sm"
                           onClick={() => handleSort('total_cost')}
                         >
                           매입금액 {sortField === 'total_cost' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
-                          className="border border-gray-300 px-4 py-2 text-right cursor-pointer hover:bg-gray-100"
+                          className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-right cursor-pointer hover:bg-gray-100 text-[10px] sm:text-xs md:text-sm"
                           onClick={() => handleSort('net_profit')}
                         >
                           이익금액 {sortField === 'net_profit' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th className="border border-gray-300 px-4 py-2 text-right">이익률</th>
+                        <th className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-right text-[10px] sm:text-xs md:text-sm">이익률</th>
                         {showReceivablesOnly && (
                           <th
                             className="border border-gray-300 px-4 py-2 text-right cursor-pointer hover:bg-gray-100 bg-red-50"
