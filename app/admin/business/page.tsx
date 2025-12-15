@@ -3740,13 +3740,14 @@ function BusinessManagementPage() {
                   </div>
 
                   {/* 필터 입력창들 */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 flex-1 w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 flex-1 w-full">
                   <MultiSelectDropdown
                     label="영업점"
                     options={filterOptions.offices}
                     selectedValues={filterOffices}
                     onChange={setFilterOffices}
                     placeholder="전체"
+                    inline
                   />
 
                   <MultiSelectDropdown
@@ -3755,6 +3756,7 @@ function BusinessManagementPage() {
                     selectedValues={filterRegions}
                     onChange={setFilterRegions}
                     placeholder="전체"
+                    inline
                   />
 
                   <MultiSelectDropdown
@@ -3763,6 +3765,7 @@ function BusinessManagementPage() {
                     selectedValues={filterCategories}
                     onChange={setFilterCategories}
                     placeholder="전체"
+                    inline
                   />
 
                   <MultiSelectDropdown
@@ -3771,6 +3774,7 @@ function BusinessManagementPage() {
                     selectedValues={filterProjectYears}
                     onChange={setFilterProjectYears}
                     placeholder="전체"
+                    inline
                   />
 
                   <MultiSelectDropdown
@@ -3779,6 +3783,7 @@ function BusinessManagementPage() {
                     selectedValues={filterCurrentSteps}
                     onChange={setFilterCurrentSteps}
                     placeholder="전체"
+                    inline
                   />
                   </div>
                 </div>

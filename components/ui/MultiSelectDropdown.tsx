@@ -10,6 +10,7 @@ interface MultiSelectDropdownProps {
   onChange: (values: string[]) => void;
   placeholder?: string;
   className?: string;
+  inline?: boolean;  // 라벨과 드롭다운을 같은 행에 표시
 }
 
 export default function MultiSelectDropdown({
@@ -18,7 +19,8 @@ export default function MultiSelectDropdown({
   selectedValues,
   onChange,
   placeholder = '전체',
-  className = ''
+  className = '',
+  inline = false
 }: MultiSelectDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -55,11 +57,11 @@ export default function MultiSelectDropdown({
       : `${selectedValues[0]} 외 ${selectedValues.length - 1}개`;
 
   return (
-    <div className={className}>
-      <label className="text-[10px] sm:text-xs md:text-sm font-medium mb-1 sm:mb-1.5 block">
+    <div className={`${inline ? 'flex items-center gap-2' : ''} ${className}`}>
+      <label className={`text-[10px] sm:text-xs md:text-sm font-medium ${inline ? 'whitespace-nowrap shrink-0' : 'mb-1 sm:mb-1.5 block'}`}>
         {label}
       </label>
-      <div ref={dropdownRef} className="relative">
+      <div ref={dropdownRef} className={`relative ${inline ? 'flex-1' : ''}`}>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
