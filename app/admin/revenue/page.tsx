@@ -1150,6 +1150,99 @@ function RevenueDashboard() {
         </div>
         */}
 
+        {/* 요약 통계 */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-blue-50 rounded flex-shrink-0">
+                <Building2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 사업장</p>
+                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900">{sortedBusinesses.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-green-50 rounded flex-shrink-0">
+                <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-green-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 매출금액</p>
+                <p className="text-xs sm:text-sm md:text-base font-bold text-green-600 break-words">
+                  {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.total_revenue, 0))}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-purple-50 rounded flex-shrink-0">
+                <DollarSign className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-purple-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 이익금액</p>
+                <p className="text-xs sm:text-sm md:text-base font-bold text-purple-600 break-words">
+                  {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.net_profit, 0))}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-orange-50 rounded flex-shrink-0">
+                <Calculator className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-orange-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 영업비용</p>
+                <p className="text-xs sm:text-sm md:text-base font-bold text-orange-600 break-words">
+                  {formatCurrency(sortedBusinesses.reduce((sum, b) => {
+                    const salesCommission = b.adjusted_sales_commission || b.sales_commission || 0;
+                    return sum + salesCommission;
+                  }, 0))}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-blue-50 rounded flex-shrink-0">
+                <Settings className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 설치비용</p>
+                <p className="text-xs sm:text-sm md:text-base font-bold text-blue-600 break-words">
+                  {formatCurrency(sortedBusinesses.reduce((sum, b) => {
+                    const installationCosts = (b.installation_costs || 0) + (b.installation_extra_cost || 0);
+                    return sum + installationCosts;
+                  }, 0))}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-indigo-50 rounded flex-shrink-0">
+                <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-indigo-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">사업장 평균 이익률</p>
+                <p className="text-xs sm:text-sm md:text-base font-bold text-indigo-600">
+                  {sortedBusinesses.length > 0 ?
+                    ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
+                    : '0'}%
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* 필터 및 검색 */}
         <div className="bg-white rounded-md md:rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4">
           <h3 className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 mb-2 sm:mb-3 md:mb-4 flex items-center gap-1.5 sm:gap-2">
@@ -1261,99 +1354,6 @@ function RevenueDashboard() {
                     미수금만
                   </label>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 요약 통계 */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
-          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="p-1 sm:p-1.5 bg-blue-50 rounded flex-shrink-0">
-                <Building2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-blue-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 사업장</p>
-                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900">{sortedBusinesses.length}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="p-1 sm:p-1.5 bg-green-50 rounded flex-shrink-0">
-                <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-green-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 매출금액</p>
-                <p className="text-xs sm:text-sm md:text-base font-bold text-green-600 break-words">
-                  {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.total_revenue, 0))}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="p-1 sm:p-1.5 bg-purple-50 rounded flex-shrink-0">
-                <DollarSign className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-purple-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 이익금액</p>
-                <p className="text-xs sm:text-sm md:text-base font-bold text-purple-600 break-words">
-                  {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.net_profit, 0))}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="p-1 sm:p-1.5 bg-orange-50 rounded flex-shrink-0">
-                <Calculator className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-orange-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 영업비용</p>
-                <p className="text-xs sm:text-sm md:text-base font-bold text-orange-600 break-words">
-                  {formatCurrency(sortedBusinesses.reduce((sum, b) => {
-                    const salesCommission = b.adjusted_sales_commission || b.sales_commission || 0;
-                    return sum + salesCommission;
-                  }, 0))}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="p-1 sm:p-1.5 bg-blue-50 rounded flex-shrink-0">
-                <Settings className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-blue-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 설치비용</p>
-                <p className="text-xs sm:text-sm md:text-base font-bold text-blue-600 break-words">
-                  {formatCurrency(sortedBusinesses.reduce((sum, b) => {
-                    const installationCosts = (b.installation_costs || 0) + (b.installation_extra_cost || 0);
-                    return sum + installationCosts;
-                  }, 0))}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-2 sm:p-3 md:p-4 rounded-md md:rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="p-1 sm:p-1.5 bg-indigo-50 rounded flex-shrink-0">
-                <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-indigo-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">사업장 평균 이익률</p>
-                <p className="text-xs sm:text-sm md:text-base font-bold text-indigo-600">
-                  {sortedBusinesses.length > 0 ?
-                    ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
-                    : '0'}%
-                </p>
               </div>
             </div>
           </div>
