@@ -1156,119 +1156,112 @@ function RevenueDashboard() {
             <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             필터 및 검색
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
-            <MultiSelectDropdown
-              label="영업점"
-              options={salesOffices}
-              selectedValues={selectedOffices}
-              onChange={(values) => { setSelectedOffices(values); setCurrentPage(1); }}
-              placeholder="전체 영업점"
-              inline
-            />
+          <div className="space-y-2 sm:space-y-3">
+            {/* 첫 번째 행: MultiSelectDropdown 필터들 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+              <MultiSelectDropdown
+                label="영업점"
+                options={salesOffices}
+                selectedValues={selectedOffices}
+                onChange={(values) => { setSelectedOffices(values); setCurrentPage(1); }}
+                placeholder="전체 영업점"
+                inline
+              />
 
-            <MultiSelectDropdown
-              label="지역"
-              options={regions.sort()}
-              selectedValues={selectedRegions}
-              onChange={(values) => { setSelectedRegions(values); setCurrentPage(1); }}
-              placeholder="전체 지역"
-              inline
-            />
+              <MultiSelectDropdown
+                label="지역"
+                options={regions.sort()}
+                selectedValues={selectedRegions}
+                onChange={(values) => { setSelectedRegions(values); setCurrentPage(1); }}
+                placeholder="전체 지역"
+                inline
+              />
 
-            <MultiSelectDropdown
-              label="진행구분"
-              options={['자비', '보조금', '보조금 동시진행', '대리점', 'AS']}
-              selectedValues={selectedCategories}
-              onChange={(values) => { setSelectedCategories(values); setCurrentPage(1); }}
-              placeholder="전체"
-              inline
-            />
+              <MultiSelectDropdown
+                label="진행구분"
+                options={['자비', '보조금', '보조금 동시진행', '대리점', 'AS']}
+                selectedValues={selectedCategories}
+                onChange={(values) => { setSelectedCategories(values); setCurrentPage(1); }}
+                placeholder="전체"
+                inline
+              />
 
-            <MultiSelectDropdown
-              label="사업 진행 연도"
-              options={projectYears.map(year => String(year))}
-              selectedValues={selectedProjectYears}
-              onChange={(values) => { setSelectedProjectYears(values); setCurrentPage(1); }}
-              placeholder="전체 연도"
-              inline
-            />
+              <MultiSelectDropdown
+                label="사업 진행 연도"
+                options={projectYears.map(year => String(year))}
+                selectedValues={selectedProjectYears}
+                onChange={(values) => { setSelectedProjectYears(values); setCurrentPage(1); }}
+                placeholder="전체 연도"
+                inline
+              />
 
-            <MultiSelectDropdown
-              label="설치 월"
-              options={['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']}
-              selectedValues={selectedMonths}
-              onChange={(values) => { setSelectedMonths(values); setCurrentPage(1); }}
-              placeholder="전체 월"
-              inline
-            />
-
-            <div className="flex items-center gap-2">
-              <label htmlFor="receivables-filter" className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">미수금 필터</label>
-              <div className="flex items-center h-8 px-2 py-1.5 bg-gray-50 border border-gray-300 rounded flex-1">
-                <input
-                  type="checkbox"
-                  id="receivables-filter"
-                  checked={showReceivablesOnly}
-                  onChange={(e) => { setShowReceivablesOnly(e.target.checked); setCurrentPage(1); }}
-                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
-                />
-                <label htmlFor="receivables-filter" className="ml-1.5 sm:ml-2 text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 cursor-pointer">
-                  미수금만
-                </label>
-              </div>
-            </div>
-
-            <div className="flex items-end gap-1.5 sm:gap-2">
-              <button
-                onClick={loadCalculations}
-                disabled={loading}
-                className="flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 sm:gap-1.5 transition-colors"
-              >
-                <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                조회
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-2 sm:mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">검색</label>
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="사업장명 또는 영업점"
-                  value={searchTerm}
-                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">최소 매출금액 (원)</label>
-              <input
-                type="number"
-                placeholder="0"
-                value={revenueFilter.min}
-                onChange={(e) => { setRevenueFilter(prev => ({ ...prev, min: e.target.value })); setCurrentPage(1); }}
-                className="flex-1 px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                min="0"
-                step="100000"
+              <MultiSelectDropdown
+                label="설치 월"
+                options={['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']}
+                selectedValues={selectedMonths}
+                onChange={(values) => { setSelectedMonths(values); setCurrentPage(1); }}
+                placeholder="전체 월"
+                inline
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">최대 매출금액 (원)</label>
-              <input
-                type="number"
-                placeholder="제한없음"
-                value={revenueFilter.max}
-                onChange={(e) => { setRevenueFilter(prev => ({ ...prev, max: e.target.value })); setCurrentPage(1); }}
-                className="flex-1 px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                min="0"
-                step="100000"
-              />
+            {/* 두 번째 행: 검색, 매출금액, 미수금 필터 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">검색</label>
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="사업장명 또는 영업점"
+                    value={searchTerm}
+                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                    className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">최소 매출 (원)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={revenueFilter.min}
+                  onChange={(e) => { setRevenueFilter(prev => ({ ...prev, min: e.target.value })); setCurrentPage(1); }}
+                  className="flex-1 px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                  step="100000"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">최대 매출 (원)</label>
+                <input
+                  type="number"
+                  placeholder="제한없음"
+                  value={revenueFilter.max}
+                  onChange={(e) => { setRevenueFilter(prev => ({ ...prev, max: e.target.value })); setCurrentPage(1); }}
+                  className="flex-1 px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                  step="100000"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label htmlFor="receivables-filter" className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">미수금 필터</label>
+                <div className="flex items-center h-8 px-2 py-1.5 bg-gray-50 border border-gray-300 rounded flex-1">
+                  <input
+                    type="checkbox"
+                    id="receivables-filter"
+                    checked={showReceivablesOnly}
+                    onChange={(e) => { setShowReceivablesOnly(e.target.checked); setCurrentPage(1); }}
+                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
+                  />
+                  <label htmlFor="receivables-filter" className="ml-1.5 sm:ml-2 text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 cursor-pointer">
+                    미수금만
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         </div>
