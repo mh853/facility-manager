@@ -199,6 +199,37 @@ export interface SystemConfig {
   urlParam: string;
 }
 
+// 월별 마감 시스템 타입 정의
+export interface MonthlyClosing {
+  id: string;
+  year: number;
+  month: number;
+  totalRevenue: number;
+  totalCost: number;
+  salesCommissionCosts: number;
+  surveyCosts: number; // 실사비용 (견적서 + 착공 전 + 준공 실사비 + 조정금액)
+  installationCosts: number;
+  miscellaneousCosts: number;
+  netProfit: number;
+  businessCount: number;
+  isClosed: boolean;
+  closedAt?: string;
+  closedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MiscellaneousCost {
+  id: string;
+  monthlyClosingId: string;
+  itemName: string;
+  amount: number;
+  description?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // 프로젝트 관리 타입 정의
 export interface Project {
   id: string;

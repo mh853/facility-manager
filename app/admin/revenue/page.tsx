@@ -134,6 +134,89 @@ function RevenueDashboard() {
     }
   }, [pricesLoaded]);
 
+  // 필터가 변경될 때마다 통계 재계산
+  useEffect(() => {
+    if (!businesses.length || !calculations.length) return;
+
+    // 필터링된 사업장 계산
+    const filtered = businesses.filter(business => {
+      const searchMatch = !searchTerm ||
+        business.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (business.sales_office && business.sales_office.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (business.manager_name && business.manager_name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      const officeMatch = selectedOffices.length === 0 || selectedOffices.includes(business.sales_office || '');
+      const regionMatch = selectedRegions.length === 0 || selectedRegions.some(region =>
+        business.address && business.address.toLowerCase().includes(region.toLowerCase())
+      );
+      const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(business.progress_status || '');
+      const yearMatch = selectedProjectYears.length === 0 || selectedProjectYears.includes(String(business.project_year || ''));
+
+      let monthMatch = true;
+      if (selectedMonths.length > 0) {
+        const installDate = business.installation_date;
+        if (installDate) {
+          const date = new Date(installDate);
+          const month = String(date.getMonth() + 1);
+          monthMatch = selectedMonths.includes(month);
+        } else {
+          monthMatch = false;
+        }
+      }
+
+      return searchMatch && officeMatch && regionMatch && categoryMatch && yearMatch && monthMatch;
+    });
+
+    // 필터링된 사업장 중 매출 계산이 있는 것만 추출
+    const filteredCalculations = calculations.filter(calc => {
+      // 해당 calculation의 business가 필터 조건을 만족하는지 확인
+      const business = businesses.find(b => b.id === calc.business_id);
+      if (!business) return false;
+
+      const searchMatch = !searchTerm ||
+        business.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (business.sales_office && business.sales_office.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (business.manager_name && business.manager_name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      const officeMatch = selectedOffices.length === 0 || selectedOffices.includes(business.sales_office || '');
+      const regionMatch = selectedRegions.length === 0 || selectedRegions.some(region =>
+        business.address && business.address.toLowerCase().includes(region.toLowerCase())
+      );
+      const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(business.progress_status || '');
+      const yearMatch = selectedProjectYears.length === 0 || selectedProjectYears.includes(String(business.project_year || ''));
+
+      let monthMatch = true;
+      if (selectedMonths.length > 0) {
+        const installDate = business.installation_date;
+        if (installDate) {
+          const date = new Date(installDate);
+          const month = String(date.getMonth() + 1);
+          monthMatch = selectedMonths.includes(month);
+        } else {
+          monthMatch = false;
+        }
+      }
+
+      return searchMatch && officeMatch && regionMatch && categoryMatch && yearMatch && monthMatch;
+    });
+
+    // 중복 제거: 같은 business_id의 경우 가장 최신 것만 유지
+    const latestCalcsMap = new Map();
+    filteredCalculations.forEach(calc => {
+      const existing = latestCalcsMap.get(calc.business_id);
+      if (!existing ||
+          calc.calculation_date > existing.calculation_date ||
+          (calc.calculation_date === existing.calculation_date && calc.created_at > existing.created_at)) {
+        latestCalcsMap.set(calc.business_id, calc);
+      }
+    });
+
+    const uniqueFilteredCalculations = Array.from(latestCalcsMap.values());
+
+    // 필터링된 데이터로 통계 계산
+    calculateStats(uniqueFilteredCalculations);
+  }, [businesses, calculations, searchTerm, selectedOffices, selectedRegions, selectedCategories, selectedProjectYears, selectedMonths]);
+
   const getAuthHeaders = () => {
     const token = TokenManager.getToken();
     return {
@@ -529,7 +612,7 @@ function RevenueDashboard() {
       const params = new URLSearchParams();
       // 다중 선택 필터는 클라이언트에서 처리하므로 서버 필터는 제거
       if (selectedOffices.length === 1) params.append('sales_office', selectedOffices[0]);
-      params.append('limit', '100');
+      // limit 파라미터 제거 (API 기본값 10000 사용)
 
       console.log('📊 [LOAD-CALCULATIONS] 요청 파라미터:', params.toString());
 
@@ -558,7 +641,7 @@ function RevenueDashboard() {
         });
 
         setCalculations(calculations);
-        calculateStats(calculations);
+        // calculateStats는 useEffect에서 필터링된 데이터로 자동 계산됨
         console.log('✅ [LOAD-CALCULATIONS] calculations 상태 업데이트 완료');
       }
     } catch (error) {
@@ -699,11 +782,7 @@ function RevenueDashboard() {
           }
         });
 
-        // 통계도 즉시 업데이트
-        setCalculations(prevCalcs => {
-          calculateStats(prevCalcs);
-          return prevCalcs;
-        });
+        // 통계는 useEffect에서 필터링된 데이터로 자동 계산됨
 
         alert('매출 계산이 완료되었습니다.');
 
@@ -1405,6 +1484,22 @@ function RevenueDashboard() {
                       <Calculator className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       <span className="hidden sm:inline">전체 재계산</span>
                       <span className="sm:hidden">전체</span>
+                    </button>
+                    <button
+                      onClick={calculateAllBusinesses}
+                      disabled={isCalculating}
+                      className={`
+                        flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-lg transition-colors
+                        ${isCalculating
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                        }
+                      `}
+                      title="슈퍼관리자 전용: 매출 계산이 없는 사업장만 일괄 계산"
+                    >
+                      <Calculator className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span className="hidden sm:inline">{isCalculating ? '계산 중...' : '미계산 일괄 계산'}</span>
+                      <span className="sm:hidden">{isCalculating ? '계산중' : '미계산'}</span>
                     </button>
                   </>
                 )}

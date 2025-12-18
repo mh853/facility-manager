@@ -74,7 +74,8 @@
       "Bash(npm uninstall:*)",
       "Bash(jq:*)",
       "Bash(app/admin/tasks/page.tsx)",
-      "Bash(app/admin/air-permit-detail/page.tsx)"
+      "Bash(app/admin/air-permit-detail/page.tsx)",
+      "Bash(timeout 10 npm run dev)"
     ],
     "deny": [],
     "ask": [],

@@ -228,6 +228,48 @@ export function useBusinessData() {
     }
   }, []);
 
+  /**
+   * 사업장 삭제 함수
+   * - 낙관적 UI 업데이트 (즉시 제거)
+   * - 서버 요청 실패 시 자동 롤백
+   */
+  const deleteBusiness = useCallback(async (businessId: string, businessName: string) => {
+    console.log('🗑️ [useBusinessData.deleteBusiness] 삭제 시작:', { id: businessId, name: businessName });
+
+    // 원본 데이터 백업 (롤백용)
+    const originalBusinesses = [...allBusinesses];
+
+    try {
+      // 1️⃣ 낙관적 UI 업데이트 (즉시 제거)
+      setAllBusinesses(prev => prev.filter(b => b.id !== businessId));
+
+      // 2️⃣ 서버 삭제 요청
+      const response = await fetch('/api/business-info-direct', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: businessId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || '삭제 실패');
+      }
+
+      // 3️⃣ 성공
+      console.log('✅ [useBusinessData.deleteBusiness] 삭제 성공:', businessId);
+      return { success: true, message: '삭제 완료' };
+
+    } catch (error) {
+      // 4️⃣ 실패: 원본 데이터로 자동 롤백
+      console.error('❌ [useBusinessData.deleteBusiness] 삭제 실패 - 자동 롤백:', businessId, error);
+      setAllBusinesses(originalBusinesses);
+
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      return { success: false, error: errorMessage };
+    }
+  }, [allBusinesses]);
+
   // 초기 데이터 로딩
   useEffect(() => {
     loadAllBusinesses();
@@ -237,6 +279,7 @@ export function useBusinessData() {
     allBusinesses,
     isLoading,
     error,
-    refetch: loadAllBusinesses
+    refetch: loadAllBusinesses,
+    deleteBusiness  // 삭제 함수 노출
   };
 }

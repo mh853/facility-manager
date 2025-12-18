@@ -144,13 +144,16 @@ export default function DataTable<T extends { id: string }>({
           e.stopPropagation()
           action.onClick(item)
         }}
+        style={{ minWidth: '32px', width: '32px', height: '32px' }}
         className={`
-          inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium border transition-colors
+          flex items-center justify-center
+          sm:min-w-0 sm:w-auto sm:h-auto sm:gap-1.5 sm:px-3 sm:py-1.5
+          rounded-lg text-[10px] sm:text-sm font-medium border transition-colors
           ${variants[action.variant || 'secondary']}
         `}
         title={action.label}
       >
-        {Icon && <Icon className="w-3 h-3 sm:w-4 sm:h-4" />}
+        {Icon && <Icon className="w-4 h-4 flex-shrink-0" />}
         <span className="hidden sm:inline">{action.label}</span>
       </button>
     )
@@ -317,8 +320,8 @@ export default function DataTable<T extends { id: string }>({
                   ))}
                   
                   {actions.length > 0 && (
-                    <td className="px-1 sm:px-2 py-1 sm:py-1.5 text-center">
-                      <div className="flex justify-center gap-1">
+                    <td className="py-1 sm:py-1.5 text-center">
+                      <div className="flex justify-center items-center gap-1">
                         {actions
                           .filter(action => action.show ? action.show(item) : true)
                           .map((action, actionIndex) => getActionButton(action, item, actionIndex))

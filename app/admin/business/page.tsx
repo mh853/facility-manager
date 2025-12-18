@@ -352,7 +352,7 @@ function BusinessManagementPage() {
   const searchParams = useSearchParams()
 
   // ⚡ 커스텀 훅 사용 (Phase 2.1 성능 최적화)
-  const { allBusinesses, isLoading, error: businessDataError, refetch: refetchBusinesses } = useBusinessData()
+  const { allBusinesses, isLoading, error: businessDataError, refetch: refetchBusinesses, deleteBusiness } = useBusinessData()
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingBusiness, setEditingBusiness] = useState<UnifiedBusinessInfo | null>(null)
@@ -372,6 +372,9 @@ function BusinessManagementPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [businessToDelete, setBusinessToDelete] = useState<UnifiedBusinessInfo | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+
+  // 🔒 안전한 연속 삭제를 위한 상태 관리
+  const [pendingDeletions, setPendingDeletions] = useState<Set<string>>(new Set())
 
   // ⚡ 시설 통계 관리 훅 (Phase 2.1 성능 최적화)
   const {
@@ -2573,28 +2576,52 @@ function BusinessManagementPage() {
   const handleDelete = async () => {
     if (!businessToDelete) return
 
+    const businessId = businessToDelete.id
+    const businessName = businessToDelete.business_name
+
+    // 이미 삭제 진행 중이면 무시
+    if (pendingDeletions.has(businessId)) {
+      console.log('⚠️ [DELETE] 이미 삭제 진행 중:', businessId)
+      toast.warning('삭제 진행 중', '이미 삭제가 진행 중입니다.')
+      return
+    }
+
     try {
-      const response = await fetch('/api/business-info-direct', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: businessToDelete.id }),
-      })
+      // 1️⃣ 삭제 진행 중 상태 추가
+      setPendingDeletions(prev => new Set(prev).add(businessId))
 
-      const result = await response.json()
+      // 모달 닫기 및 선택 초기화
+      setDeleteConfirmOpen(false)
+      setBusinessToDelete(null)
 
-      if (response.ok && result.success) {
-        console.log('✅ 삭제 성공:', result.message)
-        alert(result.message || '사업장이 성공적으로 삭제되었습니다.')
-        await loadAllBusinesses()
-        setDeleteConfirmOpen(false)
-        setBusinessToDelete(null)
-      } else {
-        console.error('❌ 삭제 실패:', result.error)
-        alert(result.error || '삭제에 실패했습니다.')
+      // 선택된 사업장이 삭제된 경우 상세 모달도 닫기
+      if (selectedBusiness?.id === businessId) {
+        setSelectedBusiness(null)
+        setIsDetailModalOpen(false)
       }
-    } catch (error) {
-      console.error('삭제 오류:', error)
-      alert('삭제 중 오류가 발생했습니다.')
+
+      // 캐시 무효화
+      invalidateBusinessCache(businessId)
+
+      // 2️⃣ useBusinessData 훅의 deleteBusiness 함수 사용
+      const result = await deleteBusiness(businessId, businessName)
+
+      if (result.success) {
+        // 3️⃣ 성공
+        toast.success('사업장 삭제 완료', `${businessName}이(가) 성공적으로 삭제되었습니다.`)
+      } else {
+        // 4️⃣ 실패 (훅에서 자동 롤백됨)
+        toast.error('삭제 실패', `${businessName} 삭제에 실패했습니다: ${result.error}`)
+      }
+
+    } finally {
+      // 5️⃣ 진행 중 상태 제거
+      setPendingDeletions(prev => {
+        const next = new Set(prev)
+        next.delete(businessId)
+        return next
+      })
+      console.log('🔚 [DELETE-END] 삭제 프로세스 종료:', businessId)
     }
   }
 
@@ -3567,12 +3594,20 @@ function BusinessManagementPage() {
 
   const actions = [
     {
-      label: '삭제',
+      label: (item: UnifiedBusinessInfo) =>
+        pendingDeletions.has(item.id) ? '삭제 중...' : '삭제',
       icon: Trash2,
-      onClick: (item: UnifiedBusinessInfo) => confirmDelete(item),
+      onClick: (item: UnifiedBusinessInfo) => {
+        // 삭제 진행 중이면 클릭 무시
+        if (pendingDeletions.has(item.id)) {
+          return
+        }
+        confirmDelete(item)
+      },
       variant: 'danger' as const,
       show: () => true,
-      compact: true  // 작은 버튼 스타일
+      compact: true,  // 작은 버튼 스타일
+      disabled: (item: UnifiedBusinessInfo) => pendingDeletions.has(item.id)
     }
   ]
 

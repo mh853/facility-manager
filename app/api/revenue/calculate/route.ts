@@ -93,9 +93,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const calcDate = calculation_date || new Date().toISOString().split('T')[0];
-
-    // 1. 사업장 정보 조회
+    // 1. 사업장 정보 조회 (먼저 조회하여 설치일 확인)
     const { data: businessInfo, error: businessError } = await supabaseAdmin
       .from('business_info')
       .select('*')
@@ -108,6 +106,16 @@ export async function POST(request: NextRequest) {
         message: '사업장 정보를 찾을 수 없습니다.'
       }, { status: 404 });
     }
+
+    // 계산일 결정 우선순위:
+    // 1. 명시적으로 전달된 calculation_date
+    // 2. 사업장의 설치완료일 (completion_date)
+    // 3. 사업장의 설치일 (installation_date)
+    // 4. 현재 날짜
+    const calcDate = calculation_date
+      || businessInfo.completion_date
+      || businessInfo.installation_date
+      || new Date().toISOString().split('T')[0];
 
     // 2. 환경부 고시가 정보 조회 (활성화된 최신 데이터)
     const { data: pricingData, error: pricingError } = await supabaseAdmin
@@ -144,6 +152,9 @@ export async function POST(request: NextRequest) {
       if (updateError) {
         console.error('제조사 업데이트 오류:', updateError);
       }
+    } else {
+      // 공백 제거 (데이터베이스 매칭을 위해)
+      manufacturer = manufacturer.trim();
     }
 
     const { data: manufacturerPricing, error: mfgPricingError } = await supabaseAdmin
@@ -555,7 +566,7 @@ export async function POST(request: NextRequest) {
           sales_commission: salesCommission, // 기본 영업비용 (조정 전)
           adjusted_sales_commission: hasAdjustment ? adjustedSalesCommission : null, // 조정이 있을 때만 저장, 없으면 null
           survey_costs: totalSurveyCosts,
-          installation_costs: totalInstallationCosts,
+          installation_costs: totalInstallationCosts + installationExtraCost, // 기본 설치비 + 추가설치비 합계
           net_profit: netProfit,
           equipment_breakdown: equipmentBreakdown,
           cost_breakdown: result.cost_breakdown,
@@ -676,44 +687,92 @@ export async function GET(request: NextRequest) {
     const salesOffice = url.searchParams.get('sales_office');
     const startDate = url.searchParams.get('start_date');
     const endDate = url.searchParams.get('end_date');
-    const limit = parseInt(url.searchParams.get('limit') || '50');
+    const limit = parseInt(url.searchParams.get('limit') || '10000'); // 기본값 10000으로 증가
     const offset = parseInt(url.searchParams.get('offset') || '0');
 
-    // 계산 결과 조회
-    let query = supabaseAdmin
-      .from('revenue_calculations')
-      .select('*')
-      .order('calculation_date', { ascending: false })
-      .range(offset, offset + limit - 1);
+    // Supabase는 한 번에 최대 1000개까지만 반환하므로 페이지네이션으로 전체 조회
+    const BATCH_SIZE = 1000;
+    let allCalculations: any[] = [];
+    let currentOffset = 0;
+    let hasMore = true;
 
-    if (businessId) {
-      query = query.eq('business_id', businessId);
+    while (hasMore) {
+      let query = supabaseAdmin
+        .from('revenue_calculations')
+        .select('*')
+        .order('calculation_date', { ascending: false })
+        .range(currentOffset, currentOffset + BATCH_SIZE - 1);
+
+      if (businessId) {
+        query = query.eq('business_id', businessId);
+      }
+
+      if (salesOffice) {
+        query = query.eq('sales_office', salesOffice);
+      }
+
+      if (startDate) {
+        query = query.gte('calculation_date', startDate);
+      }
+
+      if (endDate) {
+        query = query.lte('calculation_date', endDate);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('매출 계산 조회 오류:', error);
+        return NextResponse.json({
+          success: false,
+          message: '계산 결과 조회에 실패했습니다.'
+        }, { status: 500 });
+      }
+
+      if (data && data.length > 0) {
+        allCalculations = allCalculations.concat(data);
+        currentOffset += BATCH_SIZE;
+        hasMore = data.length === BATCH_SIZE; // 1000개 미만이면 마지막 배치
+      } else {
+        hasMore = false;
+      }
     }
 
-    if (salesOffice) {
-      query = query.eq('sales_office', salesOffice);
-    }
+    console.log('📊 [REVENUE-API] 페이지네이션 조회 완료:', {
+      총_레코드: allCalculations.length,
+      배치_수: Math.ceil(allCalculations.length / BATCH_SIZE)
+    });
 
-    if (startDate) {
-      query = query.gte('calculation_date', startDate);
-    }
+    // 사업장별 최신 레코드만 필터링 (중복 제거)
+    const latestCalculationsMap = new Map();
 
-    if (endDate) {
-      query = query.lte('calculation_date', endDate);
-    }
+    allCalculations?.forEach(calc => {
+      const existing = latestCalculationsMap.get(calc.business_id);
 
-    const { data: calculations, error } = await query;
+      // 최신 레코드 판단: calculation_date DESC, created_at DESC
+      if (!existing ||
+          calc.calculation_date > existing.calculation_date ||
+          (calc.calculation_date === existing.calculation_date && calc.created_at > existing.created_at)) {
+        latestCalculationsMap.set(calc.business_id, calc);
+      }
+    });
 
-    if (error) {
-      console.error('매출 계산 조회 오류:', error);
-      return NextResponse.json({
-        success: false,
-        message: '계산 결과 조회에 실패했습니다.'
-      }, { status: 500 });
-    }
+    const calculations = Array.from(latestCalculationsMap.values());
+
+    // 디버깅 로그
+    console.log('📊 [REVENUE-API] 중복 제거 결과:', {
+      전체_레코드: allCalculations?.length || 0,
+      중복_제거_후: calculations.length,
+      제거된_레코드: (allCalculations?.length || 0) - calculations.length
+    });
 
     const totalRevenue = calculations?.reduce((sum, calc) => sum + (calc.total_revenue || 0), 0) || 0;
     const totalProfit = calculations?.reduce((sum, calc) => sum + (calc.net_profit || 0), 0) || 0;
+
+    console.log('💰 [REVENUE-API] 매출 합계:', {
+      총_매출: totalRevenue.toLocaleString(),
+      총_이익: totalProfit.toLocaleString()
+    });
 
     return NextResponse.json({
       success: true,
