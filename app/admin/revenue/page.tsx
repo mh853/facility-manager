@@ -349,7 +349,9 @@ function RevenueDashboard() {
     'discharge_current_meter': 300000,
     'fan_current_meter': 300000,
     'pump_current_meter': 300000,
-    'gateway': 1600000,
+    'gateway': 1600000, // @deprecated
+    'gateway_1_2': 1600000, // 게이트웨이(1,2) - 매출금액 동일
+    'gateway_3_4': 1600000, // 게이트웨이(3,4) - 매출금액 동일
     'vpn_wired': 400000,
     'vpn_wireless': 400000,
     'explosion_proof_differential_pressure_meter_domestic': 800000,
@@ -369,7 +371,9 @@ function RevenueDashboard() {
     'discharge_current_meter': 80000,
     'fan_current_meter': 80000,
     'pump_current_meter': 80000,
-    'gateway': 200000,
+    'gateway': 200000, // @deprecated
+    'gateway_1_2': 1000000, // 게이트웨이(1,2) - 에코센스 매입금액
+    'gateway_3_4': 1420000, // 게이트웨이(3,4) - 에코센스 매입금액 (다름!)
     'vpn_wired': 100000,
     'vpn_wireless': 120000,
     'explosion_proof_differential_pressure_meter_domestic': 150000,
@@ -389,7 +393,9 @@ function RevenueDashboard() {
     'discharge_current_meter': 0,
     'fan_current_meter': 0,
     'pump_current_meter': 0,
-    'gateway': 0,
+    'gateway': 0, // @deprecated
+    'gateway_1_2': 0,
+    'gateway_3_4': 0,
     'vpn_wired': 0,
     'vpn_wireless': 0,
     'explosion_proof_differential_pressure_meter_domestic': 0,
@@ -404,7 +410,7 @@ function RevenueDashboard() {
   const EQUIPMENT_FIELDS = [
     'ph_meter', 'differential_pressure_meter', 'temperature_meter',
     'discharge_current_meter', 'fan_current_meter', 'pump_current_meter',
-    'gateway', 'vpn_wired', 'vpn_wireless',
+    'gateway_1_2', 'gateway_3_4', 'vpn_wired', 'vpn_wireless', // ✅ gateway removed (deprecated)
     'explosion_proof_differential_pressure_meter_domestic',
     'explosion_proof_temperature_meter_domestic', 'expansion_device',
     'relay_8ch', 'relay_16ch', 'main_board_replacement', 'multiple_stack'
@@ -958,7 +964,7 @@ function RevenueDashboard() {
     const equipmentFields = [
       'ph_meter', 'differential_pressure_meter', 'temperature_meter',
       'discharge_current_meter', 'fan_current_meter', 'pump_current_meter',
-      'gateway', 'vpn_wired', 'vpn_wireless',
+      'gateway_1_2', 'gateway_3_4', 'vpn_wired', 'vpn_wireless', // ✅ gateway removed (deprecated)
       'explosion_proof_differential_pressure_meter_domestic',
       'explosion_proof_temperature_meter_domestic', 'expansion_device',
       'relay_8ch', 'relay_16ch', 'main_board_replacement', 'multiple_stack'

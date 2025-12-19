@@ -115,7 +115,9 @@ interface UnifiedBusinessInfo {
   discharge_current_meter?: number | null
   fan_current_meter?: number | null
   pump_current_meter?: number | null
-  gateway?: number | null
+  gateway?: number | null // @deprecated
+  gateway_1_2?: number | null
+  gateway_3_4?: number | null
   vpn_wired?: number | null
   vpn_wireless?: number | null
   explosion_proof_differential_pressure_meter_domestic?: number | null
@@ -162,7 +164,9 @@ interface UnifiedBusinessInfo {
   배출전류계?: number
   송풍전류계?: number
   펌프전류계?: number
-  게이트웨이?: number
+  게이트웨이?: number // @deprecated
+  '게이트웨이(1,2)'?: number
+  '게이트웨이(3,4)'?: number
   VPN유선?: number
   VPN무선?: number
   복수굴뚝?: number
@@ -904,7 +908,9 @@ export default function BusinessDetailModal({
                           { key: '배출전류계', value: business.배출전류계, facilityKey: 'discharge' },
                           { key: '송풍전류계', value: business.송풍전류계, facilityKey: 'fan' },
                           { key: '펌프전류계', value: business.펌프전류계, facilityKey: 'pump' },
-                          { key: '게이트웨이', value: business.게이트웨이, facilityKey: 'gateway' },
+                          // ✅ Gateway split fields only (deprecated gateway field removed)
+                          { key: '게이트웨이(1,2)', value: business.gateway_1_2, facilityKey: 'gateway_1_2' },
+                          { key: '게이트웨이(3,4)', value: business.gateway_3_4, facilityKey: 'gateway_3_4' },
                           { key: '방폭차압계(국산)', value: business.방폭차압계국산, facilityKey: 'explosionProofPressure' },
                           { key: '방폭온도계(국산)', value: business.방폭온도계국산, facilityKey: 'explosionProofTemp' },
                           { key: '확장디바이스', value: business.확장디바이스, facilityKey: 'expansionDevice' },

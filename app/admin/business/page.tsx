@@ -176,7 +176,9 @@ interface UnifiedBusinessInfo {
   discharge_current_meter?: number | null;
   fan_current_meter?: number | null;
   pump_current_meter?: number | null;
-  gateway?: number | null;
+  gateway?: number | null; // @deprecated - Use gateway_1_2 and gateway_3_4 instead
+  gateway_1_2?: number | null;
+  gateway_3_4?: number | null;
   vpn_wired?: number | null;
   vpn_wireless?: number | null;
   explosion_proof_differential_pressure_meter_domestic?: number | null;
@@ -230,7 +232,9 @@ interface UnifiedBusinessInfo {
   배출전류계?: number;
   송풍전류계?: number;
   펌프전류계?: number;
-  게이트웨이?: number;
+  게이트웨이?: number; // @deprecated
+  '게이트웨이(1,2)'?: number;
+  '게이트웨이(3,4)'?: number;
   VPN유선?: number;
   VPN무선?: number;
   복수굴뚝?: number;
@@ -513,7 +517,9 @@ function BusinessManagementPage() {
     'discharge_current_meter': 300000,
     'fan_current_meter': 300000,
     'pump_current_meter': 300000,
-    'gateway': 1600000,
+    'gateway': 1600000, // @deprecated
+    'gateway_1_2': 1600000, // 게이트웨이(1,2) - 매출금액 동일
+    'gateway_3_4': 1600000, // 게이트웨이(3,4) - 매출금액 동일
     'vpn_wired': 400000,
     'vpn_wireless': 400000,
     'explosion_proof_differential_pressure_meter_domestic': 800000,
@@ -533,7 +539,9 @@ function BusinessManagementPage() {
     'discharge_current_meter': 80000,
     'fan_current_meter': 80000,
     'pump_current_meter': 80000,
-    'gateway': 200000,
+    'gateway': 1000000, // @deprecated
+    'gateway_1_2': 1000000, // 게이트웨이(1,2) - 에코센스 매입금액
+    'gateway_3_4': 1420000, // 게이트웨이(3,4) - 에코센스 매입금액 (다름!)
     'vpn_wired': 100000,
     'vpn_wireless': 120000,
     'explosion_proof_differential_pressure_meter_domestic': 150000,
@@ -553,7 +561,9 @@ function BusinessManagementPage() {
     'discharge_current_meter': 0,
     'fan_current_meter': 0,
     'pump_current_meter': 0,
-    'gateway': 0,
+    'gateway': 0, // @deprecated
+    'gateway_1_2': 0,
+    'gateway_3_4': 0,
     'vpn_wired': 0,
     'vpn_wireless': 0,
     'explosion_proof_differential_pressure_meter_domestic': 0,
@@ -568,7 +578,7 @@ function BusinessManagementPage() {
   const EQUIPMENT_FIELDS = [
     'ph_meter', 'differential_pressure_meter', 'temperature_meter',
     'discharge_current_meter', 'fan_current_meter', 'pump_current_meter',
-    'gateway', 'vpn_wired', 'vpn_wireless',
+    'gateway', 'gateway_1_2', 'gateway_3_4', 'vpn_wired', 'vpn_wireless',
     'explosion_proof_differential_pressure_meter_domestic',
     'explosion_proof_temperature_meter_domestic', 'expansion_device',
     'relay_8ch', 'relay_16ch', 'main_board_replacement', 'multiple_stack'
@@ -2171,6 +2181,8 @@ function BusinessManagementPage() {
           fan_current_meter: business.fan_current_meter,
           pump_current_meter: business.pump_current_meter,
           gateway: business.gateway,
+          gateway_1_2: business.gateway_1_2 || 0,
+          gateway_3_4: business.gateway_3_4 || 0,
           vpn_wired: business.vpn_wired === true ? 1 : (business.vpn_wired === false ? 0 : (business.vpn_wired || 0)),
           vpn_wireless: business.vpn_wireless === true ? 1 : (business.vpn_wireless === false ? 0 : (business.vpn_wireless || 0)),
           explosion_proof_differential_pressure_meter_domestic: business.explosion_proof_differential_pressure_meter_domestic,
@@ -2226,7 +2238,9 @@ function BusinessManagementPage() {
           배출전류계: business.discharge_current_meter || 0,
           송풍전류계: business.fan_current_meter || 0,
           펌프전류계: business.pump_current_meter || 0,
-          게이트웨이: business.gateway || 0,
+          게이트웨이: business.gateway || 0, // @deprecated
+          '게이트웨이(1,2)': business.gateway_1_2 || 0,
+          '게이트웨이(3,4)': business.gateway_3_4 || 0,
           VPN유선: business.vpn_wired === true ? 1 : (business.vpn_wired === false ? 0 : (business.vpn_wired || 0)),
           VPN무선: business.vpn_wireless === true ? 1 : (business.vpn_wireless === false ? 0 : (business.vpn_wireless || 0)),
           복수굴뚝: business.multiple_stack === true ? 1 : (business.multiple_stack === false ? 0 : (business.multiple_stack || 0)),
@@ -2388,6 +2402,8 @@ function BusinessManagementPage() {
       fan_current_meter: null,
       pump_current_meter: null,
       gateway: null,
+      gateway_1_2: null,
+      gateway_3_4: null,
       vpn_wired: null,
       vpn_wireless: null,
       explosion_proof_differential_pressure_meter_domestic: null,
@@ -2475,6 +2491,8 @@ function BusinessManagementPage() {
         fan_current_meter: freshData.fan_current_meter,
         pump_current_meter: freshData.pump_current_meter,
         gateway: freshData.gateway,
+        gateway_1_2: freshData.gateway_1_2,
+        gateway_3_4: freshData.gateway_3_4,
 
         // VPN 및 네트워크 관련 필드들
         vpn_wired: freshData.vpn_wired,
@@ -2712,7 +2730,9 @@ function BusinessManagementPage() {
         pump_current_meter: parseInt(row['펌프전류계'] || '0') || 0,
 
         // 네트워크 장비
-        gateway: parseInt(row['게이트웨이'] || '0') || 0,
+        gateway: parseInt(row['게이트웨이'] || '0') || 0, // @deprecated
+        gateway_1_2: parseInt(row['게이트웨이(1,2)'] || '0') || 0,
+        gateway_3_4: parseInt(row['게이트웨이(3,4)'] || '0') || 0,
         vpn_wired: parseInt(row['VPN(유선)'] || '0') || 0,
         vpn_wireless: parseInt(row['VPN(무선)'] || '0') || 0,
         vpn: row['VPN타입'] === '무선' ? 'wireless' : row['VPN타입'] === '유선' ? 'wired' : null,
@@ -2948,7 +2968,9 @@ function BusinessManagementPage() {
               'discharge_current_meter': '배출전류계',
               'fan_current_meter': '송풍전류계',
               'pump_current_meter': '펌프전류계',
-              'gateway': '게이트웨이',
+              'gateway': '게이트웨이', // @deprecated
+              'gateway_1_2': '게이트웨이(1,2)',
+              'gateway_3_4': '게이트웨이(3,4)',
               'vpn_wired': 'VPN유선',
               'vpn_wireless': 'VPN무선'
             };
@@ -3136,8 +3158,12 @@ function BusinessManagementPage() {
               송풍전류계: serverData.fan_current_meter || null,
               pump_current_meter: serverData.pump_current_meter || null,
               펌프전류계: serverData.pump_current_meter || null,
-              gateway: serverData.gateway || null,
-              게이트웨이: serverData.gateway || null,
+              gateway: serverData.gateway || null, // @deprecated
+              게이트웨이: serverData.gateway || null, // @deprecated
+              gateway_1_2: serverData.gateway_1_2 || null,
+              '게이트웨이(1,2)': serverData.gateway_1_2 || null,
+              gateway_3_4: serverData.gateway_3_4 || null,
+              '게이트웨이(3,4)': serverData.gateway_3_4 || null,
               vpn_wired: serverData.vpn_wired || null,
               VPN유선: serverData.vpn_wired || null,
               vpn_wireless: serverData.vpn_wireless || null,
@@ -4838,11 +4864,22 @@ function BusinessManagementPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">게이트웨이</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">게이트웨이(1,2)</label>
                       <input
                         type="number"
-                        value={formData.gateway ?? ''}
-                        onChange={(e) => setFormData({...formData, gateway: e.target.value ? parseInt(e.target.value) : null})}
+                        value={formData.gateway_1_2 ?? ''}
+                        onChange={(e) => setFormData({...formData, gateway_1_2: e.target.value ? parseInt(e.target.value) : null})}
+                        className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        min="0"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">게이트웨이(3,4)</label>
+                      <input
+                        type="number"
+                        value={formData.gateway_3_4 ?? ''}
+                        onChange={(e) => setFormData({...formData, gateway_3_4: e.target.value ? parseInt(e.target.value) : null})}
                         className="w-full px-2 sm:px-3 py-1 sm:py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
                         min="0"
                         placeholder="0"

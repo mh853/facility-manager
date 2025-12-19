@@ -420,9 +420,9 @@ export class KoreanAirPermitPdfGenerator {
     // 시설이 하나도 없는 경우 처리
     if (maxFacilities === 0) {
       return `
-        <div style="margin-bottom: 15px; border: 1px solid #e5e7eb; border-radius: 4px; overflow: hidden; background-color: #ffffff;">
-          <div style="background-color: #f3f4f6; padding: 8px; border-bottom: 1px solid #e5e7eb;">
-            <h3 style="margin: 0; font-size: 14px; font-weight: bold; color: #374151; background-color: #f3f4f6;">
+        <div style="margin-bottom: 15px; border: 3px solid ${gatewayColor.border}; border-radius: 4px; overflow: hidden; background-color: #ffffff;">
+          <div style="background-color: ${gatewayColor.bg}; padding: 8px; border-bottom: 2px solid ${gatewayColor.border};">
+            <h3 style="margin: 0; font-size: 14px; font-weight: bold; color: ${gatewayColor.text}; background-color: transparent;">
               ${this.escapeHtml(outlet.outletName)} (배출구 #${outlet.outletNumber})
               ${gatewayBadgeHtml}
             </h3>
@@ -435,9 +435,9 @@ export class KoreanAirPermitPdfGenerator {
     }
 
     return `
-      <div style="margin-bottom: 15px; border: 1px solid #e5e7eb; border-radius: 4px; overflow: hidden; background-color: #ffffff;">
-        <div style="background-color: #f3f4f6; padding: 8px; border-bottom: 1px solid #e5e7eb;">
-          <h3 style="margin: 0; font-size: 14px; font-weight: bold; color: #374151; background-color: #f3f4f6;">
+      <div style="margin-bottom: 15px; border: 3px solid ${gatewayColor.border}; border-radius: 4px; overflow: hidden; background-color: #ffffff;">
+        <div style="background-color: ${gatewayColor.bg}; padding: 8px; border-bottom: 2px solid ${gatewayColor.border};">
+          <h3 style="margin: 0; font-size: 14px; font-weight: bold; color: ${gatewayColor.text}; background-color: transparent;">
             ${this.escapeHtml(outlet.outletName)} (배출구 #${outlet.outletNumber})
             ${gatewayBadgeHtml}
           </h3>

@@ -292,12 +292,13 @@ export async function generateEcosensePurchaseOrderExcel(
   }
 
   // 품목 데이터 계산
+  const totalGateway = (data.equipment.gateway_1_2 || 0) + (data.equipment.gateway_3_4 || 0) // ✅ Gateway split fields
   const equipmentData = [
-    { name: '대기관', count: data.equipment.gateway || 0 },
+    { name: '대기관', count: totalGateway },
     { name: '온도계', count: data.equipment.temperature_meter || 0 },
     { name: '단가(원)', header: true },
-    { name: '2CH GW', count: data.equipment.gateway || 0 },
-    { name: '1CH GW', count: 0 }, // 기본값
+    { name: 'GW(1,2)', count: data.equipment.gateway_1_2 || 0 }, // ✅ Gateway split fields
+    { name: 'GW(3,4)', count: data.equipment.gateway_3_4 || 0 }, // ✅ Gateway split fields
     { name: 'VPN', count: (data.equipment.vpn_router_wired || 0) + (data.equipment.vpn_router_wireless || 0) }
   ]
 

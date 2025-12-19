@@ -92,7 +92,8 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       ph_meter: business.ph_meter,
       differential_pressure_meter: business.differential_pressure_meter,
       temperature_meter: business.temperature_meter,
-      gateway: business.gateway
+      gateway_1_2: business.gateway_1_2,
+      gateway_3_4: business.gateway_3_4
     })
 
     // 장비 수량 데이터 변환
@@ -105,7 +106,8 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       discharge_ct: business.discharge_current_meter || 0,
       fan_ct: business.fan_current_meter || 0,
       pump_ct: business.pump_current_meter || 0,
-      gateway: business.gateway || 0,
+      gateway_1_2: business.gateway_1_2 || 0, // ✅ Gateway split fields
+      gateway_3_4: business.gateway_3_4 || 0, // ✅ Gateway split fields
       vpn_router_wired: business.vpn_wired || 0,
       vpn_router_wireless: business.vpn_wireless || 0,
       explosion_proof_differential_pressure_meter_domestic:
@@ -128,7 +130,8 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       discharge_ct: 'discharge_current_meter',
       fan_ct: 'fan_current_meter',
       pump_ct: 'pump_current_meter',
-      gateway: 'gateway',
+      gateway_1_2: 'gateway_1_2', // ✅ Gateway split fields
+      gateway_3_4: 'gateway_3_4', // ✅ Gateway split fields
       vpn_router_wired: 'vpn_wired',
       vpn_router_wireless: 'vpn_wireless',
       explosion_proof_differential_pressure_meter_domestic:
@@ -148,7 +151,8 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       discharge_ct: '배출전류계',
       fan_ct: '송풍전류계',
       pump_ct: '펌프전류계',
-      gateway: '게이트웨이',
+      gateway_1_2: '게이트웨이(1,2)', // ✅ Gateway split fields
+      gateway_3_4: '게이트웨이(3,4)', // ✅ Gateway split fields
       vpn_router_wired: 'VPN(유선)',
       vpn_router_wireless: 'VPN(무선)',
       explosion_proof_differential_pressure_meter_domestic: '방폭차압계(국산)',
@@ -347,6 +351,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       factory_manager: business.manager_name || '',
       factory_contact: business.manager_contact || '',
       factory_email: business.email || '',
+      business_management_code: business.business_management_code || '', // 사업장관리코드
       greenlink_id: business.greenlink_id || '',
       greenlink_pw: business.greenlink_pw || '',
       delivery_recipient: undefined,

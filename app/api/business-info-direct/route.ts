@@ -71,6 +71,8 @@ export async function GET(request: Request) {
       fan_current_meter,
       pump_current_meter,
       gateway,
+      gateway_1_2,
+      gateway_3_4,
       vpn_wired,
       vpn_wireless,
       explosion_proof_differential_pressure_meter_domestic,
@@ -348,6 +350,13 @@ export async function PUT(request: Request) {
     }
     if (updateData.gateway !== undefined) {
       updateObject.gateway = updateData.gateway === null ? null : parseInt(updateData.gateway) || 0;
+    }
+    // 🎯 Gateway split fields (gateway_1_2, gateway_3_4)
+    if (updateData.gateway_1_2 !== undefined) {
+      updateObject.gateway_1_2 = updateData.gateway_1_2 === null ? null : parseInt(updateData.gateway_1_2) || 0;
+    }
+    if (updateData.gateway_3_4 !== undefined) {
+      updateObject.gateway_3_4 = updateData.gateway_3_4 === null ? null : parseInt(updateData.gateway_3_4) || 0;
     }
 
     // VPN fields - POST MIGRATION: Direct integer handling (no boolean conversion), null-safe
@@ -690,6 +699,8 @@ export async function POST(request: Request) {
             fan_current_meter: parseInt(business.fan_current_meter || '0') || 0,
             pump_current_meter: parseInt(business.pump_current_meter || '0') || 0,
             gateway: parseInt(business.gateway || '0') || 0,
+            gateway_1_2: parseInt(business.gateway_1_2 || '0') || 0,
+            gateway_3_4: parseInt(business.gateway_3_4 || '0') || 0,
             vpn_wired: parseInt(business.vpn_wired || '0') || 0,
             vpn_wireless: parseInt(business.vpn_wireless || '0') || 0,
             multiple_stack: parseInt(business.multiple_stack || '0') || 0,
@@ -888,7 +899,9 @@ export async function POST(request: Request) {
       fan_current_meter: parseInt(businessData.fan_current_meter || '0') || 0,
       pump_current_meter: parseInt(businessData.pump_current_meter || '0') || 0,
       gateway: businessData.gateway,
-      
+      gateway_1_2: parseInt(businessData.gateway_1_2 || '0') || 0,
+      gateway_3_4: parseInt(businessData.gateway_3_4 || '0') || 0,
+
       // VPN fields as integers (post-migration)
       vpn_wired: parseInt(businessData.vpn_wired || '0') || 0,
       vpn_wireless: parseInt(businessData.vpn_wireless || '0') || 0,

@@ -60,7 +60,8 @@ export async function generateEcosensePurchaseOrderFromTemplate(
     { name: '차압계', count: Number(data.equipment.differential_pressure_meter) || 0 },
     { name: '온도계', count: Number(data.equipment.temperature_meter) || 0 },
     { name: '전류계', count: totalCtCount },  // 전류계 합산값 추가
-    { name: '게이트웨이', count: Number(data.equipment.gateway) || 0 },
+    { name: '게이트웨이(1,2)', count: Number(data.equipment.gateway_1_2) || 0 }, // ✅ Gateway split fields
+    { name: '게이트웨이(3,4)', count: Number(data.equipment.gateway_3_4) || 0 }, // ✅ Gateway split fields
     { name: 'VPN(유선)', count: Number(data.equipment.vpn_router_wired) || 0 },
     { name: 'VPN(무선)', count: Number(data.equipment.vpn_router_wireless) || 0 },
     { name: '확장디바이스', count: Number(data.equipment.expansion_device) || 0 }
@@ -111,6 +112,11 @@ export async function generateEcosensePurchaseOrderFromTemplate(
     factory_email: data.factory_email,
     final_value: emailValue
   })
+
+  // ============================================================================
+  // 사업장관리코드 (K25 셀)
+  // ============================================================================
+  worksheet.getCell('K25').value = data.business_management_code || ''
 
   // ============================================================================
   // 주소 정보

@@ -97,7 +97,9 @@ export interface BusinessInfo {
   discharge_current_meter: number | null
   fan_current_meter: number | null
   pump_current_meter: number | null
-  gateway: number | null
+  gateway: number | null // @deprecated - Use gateway_1_2 and gateway_3_4 instead
+  gateway_1_2: number | null // 게이트웨이(1,2) - 에코센스 매입금액 다름
+  gateway_3_4: number | null // 게이트웨이(3,4) - 에코센스 매입금액 다름
   vpn_wired: number | null
   vpn_wireless: number | null
   explosion_proof_differential_pressure_meter_domestic: number | null
@@ -785,14 +787,14 @@ export class DatabaseService {
 
     console.log(`✅ [DB-OPTIMIZED] ${outlets.length}개 배출구 조회 완료 (단일 쿼리, ${queryTime.toFixed(0)}ms)`)
 
-    // ✅ 시설들을 created_at 역순으로 정렬 (최신 등록 먼저)
+    // ✅ 시설들을 created_at 순서로 정렬 (입력한 순서대로, 오래된 항목 먼저)
     const sortedOutlets = outlets.map((outlet: any) => ({
       ...outlet,
       discharge_facilities: (outlet.discharge_facilities || []).sort((a: any, b: any) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       ),
       prevention_facilities: (outlet.prevention_facilities || []).sort((a: any, b: any) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       )
     }))
 

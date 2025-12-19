@@ -307,6 +307,26 @@ function AirPermitDetailContent() {
     })
 
     console.log('✅ [handleFacilityEdit] permitDetail 업데이트 완료')
+
+    // 디버깅: 업데이트된 값 확인
+    setPermitDetail(prev => {
+      if (prev) {
+        const targetOutlet = prev.outlets.find(o => o.id === outletId)
+        if (targetOutlet) {
+          const facilitiesKey = facilityType === 'discharge' ? 'discharge_facilities' : 'prevention_facilities'
+          const targetFacility = targetOutlet[facilitiesKey]?.find(f => f.id === facilityId)
+          if (targetFacility) {
+            console.log(`🔍 [handleFacilityEdit] 업데이트 후 시설 상태:`, {
+              facilityName: targetFacility.facility_name,
+              field,
+              value,
+              additional_info: targetFacility.additional_info
+            })
+          }
+        }
+      }
+      return prev
+    })
   }, [])
 
   // 한글 깨짐 문제 수정 함수
@@ -462,6 +482,31 @@ function AirPermitDetailContent() {
       // ✅ 간소화된 로직: 게이트웨이 할당만 업데이트 후 전체 데이터를 PUT
       const updatedPermitDetail = { ...permitDetail }
 
+      // 🎯 디버깅: 저장 직전 permitDetail의 상태 확인
+      console.log('🔍 [handleSave] 저장 직전 permitDetail 상태:', {
+        totalOutlets: permitDetail?.outlets?.length,
+        outlets: permitDetail?.outlets?.map(outlet => ({
+          id: outlet.id,
+          isNew: outlet.id.startsWith('new-'),
+          number: outlet.outlet_number,
+          name: outlet.outlet_name,
+          dischargeCount: outlet.discharge_facilities?.length,
+          preventionCount: outlet.prevention_facilities?.length,
+          discharge_facilities: outlet.discharge_facilities?.map(f => ({
+            name: f.facility_name,
+            facility_number: f.additional_info?.facility_number,
+            green_link_code: f.additional_info?.green_link_code,
+            memo: f.additional_info?.memo
+          })),
+          prevention_facilities: outlet.prevention_facilities?.map(f => ({
+            name: f.facility_name,
+            facility_number: f.additional_info?.facility_number,
+            green_link_code: f.additional_info?.green_link_code,
+            memo: f.additional_info?.memo
+          }))
+        }))
+      })
+
       if (updatedPermitDetail && updatedPermitDetail.outlets) {
         updatedPermitDetail.outlets = updatedPermitDetail.outlets.map(outlet => {
           // 게이트웨이 할당만 업데이트
@@ -546,7 +591,20 @@ function AirPermitDetailContent() {
             gateway: o.additional_info?.gateway, // 🎯 게이트웨이 정보 확인
             additional_info: o.additional_info, // 🎯 전체 additional_info 확인
             dischargeCount: o.discharge_facilities?.length,
-            preventionCount: o.prevention_facilities?.length
+            preventionCount: o.prevention_facilities?.length,
+            // 🎯 시설별 additional_info 상세 확인
+            discharge_facilities_info: o.discharge_facilities?.map(f => ({
+              name: f.name,
+              facility_number: f.additional_info?.facility_number,
+              green_link_code: f.additional_info?.green_link_code,
+              memo: f.additional_info?.memo
+            })),
+            prevention_facilities_info: o.prevention_facilities?.map(f => ({
+              name: f.name,
+              facility_number: f.additional_info?.facility_number,
+              green_link_code: f.additional_info?.green_link_code,
+              memo: f.additional_info?.memo
+            }))
           }))
         })
 
@@ -605,25 +663,29 @@ function AirPermitDetailContent() {
         const airPermitData = await airPermitResponse.json()
         console.log('📄 대기필증 API 응답:', airPermitData.data)
 
-        // 게이트웨이 업데이트가 완료된 후 최신 데이터 다시 조회 (forcePrimary=true로 즉시 반영 보장)
-        console.log('🔄 최신 데이터 재조회 시작 (Primary DB 사용)')
-        console.log(`⏱️ [TIME] 재조회 시작: ${(performance.now() - startTime).toFixed(0)}ms`)
+        // 🚀 즉시 UI 업데이트: API 응답 데이터로 먼저 업데이트 (사용자에게 즉각 반영)
+        if (airPermitData.data) {
+          flushSync(() => {
+            setPermitDetail(airPermitData.data)
+            console.log('✅ [handleSave] 즉시 UI 업데이트 완료 (API 응답 데이터)')
+          })
+        }
 
-        // 🔧 READ-AFTER-WRITE 일관성 보장: 짧은 지연 후 재조회 (replica lag 보정)
-        await new Promise(resolve => setTimeout(resolve, 500))
-        console.log(`⏱️ [TIME] 재조회 지연 완료: ${(performance.now() - startTime).toFixed(0)}ms`)
+        // 🔧 READ-AFTER-WRITE 일관성 보장: 백그라운드에서 Primary DB 재조회 (replica lag 보정)
+        console.log('🔄 백그라운드 재조회 예약 (Primary DB 사용)')
+        setTimeout(async () => {
+          try {
+            // ✅ FIX: 새 대기필증 생성 시 airPermitData.data.id 사용 (permitDetail.id는 'new'일 수 있음)
+            const actualPermitId = airPermitData.data?.id || permitDetail?.id
+            console.log(`🔍 백그라운드 재조회 시작: ${actualPermitId}`)
 
-        // ✅ FIX: 새 대기필증 생성 시 airPermitData.data.id 사용 (permitDetail.id는 'new'일 수 있음)
-        const actualPermitId = airPermitData.data?.id || permitDetail?.id
-        console.log(`🔍 재조회할 대기필증 ID: ${actualPermitId} (원본 permitDetail.id: ${permitDetail?.id})`)
-        const refreshResponse = await fetch(`/api/air-permit?id=${actualPermitId}&details=true&forcePrimary=true`)
-        if (refreshResponse.ok) {
-          const refreshData = await refreshResponse.json()
-          console.log(`⏱️ [TIME] 재조회 완료: ${(performance.now() - startTime).toFixed(0)}ms`)
-          console.log('🔄 최신 데이터 재조회 완료:', refreshData.data)
+            const refreshResponse = await fetch(`/api/air-permit?id=${actualPermitId}&details=true&forcePrimary=true`)
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json()
+              console.log('🔄 백그라운드 재조회 완료:', refreshData.data)
 
-          // 응답 데이터 유효성 검사
-          if (refreshData.data && refreshData.data.outlets) {
+              // 응답 데이터 유효성 검사
+              if (refreshData.data && refreshData.data.outlets) {
             // 그린링크 코드 디버깅을 위한 상세 로그
             refreshData.data.outlets.forEach((outlet: any) => {
               console.log(`🔍 [DEBUG] 배출구 ${outlet.outlet_number} 데이터:`)
@@ -763,13 +825,18 @@ function AirPermitDetailContent() {
                 }
               })
             })
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ [handleSave] 백그라운드 재조회 실패 (무시됨):', error)
           }
-        }
+        }, 500)
       }
 
       // gatewayAssignments는 위에서 재초기화되므로 여기서 초기화하지 않음
       // 항상 편집모드이므로 종료하지 않음
-      // alert는 위에서 setTimeout으로 이미 표시됨
+      // 즉시 편집모드 해제
+      setIsEditing(false)
 
     } catch (error) {
       console.error('Error saving changes:', error);
@@ -870,13 +937,24 @@ function AirPermitDetailContent() {
       updated_at: new Date().toISOString()
     }
 
+    console.log('➕ [addOutlet] 새 배출구 추가:', {
+      id: newOutlet.id,
+      outlet_number: newOutlet.outlet_number,
+      outlet_name: newOutlet.outlet_name,
+      currentOutletCount: permitDetail.outlets?.length || 0
+    })
+
     setPermitDetail(prev => {
       if (!prev) return null;
-      
-      return {
+
+      const updated = {
         ...prev,
         outlets: [...(prev.outlets || []), newOutlet]
       }
+
+      console.log('✅ [addOutlet] 배출구 추가 완료, 총 배출구:', updated.outlets.length)
+
+      return updated
     })
   }
 
@@ -1148,6 +1226,7 @@ function AirPermitDetailContent() {
               yPosition = 20
             }
 
+            // 입력한 순서대로 위에서 아래로 표시
             const dischargeFacility = outlet.discharge_facilities?.[rowIndex]
             const preventionFacility = outlet.prevention_facilities?.[rowIndex]
 
@@ -1513,6 +1592,7 @@ function AirPermitDetailContent() {
                         )
                         
                         return Array.from({ length: maxRows }, (_, rowIndex) => {
+                          // 입력한 순서대로 위에서 아래로 표시
                           const dischargeFacility = outlet.discharge_facilities?.[rowIndex]
                           const preventionFacility = outlet.prevention_facilities?.[rowIndex]
                           
@@ -1622,7 +1702,7 @@ function AirPermitDetailContent() {
                                   <input
                                     type="text"
                                     value={dischargeFacility.additional_info?.green_link_code ?? ''}
-                                    onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'green_link_code', e.target.value)}
+                                    onChange={(e) => handleFacilityEdit(outlet.id, 'discharge', dischargeFacility.id, 'green_link_code', e.target.value.toUpperCase())}
                                     placeholder="그린링크"
                                     className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                   />
@@ -1781,7 +1861,7 @@ function AirPermitDetailContent() {
                                   <input
                                     type="text"
                                     value={preventionFacility.additional_info?.green_link_code ?? ''}
-                                    onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'green_link_code', e.target.value)}
+                                    onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', preventionFacility.id, 'green_link_code', e.target.value.toUpperCase())}
                                     placeholder="그린링크"
                                     className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                                   />
@@ -1853,6 +1933,7 @@ function AirPermitDetailContent() {
                         배출시설
                       </h4>
                       <div className="space-y-2">
+                        {/* 입력한 순서대로 위에서 아래로 표시 */}
                         {outlet.discharge_facilities.map((facility, idx) => (
                           <div key={facility.id} className="bg-white rounded-lg p-2 shadow-sm border border-red-100">
                             <div className="flex items-start justify-between mb-1.5">
@@ -1967,6 +2048,7 @@ function AirPermitDetailContent() {
                         방지시설
                       </h4>
                       <div className="space-y-2">
+                        {/* 입력한 순서대로 위에서 아래로 표시 */}
                         {outlet.prevention_facilities.map((facility, idx) => (
                           <div key={facility.id} className="bg-white rounded-lg p-2 shadow-sm border border-blue-100">
                             <div className="flex items-start justify-between mb-1.5">
@@ -2036,7 +2118,7 @@ function AirPermitDetailContent() {
                                   <input
                                     type="text"
                                     value={facility.additional_info?.green_link_code ?? ''}
-                                    onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', facility.id, 'green_link_code', e.target.value)}
+                                    onChange={(e) => handleFacilityEdit(outlet.id, 'prevention', facility.id, 'green_link_code', e.target.value.toUpperCase())}
                                     placeholder="그린링크"
                                     className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded"
                                   />

@@ -84,7 +84,8 @@ export interface PurchaseOrderData {
     discharge_ct: number
     fan_ct: number
     pump_ct: number
-    gateway: number
+    gateway_1_2: number // ✅ Gateway split fields
+    gateway_3_4: number // ✅ Gateway split fields
     vpn_router_wired: number
     vpn_router_wireless: number
 
@@ -127,6 +128,7 @@ export interface PurchaseOrderDataEcosense extends PurchaseOrderData {
   factory_manager: string // 담당자 (manager_name from business_info)
   factory_contact: string // 연락처 (manager_contact from business_info)
   factory_email?: string // 이메일 (email from business_info)
+  business_management_code?: string // 사업장관리코드 (business_management_code from business_info)
 
   // 택배 주소 (사용자 입력 또는 저장된 주소)
   delivery_recipient?: string // 수령인

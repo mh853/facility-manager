@@ -173,7 +173,8 @@ function generatePurchaseOrderHtml(data: PurchaseOrderDataEcosense, includeAirPe
     { name: '차압계', count: data.equipment.differential_pressure_meter || 0 },
     { name: '온도계', count: data.equipment.temperature_meter || 0 },
     { name: '전류계', count: totalCtCount },
-    { name: '게이트웨이', count: data.equipment.gateway || 0 },
+    { name: '게이트웨이(1,2)', count: data.equipment.gateway_1_2 || 0 }, // ✅ Gateway split fields
+    { name: '게이트웨이(3,4)', count: data.equipment.gateway_3_4 || 0 }, // ✅ Gateway split fields
     { name: 'VPN(유선)', count: data.equipment.vpn_router_wired || 0 },
     { name: 'VPN(무선)', count: data.equipment.vpn_router_wireless || 0 },
     { name: '확장디바이스', count: data.equipment.expansion_device || 0 }
