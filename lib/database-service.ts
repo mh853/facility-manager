@@ -145,8 +145,8 @@ export interface AirPermitInfo {
   updated_at: string
   business_type: string | null
   annual_emission_amount: number | null
-  first_report_date?: string | null // 최초신고일
-  operation_start_date?: string | null // 가동개시일
+  first_report_date: string | null // 최초신고일
+  operation_start_date: string | null // 가동개시일
   additional_info: Record<string, any>
   is_active: boolean
   is_deleted: boolean
@@ -511,13 +511,30 @@ export class DatabaseService {
    * 대기필증 생성
    */
   static async createAirPermit(permitData: Omit<AirPermitInfo, 'id' | 'created_at' | 'updated_at'>): Promise<AirPermitInfo> {
+    console.log('🔍 [DB] createAirPermit 호출:', {
+      first_report_date: permitData.first_report_date,
+      operation_start_date: permitData.operation_start_date,
+      business_id: permitData.business_id,
+      business_type: permitData.business_type
+    })
+
     const { data, error } = await supabase
       .from('air_permit_info')
       .insert([permitData])
       .select()
       .single()
 
-    if (error) throw new Error(`대기필증 생성 실패: ${error.message}`)
+    if (error) {
+      console.error('❌ [DB] createAirPermit 실패:', error)
+      throw new Error(`대기필증 생성 실패: ${error.message}`)
+    }
+
+    console.log('✅ [DB] createAirPermit 성공:', {
+      id: data.id,
+      first_report_date: data.first_report_date,
+      operation_start_date: data.operation_start_date
+    })
+
     return data
   }
 
@@ -768,8 +785,19 @@ export class DatabaseService {
 
     console.log(`✅ [DB-OPTIMIZED] ${outlets.length}개 배출구 조회 완료 (단일 쿼리, ${queryTime.toFixed(0)}ms)`)
 
+    // ✅ 시설들을 created_at 역순으로 정렬 (최신 등록 먼저)
+    const sortedOutlets = outlets.map((outlet: any) => ({
+      ...outlet,
+      discharge_facilities: (outlet.discharge_facilities || []).sort((a: any, b: any) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      ),
+      prevention_facilities: (outlet.prevention_facilities || []).sort((a: any, b: any) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+    }))
+
     // 그린링크 코드 디버깅 로그
-    outlets.forEach((outlet: any) => {
+    sortedOutlets.forEach((outlet: any) => {
       const preventionCount = outlet.prevention_facilities?.length || 0
       const dischargeCount = outlet.discharge_facilities?.length || 0
       console.log(`   📍 배출구 ${outlet.outlet_number}: 방지시설 ${preventionCount}개, 배출시설 ${dischargeCount}개`)
@@ -781,7 +809,7 @@ export class DatabaseService {
       }
     })
 
-    return outlets as OutletWithFacilities[]
+    return sortedOutlets as OutletWithFacilities[]
   }
 
   /**

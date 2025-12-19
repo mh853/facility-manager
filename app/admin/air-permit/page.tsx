@@ -836,8 +836,8 @@ function AirPermitManagementPage() {
         business_type: newPermitData.business_type || selectedBusiness?.business_type || '',
         category: newPermitData.category,
         business_name: selectedBusiness?.business_name || '',
-        first_report_date: newPermitData.first_report_date || null,
-        operation_start_date: newPermitData.operation_start_date || null,
+        first_report_date: newPermitData.first_report_date?.trim() || null,
+        operation_start_date: newPermitData.operation_start_date?.trim() || null,
         additional_info: {
           facility_number: newPermitData.facility_number,
           green_link_code: newPermitData.green_link_code,
@@ -867,6 +867,12 @@ function AirPermitManagementPage() {
       // 즉시 UI 업데이트
       setAirPermits(prev => [...prev, tempPermit as any])
       setIsAddModalOpen(false)
+
+      console.log('📤 대기필증 POST 요청 데이터:', {
+        first_report_date: permitData.first_report_date,
+        operation_start_date: permitData.operation_start_date,
+        fullData: permitData
+      })
 
       const response = await fetch('/api/air-permit', {
         method: 'POST',

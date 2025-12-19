@@ -224,12 +224,32 @@ export default function OrderDetailModal({
     // 연도나 월 필드에서는 검증하지 않고 자유롭게 이동 허용
   }
 
+  // 오늘 날짜 입력
+  const handleSetToday = (stepField: string) => {
+    const today = new Date()
+    const year = today.getFullYear().toString()
+    const month = (today.getMonth() + 1).toString().padStart(2, '0')
+    const day = today.getDate().toString().padStart(2, '0')
+
+    // dateInputs 업데이트
+    setDateInputs(prev => ({
+      ...prev,
+      [stepField]: { year, month, day }
+    }))
+
+    // 날짜 조합하여 stepDates 업데이트
+    const assembled = `${year}-${month}-${day}`
+    handleDateChange(stepField, assembled)
+  }
+
   // 저장
   const handleSave = async () => {
     try {
       setSaving(true)
 
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+
+      console.log('🔍 [ORDER-SAVE] 저장 시도:', stepDates)
 
       const response = await fetch(`/api/order-management/${businessId}`, {
         method: 'PUT',
@@ -242,14 +262,19 @@ export default function OrderDetailModal({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update order')
+        const errorData = await response.json()
+        console.error('❌ [ORDER-SAVE] 서버 응답 오류:', errorData)
+        throw new Error(errorData.error || 'Failed to update order')
       }
+
+      const result = await response.json()
+      console.log('✅ [ORDER-SAVE] 저장 성공:', result)
 
       alert('저장되었습니다.')
       await loadOrderDetail() // 데이터 새로고침
     } catch (error) {
-      console.error('발주 정보 저장 오류:', error)
-      alert('저장 중 오류가 발생했습니다.')
+      console.error('💥 [ORDER-SAVE] 발주 정보 저장 오류:', error)
+      alert(`저장 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
     } finally {
       setSaving(false)
     }
@@ -600,6 +625,14 @@ export default function OrderDetailModal({
                           />
                           <span className="text-xs text-gray-500 mt-1 text-center">일</span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => handleSetToday(step.field)}
+                          disabled={isCompleted}
+                          className="px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                        >
+                          오늘
+                        </button>
                       </div>
                     </div>
                   </div>
