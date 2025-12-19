@@ -37,11 +37,15 @@ export default function DateInput({ value, onChange, className = '', placeholder
 
   // 날짜 조합하여 onChange 호출
   const updateDate = (newYear: string, newMonth: string, newDay: string) => {
-    if (newYear && newMonth && newDay) {
+    // ✅ 모든 필드가 완전히 입력된 경우에만 포맷팅 적용
+    if (newYear.length === 4 && newMonth.length === 2 && newDay.length === 2) {
       const formattedMonth = newMonth.padStart(2, '0')
       const formattedDay = newDay.padStart(2, '0')
       onChange(`${newYear}-${formattedMonth}-${formattedDay}`)
     } else if (!newYear && !newMonth && !newDay) {
+      onChange('')
+    } else {
+      // ✅ 입력 중에는 빈 값으로 유지하여 부분 입력 허용
       onChange('')
     }
   }
