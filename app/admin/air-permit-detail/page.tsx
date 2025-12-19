@@ -174,6 +174,10 @@ function AirPermitDetailContent() {
         
         if (response.ok && result.data) {
           console.log('📋 대기필증 상세 정보:', result.data)
+          console.log('📅 날짜 필드 확인:', {
+            first_report_date: result.data.first_report_date,
+            operation_start_date: result.data.operation_start_date
+          })
           let permitData = result.data
 
           // 배출구가 없는 경우 기본 배출구 자동 생성
@@ -607,7 +611,10 @@ function AirPermitDetailContent() {
         await new Promise(resolve => setTimeout(resolve, 500))
         console.log(`⏱️ [TIME] 재조회 지연 완료: ${(performance.now() - startTime).toFixed(0)}ms`)
 
-        const refreshResponse = await fetch(`/api/air-permit?id=${permitDetail?.id}&details=true&forcePrimary=true`)
+        // ✅ FIX: 새 대기필증 생성 시 airPermitData.data.id 사용 (permitDetail.id는 'new'일 수 있음)
+        const actualPermitId = airPermitData.data?.id || permitDetail?.id
+        console.log(`🔍 재조회할 대기필증 ID: ${actualPermitId} (원본 permitDetail.id: ${permitDetail?.id})`)
+        const refreshResponse = await fetch(`/api/air-permit?id=${actualPermitId}&details=true&forcePrimary=true`)
         if (refreshResponse.ok) {
           const refreshData = await refreshResponse.json()
           console.log(`⏱️ [TIME] 재조회 완료: ${(performance.now() - startTime).toFixed(0)}ms`)
@@ -655,16 +662,30 @@ function AirPermitDetailContent() {
             console.log(`⏱️ [TIME] UI 업데이트 완료: ${(performance.now() - startTime).toFixed(0)}ms`)
 
             // ✅ 목록 페이지에 업데이트 알림 (localStorage 이벤트 트리거)
-            if (permitDetail?.business_id) {
-              localStorage.setItem('air-permit-updated', permitDetail.business_id)
+            const businessIdForUpdate = refreshData.data.business_id || permitDetail?.business_id
+            if (businessIdForUpdate) {
+              localStorage.setItem('air-permit-updated', businessIdForUpdate)
             }
+
+            // ✅ 새 대기필증 생성 완료 시 목록 페이지로 리다이렉트
+            const wasNewPermit = permitDetail?.id === 'new'
 
             // ✅ UI 업데이트 완료 후 성공 메시지 표시 (DOM 렌더링 완료 보장)
             // requestAnimationFrame을 두 번 사용하여 브라우저가 실제로 화면을 다시 그린 후에 alert 표시
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
                 console.log(`⏱️ [TIME] alert 표시: ${(performance.now() - startTime).toFixed(0)}ms`)
-                alert('변경사항이 저장되었습니다')
+                if (wasNewPermit) {
+                  alert('대기필증이 성공적으로 추가되었습니다')
+                  // 목록 페이지로 리다이렉트
+                  if (businessIdForUpdate) {
+                    router.push(`/admin/air-permit?businessId=${businessIdForUpdate}`)
+                  } else {
+                    router.push('/admin/air-permit')
+                  }
+                } else {
+                  alert('변경사항이 저장되었습니다')
+                }
               })
             })
           } else {
@@ -716,14 +737,28 @@ function AirPermitDetailContent() {
             })
 
             // ✅ 목록 페이지에 업데이트 알림 (localStorage 이벤트 트리거)
-            if (permitDetail?.business_id) {
-              localStorage.setItem('air-permit-updated', permitDetail.business_id)
+            const businessIdForUpdate = airPermitData.data.business_id || permitDetail?.business_id
+            if (businessIdForUpdate) {
+              localStorage.setItem('air-permit-updated', businessIdForUpdate)
             }
+
+            // ✅ 새 대기필증 생성 완료 시 목록 페이지로 리다이렉트
+            const wasNewPermit = permitDetail?.id === 'new'
 
             // Fallback 경로에서도 DOM 렌더링 완료 후 alert 표시
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
-                alert('변경사항이 저장되었습니다')
+                if (wasNewPermit) {
+                  alert('대기필증이 성공적으로 추가되었습니다')
+                  // 목록 페이지로 리다이렉트
+                  if (businessIdForUpdate) {
+                    router.push(`/admin/air-permit?businessId=${businessIdForUpdate}`)
+                  } else {
+                    router.push('/admin/air-permit')
+                  }
+                } else {
+                  alert('변경사항이 저장되었습니다')
+                }
               })
             })
           }
@@ -1000,8 +1035,10 @@ function AirPermitDetailContent() {
       const pdfBlob = await generateKoreanAirPermitPdf(pdfData)
 
       // PDF 다운로드
-      const businessName = pdfData.permitInfo.businessName || '대기필증'
-      const fileName = `대기필증_${businessName}_${new Date().toISOString().split('T')[0]}.pdf`
+      const businessName = pdfData.permitInfo.businessName || '업체명'
+      const today = new Date()
+      const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
+      const fileName = `레이아웃_${businessName}_${dateStr}.pdf`
 
       const url = window.URL.createObjectURL(pdfBlob)
       const a = document.createElement('a')
