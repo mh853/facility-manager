@@ -145,6 +145,8 @@ function AirPermitDetailContent() {
           id: 'new',
           business_id: '',
           business_type: '',
+          first_report_date: null,
+          operation_start_date: null,
           annual_emission_amount: null,
           outlets: [
             createDefaultOutlet({
@@ -561,8 +563,8 @@ function AirPermitDetailContent() {
         const newPermitData = {
           business_id: updatedPermitDetail.business_id,
           business_type: updatedPermitDetail.business_type,
-          // first_report_date: updatedPermitDetail.first_report_date,
-          // operation_start_date: updatedPermitDetail.operation_start_date,
+          first_report_date: updatedPermitDetail.first_report_date,
+          operation_start_date: updatedPermitDetail.operation_start_date,
           additional_info: {
             ...updatedPermitDetail.additional_info
           },
