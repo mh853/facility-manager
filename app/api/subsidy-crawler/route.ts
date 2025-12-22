@@ -6,7 +6,7 @@ import { analyzeAnnouncement } from '@/lib/gemini';
 // Force dynamic rendering and extend timeout for crawler
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 300; // 5분 (Vercel Pro: 최대 300초, Hobby: 60초)
+export const maxDuration = 10; // Vercel Hobby: 10초 (GitHub Actions에서 배치 처리)
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;

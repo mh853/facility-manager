@@ -6,7 +6,7 @@
 - **비용**: $0/월 (Vercel Hobby + GitHub Actions Free)
 - **시작일**: 2025-12-22
 
-## Phase 1: Foundation (CSV + Database) ✅ 진행중
+## Phase 1: Foundation (CSV + Database) ✅ 완료
 
 ### 1.1 진행 상황 문서 생성 ✅
 - **시작**: 2025-12-22 (현재)
@@ -53,21 +53,26 @@
 - **상태**: 완료
 - **설명**: 마이그레이션 실행 가이드 및 테스트 시나리오
 
-### 1.6 SQL 마이그레이션 실행 ⏳
+### 1.6 SQL 마이그레이션 실행 ✅
 - **시작**: 2025-12-22
+- **완료**: 2025-12-22
 - **파일**: Supabase SQL Editor
-- **상태**: 오류 발생 → 수정 완료
+- **상태**: 완료
 - **설명**: Supabase에서 SQL 파일 실행 및 검증
 - **실행 순서** (수정):
-  1. ~~`sql/create_crawl_logs.sql`~~ → `sql/create_crawl_logs_fixed.sql` 실행
-  2. `sql/create_direct_url_sources.sql` 실행
-  3. 테스트 데이터 삽입 (선택)
-  4. 검증 쿼리 실행
+  1. ✅ ~~`sql/create_crawl_logs.sql`~~ → `sql/create_crawl_logs_fixed.sql` 실행
+  2. ✅ `sql/create_direct_url_sources.sql` 실행
+  3. (선택) 테스트 데이터 삽입
+  4. ✅ 검증 쿼리 실행
 - **오류 해결**:
   - 문제: `ERROR: 42703: column "crawl_type" does not exist`
   - 원인: `GENERATED ALWAYS` 컬럼 문법 호환성 문제
   - 해결: `create_crawl_logs_fixed.sql` 파일 생성 (GENERATED 제거)
   - 가이드: `sql/TROUBLESHOOTING.md` 참조
+- **검증 완료**:
+  - crawl_logs 테이블 생성 확인
+  - direct_url_sources 테이블 생성 확인
+  - 모든 뷰 및 함수 정상 작동
 
 ### 1.7 트러블슈팅 가이드 생성 ✅
 - **시작**: 2025-12-22
@@ -84,20 +89,46 @@
 
 ---
 
-## Phase 2: API Development ⏸️
+## Phase 2: API Development ✅ 완료
 
-### 2.1 Direct URL Crawler API ⏸️
+### 2.1 Direct URL Crawler API ✅
+- **시작**: 2025-12-22
+- **완료**: 2025-12-22
 - **파일**: `app/api/subsidy-crawler/direct/route.ts`
-- **상태**: 대기중
+- **상태**: 완료
+- **설명**: 211개 직접 URL 크롤링 API 엔드포인트
+- **포함**:
+  - GET /api/subsidy-crawler/direct (크롤링 대상 URL 조회)
+  - POST /api/subsidy-crawler/direct (크롤링 실행)
+  - 배치 처리 (max 10 URLs, 병렬 실행)
+  - Gemini AI 분석 및 관련성 점수
+  - Supabase 저장 (중복 방지)
+  - direct_url_sources 테이블 업데이트 (성공/실패)
+  - crawl_logs 로깅
+  - 8초 타임아웃 (Vercel 10초 제한 고려)
 
-### 2.2 Stats API ⏸️
+### 2.2 Stats API ✅
+- **시작**: 2025-12-22
+- **완료**: 2025-12-22
 - **파일**: `app/api/subsidy-crawler/stats/route.ts`
-- **상태**: 대기중
+- **상태**: 완료
+- **설명**: 크롤링 통계 및 모니터링 API
+- **포함**:
+  - GET /api/subsidy-crawler/stats
+  - 최근 7일 통계 (crawl_stats_recent 뷰)
+  - 타입별 통계 (auto/direct)
+  - URL 소스 통계 (active/inactive)
+  - 최근 실행 목록 (옵션)
+  - 진행 중인 크롤링 (옵션)
+  - 문제 URL 목록 (옵션)
 
-### 2.3 maxDuration 수정 ⏸️
+### 2.3 maxDuration 수정 ✅
+- **시작**: 2025-12-22
+- **완료**: 2025-12-22
 - **파일**: `app/api/subsidy-crawler/route.ts`
-- **상태**: 대기중
+- **상태**: 완료
 - **변경**: `maxDuration = 300` → `maxDuration = 10`
+- **이유**: Vercel Hobby 플랜 호환성 (10초 제한)
 
 ---
 
@@ -144,12 +175,15 @@
 
 ## 체크포인트
 
-- ✅ **2025-12-22 (시작)**: Phase 1 시작, 진행 문서 생성
-- ✅ **2025-12-22**: CSV 템플릿 생성 완료
-- ✅ **2025-12-22**: crawl_logs 테이블 SQL 완료
-- ✅ **2025-12-22**: direct_url_sources 테이블 SQL 완료
-- ✅ **2025-12-22**: 마이그레이션 가이드 완료
-- ⏳ **진행중**: SQL 마이그레이션 실행 대기 (사용자 작업)
+- ✅ **2025-12-22 (09:00)**: Phase 1 시작, 진행 문서 생성
+- ✅ **2025-12-22 (09:30)**: CSV 템플릿 생성 완료
+- ✅ **2025-12-22 (10:00)**: crawl_logs 테이블 SQL 완료
+- ✅ **2025-12-22 (10:15)**: direct_url_sources 테이블 SQL 완료
+- ✅ **2025-12-22 (10:30)**: 마이그레이션 가이드 완료
+- ✅ **2025-12-22 (11:00)**: SQL 오류 해결 및 트러블슈팅 가이드 생성
+- ✅ **2025-12-22 (11:30)**: SQL 마이그레이션 실행 완료 (사용자)
+- ✅ **2025-12-22 (11:35)**: Phase 1 완료
+- ⏳ **진행중**: Phase 2 시작 - Direct URL Crawler API 구현
 
 ## Phase 1 완료 파일 목록
 
