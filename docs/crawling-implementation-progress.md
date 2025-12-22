@@ -56,13 +56,31 @@
 ### 1.6 SQL 마이그레이션 실행 ⏳
 - **시작**: 2025-12-22
 - **파일**: Supabase SQL Editor
-- **상태**: 사용자 실행 필요
+- **상태**: 오류 발생 → 수정 완료
 - **설명**: Supabase에서 SQL 파일 실행 및 검증
-- **실행 순서**:
-  1. `sql/create_crawl_logs.sql` 실행
+- **실행 순서** (수정):
+  1. ~~`sql/create_crawl_logs.sql`~~ → `sql/create_crawl_logs_fixed.sql` 실행
   2. `sql/create_direct_url_sources.sql` 실행
   3. 테스트 데이터 삽입 (선택)
   4. 검증 쿼리 실행
+- **오류 해결**:
+  - 문제: `ERROR: 42703: column "crawl_type" does not exist`
+  - 원인: `GENERATED ALWAYS` 컬럼 문법 호환성 문제
+  - 해결: `create_crawl_logs_fixed.sql` 파일 생성 (GENERATED 제거)
+  - 가이드: `sql/TROUBLESHOOTING.md` 참조
+
+### 1.7 트러블슈팅 가이드 생성 ✅
+- **시작**: 2025-12-22
+- **완료**: 2025-12-22
+- **파일**: `sql/TROUBLESHOOTING.md`
+- **상태**: 완료
+- **설명**: SQL 오류 해결 가이드 및 단계별 실행 파일
+- **포함**:
+  - `sql/create_crawl_logs_fixed.sql` (GENERATED 컬럼 제거)
+  - `sql/step1_table_only.sql` (테이블만 생성)
+  - `sql/step2_views_functions.sql` (뷰/함수만 생성)
+  - 문제 진단 쿼리 모음
+  - 체크리스트
 
 ---
 
@@ -137,13 +155,18 @@
 
 ### 생성된 파일
 1. ✅ `docs/crawling-implementation-progress.md` - 진행 상황 추적 문서
-2. ✅ `data/direct_urls.csv` - 211개 URL 관리 CSV 템플릿
-3. ✅ `sql/create_crawl_logs.sql` - 크롤링 로그 테이블 마이그레이션
-4. ✅ `sql/create_direct_url_sources.sql` - URL 소스 테이블 마이그레이션
-5. ✅ `sql/README_MIGRATION.md` - 마이그레이션 실행 가이드
+2. ✅ `docs/PHASE1_SUMMARY.md` - Phase 1 완료 요약
+3. ✅ `data/direct_urls.csv` - 211개 URL 관리 CSV 템플릿
+4. ✅ `sql/create_crawl_logs.sql` - 크롤링 로그 테이블 (원본)
+5. ✅ `sql/create_crawl_logs_fixed.sql` - 크롤링 로그 테이블 (수정) ⭐
+6. ✅ `sql/create_direct_url_sources.sql` - URL 소스 테이블 마이그레이션
+7. ✅ `sql/README_MIGRATION.md` - 마이그레이션 실행 가이드
+8. ✅ `sql/TROUBLESHOOTING.md` - 트러블슈팅 가이드 ⭐
+9. ✅ `sql/step1_table_only.sql` - 단계별 실행 1단계 ⭐
+10. ✅ `sql/step2_views_functions.sql` - 단계별 실행 2단계 ⭐
 
 ### 다음 작업
 **Phase 1.6**: Supabase에서 SQL 마이그레이션 실행
-- 사용자가 Supabase Dashboard에서 SQL 파일 실행 필요
-- 실행 가이드: `sql/README_MIGRATION.md` 참조
+- **중요**: `sql/create_crawl_logs_fixed.sql` 사용 (원본 아님!)
+- 실행 가이드: `sql/TROUBLESHOOTING.md` 참조
 - 검증 후 Phase 2로 진행
