@@ -1,0 +1,62 @@
+url,region_code,region_name,category,notes
+# 서울특별시 (11)
+https://www.seoul.go.kr/main/index.jsp,11000,서울특별시,IoT지원,서울시 공고
+# 부산광역시 (26)
+https://www.busan.go.kr/index,26000,부산광역시,IoT지원,부산시 공고
+# 대구광역시 (27)
+https://www.daegu.go.kr/index.do,27000,대구광역시,IoT지원,대구시 공고
+# 인천광역시 (28)
+https://www.incheon.go.kr/index,28000,인천광역시,IoT지원,인천시 공고
+# 광주광역시 (29)
+https://www.gwangju.go.kr/index.jsp,29000,광주광역시,IoT지원,광주시 공고
+# 대전광역시 (30)
+https://www.daejeon.go.kr/index.do,30000,대전광역시,IoT지원,대전시 공고
+# 울산광역시 (31)
+https://www.ulsan.go.kr/index,31000,울산광역시,IoT지원,울산시 공고
+# 세종특별자치시 (36)
+https://www.sejong.go.kr/index.do,36000,세종특별자치시,IoT지원,세종시 공고
+# 경기도 (41)
+https://www.gg.go.kr/main,41000,경기도,IoT지원,경기도 공고
+# 강원특별자치도 (51)
+https://www.provin.gangwon.kr/gw/main.do,51000,강원특별자치도,IoT지원,강원도 공고
+# 충청북도 (43)
+https://www.chungbuk.go.kr/www/index.do,43000,충청북도,IoT지원,충북 공고
+# 충청남도 (44)
+https://www.chungnam.go.kr/main.do,44000,충청남도,IoT지원,충남 공고
+# 전북특별자치도 (52)
+https://www.jeonbuk.go.kr/index.jeonbuk,52000,전북특별자치도,IoT지원,전북 공고
+# 전라남도 (46)
+https://www.jeonnam.go.kr/index.es?sid=a1,46000,전라남도,IoT지원,전남 공고
+# 경상북도 (47)
+https://www.gb.go.kr/Main/open_contents/section/wel/index.var,47000,경상북도,IoT지원,경북 공고
+# 경상남도 (48)
+https://www.gyeongnam.go.kr/index.gyeong,48000,경상남도,IoT지원,경남 공고
+# 제주특별자치도 (50)
+https://www.jeju.go.kr/index.htm,50000,제주특별자치도,IoT지원,제주도 공고
+
+# 환경부 산하 기관
+https://www.me.go.kr/home/web/main.do,00000,환경부,환경정책,환경부 본부
+https://www.nier.go.kr/NIER/,00000,국립환경과학원,연구개발,환경과학원
+https://www.keco.or.kr/,00000,한국환경공단,지원사업,환경공단
+
+# K-water (한국수자원공사)
+https://www.kwater.or.kr/,00000,한국수자원공단,수자원,K-water
+
+# 중소벤처기업부
+https://www.mss.go.kr/site/smba/main.do,00000,중소벤처기업부,중소기업지원,중기부
+https://www.bizinfo.go.kr/,00000,기업마당,통합공고,기업지원포털
+
+# 산업통상자원부
+https://www.motie.go.kr/,00000,산업통상자원부,산업정책,산업부
+https://www.kiat.or.kr/,00000,한국산업기술진흥원,기술지원,산업기술진흥원
+
+# 과학기술정보통신부
+https://www.msit.go.kr/,00000,과학기술정보통신부,ICT정책,과기정통부
+https://www.iitp.kr/,00000,정보통신기획평가원,ICT지원,정보통신평가원
+
+# 기타 공공기관
+https://www.koita.or.kr/,00000,한국정보통신기술협회,ICT표준,TTA
+https://www.nipa.kr/,00000,정보통신산업진흥원,SW지원,NIPA
+
+# NOTE: 실제 211개 URL은 사용자가 제공한 목록으로 대체 필요
+# 이 템플릿은 구조 예시용이며, 실제 구현 시 전체 URL 입력 필요
