@@ -18,6 +18,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const CRAWLER_SECRET = process.env.CRAWLER_SECRET || 'dev-secret';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_APP_URL?.includes('blueon-iot.com');
 
 // ============================================================
 // 타입 정의
@@ -282,12 +283,17 @@ async function recordCrawlFailure(url: string, error: string): Promise<void> {
 // ============================================================
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${CRAWLER_SECRET}`) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+  // 인증 확인 (프로덕션 환경에서만)
+  if (IS_PRODUCTION) {
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token || token !== CRAWLER_SECRET) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
   }
 
   const { searchParams } = new URL(request.url);
@@ -317,13 +323,17 @@ export async function GET(request: NextRequest) {
 // ============================================================
 
 export async function POST(request: NextRequest) {
-  // 인증 확인
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${CRAWLER_SECRET}`) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+  // 인증 확인 (프로덕션 환경에서만)
+  if (IS_PRODUCTION) {
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token || token !== CRAWLER_SECRET) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
   }
 
   try {

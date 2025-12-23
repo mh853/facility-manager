@@ -15,6 +15,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const CRAWLER_SECRET = process.env.CRAWLER_SECRET || 'dev-secret';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_APP_URL?.includes('blueon-iot.com');
 
 // ============================================================
 // 타입 정의
@@ -54,12 +55,11 @@ interface UploadResult {
 // ============================================================
 
 export async function POST(request: NextRequest) {
-  // 인증 확인 (선택적 - Authorization 헤더 또는 세션)
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
+  // 인증 확인 (프로덕션 환경에서만)
+  if (IS_PRODUCTION) {
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
 
-  // CRAWLER_SECRET이 정의된 경우에만 검증 (프로덕션)
-  if (CRAWLER_SECRET && CRAWLER_SECRET !== 'dev-secret') {
     if (!token || token !== CRAWLER_SECRET) {
       return NextResponse.json(
         {
