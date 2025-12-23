@@ -1,0 +1,277 @@
+# 직접 URL 보조금 공고 크롤러
+# 매주 일요일 밤 9시 (KST) 실행 - 211개 직접 URL 크롤링
+
+name: Direct URL Subsidy Crawler
+
+on:
+  # 스케줄 (UTC 기준 - KST는 +9시간)
+  schedule:
+    - cron: '0 12 * * 0'   # 매주 일요일 12:00 UTC = 21:00 KST
+
+  # 수동 실행 가능
+  workflow_dispatch:
+    inputs:
+      batch_number:
+        description: '특정 배치 번호 (1-22, 비우면 전체)'
+        required: false
+        default: ''
+      retry_failed:
+        description: '실패한 URL만 재시도'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  # Vercel 배포 URL (프로덕션)
+  API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://facility.blueon-iot.com' }}
+  # 배치 크기 (Vercel 10초 제한 고려)
+  BATCH_SIZE: 10
+
+jobs:
+  # ============================================================
+  # Job 1: 크롤링 준비 및 상태 확인
+  # ============================================================
+  prepare:
+    name: 준비 및 상태 확인
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      total_urls: ${{ steps.check.outputs.total_urls }}
+      total_batches: ${{ steps.check.outputs.total_batches }}
+
+    steps:
+      - name: 🕐 현재 시간 표시
+        run: |
+          echo "⏰ 실행 시각: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+
+      - name: 🔍 크롤러 상태 확인
+        id: check
+        run: |
+          echo "📡 직접 URL 크롤러 상태 확인 중..."
+
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
+            "${{ env.API_BASE_URL }}/api/subsidy-crawler/direct?limit=211")
+
+          echo "📥 응답: $RESPONSE"
+
+          TOTAL_URLS=$(echo $RESPONSE | jq -r '.total_urls // 0')
+          TOTAL_BATCHES=$(( (TOTAL_URLS + ${{ env.BATCH_SIZE }} - 1) / ${{ env.BATCH_SIZE }} ))
+
+          echo "total_urls=$TOTAL_URLS" >> $GITHUB_OUTPUT
+          echo "total_batches=$TOTAL_BATCHES" >> $GITHUB_OUTPUT
+
+          echo "✅ 크롤링 대상 URL: ${TOTAL_URLS}개"
+          echo "📦 배치 수: ${TOTAL_BATCHES}개 (배치당 ${{ env.BATCH_SIZE }}개)"
+
+      - name: 📊 통계 조회
+        run: |
+          echo "📊 최근 크롤링 통계 조회 중..."
+          curl -s "${{ env.API_BASE_URL }}/api/subsidy-crawler/stats" | jq '.'
+
+  # ============================================================
+  # Job 2: 배치 크롤링 (Matrix Strategy)
+  # ============================================================
+  crawl:
+    name: 배치 ${{ matrix.batch }} 크롤링
+    runs-on: ubuntu-latest
+    needs: prepare
+    timeout-minutes: 10
+
+    strategy:
+      max-parallel: 3  # 동시 실행 배치 수 (리소스 고려)
+      fail-fast: false  # 하나 실패해도 계속 진행
+      matrix:
+        batch: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
+
+    steps:
+      - name: 🚀 배치 ${{ matrix.batch }} 크롤링 시작
+        id: crawl_batch
+        run: |
+          echo "🤖 [배치 ${{ matrix.batch }}/22] 크롤링 시작 (최대 ${{ env.BATCH_SIZE }}개 URL)"
+
+          # URL 가져오기 (offset 계산: (batch - 1) * batch_size)
+          OFFSET=$(( (${{ matrix.batch }} - 1) * ${{ env.BATCH_SIZE }} ))
+
+          echo "📍 Offset: $OFFSET, Limit: ${{ env.BATCH_SIZE }}"
+
+          # API 호출로 URL 가져오기
+          URLS_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
+            "${{ env.API_BASE_URL }}/api/subsidy-crawler/direct?limit=${{ env.BATCH_SIZE }}")
+
+          URLS=$(echo $URLS_RESPONSE | jq -r '.urls | map(.url) | @json')
+          URL_COUNT=$(echo $URLS_RESPONSE | jq -r '.urls | length')
+
+          echo "📥 배치 ${{ matrix.batch }} URL 수: ${URL_COUNT}개"
+
+          # URL이 없으면 종료
+          if [ "$URL_COUNT" -eq 0 ]; then
+            echo "⚠️ 배치 ${{ matrix.batch }}에 크롤링할 URL이 없습니다."
+            echo "success=true" >> $GITHUB_OUTPUT
+            echo "new_count=0" >> $GITHUB_OUTPUT
+            echo "relevant_count=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 크롤링 실행
+          BODY=$(jq -n --argjson urls "$URLS" '{direct_mode: true, urls: $urls}')
+
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
+            -d "$BODY" \
+            "${{ env.API_BASE_URL }}/api/subsidy-crawler/direct")
+
+          echo "📥 배치 ${{ matrix.batch }} 응답: $RESPONSE"
+
+          SUCCESS=$(echo $RESPONSE | jq -r '.success // false')
+          NEW_COUNT=$(echo $RESPONSE | jq -r '.new_announcements // 0')
+          RELEVANT_COUNT=$(echo $RESPONSE | jq -r '.relevant_announcements // 0')
+          SUCCESSFUL_URLS=$(echo $RESPONSE | jq -r '.successful_urls // 0')
+          FAILED_URLS=$(echo $RESPONSE | jq -r '.failed_urls // 0')
+
+          echo "success=$SUCCESS" >> $GITHUB_OUTPUT
+          echo "new_count=$NEW_COUNT" >> $GITHUB_OUTPUT
+          echo "relevant_count=$RELEVANT_COUNT" >> $GITHUB_OUTPUT
+          echo "successful_urls=$SUCCESSFUL_URLS" >> $GITHUB_OUTPUT
+          echo "failed_urls=$FAILED_URLS" >> $GITHUB_OUTPUT
+
+          echo "✅ 배치 ${{ matrix.batch }} 완료: 신규 ${NEW_COUNT}건, 관련 ${RELEVANT_COUNT}건"
+          echo "📊 성공: ${SUCCESSFUL_URLS}개 URL, 실패: ${FAILED_URLS}개 URL"
+
+      - name: ⚠️ 배치 ${{ matrix.batch }} 실패 시 재시도
+        if: steps.crawl_batch.outputs.success != 'true'
+        id: retry_batch
+        run: |
+          echo "🔄 배치 ${{ matrix.batch }} 재시도 중..."
+          sleep 10  # 10초 대기
+
+          # 재시도 API 호출 (retry_failed=true)
+          BODY='{"direct_mode": true, "retry_failed": true, "batch_size": ${{ env.BATCH_SIZE }}}'
+
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
+            -d "$BODY" \
+            "${{ env.API_BASE_URL }}/api/subsidy-crawler/direct")
+
+          echo "📥 재시도 응답: $RESPONSE"
+
+          SUCCESS=$(echo $RESPONSE | jq -r '.success // false')
+          NEW_COUNT=$(echo $RESPONSE | jq -r '.new_announcements // 0')
+          RELEVANT_COUNT=$(echo $RESPONSE | jq -r '.relevant_announcements // 0')
+
+          echo "success=$SUCCESS" >> $GITHUB_OUTPUT
+          echo "new_count=$NEW_COUNT" >> $GITHUB_OUTPUT
+          echo "relevant_count=$RELEVANT_COUNT" >> $GITHUB_OUTPUT
+
+          if [ "$SUCCESS" = "true" ]; then
+            echo "✅ 배치 ${{ matrix.batch }} 재시도 성공: 신규 ${NEW_COUNT}건, 관련 ${RELEVANT_COUNT}건"
+          else
+            echo "❌ 배치 ${{ matrix.batch }} 재시도 실패"
+          fi
+
+      - name: 📝 배치 결과 로그
+        if: always()
+        run: |
+          echo "=================================="
+          echo "📋 배치 ${{ matrix.batch }} 결과"
+          echo "=================================="
+          echo "✅ 성공 여부: ${{ steps.crawl_batch.outputs.success || steps.retry_batch.outputs.success }}"
+          echo "📊 신규 공고: ${{ steps.crawl_batch.outputs.new_count || steps.retry_batch.outputs.new_count }}건"
+          echo "🎯 관련 공고: ${{ steps.crawl_batch.outputs.relevant_count || steps.retry_batch.outputs.relevant_count }}건"
+          echo "✅ 성공 URL: ${{ steps.crawl_batch.outputs.successful_urls || 0 }}개"
+          echo "❌ 실패 URL: ${{ steps.crawl_batch.outputs.failed_urls || 0 }}개"
+          echo "=================================="
+
+  # ============================================================
+  # Job 3: 결과 집계 및 알림
+  # ============================================================
+  summary:
+    name: 결과 집계 및 알림
+    runs-on: ubuntu-latest
+    needs: [prepare, crawl]
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: 📊 최종 통계 조회
+        id: stats
+        run: |
+          echo "📊 최종 크롤링 통계 조회 중..."
+
+          STATS_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
+            "${{ env.API_BASE_URL }}/api/subsidy-crawler/stats?details=true&problems=true")
+
+          echo "📥 통계 응답:"
+          echo "$STATS_RESPONSE" | jq '.'
+
+          # Direct 크롤링 통계 추출
+          DIRECT_STATS=$(echo $STATS_RESPONSE | jq -r '.stats.direct_crawl_stats // {}')
+
+          TOTAL_NEW=$(echo $DIRECT_STATS | jq -r '.total_new_announcements // 0')
+          TOTAL_RELEVANT=$(echo $DIRECT_STATS | jq -r '.total_relevant_announcements // 0')
+          TOTAL_RUNS=$(echo $DIRECT_STATS | jq -r '.total_runs // 0')
+          SUCCESS_RATE=$(echo $DIRECT_STATS | jq -r '.avg_success_rate // 0')
+
+          echo "total_new=$TOTAL_NEW" >> $GITHUB_OUTPUT
+          echo "total_relevant=$TOTAL_RELEVANT" >> $GITHUB_OUTPUT
+          echo "total_runs=$TOTAL_RUNS" >> $GITHUB_OUTPUT
+          echo "success_rate=$SUCCESS_RATE" >> $GITHUB_OUTPUT
+
+          echo "✅ 전체 직접 URL 크롤링 통계:"
+          echo "📊 총 신규 공고: ${TOTAL_NEW}건"
+          echo "🎯 총 관련 공고: ${TOTAL_RELEVANT}건"
+          echo "📈 성공률: ${SUCCESS_RATE}%"
+
+      - name: 📬 알림 발송 (관련 공고 발견 시)
+        if: steps.stats.outputs.total_relevant > 0
+        run: |
+          echo "🔔 새로운 관련 공고 발견!"
+          echo "📊 관련 공고 수: ${{ steps.stats.outputs.total_relevant }}건"
+
+          # Slack 웹훅 (선택사항)
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"🚨 *직접 URL 보조금 공고 알림*\n새로운 IoT 지원사업 관련 공고 ${{ steps.stats.outputs.total_relevant }}건이 발견되었습니다.\n📦 배치 크롤링: 22개 배치 완료\n📈 성공률: ${{ steps.stats.outputs.success_rate }}%\n👉 확인하기: ${{ env.API_BASE_URL }}/admin/subsidy\"}" \
+              ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi
+
+      - name: 📋 실행 요약
+        if: always()
+        run: |
+          echo "=================================="
+          echo "📋 직접 URL 크롤링 실행 요약"
+          echo "=================================="
+          echo "⏰ 완료 시각: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+          echo "📦 크롤링 대상: ${{ needs.prepare.outputs.total_urls }}개 URL"
+          echo "📊 배치 수: ${{ needs.prepare.outputs.total_batches }}개"
+          echo "📊 신규 공고: ${{ steps.stats.outputs.total_new }}건"
+          echo "🎯 관련 공고: ${{ steps.stats.outputs.total_relevant }}건"
+          echo "📈 성공률: ${{ steps.stats.outputs.success_rate }}%"
+          echo "=================================="
+
+      - name: ⚠️ 문제 URL 알림
+        run: |
+          echo "⚠️ 문제 URL 확인 중..."
+
+          PROBLEM_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
+            "${{ env.API_BASE_URL }}/api/subsidy-crawler/stats?problems=true")
+
+          PROBLEM_URLS=$(echo $PROBLEM_RESPONSE | jq -r '.stats.problem_urls // []')
+          PROBLEM_COUNT=$(echo $PROBLEM_URLS | jq 'length')
+
+          echo "⚠️ 문제 URL 수: ${PROBLEM_COUNT}개"
+
+          if [ "$PROBLEM_COUNT" -gt 0 ]; then
+            echo "📋 문제 URL 목록:"
+            echo "$PROBLEM_URLS" | jq -r '.[] | "- [\(.severity)] \(.url) (연속 실패: \(.consecutive_failures)회)"'
+
+            # Slack 알림 (문제 URL이 10개 이상일 때)
+            if [ "$PROBLEM_COUNT" -ge 10 ] && [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+              curl -X POST -H 'Content-type: application/json' \
+                --data "{\"text\":\"⚠️ *직접 URL 크롤링 문제 알림*\n문제가 있는 URL이 ${PROBLEM_COUNT}개 발견되었습니다.\n👉 확인 및 조치 필요: ${{ env.API_BASE_URL }}/admin/subsidy\"}" \
+                ${{ secrets.SLACK_WEBHOOK_URL }}
+            fi
+          else
+            echo "✅ 모든 URL 정상 작동"
+          fi
