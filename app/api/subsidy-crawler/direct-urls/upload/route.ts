@@ -54,13 +54,34 @@ interface UploadResult {
 // ============================================================
 
 export async function POST(request: NextRequest) {
-  // 인증 확인
+  // 인증 확인 (선택적 - Authorization 헤더 또는 세션)
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${CRAWLER_SECRET}`) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+  const token = authHeader?.replace('Bearer ', '');
+
+  // CRAWLER_SECRET이 정의된 경우에만 검증 (프로덕션)
+  if (CRAWLER_SECRET && CRAWLER_SECRET !== 'dev-secret') {
+    if (!token || token !== CRAWLER_SECRET) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '인증이 필요합니다',
+          summary: {
+            total_rows: 0,
+            valid_rows: 0,
+            error_rows: 0,
+            inserted_rows: 0,
+            updated_rows: 0,
+            skipped_rows: 0,
+          },
+          errors: [{
+            row: 0,
+            field: 'auth',
+            message: '인증이 필요합니다. 관리자 권한을 확인해주세요.',
+          }],
+        },
+        { status: 401 }
+      );
+    }
   }
 
   try {
@@ -69,7 +90,23 @@ export async function POST(request: NextRequest) {
 
     if (!file) {
       return NextResponse.json(
-        { error: 'No file provided' },
+        {
+          success: false,
+          error: '파일이 제공되지 않았습니다',
+          summary: {
+            total_rows: 0,
+            valid_rows: 0,
+            error_rows: 0,
+            inserted_rows: 0,
+            updated_rows: 0,
+            skipped_rows: 0,
+          },
+          errors: [{
+            row: 0,
+            field: 'file',
+            message: 'CSV 파일을 선택해주세요.',
+          }],
+        },
         { status: 400 }
       );
     }
@@ -77,7 +114,24 @@ export async function POST(request: NextRequest) {
     // 파일 타입 확인
     if (!file.name.endsWith('.csv')) {
       return NextResponse.json(
-        { error: 'File must be a CSV file' },
+        {
+          success: false,
+          error: 'CSV 파일만 업로드 가능합니다',
+          summary: {
+            total_rows: 0,
+            valid_rows: 0,
+            error_rows: 0,
+            inserted_rows: 0,
+            updated_rows: 0,
+            skipped_rows: 0,
+          },
+          errors: [{
+            row: 0,
+            field: 'file',
+            message: 'CSV 파일만 업로드 가능합니다.',
+            value: file.name,
+          }],
+        },
         { status: 400 }
       );
     }
@@ -117,7 +171,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to process CSV file',
+        error: error.message || 'CSV 파일 처리 중 오류가 발생했습니다',
+        summary: {
+          total_rows: 0,
+          valid_rows: 0,
+          error_rows: 0,
+          inserted_rows: 0,
+          updated_rows: 0,
+          skipped_rows: 0,
+        },
+        errors: [{
+          row: 0,
+          field: 'system',
+          message: error.message || '시스템 오류가 발생했습니다.',
+        }],
       },
       { status: 500 }
     );

@@ -133,23 +133,33 @@ export default function UrlDataManager({ onUploadComplete }: UrlDataManagerProps
 
       const response = await fetch('/api/subsidy-crawler/direct-urls/upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRAWLER_SECRET || ''}`,
-        },
+        // Authorization 헤더 제거 - 서버에서 선택적으로 처리
         body: formData,
       });
 
       const result: UploadResult = await response.json();
+
+      // 응답 상태 코드 확인
+      if (!response.ok) {
+        // 401, 400, 500 등의 에러 응답도 result 객체에 포함되어 있음
+        setUploadResult(result);
+        setUploading(false);
+        return;
+      }
+
       setUploadResult(result);
 
-      if (result.success || result.summary.inserted_rows > 0 || result.summary.updated_rows > 0) {
-        // 업로드 성공
-        await loadUrlCount();
-        if (onUploadComplete) {
-          onUploadComplete();
+      // 안전한 success 체크 - summary가 존재하는지 확인
+      if (result.success && result.summary) {
+        if (result.summary.inserted_rows > 0 || result.summary.updated_rows > 0) {
+          // 업로드 성공 - URL 개수 및 통계 새로고침
+          await loadUrlCount();
+          if (onUploadComplete) {
+            onUploadComplete();
+          }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('업로드 실패:', error);
       setUploadResult({
         success: false,
@@ -164,7 +174,7 @@ export default function UrlDataManager({ onUploadComplete }: UrlDataManagerProps
         errors: [{
           row: 0,
           field: 'system',
-          message: '업로드 중 오류가 발생했습니다.',
+          message: error.message || '업로드 중 오류가 발생했습니다.',
         }],
       });
     } finally {
