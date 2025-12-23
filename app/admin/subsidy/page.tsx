@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdminLayout from '@/components/ui/AdminLayout';
+import UrlDataManager from '@/components/admin/UrlDataManager';
 import type { SubsidyAnnouncement, SubsidyDashboardStats, AnnouncementStatus } from '@/types/subsidy';
 
 // 상태별 색상
@@ -348,6 +349,9 @@ export default function SubsidyAnnouncementsPage() {
             </div>
           </div>
         )}
+
+        {/* URL 데이터 관리 */}
+        <UrlDataManager onUploadComplete={loadStats} />
 
         {/* 필터 */}
         <div className="bg-white rounded-md md:rounded-lg shadow mb-4 sm:mb-6 p-2 sm:p-3 md:p-3">
