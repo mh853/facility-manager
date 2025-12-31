@@ -118,6 +118,8 @@ export interface CrawlRequest {
   region_codes?: string[];  // 특정 지자체만 크롤링 (없으면 전체)
   force?: boolean;          // 이미 크롤링한 URL도 다시 처리
   enable_phase2?: boolean;  // Phase 2 환경기관 크롤링 활성화 (기본값: false)
+  batch_num?: number;       // 배치 번호 (1, 2, 3, 4)
+  batch_size?: number;      // 배치당 처리 개수 (기본값: 8)
 }
 
 // 크롤링 결과
@@ -129,6 +131,7 @@ export interface CrawlResult {
   new_announcements: number;
   relevant_announcements: number;
   duration_ms: number;
+  batch_info?: string;      // 배치 처리 정보 (예: "배치 1/4: 8개 센터 처리")
   errors?: Array<{
     region_code: string;
     error: string;

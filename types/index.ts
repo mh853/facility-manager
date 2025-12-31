@@ -1,4 +1,169 @@
 // types/index.ts
+
+// ============================================================
+// Subsidy Crawler Monitoring Types
+// ============================================================
+
+export interface CrawlRun {
+  id: string;
+  run_id: string;
+  started_at: string;
+  completed_at: string | null;
+  trigger_type: 'scheduled' | 'manual' | 'retry';
+  github_run_id: string | null;
+  total_batches: number;
+  completed_batches: number;
+  total_urls_crawled: number;
+  successful_urls: number;
+  failed_urls: number;
+  total_announcements: number;
+  new_announcements: number;
+  relevant_announcements: number;
+  ai_verified_announcements: number;
+  avg_response_time_ms: number | null;
+  total_processing_time_seconds: number | null;
+  status: 'running' | 'completed' | 'failed' | 'partial';
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrawlBatchResult {
+  id: string;
+  run_id: string;
+  batch_number: number;
+  url_ids: string[];
+  urls_in_batch: number;
+  started_at: string;
+  completed_at: string | null;
+  processing_time_seconds: number | null;
+  successful_urls: number;
+  failed_urls: number;
+  total_announcements: number;
+  new_announcements: number;
+  relevant_announcements: number;
+  ai_verified_announcements: number;
+  avg_response_time_ms: number | null;
+  status: 'running' | 'completed' | 'failed';
+  error_message: string | null;
+  raw_results: any | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AiVerificationLog {
+  id: string;
+  run_id: string;
+  batch_number: number | null;
+  announcement_url: string;
+  announcement_title: string;
+  announcement_content: string | null;
+  source_url: string;
+  keyword_matched: boolean;
+  matched_keywords: string[] | null;
+  keyword_score: number | null;
+  ai_verified: boolean;
+  ai_confidence: number | null;
+  ai_reasoning: string | null;
+  gemini_model: string;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
+  api_cost_usd: number | null;
+  disagreement: boolean;
+  verified_at: string;
+  response_time_ms: number | null;
+  created_at: string;
+}
+
+export interface UrlHealthMetric {
+  id: string;
+  url_id: string;
+  source_url: string;
+  period_start: string;
+  period_end: string;
+  total_attempts: number;
+  successful_crawls: number;
+  failed_crawls: number;
+  success_rate: number;
+  avg_response_time_ms: number | null;
+  max_response_time_ms: number | null;
+  min_response_time_ms: number | null;
+  total_announcements_found: number;
+  relevant_announcements_found: number;
+  ai_verified_announcements_found: number;
+  relevance_rate: number;
+  last_error_message: string | null;
+  last_error_at: string | null;
+  consecutive_failures: number;
+  is_healthy: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// View types
+export interface RecentCrawlRunView {
+  id: string;
+  run_id: string;
+  started_at: string;
+  completed_at: string | null;
+  trigger_type: 'scheduled' | 'manual' | 'retry';
+  status: 'running' | 'completed' | 'failed' | 'partial';
+  total_urls_crawled: number;
+  successful_urls: number;
+  failed_urls: number;
+  total_announcements: number;
+  new_announcements: number;
+  relevant_announcements: number;
+  ai_verified_announcements: number;
+  relevance_rate: number | null;
+  ai_verification_rate: number | null;
+  success_rate: number | null;
+  total_processing_time_seconds: number | null;
+  completed_batches: number;
+  total_batches: number;
+}
+
+export interface UrlHealthSummaryView {
+  url_id: string;
+  source_url: string;
+  success_rate: number;
+  relevance_rate: number;
+  consecutive_failures: number;
+  is_healthy: boolean;
+  total_attempts: number;
+  successful_crawls: number;
+  failed_crawls: number;
+  total_announcements_found: number;
+  relevant_announcements_found: number;
+  ai_verified_announcements_found: number;
+  avg_response_time_ms: number | null;
+  last_error_message: string | null;
+  last_error_at: string | null;
+  period_start: string;
+  period_end: string;
+}
+
+export interface AiDisagreementView {
+  id: string;
+  run_id: string;
+  announcement_title: string;
+  announcement_url: string;
+  source_url: string;
+  keyword_matched: boolean;
+  matched_keywords: string[] | null;
+  keyword_score: number | null;
+  ai_verified: boolean;
+  ai_confidence: number | null;
+  ai_reasoning: string | null;
+  verified_at: string;
+  disagreement_type: 'keyword_only' | 'ai_only' | 'agreement';
+}
+
+// ============================================================
+// Existing Facility Types
+// ============================================================
+
 export interface Facility {
   outlet: number;
   number: number; // Per-outlet facility number (existing)

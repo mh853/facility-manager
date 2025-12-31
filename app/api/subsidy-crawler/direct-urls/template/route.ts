@@ -16,12 +16,11 @@ export async function GET() {
 
     // 샘플 데이터 (가이드용)
     const sampleData = [
-      // 서울특별시
+      // region_code 있는 예시
       ['https://www.seoul.go.kr/main/index.jsp', '11000', '서울특별시', 'IoT지원', '서울시 공고'],
-      // 부산광역시
       ['https://www.busan.go.kr/index', '26000', '부산광역시', 'IoT지원', '부산시 공고'],
-      // 대구광역시
-      ['https://www.daegu.go.kr/index.do', '27000', '대구광역시', 'IoT지원', '대구시 공고'],
+      // region_code 없는 예시 (선택 사항)
+      ['https://www.daegu.go.kr/index.do', '', '대구광역시', 'IoT지원', 'region_code 생략 가능'],
       // 인천광역시
       ['https://www.incheon.go.kr/index', '28000', '인천광역시', 'IoT지원', '인천시 공고'],
       // 광주광역시
@@ -59,8 +58,10 @@ export async function GET() {
       '',
       '# 추가 URL을 아래에 입력하세요 (샘플 데이터는 삭제 가능)',
       '# 형식: url,region_code,region_name,category,notes',
-      '# region_code: 5자리 행정구역 코드 (예: 11000=서울, 26000=부산)',
-      '# category: IoT지원, 환경정책, 중소기업지원 등',
+      '# 필수 필드: url, region_name',
+      '# 선택 필드: region_code (5자리 숫자), category, notes',
+      '# region_code 예시: 11000=서울, 26000=부산, 27000=대구',
+      '# region_code를 모르면 비워두세요 (예: "https://example.com,,경기도,IoT지원,메모")',
       '',
     ];
 

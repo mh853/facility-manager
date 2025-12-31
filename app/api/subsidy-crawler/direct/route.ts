@@ -18,7 +18,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const CRAWLER_SECRET = process.env.CRAWLER_SECRET || 'dev-secret';
-const IS_PRODUCTION = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_APP_URL?.includes('blueon-iot.com');
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 // ============================================================
 // 타입 정의

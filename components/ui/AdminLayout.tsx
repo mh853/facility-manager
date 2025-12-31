@@ -86,6 +86,13 @@ const navigationItems: NavigationItem[] = [
     requiredLevel: 1
   },
   {
+    name: '크롤링 모니터링',
+    href: '/admin/subsidy/monitoring-dashboard',
+    icon: Activity,
+    description: '크롤링 실행, 지자체별 통계, URL 건강도 통합 모니터링',
+    requiredLevel: 4
+  },
+  {
     name: '일정 관리',
     href: '/schedule',
     icon: Calendar,

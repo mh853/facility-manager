@@ -15,7 +15,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const CRAWLER_SECRET = process.env.CRAWLER_SECRET || 'dev-secret';
-const IS_PRODUCTION = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_APP_URL?.includes('blueon-iot.com');
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 // ============================================================
 // 타입 정의
@@ -263,12 +263,12 @@ function parseAndValidateCsv(content: string): {
       });
     }
 
-    // region_code 검증 (5자리 숫자)
-    if (!region_code || !/^\d{5}$/.test(region_code)) {
+    // region_code 검증 (5자리 숫자) - 선택 사항
+    if (region_code && region_code.trim().length > 0 && !/^\d{5}$/.test(region_code)) {
       errors.push({
         row: rowNumber,
         field: 'region_code',
-        message: 'region_code는 5자리 숫자여야 합니다',
+        message: 'region_code는 5자리 숫자여야 합니다 (비워두거나 5자리 숫자 입력)',
         value: region_code,
       });
     }

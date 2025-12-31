@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdminLayout from '@/components/ui/AdminLayout';
 import UrlDataManager from '@/components/admin/UrlDataManager';
+import { useAuth } from '@/contexts/AuthContext';
 import type { SubsidyAnnouncement, SubsidyDashboardStats, AnnouncementStatus } from '@/types/subsidy';
 
 // 상태별 색상
@@ -15,6 +16,7 @@ const statusColors: Record<AnnouncementStatus, { bg: string; text: string; label
 };
 
 export default function SubsidyAnnouncementsPage() {
+  const { user, loading: authLoading } = useAuth();
   const [allAnnouncements, setAllAnnouncements] = useState<SubsidyAnnouncement[]>([]);
   const [stats, setStats] = useState<SubsidyDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,6 +28,16 @@ export default function SubsidyAnnouncementsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
+
+  // 디버깅: 사용자 정보 출력
+  useEffect(() => {
+    console.log('🔍 [Subsidy] User Info:', {
+      user,
+      permission_level: user?.permission_level,
+      authLoading,
+      canSeeUrlManager: user && user.permission_level >= 4
+    });
+  }, [user, authLoading]);
 
   // 전체 공고 목록 로드 (필터 없이)
   const loadAllAnnouncements = useCallback(async () => {
@@ -350,8 +362,25 @@ export default function SubsidyAnnouncementsPage() {
           </div>
         )}
 
-        {/* URL 데이터 관리 */}
-        <UrlDataManager onUploadComplete={loadStats} />
+        {/* URL 데이터 관리 - 권한 4(시스템 관리자)만 접근 가능 */}
+        {!authLoading && user && user.permission_level >= 4 && (
+          <UrlDataManager onUploadComplete={loadStats} />
+        )}
+
+        {/* 디버깅: 권한 정보 표시 (개발 환경에서만) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 mb-4 text-xs">
+            <strong>🔍 권한 디버그:</strong>
+            {authLoading ? ' 로딩 중...' : (
+              user ? (
+                <>
+                  {' '}사용자 레벨: {user.permission_level} |
+                  URL 관리 접근: {user.permission_level >= 4 ? '✅ 가능' : '❌ 불가능'}
+                </>
+              ) : ' ⚠️ 사용자 정보 없음'
+            )}
+          </div>
+        )}
 
         {/* 필터 */}
         <div className="bg-white rounded-md md:rounded-lg shadow mb-4 sm:mb-6 p-2 sm:p-3 md:p-3">

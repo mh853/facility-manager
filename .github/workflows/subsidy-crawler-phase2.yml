@@ -1,5 +1,6 @@
 # 환경 기관 보조금 공고 크롤러 (Phase 2)
 # 매일 오전 10시 (KST) 실행 - 31개 환경센터 크롤링
+# 배치 처리 방식: 4개 배치로 분할하여 Vercel 타임아웃 방지
 
 name: Subsidy Crawler - Phase 2 (Environmental Agencies)
 
@@ -22,65 +23,94 @@ env:
   API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://facility.blueon-iot.com' }}
 
 jobs:
-  crawl_phase2:
+  # ============================================================
+  # 배치 처리: 31개 환경센터를 4개 배치로 분할
+  # - Batch 1~3: 각 8개 센터
+  # - Batch 4: 7개 센터
+  # ============================================================
+  crawl_phase2_batch:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        batch: [1, 2, 3, 4]  # 31개 센터를 4개 배치로 분할
+      fail-fast: false       # 하나 실패해도 나머지 계속 실행
+      max-parallel: 4        # 모든 배치 동시 실행
 
     steps:
       - name: 🕐 현재 시간 표시
         run: |
           echo "⏰ 실행 시각: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+          echo "📦 배치 번호: ${{ matrix.batch }}/4"
 
-      - name: 🌿 Phase 2 크롤링 시작 (환경기관 31개)
-        id: crawl_phase2
+      - name: 🌿 Phase 2 배치 크롤링 (배치 ${{ matrix.batch }})
+        id: crawl_batch
         run: |
-          echo "🤖 Phase 2 크롤링 시작: 31개 환경센터"
-          echo "📍 경기환경에너지진흥원, 전국 녹색환경지원센터 등"
+          echo "🤖 Phase 2 배치 ${{ matrix.batch }} 크롤링 시작"
 
           FORCE="${{ github.event.inputs.force || 'false' }}"
-          BODY='{"enable_phase2": true, "force": '$FORCE'}'
+          BATCH_NUM=${{ matrix.batch }}
+          BATCH_SIZE=8
 
-          RESPONSE=$(curl -s -X POST \
+          BODY="{\"enable_phase2\": true, \"force\": $FORCE, \"batch_num\": $BATCH_NUM, \"batch_size\": $BATCH_SIZE}"
+
+          # HTTP 상태 코드와 응답 본문 함께 받기
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
             -d "$BODY" \
             "${{ env.API_BASE_URL }}/api/subsidy-crawler")
 
-          echo "📥 Phase 2 응답: $RESPONSE"
-          SUCCESS=$(echo $RESPONSE | jq -r '.success // false')
-          NEW_COUNT=$(echo $RESPONSE | jq -r '.new_announcements // 0')
-          RELEVANT_COUNT=$(echo $RESPONSE | jq -r '.relevant_announcements // 0')
-          DURATION=$(echo $RESPONSE | jq -r '.duration_ms // 0')
+          # HTTP 상태 코드 추출
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "📥 배치 ${{ matrix.batch }} 응답 (HTTP $HTTP_CODE): $RESPONSE_BODY"
+
+          # HTTP 오류 처리
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "⚠️ API 오류 발생 (HTTP $HTTP_CODE)"
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "new_count=0" >> $GITHUB_OUTPUT
+            echo "relevant_count=0" >> $GITHUB_OUTPUT
+            echo "duration=0" >> $GITHUB_OUTPUT
+            exit 0  # 워크플로우는 성공으로 처리 (다른 배치 계속 실행)
+          fi
+
+          # JSON 유효성 검사
+          if ! echo "$RESPONSE_BODY" | jq empty 2>/dev/null; then
+            echo "⚠️ JSON 파싱 실패: $RESPONSE_BODY"
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "new_count=0" >> $GITHUB_OUTPUT
+            echo "relevant_count=0" >> $GITHUB_OUTPUT
+            echo "duration=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 정상 응답 처리
+          SUCCESS=$(echo "$RESPONSE_BODY" | jq -r '.success // false')
+          NEW_COUNT=$(echo "$RESPONSE_BODY" | jq -r '.new_announcements // 0')
+          RELEVANT_COUNT=$(echo "$RESPONSE_BODY" | jq -r '.relevant_announcements // 0')
+          DURATION=$(echo "$RESPONSE_BODY" | jq -r '.duration_ms // 0')
+          BATCH_INFO=$(echo "$RESPONSE_BODY" | jq -r '.batch_info // "정보 없음"')
 
           echo "success=$SUCCESS" >> $GITHUB_OUTPUT
           echo "new_count=$NEW_COUNT" >> $GITHUB_OUTPUT
           echo "relevant_count=$RELEVANT_COUNT" >> $GITHUB_OUTPUT
           echo "duration=$DURATION" >> $GITHUB_OUTPUT
 
-          echo "✅ Phase 2 완료: 신규 ${NEW_COUNT}건, 관련 ${RELEVANT_COUNT}건 (실행시간: ${DURATION}ms)"
+          echo "✅ 배치 ${{ matrix.batch }} 완료: 신규 ${NEW_COUNT}건, 관련 ${RELEVANT_COUNT}건 (실행시간: ${DURATION}ms)"
+          echo "📊 배치 정보: $BATCH_INFO"
 
-      - name: 📬 알림 발송 (관련 공고 발견 시)
-        if: steps.crawl_phase2.outputs.relevant_count > 0
-        run: |
-          echo "🔔 새로운 관련 공고 발견!"
-          echo "📊 관련 공고 수: ${{ steps.crawl_phase2.outputs.relevant_count }}건"
-
-          # Slack 웹훅 (선택사항)
-          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-            curl -X POST -H 'Content-type: application/json' \
-              --data "{\"text\":\"🌿 *환경기관 보조금 공고 알림 (Phase 2)*\n새로운 IoT 지원사업 관련 공고 ${{ steps.crawl_phase2.outputs.relevant_count }}건이 발견되었습니다.\n👉 확인하기: ${{ env.API_BASE_URL }}/admin/subsidy\"}" \
-              ${{ secrets.SLACK_WEBHOOK_URL }}
-          fi
-
-      - name: 📋 실행 요약
+      - name: 📋 배치 실행 요약
         if: always()
         run: |
           echo "=================================="
-          echo "📋 Phase 2 크롤링 실행 요약"
+          echo "📋 배치 ${{ matrix.batch }} 실행 요약"
           echo "=================================="
           echo "⏰ 완료 시각: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
-          echo "✅ 성공 여부: ${{ steps.crawl_phase2.outputs.success }}"
-          echo "📊 신규 공고: ${{ steps.crawl_phase2.outputs.new_count }}건"
-          echo "🎯 관련 공고: ${{ steps.crawl_phase2.outputs.relevant_count }}건"
-          echo "⏱️  실행 시간: ${{ steps.crawl_phase2.outputs.duration }}ms"
+          echo "✅ 성공 여부: ${{ steps.crawl_batch.outputs.success }}"
+          echo "📊 신규 공고: ${{ steps.crawl_batch.outputs.new_count }}건"
+          echo "🎯 관련 공고: ${{ steps.crawl_batch.outputs.relevant_count }}건"
+          echo "⏱️  실행 시간: ${{ steps.crawl_batch.outputs.duration }}ms"
           echo "=================================="

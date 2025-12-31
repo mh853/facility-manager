@@ -393,7 +393,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CrawlRequest = await request.json().catch(() => ({}));
-    const { region_codes, force, enable_phase2 } = body;
+    const { region_codes, force, enable_phase2, batch_num, batch_size } = body;
 
     // 크롤링 대상 지자체 결정
     let targets = GOVERNMENT_SOURCES;
@@ -520,9 +520,22 @@ export async function POST(request: NextRequest) {
     // ============================================================
     // Phase 2는 별도 스케줄에서 enable_phase2=true로 실행
     if (enable_phase2) {
-      console.log('[CRAWLER] Phase 2 크롤링 시작 (환경기관 31개)...');
+      // 배치 처리 로직: 31개 환경센터를 분할하여 처리
+      const effectiveBatchSize = batch_size || 8;  // 기본값: 8개씩
+      const effectiveBatchNum = batch_num || 1;    // 기본값: 첫 번째 배치
 
-      for (const source of PHASE2_SOURCES) {
+      // 배치 범위 계산
+      const startIdx = (effectiveBatchNum - 1) * effectiveBatchSize;
+      const endIdx = Math.min(startIdx + effectiveBatchSize, PHASE2_SOURCES.length);
+      const batchSources = PHASE2_SOURCES.slice(startIdx, endIdx);
+
+      const totalBatches = Math.ceil(PHASE2_SOURCES.length / effectiveBatchSize);
+      const batchInfo = `배치 ${effectiveBatchNum}/${totalBatches}: ${batchSources.length}개 센터 처리`;
+
+      console.log(`[CRAWLER] Phase 2 ${batchInfo} 시작...`);
+      console.log(`[CRAWLER] 처리 센터: ${batchSources.map(s => s.name).join(', ')}`);
+
+      for (const source of batchSources) {
       try {
         const announcements = await crawlPhase2Source(source);
 
@@ -609,9 +622,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-      // Phase 2 소스 수 반영
-      results.total_regions += PHASE2_SOURCES.length;
-      console.log('[CRAWLER] Phase 2 크롤링 완료');
+      // Phase 2 소스 수 반영 (배치 처리된 센터 수만 반영)
+      results.total_regions += batchSources.length;
+      results.batch_info = batchInfo;
+      console.log(`[CRAWLER] Phase 2 ${batchInfo} 완료`);
     } else {
       console.log('[CRAWLER] Phase 2 크롤링 건너뜀 (enable_phase2=false)');
     }
