@@ -112,6 +112,21 @@ export async function POST(request: NextRequest) {
 
     const { title, description, event_date, end_date, start_time, end_time, event_type, is_completed, author_id, author_name, attached_files, labels, business_id, business_name } = body;
 
+    // 🔍 디버깅: 전체 요청 바디 로깅
+    console.log('📥 [캘린더 생성] 요청 데이터:', {
+      title,
+      event_date,
+      event_type,
+      author_id,
+      author_name,
+      attached_files_type: typeof attached_files,
+      attached_files_isArray: Array.isArray(attached_files),
+      attached_files_value: attached_files,
+      labels_type: typeof labels,
+      labels_isArray: Array.isArray(labels),
+      labels_value: labels
+    });
+
     // 필수 필드 검증
     if (!title || !event_date || !event_type || !author_id || !author_name) {
       return NextResponse.json(
@@ -123,6 +138,11 @@ export async function POST(request: NextRequest) {
     // 배열 필드 정규화: undefined → 빈 배열로 변환
     const normalizedAttachedFiles = Array.isArray(attached_files) ? attached_files : [];
     const normalizedLabels = Array.isArray(labels) ? labels : [];
+
+    console.log('✅ [캘린더 생성] 정규화 완료:', {
+      normalizedAttachedFiles,
+      normalizedLabels
+    });
 
     // 이벤트 타입 검증
     if (event_type !== 'todo' && event_type !== 'schedule') {
@@ -141,6 +161,32 @@ export async function POST(request: NextRequest) {
     }
 
     // 캘린더 이벤트 생성 - Direct PostgreSQL
+    const queryParams = [
+      title,
+      description || null,
+      event_date,
+      end_date || null,
+      start_time || null,
+      end_time || null,
+      event_type,
+      event_type === 'todo' ? (is_completed || false) : false,
+      author_id,
+      author_name,
+      normalizedAttachedFiles,  // 정규화된 배열 사용
+      normalizedLabels,           // 정규화된 배열 사용
+      business_id || null,
+      business_name || null
+    ];
+
+    console.log('🔍 [캘린더 생성] SQL 파라미터:', {
+      param_11_attached_files: queryParams[10],
+      param_11_type: typeof queryParams[10],
+      param_11_isArray: Array.isArray(queryParams[10]),
+      param_12_labels: queryParams[11],
+      param_12_type: typeof queryParams[11],
+      param_12_isArray: Array.isArray(queryParams[11])
+    });
+
     const data = await queryOne(
       `INSERT INTO calendar_events (
         title, description, event_date, end_date, start_time, end_time,
@@ -149,22 +195,7 @@ export async function POST(request: NextRequest) {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *`,
-      [
-        title,
-        description || null,
-        event_date,
-        end_date || null,
-        start_time || null,
-        end_time || null,
-        event_type,
-        event_type === 'todo' ? (is_completed || false) : false,
-        author_id,
-        author_name,
-        normalizedAttachedFiles,  // 정규화된 배열 사용
-        normalizedLabels,           // 정규화된 배열 사용
-        business_id || null,
-        business_name || null
-      ]
+      queryParams
     );
 
     if (!data) {
