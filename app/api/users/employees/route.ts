@@ -1,7 +1,7 @@
 // app/api/users/employees/route.ts - 직원 목록 조회 API
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
@@ -31,10 +31,47 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
     console.log('👥 [EMPLOYEES-API] 직원 목록 조회:', { search, includeInactive, department, limit });
 
-    // 기본 쿼리 구성
-    let query = supabaseAdmin
-      .from('employees')
-      .select(`
+    // Direct PostgreSQL 쿼리 구성
+    let conditions: string[] = [];
+    let params: any[] = [];
+    let paramIndex = 1;
+
+    // 활성 직원만 조회 (기본값)
+    if (!includeInactive) {
+      conditions.push(`is_active = $${paramIndex}`);
+      params.push(true);
+      paramIndex++;
+    }
+
+    // 부서별 필터링
+    if (department && department !== 'all') {
+      conditions.push(`department = $${paramIndex}`);
+      params.push(department);
+      paramIndex++;
+    }
+
+    // 검색 기능 (이름, 이메일, 직원번호, 부서, 직급으로 검색)
+    if (search && search.trim().length >= 2) {
+      const searchTerm = `%${search.trim()}%`;
+      conditions.push(`(
+        name ILIKE $${paramIndex} OR
+        email ILIKE $${paramIndex + 1} OR
+        employee_id ILIKE $${paramIndex + 2} OR
+        department ILIKE $${paramIndex + 3} OR
+        position ILIKE $${paramIndex + 4}
+      )`);
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+      paramIndex += 5;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const limitClause = limit > 0 ? `LIMIT $${paramIndex}` : '';
+    if (limit > 0) {
+      params.push(limit);
+    }
+
+    const queryText = `
+      SELECT
         id,
         name,
         email,
@@ -44,43 +81,13 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         is_active,
         last_login_at,
         created_at
-      `)
-      .order('name', { ascending: true });
+      FROM employees
+      ${whereClause}
+      ORDER BY name ASC
+      ${limitClause}
+    `;
 
-    // 활성 직원만 조회 (기본값)
-    if (!includeInactive) {
-      query = query.eq('is_active', true);
-    }
-
-    // 부서별 필터링
-    if (department && department !== 'all') {
-      query = query.eq('department', department);
-    }
-
-    // 검색 기능 (이름, 이메일, 직원번호, 부서, 직급으로 검색)
-    if (search && search.trim().length >= 2) {
-      const searchTerm = search.trim().toLowerCase();
-      const searchConditions = [
-        `name.ilike.%${searchTerm}%`,
-        `email.ilike.%${searchTerm}%`,
-        `employee_id.ilike.%${searchTerm}%`,
-        `department.ilike.%${searchTerm}%`,
-        `position.ilike.%${searchTerm}%`
-      ].join(',');
-      query = query.or(searchConditions);
-    }
-
-    // 결과 개수 제한
-    if (limit > 0) {
-      query = query.limit(limit);
-    }
-
-    const { data: employees, error } = await query;
-
-    if (error) {
-      console.error('🔴 [EMPLOYEES-API] 조회 오류:', error);
-      throw error;
-    }
+    const employees = await queryAll(queryText, params);
 
     // 담당자 선택용 형태로 변환
     const employeesForAssignment: EmployeeForAssignment[] = (employees || []).map(emp => ({
@@ -148,47 +155,49 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('이름, 이메일, 직원번호는 필수입니다', 400);
     }
 
-    // 이메일 중복 검사
-    const { data: existingEmployee } = await supabaseAdmin
-      .from('employees')
-      .select('id')
-      .eq('email', email)
-      .single();
+    // 이메일 중복 검사 - Direct PostgreSQL
+    const existingEmployee = await queryOne(
+      `SELECT id FROM employees WHERE email = $1 LIMIT 1`,
+      [email]
+    );
 
     if (existingEmployee) {
       return createErrorResponse('이미 등록된 이메일입니다', 409);
     }
 
-    // 직원번호 중복 검사
-    const { data: existingEmployeeId } = await supabaseAdmin
-      .from('employees')
-      .select('id')
-      .eq('employee_id', employee_id)
-      .single();
+    // 직원번호 중복 검사 - Direct PostgreSQL
+    const existingEmployeeId = await queryOne(
+      `SELECT id FROM employees WHERE employee_id = $1 LIMIT 1`,
+      [employee_id]
+    );
 
     if (existingEmployeeId) {
       return createErrorResponse('이미 등록된 직원번호입니다', 409);
     }
 
-    // 새 직원 등록
-    const { data: newEmployee, error } = await supabaseAdmin
-      .from('employees')
-      .insert({
+    // 새 직원 등록 - Direct PostgreSQL
+    const newEmployee = await queryOne(
+      `INSERT INTO employees (
+        name, email, employee_id, department, position,
+        permission_level, is_active, is_deleted
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *`,
+      [
         name,
         email,
         employee_id,
-        department,
-        position,
+        department || null,
+        position || null,
         permission_level,
-        is_active: true,
-        is_deleted: false
-      })
-      .select()
-      .single();
+        true,
+        false
+      ]
+    );
 
-    if (error) {
-      console.error('🔴 [EMPLOYEES-API] 등록 오류:', error);
-      throw error;
+    if (!newEmployee) {
+      console.error('🔴 [EMPLOYEES-API] 등록 실패');
+      throw new Error('직원 등록 실패');
     }
 
     console.log('✅ [EMPLOYEES-API] 등록 성공:', newEmployee.id);
@@ -224,28 +233,53 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('직원 ID는 필수입니다', 400);
     }
 
-    // 업데이트할 필드만 포함
-    const updateData: any = { updated_at: new Date().toISOString() };
+    // 업데이트할 필드 동적 구성 - Direct PostgreSQL
+    const updateFields: string[] = ['updated_at = $1'];
+    const params: any[] = [new Date().toISOString()];
+    let paramIndex = 2;
 
-    if (name !== undefined) updateData.name = name;
-    if (email !== undefined) updateData.email = email;
-    if (employee_id !== undefined) updateData.employee_id = employee_id;
-    if (department !== undefined) updateData.department = department;
-    if (position !== undefined) updateData.position = position;
-    if (is_active !== undefined) updateData.is_active = is_active;
-
-    const { data: updatedEmployee, error } = await supabaseAdmin
-      .from('employees')
-      .update(updateData)
-      .eq('id', id)
-      .eq('is_deleted', false)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('🔴 [EMPLOYEES-API] 수정 오류:', error);
-      throw error;
+    if (name !== undefined) {
+      updateFields.push(`name = $${paramIndex}`);
+      params.push(name);
+      paramIndex++;
     }
+    if (email !== undefined) {
+      updateFields.push(`email = $${paramIndex}`);
+      params.push(email);
+      paramIndex++;
+    }
+    if (employee_id !== undefined) {
+      updateFields.push(`employee_id = $${paramIndex}`);
+      params.push(employee_id);
+      paramIndex++;
+    }
+    if (department !== undefined) {
+      updateFields.push(`department = $${paramIndex}`);
+      params.push(department);
+      paramIndex++;
+    }
+    if (position !== undefined) {
+      updateFields.push(`position = $${paramIndex}`);
+      params.push(position);
+      paramIndex++;
+    }
+    if (is_active !== undefined) {
+      updateFields.push(`is_active = $${paramIndex}`);
+      params.push(is_active);
+      paramIndex++;
+    }
+
+    // WHERE 조건용 파라미터 추가
+    params.push(id);
+    params.push(false);
+
+    const updatedEmployee = await queryOne(
+      `UPDATE employees
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex} AND is_deleted = $${paramIndex + 1}
+       RETURNING *`,
+      params
+    );
 
     if (!updatedEmployee) {
       return createErrorResponse('직원을 찾을 수 없습니다', 404);
