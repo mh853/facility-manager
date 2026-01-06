@@ -729,13 +729,13 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
         summary: `${changedFields.join(', ')} 필드 수정됨`
       });
 
-      // 수정 요약 업데이트 - Direct PostgreSQL
-      await pgQuery(
-        `UPDATE facility_tasks
-         SET last_edit_summary = $1
-         WHERE id = $2`,
-        [`${user.name}이(가) ${changedFields.join(', ')} 수정함`, updatedTask.id]
-      );
+      // 수정 요약 업데이트 - 주석 처리 (last_edit_summary 컬럼이 새 DB에 없음)
+      // await pgQuery(
+      //   `UPDATE facility_tasks
+      //    SET last_edit_summary = $1
+      //    WHERE id = $2`,
+      //   [`${user.name}이(가) ${changedFields.join(', ')} 수정함`, updatedTask.id]
+      // );
     }
 
     // 🆕 상태 변경 감지 및 이력 기록
