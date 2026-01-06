@@ -1,8 +1,7 @@
 // app/api/facility-tasks/route.ts - 시설 업무 관리 API
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
-import { supabaseAdmin } from '@/lib/supabase';
-import { queryOne } from '@/lib/supabase-direct';
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct';
 import { getTaskStatusKR, createStatusChangeMessage } from '@/lib/task-status-utils';
 import { createTaskAssignmentNotifications, updateTaskAssignmentNotifications, type TaskAssignee } from '@/lib/task-notification-service';
 import { verifyTokenHybrid } from '@/lib/secure-jwt';
@@ -107,9 +106,39 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       filters: { businessName, taskType, status, assignee }
     });
 
-    let query = supabaseAdmin
-      .from('facility_tasks_with_business')
-      .select(`
+    // Direct PostgreSQL 쿼리 빌드
+    let whereClauses: string[] = ['is_active = true', 'is_deleted = false'];
+    let params: any[] = [];
+    let paramIndex = 1;
+
+    if (businessName) {
+      whereClauses.push(`business_name = $${paramIndex}`);
+      params.push(businessName);
+      paramIndex++;
+    }
+    if (taskType && taskType !== 'all') {
+      whereClauses.push(`task_type = $${paramIndex}`);
+      params.push(taskType);
+      paramIndex++;
+    }
+    if (status) {
+      whereClauses.push(`status = $${paramIndex}`);
+      params.push(status);
+      paramIndex++;
+    }
+    if (assignee) {
+      console.log('🔍 [FACILITY-TASKS] assignee 필터 적용:', assignee);
+      // 다중 담당자 지원: assignees JSON 배열에서 검색
+      whereClauses.push(`(assignee = $${paramIndex} OR assignees::text LIKE $${paramIndex + 1})`);
+      params.push(assignee);
+      params.push(`%"name":"${assignee}"%`);
+      paramIndex += 2;
+    }
+
+    const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+    const queryText = `
+      SELECT
         id,
         created_at,
         updated_at,
@@ -138,45 +167,21 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         manager_name,
         manager_contact,
         local_government
-      `)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: false });
+      FROM facility_tasks_with_business
+      ${whereClause}
+      ORDER BY created_at DESC
+    `;
 
-    // 추가 필터 적용
-    if (businessName) {
-      query = query.eq('business_name', businessName);
-    }
-    if (taskType && taskType !== 'all') {
-      query = query.eq('task_type', taskType);
-    }
-    if (status) {
-      query = query.eq('status', status);
-    }
-    if (assignee) {
-      console.log('🔍 [FACILITY-TASKS] assignee 필터 적용:', assignee);
-      // 다중 담당자 지원: assignees JSON 배열에서 검색
-      query = query.or(`assignee.eq.${assignee},assignees.cs.[{"name":"${assignee}"}]`);
-    }
-
-    console.log('🗄️ [FACILITY-TASKS] Supabase 쿼리 실행 시작');
-    let tasks, error;
+    console.log('🗄️ [FACILITY-TASKS] Direct PostgreSQL 쿼리 실행 시작');
+    let tasks;
     try {
-      const result = await query;
-      tasks = result.data;
-      error = result.error;
-      console.log('🗄️ [FACILITY-TASKS] Supabase 쿼리 완료:', {
-        taskCount: tasks?.length || 0,
-        hasError: !!error
+      tasks = await queryAll(queryText, params);
+      console.log('🗄️ [FACILITY-TASKS] Direct PostgreSQL 쿼리 완료:', {
+        taskCount: tasks?.length || 0
       });
     } catch (queryError) {
-      console.error('❌ [FACILITY-TASKS] Supabase 쿼리 예외:', queryError);
+      console.error('❌ [FACILITY-TASKS] Direct PostgreSQL 쿼리 예외:', queryError);
       throw queryError;
-    }
-
-    if (error) {
-      console.error('🔴 [FACILITY-TASKS] Supabase 조회 오류:', error);
-      throw error;
     }
 
     return createSuccessResponse({
@@ -269,17 +274,17 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('유효하지 않은 우선순위입니다', 400);
     }
 
-    // 중복 업무 체크: 같은 사업장에 같은 단계의 활성 업무가 있는지 확인
-    const { data: existingTasks, error: checkError } = await supabaseAdmin
-      .from('facility_tasks')
-      .select('id, title, business_name, status, created_at, task_type')
-      .eq('business_name', business_name)
-      .eq('status', status)
-      .eq('task_type', task_type)
-      .eq('is_active', true)
-      .eq('is_deleted', false);
-
-    if (checkError) {
+    // 중복 업무 체크: 같은 사업장에 같은 단계의 활성 업무가 있는지 확인 - Direct PostgreSQL
+    let existingTasks;
+    try {
+      existingTasks = await queryAll(
+        `SELECT id, title, business_name, status, created_at, task_type
+         FROM facility_tasks
+         WHERE business_name = $1 AND status = $2 AND task_type = $3
+           AND is_active = true AND is_deleted = false`,
+        [business_name, status, task_type]
+      );
+    } catch (checkError) {
       console.error('🔴 [FACILITY-TASKS] 중복 체크 오류:', checkError);
     }
 
@@ -344,34 +349,41 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       }
     }
 
-    const { data: newTask, error } = await supabaseAdmin
-      .from('facility_tasks')
-      .insert({
-        title,
-        description,
-        business_name,
-        task_type,
-        status,
-        priority,
-        assignee: finalAssignees.length > 0 ? finalAssignees[0].name : null, // 기존 호환성
-        assignees: finalAssignees,
-        primary_assignee_id,
-        start_date,
-        due_date,
-        notes,
-        // 생성자 정보 추가
-        created_by: user.id,
-        created_by_name: user.name,
-        last_modified_by: user.id,
-        last_modified_by_name: user.name
-      })
-      .select()
-      .single();
+    // 새 업무 생성 - Direct PostgreSQL
+    const insertQuery = `
+      INSERT INTO facility_tasks (
+        title, description, business_name, task_type, status, priority,
+        assignee, assignees, primary_assignee_id, start_date, due_date, notes,
+        created_by, created_by_name, last_modified_by, last_modified_by_name
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      RETURNING *
+    `;
 
-    if (error) {
-      console.error('🔴 [FACILITY-TASKS] 생성 오류:', error);
-      throw error;
+    const insertResult = await pgQuery(insertQuery, [
+      title,
+      description,
+      business_name,
+      task_type,
+      status,
+      priority,
+      finalAssignees.length > 0 ? finalAssignees[0].name : null, // 기존 호환성
+      JSON.stringify(finalAssignees),
+      primary_assignee_id,
+      start_date,
+      due_date,
+      notes,
+      user.id,
+      user.name,
+      user.id,
+      user.name
+    ]);
+
+    if (!insertResult.rows || insertResult.rows.length === 0) {
+      console.error('🔴 [FACILITY-TASKS] 생성 실패');
+      throw new Error('업무 생성 실패');
     }
+
+    const newTask = insertResult.rows[0];
 
 
     // 🆕 업무 생성 시 첫 단계 이력 기록
@@ -470,16 +482,14 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('업무 ID는 필수입니다', 400);
     }
 
-    // 기존 업무 정보 조회 (상태 변경 감지용)
-    const { data: existingTask, error: fetchError } = await supabaseAdmin
-      .from('facility_tasks')
-      .select('*')
-      .eq('id', id)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .single();
+    // 기존 업무 정보 조회 (상태 변경 감지용) - Direct PostgreSQL
+    const existingTask = await queryOne(
+      `SELECT * FROM facility_tasks
+       WHERE id = $1 AND is_active = true AND is_deleted = false`,
+      [id]
+    );
 
-    if (fetchError || !existingTask) {
+    if (!existingTask) {
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
@@ -521,17 +531,17 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       const checkStatus = status !== undefined ? status : existingTask.status;
       const checkTaskType = task_type !== undefined ? task_type : existingTask.task_type;
 
-      const { data: duplicateTasks, error: duplicateCheckError } = await supabaseAdmin
-        .from('facility_tasks')
-        .select('id, title, business_name, status, created_at, task_type')
-        .eq('business_name', checkBusinessName)
-        .eq('status', checkStatus)
-        .eq('task_type', checkTaskType)
-        .eq('is_active', true)
-        .eq('is_deleted', false)
-        .neq('id', id); // 자기 자신은 제외
-
-      if (duplicateCheckError) {
+      // Direct PostgreSQL 중복 체크
+      let duplicateTasks;
+      try {
+        duplicateTasks = await queryAll(
+          `SELECT id, title, business_name, status, created_at, task_type
+           FROM facility_tasks
+           WHERE business_name = $1 AND status = $2 AND task_type = $3
+             AND is_active = true AND is_deleted = false AND id != $4`,
+          [checkBusinessName, checkStatus, checkTaskType, id]
+        );
+      } catch (duplicateCheckError) {
         console.error('🔴 [FACILITY-TASKS] 중복 체크 오류:', duplicateCheckError);
       }
 
@@ -649,50 +659,52 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
 
     if (primary_assignee_id !== undefined) updateData.primary_assignee_id = primary_assignee_id;
 
-    const { data: updatedTask, error } = await supabaseAdmin
-      .from('facility_tasks')
-      .update(updateData)
-      .eq('id', id)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .select()
-      .single();
+    // 업데이트 쿼리 빌드 - Direct PostgreSQL
+    const updateFields = Object.keys(updateData);
+    const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+    const values = updateFields.map(field => {
+      // assignees 필드는 JSON 문자열로 변환
+      if (field === 'assignees' && updateData[field]) {
+        return JSON.stringify(updateData[field]);
+      }
+      return updateData[field];
+    });
+    values.push(id); // Add id as the last parameter
 
-    if (error) {
-      console.error('🔴 [FACILITY-TASKS] 수정 오류:', error);
-      throw error;
-    }
+    const updateQuery = `
+      UPDATE facility_tasks
+      SET ${setClause}
+      WHERE id = $${values.length} AND is_active = true AND is_deleted = false
+      RETURNING *
+    `;
 
-    if (!updatedTask) {
+    const updateResult = await pgQuery(updateQuery, values);
+
+    if (!updateResult.rows || updateResult.rows.length === 0) {
+      console.error('🔴 [FACILITY-TASKS] 수정 실패');
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
-    // ✅ 업무 수정 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+    const updatedTask = updateResult.rows[0];
+
+    // ✅ 업무 수정 시 사업장 updated_at 업데이트 (리스트 상단 표시) - Direct PostgreSQL
     if (updatedTask?.business_name) {
       try {
         // business_name을 business_id로 변환
-        const { data: businessInfo, error: businessError } = await supabaseAdmin
-          .from('business_info')
-          .select('id')
-          .eq('business_name', updatedTask.business_name)
-          .eq('is_active', true)
-          .eq('is_deleted', false)
-          .single();
+        const businessInfo = await queryOne(
+          `SELECT id FROM business_info
+           WHERE business_name = $1 AND is_active = true AND is_deleted = false`,
+          [updatedTask.business_name]
+        );
 
-        if (businessError || !businessInfo) {
-          console.warn('⚠️ [FACILITY-TASKS] 사업장 조회 실패:', updatedTask.business_name, businessError?.message);
+        if (!businessInfo) {
+          console.warn('⚠️ [FACILITY-TASKS] 사업장 조회 실패:', updatedTask.business_name);
         } else {
-          const { error: updateError } = await supabaseAdmin
-            .from('business_info')
-            .update({ updated_at: new Date().toISOString() })
-            .eq('id', businessInfo.id);
-
-          if (updateError) {
-            console.warn('⚠️ [FACILITY-TASKS] 사업장 updated_at 업데이트 실패:', updateError);
-            // 업무 수정은 성공했으므로 에러 throw 하지 않음
-          } else {
-            console.log(`✅ [FACILITY-TASKS] 사업장 updated_at 업데이트 완료 - businessName: ${updatedTask.business_name}`);
-          }
+          await pgQuery(
+            `UPDATE business_info SET updated_at = NOW() WHERE id = $1`,
+            [businessInfo.id]
+          );
+          console.log(`✅ [FACILITY-TASKS] 사업장 updated_at 업데이트 완료 - businessName: ${updatedTask.business_name}`);
         }
       } catch (updateBusinessError) {
         console.error('❌ [FACILITY-TASKS] 사업장 updated_at 업데이트 중 오류:', updateBusinessError);
@@ -717,13 +729,13 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
         summary: `${changedFields.join(', ')} 필드 수정됨`
       });
 
-      // 수정 요약 업데이트
-      await supabaseAdmin
-        .from('facility_tasks')
-        .update({
-          last_edit_summary: `${user.name}이(가) ${changedFields.join(', ')} 수정함`
-        })
-        .eq('id', updatedTask.id);
+      // 수정 요약 업데이트 - Direct PostgreSQL
+      await pgQuery(
+        `UPDATE facility_tasks
+         SET last_edit_summary = $1
+         WHERE id = $2`,
+        [`${user.name}이(가) ${changedFields.join(', ')} 수정함`, updatedTask.id]
+      );
     }
 
     // 🆕 상태 변경 감지 및 이력 기록
@@ -809,16 +821,14 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('업무 ID는 필수입니다', 400);
     }
 
-    // 기존 업무 정보 조회 (권한 체크용)
-    const { data: existingTask, error: fetchError } = await supabaseAdmin
-      .from('facility_tasks')
-      .select('*')
-      .eq('id', id)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .single();
+    // 기존 업무 정보 조회 (권한 체크용) - Direct PostgreSQL
+    const existingTask = await queryOne(
+      `SELECT * FROM facility_tasks
+       WHERE id = $1 AND is_active = true AND is_deleted = false`,
+      [id]
+    );
 
-    if (fetchError || !existingTask) {
+    if (!existingTask) {
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
@@ -827,28 +837,22 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('이 업무를 삭제할 권한이 없습니다', 403);
     }
 
-    const { data: deletedTask, error } = await supabaseAdmin
-      .from('facility_tasks')
-      .update({
-        is_deleted: true,
-        updated_at: new Date().toISOString(),
-        last_modified_by: user.id,
-        last_modified_by_name: user.name
-      })
-      .eq('id', id)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .select()
-      .single();
+    // 소프트 삭제 - Direct PostgreSQL
+    const deleteResult = await pgQuery(
+      `UPDATE facility_tasks
+       SET is_deleted = true, updated_at = NOW(),
+           last_modified_by = $1, last_modified_by_name = $2
+       WHERE id = $3 AND is_active = true AND is_deleted = false
+       RETURNING *`,
+      [user.id, user.name, id]
+    );
 
-    if (error) {
-      console.error('🔴 [FACILITY-TASKS] 삭제 오류:', error);
-      throw error;
-    }
-
-    if (!deletedTask) {
+    if (!deleteResult.rows || deleteResult.rows.length === 0) {
+      console.error('🔴 [FACILITY-TASKS] 삭제 실패');
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
+
+    const deletedTask = deleteResult.rows[0];
 
 
     // Supabase Realtime: PostgreSQL 트리거가 자동으로 알림 생성
@@ -972,40 +976,33 @@ async function createAutoProgressNote(params: {
 
   if (content) {
     try {
-      // business_name을 business_id로 변환
-      const { data: businessInfo, error: businessError } = await supabaseAdmin
-        .from('business_info')
-        .select('id')
-        .eq('business_name', task.business_name)
-        .eq('is_active', true)
-        .eq('is_deleted', false)
-        .single();
-
-      if (businessError) {
-        console.warn(`⚠️ [FACILITY-TASKS] 사업장 조회 오류 (메모 생성 생략): ${task.business_name}`, businessError.message);
-        return; // business_info 테이블이 없으면 메모 생성 건너뛰기
-      }
+      // business_name을 business_id로 변환 - Direct PostgreSQL
+      const businessInfo = await queryOne(
+        `SELECT id FROM business_info
+         WHERE business_name = $1 AND is_active = true AND is_deleted = false`,
+        [task.business_name]
+      );
 
       if (!businessInfo) {
         console.warn(`⚠️ [FACILITY-TASKS] 사업장을 찾을 수 없음 (메모 생성 생략): ${task.business_name}`);
         return; // 메모 생성 실패하지만 업무는 계속 진행
       }
 
-      const { error } = await supabaseAdmin
-        .from('business_memos')
-        .insert({
-          business_id: businessInfo.id,
-          title: `[자동] ${task.task_type === 'self' ? '자비' : task.task_type === 'subsidy' ? '보조금' : task.task_type === 'as' ? 'AS' : '기타'} 업무 상태 변경`,
+      // 메모 생성 - Direct PostgreSQL
+      await pgQuery(
+        `INSERT INTO business_memos (
+          business_id, title, content, created_by, updated_by
+         ) VALUES ($1, $2, $3, $4, $5)`,
+        [
+          businessInfo.id,
+          `[자동] ${task.task_type === 'self' ? '자비' : task.task_type === 'subsidy' ? '보조금' : task.task_type === 'as' ? 'AS' : '기타'} 업무 상태 변경`,
           content,
-          created_by: 'system',
-          updated_by: 'system'
-        });
+          'system',
+          'system'
+        ]
+      );
 
-      if (error) {
-        console.error('🔴 [AUTO-PROGRESS] 메모 생성 오류:', error);
-      } else {
-        console.log('✅ [AUTO-PROGRESS] 자동 메모 생성 성공:', task.id);
-      }
+      console.log('✅ [AUTO-PROGRESS] 자동 메모 생성 성공:', task.id);
     } catch (memoError) {
       console.warn('⚠️ [AUTO-PROGRESS] 메모 생성 중 예외 (계속 진행):', memoError);
     }
@@ -1083,16 +1080,39 @@ async function createTaskNotifications(params: {
     });
   }
 
-  // 알림 일괄 생성
+  // 알림 일괄 생성 - Direct PostgreSQL
   if (notifications.length > 0) {
-    const { data: createdNotifications, error } = await supabaseAdmin
-      .from('task_notifications')
-      .insert(notifications)
-      .select();
+    try {
+      // 다중 INSERT를 위한 VALUES 절 생성
+      const values: any[] = [];
+      const valuePlaceholders: string[] = [];
+      let paramIndex = 1;
 
-    if (error) {
-      console.error('🔴 [AUTO-PROGRESS] 알림 생성 오류:', error);
-    } else {
+      notifications.forEach((notif, index) => {
+        valuePlaceholders.push(
+          `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5})`
+        );
+        values.push(
+          notif.user_id,
+          notif.task_id,
+          notif.business_name,
+          notif.message,
+          notif.notification_type,
+          notif.priority
+        );
+        paramIndex += 6;
+      });
+
+      const insertQuery = `
+        INSERT INTO task_notifications (
+          user_id, task_id, business_name, message, notification_type, priority
+        ) VALUES ${valuePlaceholders.join(', ')}
+        RETURNING *
+      `;
+
+      const insertResult = await pgQuery(insertQuery, values);
+      const createdNotifications = insertResult.rows;
+
       console.log('✅ [AUTO-PROGRESS] 자동 알림 생성 성공:', notifications.length, '개');
 
       // WebSocket으로 실시간 알림 전송
@@ -1151,40 +1171,33 @@ async function createTaskCreationNote(task: any) {
     };
 
     try {
-      // business_name을 business_id로 변환
-      const { data: businessInfo, error: businessError } = await supabaseAdmin
-        .from('business_info')
-        .select('id')
-        .eq('business_name', task.business_name)
-        .eq('is_active', true)
-        .eq('is_deleted', false)
-        .single();
-
-      if (businessError) {
-        console.warn(`⚠️ [TASK-CREATION] 사업장 조회 오류 (메모 생성 생략): ${task.business_name}`, businessError.message);
-        return; // business_info 테이블이 없으면 메모 생성 건너뛰기
-      }
+      // business_name을 business_id로 변환 - Direct PostgreSQL
+      const businessInfo = await queryOne(
+        `SELECT id FROM business_info
+         WHERE business_name = $1 AND is_active = true AND is_deleted = false`,
+        [task.business_name]
+      );
 
       if (!businessInfo) {
         console.warn(`⚠️ [TASK-CREATION] 사업장을 찾을 수 없음 (메모 생성 생략): ${task.business_name}`);
         return; // 메모 생성 실패하지만 업무는 계속 진행
       }
 
-      const { error } = await supabaseAdmin
-        .from('business_memos')
-        .insert({
-          business_id: businessInfo.id,
-          title: `[자동] ${task.task_type === 'self' ? '자비' : task.task_type === 'subsidy' ? '보조금' : task.task_type === 'as' ? 'AS' : '기타'} 업무 상태 변경`,
+      // 메모 생성 - Direct PostgreSQL
+      await pgQuery(
+        `INSERT INTO business_memos (
+          business_id, title, content, created_by, updated_by
+         ) VALUES ($1, $2, $3, $4, $5)`,
+        [
+          businessInfo.id,
+          `[자동] ${task.task_type === 'self' ? '자비' : task.task_type === 'subsidy' ? '보조금' : task.task_type === 'as' ? 'AS' : '기타'} 업무 상태 변경`,
           content,
-          created_by: 'system',
-          updated_by: 'system'
-        });
+          'system',
+          'system'
+        ]
+      );
 
-      if (error) {
-        console.error('🔴 [TASK-CREATION] 생성 메모 오류:', error);
-      } else {
-        console.log('✅ [TASK-CREATION] 생성 메모 성공:', task.id);
-      }
+      console.log('✅ [TASK-CREATION] 생성 메모 성공:', task.id);
     } catch (memoError) {
       console.warn('⚠️ [TASK-CREATION] 메모 생성 중 예외 (계속 진행):', memoError);
     }
