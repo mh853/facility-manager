@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { queryAll, queryOne, query } from '@/lib/supabase-direct';
 import { memoryCache } from '@/lib/cache';
 import { createHash } from 'crypto';
 import { createFacilityPhotoTracker } from '@/utils/facility-photo-tracker';
@@ -75,48 +76,42 @@ async function compressImageFile(file: File): Promise<File> {
   }
 }
 
-// 사업장 ID 가져오기 또는 생성 - ✅ business_info 테이블 사용 (신규 시스템)
+// 사업장 ID 가져오기 또는 생성 - ✅ business_info 테이블 사용 (Direct PostgreSQL)
 async function getOrCreateBusiness(businessName: string): Promise<string> {
-  const { data: existingBusiness, error: selectError } = await supabaseAdmin
-    .from('business_info')
-    .select('id')
-    .eq('business_name', businessName)
-    .eq('is_deleted', false)
-    .single();
+  // 기존 사업장 조회
+  const existingBusiness = await queryOne(
+    `SELECT id FROM business_info
+     WHERE business_name = $1 AND is_deleted = false`,
+    [businessName]
+  );
 
   if (existingBusiness) {
     return existingBusiness.id;
   }
 
-  if (selectError?.code !== 'PGRST116') {
-    throw selectError;
-  }
+  // 신규 사업장 생성
+  try {
+    const newBusiness = await queryOne(
+      `INSERT INTO business_info (business_name, is_deleted, is_active)
+       VALUES ($1, false, true)
+       RETURNING id`,
+      [businessName]
+    );
 
-  const { data: newBusiness, error: insertError } = await supabaseAdmin
-    .from('business_info')
-    .insert({
-      business_name: businessName,
-      is_deleted: false,
-      is_active: true
-    })
-    .select('id')
-    .single();
-
-  if (insertError) {
-    if (insertError.code === '23505') {
-      const { data: retryBusiness } = await supabaseAdmin
-        .from('business_info')
-        .select('id')
-        .eq('business_name', businessName)
-        .eq('is_deleted', false)
-        .single();
+    return newBusiness.id;
+  } catch (error: any) {
+    // 중복 키 오류 발생 시 재시도 (동시성 처리)
+    if (error.code === '23505') {
+      const retryBusiness = await queryOne(
+        `SELECT id FROM business_info
+         WHERE business_name = $1 AND is_deleted = false`,
+        [businessName]
+      );
 
       if (retryBusiness) return retryBusiness.id;
     }
-    throw insertError;
+    throw error;
   }
-
-  return newBusiness.id;
 }
 
 // 시설별 파일 경로 생성 (범용 해시 기반)
@@ -213,14 +208,14 @@ export async function POST(request: NextRequest) {
 
     // 2. 현재 시설별 사진 현황 조회
     const photoTracker = createFacilityPhotoTracker(businessName);
-    
-    // 기존 파일 목록 로드 및 추적기 초기화
-    const { data: existingFiles } = await supabaseAdmin
-      .from('uploaded_files')
-      .select('*')
-      .eq('business_id', businessId);
 
-    if (existingFiles) {
+    // 기존 파일 목록 로드 및 추적기 초기화 (Direct PostgreSQL)
+    const existingFiles = await queryAll(
+      `SELECT * FROM uploaded_files WHERE business_id = $1`,
+      [businessId]
+    );
+
+    if (existingFiles && existingFiles.length > 0) {
       const formattedFiles = existingFiles.map((file: any) => ({
         id: file.id,
         name: file.filename,
@@ -271,13 +266,12 @@ export async function POST(request: NextRequest) {
         // 파일 해시 계산
         const fileHash = await calculateFileHash(compressedFile);
 
-        // 중복 검사
-        const { data: existingFile } = await supabaseAdmin
-          .from('uploaded_files')
-          .select('id, filename')
-          .eq('business_id', businessId)
-          .eq('file_hash', fileHash)
-          .single();
+        // 중복 검사 (Direct PostgreSQL)
+        const existingFile = await queryOne(
+          `SELECT id, filename FROM uploaded_files
+           WHERE business_id = $1 AND file_hash = $2`,
+          [businessId, fileHash]
+        );
 
         if (existingFile) {
           console.log(`⚠️ [DUPLICATE] 중복 파일 건너뛰기: ${file.name}`);
@@ -344,24 +338,28 @@ export async function POST(request: NextRequest) {
           photoIndex
         });
 
-        // DB 저장
-        const { data: fileRecord, error: dbError } = await supabaseAdmin
-          .from('uploaded_files')
-          .insert({
-            business_id: businessId,
-            filename: structuredFilename,
-            original_filename: file.name,
-            file_hash: fileHash,
-            file_path: uploadData.path,
-            file_size: compressedFile.size,
-            mime_type: compressedFile.type,
-            upload_status: 'uploaded',
-            facility_info: facilityInfo
-          })
-          .select()
-          .single();
-
-        if (dbError) {
+        // DB 저장 (Direct PostgreSQL)
+        let fileRecord;
+        try {
+          fileRecord = await queryOne(
+            `INSERT INTO uploaded_files (
+              business_id, filename, original_filename, file_hash,
+              file_path, file_size, mime_type, upload_status, facility_info
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING *`,
+            [
+              businessId,
+              structuredFilename,
+              file.name,
+              fileHash,
+              uploadData.path,
+              compressedFile.size,
+              compressedFile.type,
+              'uploaded',
+              facilityInfo
+            ]
+          );
+        } catch (dbError: any) {
           // 롤백: Storage에서 파일 삭제
           await supabaseAdmin.storage
             .from('facility-files')
@@ -468,13 +466,12 @@ export async function GET(request: NextRequest) {
       category
     });
 
-    // 사업장 조회 - ✅ business_info 테이블 사용
-    const { data: business } = await supabaseAdmin
-      .from('business_info')
-      .select('id')
-      .eq('business_name', businessName)
-      .eq('is_deleted', false)
-      .single();
+    // 사업장 조회 (Direct PostgreSQL)
+    const business = await queryOne(
+      `SELECT id FROM business_info
+       WHERE business_name = $1 AND is_deleted = false`,
+      [businessName]
+    );
 
     if (!business) {
       return NextResponse.json({
@@ -484,11 +481,11 @@ export async function GET(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // ✅ 전체 사진 개수 조회 (facility list와 동일한 로직 - phase 무관)
-    const { data: allPhotos, error: allPhotosError } = await supabaseAdmin
-      .from('uploaded_files')
-      .select('id')
-      .eq('business_id', business.id);
+    // ✅ 전체 사진 개수 조회 (Direct PostgreSQL - phase 무관)
+    const allPhotos = await queryAll(
+      `SELECT id FROM uploaded_files WHERE business_id = $1`,
+      [business.id]
+    );
 
     const totalPhotoCount = allPhotos?.length || 0;
 
@@ -498,16 +495,10 @@ export async function GET(request: NextRequest) {
       totalPhotos: totalPhotoCount
     });
 
-    // 파일 목록 조회 (phase 필터링 적용)
-    let query = supabaseAdmin
-      .from('uploaded_files')
-      .select('*')
-      .eq('business_id', business.id);
-
-    // Phase 필터링 추가 (phase에 따른 스토리지 경로 필터링)
+    // 파일 목록 조회 (Direct PostgreSQL with dynamic filters)
+    // Phase 필터링 (phase에 따른 스토리지 경로 필터링)
     // ✅ FIX: postinstall과 aftersales는 모두 'completion' 폴더 사용
     const phasePrefix = (phase === 'aftersales' || phase === 'postinstall') ? 'completion' : 'presurvey';
-    query = query.like('file_path', `%/${phasePrefix}/%`);
 
     console.log(`🔍 [PHASE-FILTER] Phase 필터 적용:`, {
       원본phase: phase,
@@ -516,30 +507,52 @@ export async function GET(request: NextRequest) {
       전체사진수: totalPhotoCount
     });
 
-    // 필터 적용
+    // 동적 WHERE 조건 생성
+    const conditions: string[] = [
+      `business_id = $1`,
+      `file_path LIKE $2` // phase prefix filter
+    ];
+    const params: any[] = [business.id, `%/${phasePrefix}/%`];
+    let paramIndex = 3;
+
+    // 시설 유형별 필터 추가
     if (facilityType) {
       if (facilityType === 'basic') {
-        query = query.like('file_path', '%/basic/%');
+        conditions.push(`file_path LIKE $${paramIndex}`);
+        params.push('%/basic/%');
+        paramIndex++;
+
         if (category) {
-          query = query.like('file_path', `%/${category}/%`);
+          conditions.push(`file_path LIKE $${paramIndex}`);
+          params.push(`%/${category}/%`);
+          paramIndex++;
         }
       } else {
-        query = query.like('file_path', `%/${facilityType}/%`);
+        conditions.push(`file_path LIKE $${paramIndex}`);
+        params.push(`%/${facilityType}/%`);
+        paramIndex++;
+
         if (outletNumber) {
-          query = query.like('file_path', `%/outlet_${outletNumber}/%`);
+          conditions.push(`file_path LIKE $${paramIndex}`);
+          params.push(`%/outlet_${outletNumber}/%`);
+          paramIndex++;
         }
+
         if (facilityNumber) {
-          query = query.like('file_path', `%/${facilityType}_${facilityNumber}/%`);
+          conditions.push(`file_path LIKE $${paramIndex}`);
+          params.push(`%/${facilityType}_${facilityNumber}/%`);
+          paramIndex++;
         }
       }
     }
 
-    const { data: files, error: filesError } = await query
-      .order('created_at', { ascending: false });
-
-    if (filesError) {
-      throw filesError;
-    }
+    const whereClause = conditions.join(' AND ');
+    const files = await queryAll(
+      `SELECT * FROM uploaded_files
+       WHERE ${whereClause}
+       ORDER BY created_at DESC`,
+      params
+    );
 
     // 파일 URL 생성 및 포맷팅
     const formattedFiles = await Promise.all(
