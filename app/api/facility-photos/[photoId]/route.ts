@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, query } from '@/lib/supabase-direct';
 import { generatePathVariants } from '@/utils/business-id-generator';
 
 // Force dynamic rendering for API routes
@@ -15,18 +16,17 @@ export async function DELETE(
 ) {
   try {
     const { photoId } = params;
-    
+
     console.log('🗑️ [PHOTO-DELETE] 사진 삭제 시작:', { photoId });
 
-    // 1. 데이터베이스에서 파일 정보 조회
-    const { data: fileData, error: fetchError } = await supabaseAdmin
-      .from('uploaded_files')
-      .select('*')
-      .eq('id', photoId)
-      .single();
+    // 1. 데이터베이스에서 파일 정보 조회 (Direct PostgreSQL)
+    const fileData = await queryOne(
+      `SELECT * FROM uploaded_files WHERE id = $1`,
+      [photoId]
+    );
 
-    if (fetchError || !fileData) {
-      console.error('❌ [PHOTO-DELETE] 파일 정보 조회 실패:', fetchError);
+    if (!fileData) {
+      console.error('❌ [PHOTO-DELETE] 파일 정보 조회 실패: 파일을 찾을 수 없음');
       return NextResponse.json(
         { error: '파일을 찾을 수 없습니다.' },
         { status: 404 }
@@ -51,14 +51,14 @@ export async function DELETE(
       console.log('✅ [PHOTO-DELETE] Storage 삭제 완료');
     }
 
-    // 3. 데이터베이스에서 레코드 삭제
-    const { error: dbError } = await supabaseAdmin
-      .from('uploaded_files')
-      .delete()
-      .eq('id', photoId);
+    // 3. 데이터베이스에서 레코드 삭제 (Direct PostgreSQL)
+    const deleteResult = await query(
+      `DELETE FROM uploaded_files WHERE id = $1`,
+      [photoId]
+    );
 
-    if (dbError) {
-      console.error('❌ [PHOTO-DELETE] DB 삭제 실패:', dbError);
+    if (!deleteResult || deleteResult.rowCount === 0) {
+      console.error('❌ [PHOTO-DELETE] DB 삭제 실패: 레코드가 없음');
       return NextResponse.json(
         { error: '데이터베이스 삭제 실패' },
         { status: 500 }
@@ -109,18 +109,17 @@ export async function GET(
     const { photoId } = params;
     const { searchParams } = new URL(request.url);
     const download = searchParams.get('download') === 'true';
-    
+
     console.log('🔍 [PHOTO-GET] 요청:', { photoId, download });
 
-    // 1. 데이터베이스에서 파일 정보 조회
-    const { data: fileData, error } = await supabaseAdmin
-      .from('uploaded_files')
-      .select('*')
-      .eq('id', photoId)
-      .single();
+    // 1. 데이터베이스에서 파일 정보 조회 (Direct PostgreSQL)
+    const fileData = await queryOne(
+      `SELECT * FROM uploaded_files WHERE id = $1`,
+      [photoId]
+    );
 
-    if (error || !fileData) {
-      console.error('❌ [PHOTO-GET] 파일 조회 실패:', error);
+    if (!fileData) {
+      console.error('❌ [PHOTO-GET] 파일 조회 실패: 파일을 찾을 수 없음');
       return NextResponse.json(
         { error: '파일을 찾을 수 없습니다.' },
         { status: 404 }
@@ -155,12 +154,11 @@ export async function GET(
             part === 'discharge' || part === 'prevention' || part === 'basic'
           ) || 'unknown';
 
-          // 데이터베이스에서 사업장 정보 가져오기
-          const { data: businessData } = await supabaseAdmin
-            .from('businesses')
-            .select('name')
-            .eq('id', fileData.business_id)
-            .single();
+          // 데이터베이스에서 사업장 정보 가져오기 (Direct PostgreSQL)
+          const businessData = await queryOne(
+            `SELECT business_name as name FROM business_info WHERE id = $1`,
+            [fileData.business_id]
+          );
 
           if (businessData) {
             const businessName = businessData.name;
