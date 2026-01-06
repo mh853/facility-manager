@@ -1,6 +1,6 @@
 // app/api/calendar/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { queryOne, query as pgQuery } from '@/lib/supabase-direct';
 
 // Next.js 캐싱 완전 비활성화 - 실시간 이벤트 업데이트를 위해 필수
 export const dynamic = 'force-dynamic';
@@ -15,20 +15,19 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = getSupabaseAdmin();
     const { id } = params;
 
-    const { data, error } = await supabase
-      .from('calendar_events')
-      .select('*')
-      .eq('id', id)
-      .eq('is_deleted', false)
-      .single();
+    const data = await queryOne(
+      `SELECT * FROM calendar_events
+       WHERE id = $1 AND is_deleted = $2
+       LIMIT 1`,
+      [id, false]
+    );
 
-    if (error) {
-      console.error('[캘린더 이벤트 조회 실패]', error);
+    if (!data) {
+      console.error('[캘린더 이벤트 조회 실패] ID:', id);
       return NextResponse.json(
-        { error: '캘린더 이벤트를 찾을 수 없습니다.', details: error.message },
+        { error: '캘린더 이벤트를 찾을 수 없습니다.' },
         { status: 404 }
       );
     }
@@ -56,7 +55,6 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = getSupabaseAdmin();
     const { id } = params;
     const body = await request.json();
 
@@ -73,49 +71,103 @@ export async function PUT(
       );
     }
 
-    // 수정할 필드만 업데이트
-    const updateData: any = {};
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (event_date !== undefined) updateData.event_date = event_date;
-    if (end_date !== undefined) updateData.end_date = end_date;
-    if (start_time !== undefined) updateData.start_time = start_time;
-    if (end_time !== undefined) updateData.end_time = end_time;
-    if (event_type !== undefined) {
-      // 이벤트 타입 검증
-      if (event_type !== 'todo' && event_type !== 'schedule') {
-        return NextResponse.json(
-          { error: '이벤트 타입은 todo 또는 schedule이어야 합니다.' },
-          { status: 400 }
-        );
-      }
-      updateData.event_type = event_type;
+    // 이벤트 타입 검증
+    if (event_type !== undefined && event_type !== 'todo' && event_type !== 'schedule') {
+      return NextResponse.json(
+        { error: '이벤트 타입은 todo 또는 schedule이어야 합니다.' },
+        { status: 400 }
+      );
     }
-    if (is_completed !== undefined) updateData.is_completed = is_completed;
-    if (attached_files !== undefined) updateData.attached_files = attached_files;
-    if (labels !== undefined) updateData.labels = labels;
-    if (business_id !== undefined) updateData.business_id = business_id;
-    if (business_name !== undefined) updateData.business_name = business_name;
 
-    if (Object.keys(updateData).length === 0) {
+    // 동적 UPDATE 필드 구성 - Direct PostgreSQL
+    const updateFields: string[] = ['updated_at = $1'];
+    const params: any[] = [new Date().toISOString()];
+    let paramIndex = 2;
+
+    if (title !== undefined) {
+      updateFields.push(`title = $${paramIndex}`);
+      params.push(title);
+      paramIndex++;
+    }
+    if (description !== undefined) {
+      updateFields.push(`description = $${paramIndex}`);
+      params.push(description);
+      paramIndex++;
+    }
+    if (event_date !== undefined) {
+      updateFields.push(`event_date = $${paramIndex}`);
+      params.push(event_date);
+      paramIndex++;
+    }
+    if (end_date !== undefined) {
+      updateFields.push(`end_date = $${paramIndex}`);
+      params.push(end_date);
+      paramIndex++;
+    }
+    if (start_time !== undefined) {
+      updateFields.push(`start_time = $${paramIndex}`);
+      params.push(start_time);
+      paramIndex++;
+    }
+    if (end_time !== undefined) {
+      updateFields.push(`end_time = $${paramIndex}`);
+      params.push(end_time);
+      paramIndex++;
+    }
+    if (event_type !== undefined) {
+      updateFields.push(`event_type = $${paramIndex}`);
+      params.push(event_type);
+      paramIndex++;
+    }
+    if (is_completed !== undefined) {
+      updateFields.push(`is_completed = $${paramIndex}`);
+      params.push(is_completed);
+      paramIndex++;
+    }
+    if (attached_files !== undefined) {
+      updateFields.push(`attached_files = $${paramIndex}`);
+      params.push(JSON.stringify(attached_files));
+      paramIndex++;
+    }
+    if (labels !== undefined) {
+      updateFields.push(`labels = $${paramIndex}`);
+      params.push(JSON.stringify(labels));
+      paramIndex++;
+    }
+    if (business_id !== undefined) {
+      updateFields.push(`business_id = $${paramIndex}`);
+      params.push(business_id);
+      paramIndex++;
+    }
+    if (business_name !== undefined) {
+      updateFields.push(`business_name = $${paramIndex}`);
+      params.push(business_name);
+      paramIndex++;
+    }
+
+    if (updateFields.length === 1) {
       return NextResponse.json(
         { error: '수정할 내용이 없습니다.' },
         { status: 400 }
       );
     }
 
-    const { data, error } = await supabase
-      .from('calendar_events')
-      .update(updateData)
-      .eq('id', id)
-      .eq('is_deleted', false)
-      .select()
-      .single();
+    // WHERE 조건용 파라미터 추가
+    params.push(id);
+    params.push(false);
 
-    if (error) {
-      console.error('[캘린더 이벤트 수정 실패]', error);
+    const data = await queryOne(
+      `UPDATE calendar_events
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex} AND is_deleted = $${paramIndex + 1}
+       RETURNING *`,
+      params
+    );
+
+    if (!data) {
+      console.error('[캘린더 이벤트 수정 실패] ID:', id);
       return NextResponse.json(
-        { error: '캘린더 이벤트 수정에 실패했습니다.', details: error.message },
+        { error: '캘린더 이벤트 수정에 실패했습니다.' },
         { status: 500 }
       );
     }
@@ -144,7 +196,6 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = getSupabaseAdmin();
     const { id } = params;
 
     // 실사 이벤트 감지 → survey-events API로 리다이렉트
@@ -164,34 +215,29 @@ export async function DELETE(
       );
     }
 
-    // Soft delete (일반 캘린더 이벤트)
-    const { data, error } = await supabase
-      .from('calendar_events')
-      .update({ is_deleted: true })
-      .eq('id', id)
-      .eq('is_deleted', false)
-      .select();
+    // Soft delete (일반 캘린더 이벤트) - Direct PostgreSQL
+    const result = await pgQuery(
+      `UPDATE calendar_events
+       SET is_deleted = $1
+       WHERE id = $2 AND is_deleted = $3
+       RETURNING *`,
+      [true, id, false]
+    );
 
-    if (error) {
-      console.error('[캘린더 이벤트 삭제 실패]', error);
-      return NextResponse.json(
-        { error: '캘린더 이벤트 삭제에 실패했습니다.', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    // 삭제할 항목이 없는 경우 (이미 삭제되었거나 존재하지 않음)
-    if (!data || data.length === 0) {
+    if (!result || result.rowCount === 0) {
+      console.error('[캘린더 이벤트 삭제 실패] ID:', id);
       return NextResponse.json(
         { error: '이미 삭제되었거나 존재하지 않는 캘린더 이벤트입니다.' },
         { status: 404 }
       );
     }
 
+    const data = result.rows[0];
+
     return NextResponse.json({
       success: true,
       message: '캘린더 이벤트가 삭제되었습니다.',
-      data: data[0]
+      data
     });
   } catch (error) {
     console.error('[캘린더 삭제 API 오류]', error);
