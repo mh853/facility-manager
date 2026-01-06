@@ -12,7 +12,6 @@ import { queryAll, queryOne } from '@/lib/supabase-direct';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
 
     // 입력 검증 상수
