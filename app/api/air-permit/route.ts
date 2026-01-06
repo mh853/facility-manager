@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
             WHERE pf.outlet_id = outlet.id
           ) as prevention_facilities
          FROM discharge_outlets outlet
-         WHERE outlet.air_permit_id = $1 AND outlet.is_active = true AND outlet.is_deleted = false
+         WHERE outlet.air_permit_id = $1
          ORDER BY outlet.outlet_number`,
         [permitId]
       );
@@ -387,7 +387,7 @@ export async function POST(request: NextRequest) {
           WHERE pf.outlet_id = outlet.id
         ) as prevention_facilities
        FROM discharge_outlets outlet
-       WHERE outlet.air_permit_id = $1 AND outlet.is_active = true AND outlet.is_deleted = false
+       WHERE outlet.air_permit_id = $1
        ORDER BY outlet.outlet_number`,
       [newPermit.id]
     );
@@ -617,7 +617,7 @@ export async function PUT(request: NextRequest) {
           WHERE pf.outlet_id = outlet.id
         ) as prevention_facilities
        FROM discharge_outlets outlet
-       WHERE outlet.air_permit_id = $1 AND outlet.is_active = true AND outlet.is_deleted = false
+       WHERE outlet.air_permit_id = $1
        ORDER BY outlet.outlet_number`,
       [id]
     );
