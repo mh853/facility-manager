@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-utils'
-import { supabaseAdmin } from '@/lib/supabase'
+import { queryAll } from '@/lib/supabase-direct'
 import { verifyTokenHybrid } from '@/lib/secure-jwt'
 
 // 사용자 권한 확인 헬퍼 함수
@@ -61,26 +61,30 @@ export async function POST(request: NextRequest) {
 
     console.log(`🔄 [FACILITY-TASKS-BATCH] ${chunks.length}개 청크로 분할하여 처리`)
 
-    // 모든 청크를 병렬로 조회
+    // 모든 청크를 병렬로 조회 - Direct PostgreSQL 사용
     const allTasksResults = await Promise.all(
       chunks.map(async (chunk, index) => {
         console.log(`📋 [FACILITY-TASKS-BATCH] 청크 ${index + 1}/${chunks.length} 조회 중 (${chunk.length}개 사업장)`)
 
-        const { data, error } = await supabaseAdmin
-          .from('facility_tasks')
-          .select('*')
-          .in('business_name', chunk)
-          .eq('is_active', true)
-          .eq('is_deleted', false)
-          .order('updated_at', { ascending: false })
+        try {
+          // 동적 IN 절 파라미터 생성
+          const placeholders = chunk.map((_, i) => `$${i + 1}`).join(', ')
 
-        if (error) {
+          const tasks = await queryAll(
+            `SELECT * FROM facility_tasks
+             WHERE business_name IN (${placeholders})
+               AND is_active = true
+               AND is_deleted = false
+             ORDER BY updated_at DESC`,
+            chunk
+          )
+
+          console.log(`✅ [FACILITY-TASKS-BATCH] 청크 ${index + 1} 완료 - ${tasks?.length || 0}개 업무`)
+          return tasks || []
+        } catch (error) {
           console.error(`🔴 [FACILITY-TASKS-BATCH] 청크 ${index + 1} 조회 오류:`, error)
           throw error
         }
-
-        console.log(`✅ [FACILITY-TASKS-BATCH] 청크 ${index + 1} 완료 - ${data?.length || 0}개 업무`)
-        return data || []
       })
     )
 

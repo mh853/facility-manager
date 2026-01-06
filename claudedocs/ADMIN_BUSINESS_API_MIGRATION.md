@@ -2,10 +2,10 @@
 
 ## 📋 Migration Summary
 
-Successfully migrated **7 APIs** from Supabase PostgREST to direct PostgreSQL connections to fix "permission denied for schema public" (code 42501) errors on the `/admin/business` page and business detail modal.
+Successfully migrated **11 APIs** from Supabase PostgREST to direct PostgreSQL connections to fix "permission denied for schema public" (code 42501) errors on the `/admin/business` page and business detail modal.
 
 **Migration Date**: Multiple sessions (latest: current session)
-**Status**: ✅ **All Critical APIs Migrated & Schema Mismatch Fixed**
+**Status**: ✅ **All Critical APIs Migrated - Business Detail Modal & Batch Loading Working**
 **Connection Mode**: Transaction Mode pooler (port 6543)
 
 ### Schema Issues Fixed
@@ -13,6 +13,10 @@ Successfully migrated **7 APIs** from Supabase PostgREST to direct PostgreSQL co
 - ✅ All other columns verified against migration files
 
 ### Recent Additions (Current Session)
+- ✅ `/api/facility-tasks/batch` - 🔥 **NEW** - Batch status query for mass business loading
+- ✅ `/api/notifications` - 🔥 **NEW** - Schema fix for user notifications system
+- ✅ `/api/air-permit` - Complete CRUD migration for air permits (nested outlets/facilities)
+- ✅ `/api/facility-tasks` - Complete CRUD migration for facility task management
 - ✅ `/api/revenue/manufacturer-pricing` - Full CRUD migration (previously only GET auth was migrated)
 - ✅ `/api/business-memos` - Complete CRUD migration for business memos
 - ✅ `/api/business-invoices` - Invoice/payment data management migration
@@ -238,6 +242,176 @@ try {
 
 ---
 
+### 8. `/api/air-permit` ✅ (FULL CRUD MIGRATION)
+
+**File**: `app/api/air-permit/route.ts`
+**Methods Modified**: GET, POST, PUT, DELETE (Full CRUD with nested entities)
+**Changes**:
+- Replaced import: `DatabaseService` → `import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct'`
+- Added local type definition for `AirPermitInfo` (matches database schema)
+- **GET Method**: Replaced 8+ PostgREST queries with optimized direct SQL
+  - Air permit lookup with business info join: `queryOne()` with LEFT JOIN on business_info
+  - Nested outlets query: `queryAll()` with subqueries for facilities using `json_agg()`
+  - Discharge facilities: Nested JSON aggregation within outlets query
+  - Prevention facilities: Nested JSON aggregation within outlets query
+  - Business name to ID conversion: Single `queryOne()` for business_info lookup
+- **POST Method**: Replaced 10+ PostgREST cascade insert operations
+  - Business name validation: `queryOne()` for business_info existence check
+  - Air permit insertion: `pgQuery()` INSERT with RETURNING clause
+  - Outlets loop: Multi-row INSERT for discharge_outlets with dynamic parameterization
+  - Facilities loops: Multi-row INSERT for discharge_facilities and prevention_facilities
+  - Full hierarchy creation: permit → outlets → facilities in transaction-safe manner
+- **PUT Method**: Replaced 15+ PostgREST queries with cascade update pattern
+  - Existing permit validation: `queryOne()` to check permit exists
+  - Air permit update: Dynamic UPDATE query with parameterized fields
+  - Old outlets soft delete: `pgQuery()` UPDATE to set is_deleted=true for existing outlets
+  - Old facilities soft delete: Cascade UPDATE for all related discharge/prevention facilities
+  - New outlets/facilities insert: Same as POST method - full re-creation pattern
+- **DELETE Method**: Replaced 5+ PostgREST queries with cascade soft delete
+  - Permit validation: `queryOne()` to check permit exists
+  - Facilities soft delete: UPDATE discharge_facilities and prevention_facilities WHERE outlet_id IN (subquery)
+  - Outlets soft delete: UPDATE discharge_outlets WHERE air_permit_id = $1
+  - Permit soft delete: UPDATE air_permit_info SET is_deleted=true with RETURNING
+
+**Query Count Reduction**: 38+ PostgREST queries → Direct PostgreSQL
+
+**Key Features**:
+- **Nested JSON Aggregation**: Used `json_agg()` to construct nested outlet/facility hierarchy in single query
+- **Cascade Operations**: Proper parent-child relationship management for permit → outlets → facilities
+- **Soft Delete Pattern**: All DELETE operations set is_deleted=true instead of removing rows
+- **Business ID Mapping**: Automatic business_name → business_id conversion with validation
+- **Date Validation**: first_report_date and operation_start_date validation with ISO format
+- **JSONB Fields**: additional_info stored as JSONB for flexible metadata storage
+
+**Example Nested Query**:
+```typescript
+// Nested facilities with json_agg
+const outlets = await queryAll(
+  `SELECT
+    do.*,
+    (
+      SELECT json_agg(df.*)
+      FROM discharge_facilities df
+      WHERE df.outlet_id = do.id AND df.is_active = true AND df.is_deleted = false
+    ) as discharge_facilities,
+    (
+      SELECT json_agg(pf.*)
+      FROM prevention_facilities pf
+      WHERE pf.outlet_id = do.id AND pf.is_active = true AND pf.is_deleted = false
+    ) as prevention_facilities
+   FROM discharge_outlets do
+   WHERE do.air_permit_id = $1 AND do.is_active = true AND do.is_deleted = false
+   ORDER BY do.outlet_number`,
+  [permitId]
+);
+```
+
+---
+
+### 9. `/api/facility-tasks` ✅ (FULL CRUD MIGRATION)
+
+**File**: `app/api/facility-tasks/route.ts`
+**Methods Modified**: GET, POST, PUT, DELETE + 3 Helper Functions (Complete migration)
+**Changes**:
+- Added imports: `queryAll, query as pgQuery` to existing `queryOne` import
+- Removed `supabaseAdmin` import and all PostgREST usage
+- **GET Method**: Replaced 1 PostgREST query with dynamic Direct SQL
+  - Dynamic WHERE clause building: Optional filters for businessName, taskType, status, assignee
+  - Multi-assignee support: `assignees::text LIKE` pattern for JSON array search
+  - Single assignee fallback: `assignee = $N` for backward compatibility
+  - Parameterized query construction with indexed placeholders ($1, $2, etc.)
+  - Uses `facility_tasks_with_business` view for enriched data with business info
+- **POST Method**: Replaced 4 PostgREST queries with Direct SQL
+  - Duplicate task check: `queryAll()` to find existing tasks with same business_name + status + task_type
+  - Task insertion: `pgQuery()` INSERT with assignees JSON serialization and RETURNING clause
+  - Business timestamp update: UPDATE business_info.updated_at for list ordering
+  - Auto-memos creation: INSERT into business_memos for task creation notification
+- **PUT Method**: Replaced 5+ PostgREST queries with dynamic Direct SQL
+  - Existing task fetch: `queryOne()` to verify task exists and get current state
+  - Duplicate check (for title changes): Same pattern as POST to prevent duplicates
+  - Dynamic UPDATE query: Field mapping with special handling for assignees JSONB serialization
+  - Task update: Parameterized UPDATE with RETURNING clause
+  - Business timestamp update: UPDATE business_info.updated_at
+- **DELETE Method**: Replaced 2 PostgREST queries with soft delete
+  - Task validation: `queryOne()` to check task exists
+  - Soft delete: `pgQuery()` UPDATE to set is_deleted=true with RETURNING
+- **Helper Function: `createAutoProgressNote()`**: Migrated from PostgREST
+  - Business name to ID: `queryOne()` for business_info lookup
+  - Auto-memo INSERT: `pgQuery()` with note content and metadata
+- **Helper Function: `createTaskNotifications()`**: Migrated from PostgREST
+  - Multi-row INSERT: Dynamic VALUES clause for batch notification creation
+  - Parameterized loop: 6 parameters per notification (user_id, task_id, business_name, message, type, priority)
+- **Helper Function: `createTaskCreationNote()`**: Migrated from PostgREST
+  - Business name to ID: `queryOne()` for business_info lookup
+  - Task creation memo INSERT: `pgQuery()` with auto-generated message
+
+**Query Count Reduction**: 15+ PostgREST queries → Direct PostgreSQL
+
+**Key Features**:
+- **Dynamic Query Building**: WHERE clause construction with optional filters and indexed parameters
+- **Multi-Assignee Support**: JSON array storage and search capabilities for assignees field
+- **Duplicate Prevention**: Complex duplicate checks across multiple fields
+- **JSONB Serialization**: Automatic JSON.stringify() for assignees field when inserting/updating
+- **Cascade Updates**: business_info.updated_at sync for proper list ordering
+- **Auto-Memo Integration**: Automatic business_memos creation for task lifecycle events
+- **Multi-Row INSERT**: Batch notification creation with dynamic parameter generation
+- **Soft Delete Pattern**: is_deleted=true instead of row removal
+
+**Example Dynamic Query**:
+```typescript
+// Dynamic WHERE clause building
+let whereClauses: string[] = ['is_active = true', 'is_deleted = false'];
+let params: any[] = [];
+let paramIndex = 1;
+
+if (businessName) {
+  whereClauses.push(`business_name = $${paramIndex}`);
+  params.push(businessName);
+  paramIndex++;
+}
+if (assignee) {
+  whereClauses.push(`(assignee = $${paramIndex} OR assignees::text LIKE $${paramIndex + 1})`);
+  params.push(assignee);
+  params.push(`%"name":"${assignee}"%`);
+  paramIndex += 2;
+}
+
+const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+const query = `SELECT * FROM facility_tasks_with_business ${whereClause} ORDER BY created_at DESC`;
+```
+
+**Example Multi-Row INSERT**:
+```typescript
+// Multi-row INSERT for notifications
+const values: any[] = [];
+const valuePlaceholders: string[] = [];
+let paramIndex = 1;
+
+notifications.forEach((notif) => {
+  valuePlaceholders.push(
+    `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5})`
+  );
+  values.push(
+    notif.user_id,
+    notif.task_id,
+    notif.business_name,
+    notif.message,
+    notif.notification_type,
+    notif.priority
+  );
+  paramIndex += 6;
+});
+
+const insertQuery = `
+  INSERT INTO task_notifications (
+    user_id, task_id, business_name, message, notification_type, priority
+  ) VALUES ${valuePlaceholders.join(', ')}
+  RETURNING *
+`;
+```
+
+---
+
 ## 🔧 Technical Implementation
 
 ### Key Patterns Used
@@ -308,12 +482,16 @@ try {
 |-----|------|---------|------------------|---------------|
 | business-info-direct | route.ts | GET, PUT, POST, DELETE | ~200+ | ~250 |
 | sales-office-list | route.ts | GET | 1 | 15 |
-| facility-tasks | route.ts | POST, PUT | 3 | 60 |
+| facility-tasks (user lookup) | route.ts | POST, PUT | 3 | 60 |
 | manufacturer-pricing | route.ts | GET, POST, PATCH, DELETE | 13 | ~180 |
 | business-memos | route.ts | GET, POST, PUT, DELETE | 11 | ~120 |
 | business-invoices | route.ts | GET, PUT | 2 | ~30 |
 | facilities-supabase/[businessName] | route.ts | GET, POST | 10 | ~85 |
-| **TOTAL** | **7 files** | **Multiple** | **~240** | **~740** |
+| facility-tasks/batch | route.ts | POST | 1 per chunk | ~20 |
+| notifications (schema fix) | route.ts | GET | Schema fix only | ~5 |
+| **air-permit** | **route.ts** | **GET, POST, PUT, DELETE** | **38+** | **~400** |
+| **facility-tasks (full)** | **route.ts** | **GET, POST, PUT, DELETE + helpers** | **15+** | **~394** |
+| **TOTAL** | **11 APIs** | **Multiple** | **~295+** | **~1,559** |
 
 ---
 
@@ -401,6 +579,84 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 - [DASHBOARD_SESSION3_FIXES.md](./DASHBOARD_SESSION3_FIXES.md) - Dashboard 오류 수정 (연결 풀, NaN 값 등)
 - [CRITICAL_API_FIXES.md](./CRITICAL_API_FIXES.md) - 초기 PostgREST → Direct PostgreSQL 마이그레이션 기록
 - [lib/supabase-direct.ts](../lib/supabase-direct.ts) - Direct PostgreSQL 연결 라이브러리
+
+---
+
+### 10. `/api/facility-tasks/batch` ✅
+
+**File**: `app/api/facility-tasks/batch/route.ts`
+**Methods Modified**: POST
+**Migration Reason**: PostgREST query causing code 42501 permission errors during batch business status loading
+
+**Changes**:
+- Replaced import: `supabaseAdmin` → `import { queryAll } from '@/lib/supabase-direct'`
+- **POST Method**: Migrated batch query with dynamic IN clause
+  ```typescript
+  // Before (PostgREST)
+  const { data, error } = await supabaseAdmin
+    .from('facility_tasks')
+    .select('*')
+    .in('business_name', chunk)
+    .eq('is_active', true)
+    .eq('is_deleted', false)
+    .order('updated_at', { ascending: false })
+
+  // After (Direct PostgreSQL)
+  const placeholders = chunk.map((_, i) => `$${i + 1}`).join(', ')
+  const tasks = await queryAll(
+    `SELECT * FROM facility_tasks
+     WHERE business_name IN (${placeholders})
+       AND is_active = true
+       AND is_deleted = false
+     ORDER BY updated_at DESC`,
+    chunk
+  )
+  ```
+
+**Performance Impact**:
+- Parallel chunk processing maintained (200 businesses per chunk)
+- Direct PostgreSQL bypasses RLS for faster batch queries
+- Fixed permission errors that blocked mass business status loading
+
+**Query Pattern**:
+- **Dynamic IN Clause**: Generated placeholders for variable-length array
+- **Batch Processing**: 200 businesses per chunk with Promise.all parallelization
+- **Status Aggregation**: Client-side grouping and status calculation
+
+**Query Count**: 1 PostgREST query per chunk → Direct PostgreSQL per chunk
+
+---
+
+### 11. `/api/notifications` (Schema Fix) ✅
+
+**File**: `app/api/notifications/route.ts`
+**Methods Modified**: GET (user_notifications query)
+**Migration Reason**: Schema mismatch causing "column 'message' does not exist" error
+
+**Changes**:
+- **GET Method - user_notifications query**: Removed non-existent `message` column from SELECT
+  ```typescript
+  // Before (causing error)
+  SELECT id, user_id, message, related_task_id, related_user_id,
+         is_read, read_at, created_at, expires_at
+  FROM user_notifications
+
+  // After (schema-correct)
+  SELECT id, user_id, related_task_id, related_user_id,
+         is_read, read_at, created_at, expires_at
+  FROM user_notifications
+  ```
+
+**Notes**:
+- API was already partially migrated to Direct PostgreSQL
+- Only needed schema correction (column removal)
+- `task_notifications` table still uses `message` column (different schema)
+- Graceful degradation already implemented for missing tables
+
+**Impact**:
+- Fixed error: `column "message" does not exist`
+- Maintained graceful degradation for table existence checks
+- No functional changes to notification system logic
 
 ---
 

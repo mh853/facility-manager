@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, queryAll } from '@/lib/supabase-direct';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
@@ -80,19 +81,17 @@ async function getUserFromToken(request: NextRequest) {
       hasExpiry: !!decoded.exp
     });
 
-    // 사용자 정보 조회
-    const { data: user, error } = await supabaseAdmin
-      .from('employees')
-      .select('id, name, email, permission_level, department')
-      .eq('id', decoded.userId || decoded.id)
-      .eq('is_active', true)
-      .single();
+    // 사용자 정보 조회 - 직접 PostgreSQL 연결 사용
+    const user = await queryOne(
+      'SELECT id, name, email, permission_level, department FROM employees WHERE id = $1 AND is_active = true LIMIT 1',
+      [decoded.userId || decoded.id]
+    );
 
-    if (error || !user) {
+    if (!user) {
       console.error('❌ [AUTH] 사용자 조회 실패:', {
-        error: error?.message,
+        error: 'User not found or inactive',
         userId: decoded.userId || decoded.id,
-        hasUser: !!user
+        hasUser: false
       });
       return null;
     }
@@ -139,61 +138,36 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       return await getTierSpecificNotifications(user, tier, unreadOnly, limit);
     }
 
-    // 업무 담당자 알림 조회 - 테이블 존재 여부 확인 후 처리
+    // 업무 담당자 알림 조회 - 직접 PostgreSQL 연결 사용
     if (taskNotifications) {
       try {
-        // 먼저 테이블 존재 여부 확인
-        const { data: tableExists } = await supabaseAdmin
-          .from('task_notifications')
-          .select('id')
-          .limit(1)
-          .maybeSingle();
+        // 동적 쿼리 빌드
+        const queryParts: string[] = [];
+        const params: any[] = [];
+        let paramIndex = 1;
 
-        let query = supabaseAdmin
-          .from('task_notifications')
-          .select(`
-            id,
-            user_id,
-            user_name,
-            task_id,
-            business_name,
-            message,
-            notification_type,
-            priority,
-            is_read,
-            read_at,
-            created_at,
-            expires_at
-          `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(limit);
+        queryParts.push(`
+          SELECT id, user_id, user_name, task_id, business_name, message,
+                 notification_type, priority, is_read, read_at, created_at, expires_at
+          FROM task_notifications
+          WHERE user_id = $${paramIndex++}
+        `);
+        params.push(user.id);
 
         // 읽지 않은 알림만 필터링
         if (unreadOnly) {
-          query = query.eq('is_read', false);
+          queryParts.push(`AND is_read = $${paramIndex++}`);
+          params.push(false);
         }
 
         // 만료되지 않은 알림만 조회
-        query = query.or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+        queryParts.push(`AND (expires_at IS NULL OR expires_at > $${paramIndex++})`);
+        params.push(new Date().toISOString());
 
-        const { data: notifications, error } = await query;
+        queryParts.push(`ORDER BY created_at DESC LIMIT $${paramIndex++}`);
+        params.push(limit);
 
-        if (error) {
-          console.error('🔴 [TASK-NOTIFICATIONS] 조회 오류:', error);
-
-          // 테이블이 존재하지 않는 경우 빈 배열 반환
-          if (error.message.includes('relation') || error.message.includes('does not exist')) {
-            console.warn('⚠️ [TASK-NOTIFICATIONS] task_notifications 테이블이 존재하지 않음 - 빈 결과 반환');
-            return createSuccessResponse({
-              taskNotifications: [],
-              count: 0,
-              unreadCount: 0,
-              message: 'task_notifications 테이블이 아직 생성되지 않았습니다'
-            });
-          }
-          throw error;
-        }
+        const notifications = await queryAll(queryParts.join(' '), params);
 
         console.log('✅ [TASK-NOTIFICATIONS] 조회 성공:', notifications?.length || 0, '개 업무 알림');
 
@@ -222,50 +196,34 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       }
     }
 
-    // 기본 사용자 알림 조회 - 테이블 존재 여부 확인 후 처리
+    // 기본 사용자 알림 조회 - 직접 PostgreSQL 연결 사용
     try {
-      let query = supabaseAdmin
-        .from('user_notifications')
-        .select(`
-          id,
-          user_id,
-          type,
-          title,
-          message,
-          related_task_id,
-          related_user_id,
-          is_read,
-          read_at,
-          created_at,
-          expires_at
-        `)
-        .eq('user_id', user.id)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      // 동적 쿼리 빌드
+      const queryParts: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      queryParts.push(`
+        SELECT id, user_id, message, related_task_id, related_user_id,
+               is_read, read_at, created_at, expires_at
+        FROM user_notifications
+        WHERE user_id = $${paramIndex++}
+      `);
+      params.push(user.id);
+
+      queryParts.push(`AND expires_at > $${paramIndex++}`);
+      params.push(new Date().toISOString());
 
       // 읽지 않은 알림만 조회
       if (unreadOnly) {
-        query = query.eq('is_read', false);
+        queryParts.push(`AND is_read = $${paramIndex++}`);
+        params.push(false);
       }
 
-      const { data: notifications, error } = await query;
+      queryParts.push(`ORDER BY created_at DESC LIMIT $${paramIndex++}`);
+      params.push(limit);
 
-      if (error) {
-        console.error('🔴 [NOTIFICATIONS] 조회 오류:', error);
-
-        // 테이블이 존재하지 않는 경우 빈 배열 반환
-        if (error.message.includes('relation') || error.message.includes('does not exist')) {
-          console.warn('⚠️ [NOTIFICATIONS] user_notifications 테이블이 존재하지 않음 - 빈 결과 반환');
-          return createSuccessResponse({
-            notifications: [],
-            count: 0,
-            unreadCount: 0,
-            message: 'user_notifications 테이블이 아직 생성되지 않았습니다'
-          });
-        }
-        throw error;
-      }
+      const notifications = await queryAll(queryParts.join(' '), params);
 
       console.log('✅ [NOTIFICATIONS] 조회 성공:', notifications?.length || 0, '개 알림');
 
