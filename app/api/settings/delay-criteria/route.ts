@@ -1,7 +1,7 @@
 // app/api/settings/delay-criteria/route.ts - 지연/위험 업무 기준 설정 API
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne } from '@/lib/supabase-direct';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
@@ -41,17 +41,11 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   try {
     console.log('📊 [DELAY-CRITERIA] 설정 조회 요청');
 
-    // settings 테이블에서 delay_criteria 조회
-    const { data: settings, error } = await supabaseAdmin
-      .from('settings')
-      .select('value')
-      .eq('key', 'delay_criteria')
-      .single();
-
-    if (error && error.code !== 'PGRST116') { // PGRST116은 "not found" 에러
-      console.error('🔴 [DELAY-CRITERIA] 조회 오류:', error);
-      throw error;
-    }
+    // settings 테이블에서 delay_criteria 조회 - Direct PostgreSQL
+    const settings = await queryOne(
+      `SELECT value FROM settings WHERE key = $1 LIMIT 1`,
+      ['delay_criteria']
+    );
 
     let criteria = DEFAULT_CRITERIA;
     if (settings?.value) {
@@ -103,22 +97,19 @@ export const POST = withApiHandler(async (request: NextRequest) => {
 
     const criteria: DelayCriteria = body;
 
-    // settings 테이블에 upsert
-    const { data: result, error } = await supabaseAdmin
-      .from('settings')
-      .upsert({
-        key: 'delay_criteria',
-        value: JSON.stringify(criteria),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'key'
-      })
-      .select()
-      .single();
+    // settings 테이블에 upsert - Direct PostgreSQL
+    const result = await queryOne(
+      `INSERT INTO settings (key, value, updated_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (key)
+       DO UPDATE SET value = $2, updated_at = $3
+       RETURNING *`,
+      ['delay_criteria', JSON.stringify(criteria), new Date().toISOString()]
+    );
 
-    if (error) {
-      console.error('🔴 [DELAY-CRITERIA] 저장 오류:', error);
-      throw error;
+    if (!result) {
+      console.error('🔴 [DELAY-CRITERIA] 저장 실패');
+      throw new Error('설정 저장 실패');
     }
 
     console.log('✅ [DELAY-CRITERIA] 저장 성공:', result);
