@@ -1,7 +1,6 @@
 // app/api/business-list/route.ts - business_info 테이블 기반 대기필증 사업장 목록
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
-import { supabaseAdmin } from '@/lib/supabase';
 import { verifyTokenHybrid } from '@/lib/secure-jwt';
 import { queryAll } from '@/lib/supabase-direct';
 
@@ -17,54 +16,37 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     const includeAll = searchParams.get('includeAll') === 'true';
 
     if (includeAll) {
-      // 모든 사업장 조회 (대기필증 추가 모달용)
+      // 모든 사업장 조회 (대기필증 추가 모달용) - Direct PostgreSQL
       console.log('🏢 [BUSINESS-LIST] 전체 사업장 목록 조회 (includeAll=true)');
 
-      // Supabase 기본 제한(1000개)을 우회하기 위해 페이지네이션 사용
-      let allBusinesses: any[] = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+      // Direct PostgreSQL로 전체 조회 (LIMIT 없음)
+      const allBusinesses = await queryAll(
+        `SELECT
+          id,
+          business_name,
+          local_government,
+          address,
+          business_registration_number,
+          presurvey_inspector_name,
+          presurvey_inspector_date,
+          postinstall_installer_name,
+          postinstall_installer_date,
+          aftersales_technician_name,
+          aftersales_technician_date
+        FROM business_info
+        WHERE is_active = $1
+          AND is_deleted = $2
+          AND business_name IS NOT NULL
+        ORDER BY updated_at DESC`,
+        [true, false]
+      )
 
-      while (hasMore) {
-        // ✅ 성능 최적화: Facility 페이지 필수 필드만 조회
-        const { data: businessPage, error: businessError} = await supabaseAdmin
-          .from('business_info')
-          .select(`
-            id,
-            business_name,
-            local_government,
-            address,
-            business_registration_number,
-            presurvey_inspector_name,
-            presurvey_inspector_date,
-            postinstall_installer_name,
-            postinstall_installer_date,
-            aftersales_technician_name,
-            aftersales_technician_date
-          `)
-          .eq('is_active', true)
-          .eq('is_deleted', false)
-          .not('business_name', 'is', null)
-          .order('updated_at', { ascending: false })  // ✅ 최근 수정된 순서로 정렬
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-
-        if (businessError) {
-          console.error('🔴 [BUSINESS-LIST] 전체 사업장 조회 오류:', businessError);
-          throw businessError;
-        }
-
-        if (businessPage && businessPage.length > 0) {
-          allBusinesses = [...allBusinesses, ...businessPage];
-          hasMore = businessPage.length === pageSize; // 1000개 미만이면 마지막 페이지
-          page++;
-          console.log(`📄 [BUSINESS-LIST] 페이지 ${page} 조회 완료: ${businessPage.length}개 (누적: ${allBusinesses.length}개)`);
-        } else {
-          hasMore = false;
-        }
+      if (!allBusinesses) {
+        console.error('🔴 [BUSINESS-LIST] 전체 사업장 조회 오류');
+        throw new Error('사업장 목록 조회 실패');
       }
 
-      console.log(`✅ [BUSINESS-LIST] 전체 사업장 조회 완료: ${allBusinesses.length}개 (${page}페이지)`);
+      console.log(`✅ [BUSINESS-LIST] 전체 사업장 조회 완료: ${allBusinesses.length}개`);
 
       // 📷 사진 통계 추가 (Direct PostgreSQL로 Primary DB 강제 사용)
       const businessIdsForPhotos = allBusinesses.map((b: any) => b.id);
@@ -199,17 +181,18 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     if (businessError) {
       console.error('🔴 [BUSINESS-LIST] business_info 조회 오류:', businessError);
       
-      // 폴백: air_permit_management 테이블에서 조회
+      // 폴백: air_permit_management 테이블에서 조회 - Direct PostgreSQL
       console.log('🔍 [BUSINESS-LIST] 폴백: air_permit_management에서 조회');
-      
-      const { data: airPermits, error: airError } = await supabaseAdmin
-        .from('air_permit_management')
-        .select('business_name, business_id')
-        .not('business_name', 'is', null)
-        .order('business_name');
-      
-      if (airError) {
-        throw airError;
+
+      const airPermits = await queryAll(
+        `SELECT business_name, business_id
+         FROM air_permit_management
+         WHERE business_name IS NOT NULL
+         ORDER BY business_name`
+      )
+
+      if (!airPermits) {
+        throw new Error('air_permit_management 조회 실패');
       }
       
       const uniqueBusinessNames = Array.from(new Set(

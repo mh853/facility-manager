@@ -156,8 +156,8 @@ export async function POST(request: NextRequest) {
         event_type === 'todo' ? (is_completed || false) : false,
         author_id,
         author_name,
-        JSON.stringify(attached_files || []),
-        JSON.stringify(labels || []),
+        attached_files || [],  // JavaScript 배열 그대로 전달 (pg가 PostgreSQL 배열로 변환)
+        labels || [],           // JavaScript 배열 그대로 전달 (pg가 PostgreSQL 배열로 변환)
         business_id || null,
         business_name || null
       ]

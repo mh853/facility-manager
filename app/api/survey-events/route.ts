@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
         event_date,
         start_time || null,
         end_time || null,
-        JSON.stringify([label]),
+        [label],  // JavaScript 배열 그대로 전달
         business_id,
         business_name,
         author_name || '미지정',

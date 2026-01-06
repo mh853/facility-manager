@@ -126,12 +126,12 @@ export async function PUT(
     }
     if (attached_files !== undefined) {
       updateFields.push(`attached_files = $${paramIndex}`);
-      params.push(JSON.stringify(attached_files));
+      params.push(attached_files);  // JavaScript 배열 그대로 전달
       paramIndex++;
     }
     if (labels !== undefined) {
       updateFields.push(`labels = $${paramIndex}`);
-      params.push(JSON.stringify(labels));
+      params.push(labels);  // JavaScript 배열 그대로 전달
       paramIndex++;
     }
     if (business_id !== undefined) {
