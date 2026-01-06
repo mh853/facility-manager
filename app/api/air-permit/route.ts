@@ -136,20 +136,20 @@ export async function GET(request: NextRequest) {
         for (const permit of permits) {
           const outlets = await queryAll(
             `SELECT
-              do.*,
+              outlet.*,
               (
                 SELECT json_agg(df.*)
                 FROM discharge_facilities df
-                WHERE df.outlet_id = do.id AND df.is_active = true AND df.is_deleted = false
+                WHERE df.outlet_id = outlet.id AND df.is_active = true AND df.is_deleted = false
               ) as discharge_facilities,
               (
                 SELECT json_agg(pf.*)
                 FROM prevention_facilities pf
-                WHERE pf.outlet_id = do.id AND pf.is_active = true AND pf.is_deleted = false
+                WHERE pf.outlet_id = outlet.id AND pf.is_active = true AND pf.is_deleted = false
               ) as prevention_facilities
-             FROM discharge_outlets do
-             WHERE do.air_permit_id = $1 AND do.is_active = true AND do.is_deleted = false
-             ORDER BY do.outlet_number`,
+             FROM discharge_outlets outlet
+             WHERE outlet.air_permit_id = $1 AND outlet.is_active = true AND outlet.is_deleted = false
+             ORDER BY outlet.outlet_number`,
             [permit.id]
           );
           permit.outlets = outlets || [];
