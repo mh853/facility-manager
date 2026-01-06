@@ -1,6 +1,6 @@
 // app/api/calendar/labels/route.ts
 import { NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { queryAll } from '@/lib/supabase-direct';
 
 // Next.js 캐싱 완전 비활성화 - 실시간 라벨 업데이트를 위해 필수
 export const dynamic = 'force-dynamic';
@@ -13,47 +13,28 @@ export const revalidate = 0;
  */
 export async function GET() {
   try {
-    const supabase = getSupabaseAdmin();
-
-    // 병렬로 일반 이벤트와 실사 이벤트의 라벨 조회
-    const [calendarResult, surveyResult] = await Promise.all([
+    // 병렬로 일반 이벤트와 실사 이벤트의 라벨 조회 - Direct PostgreSQL
+    const [calendarEvents, surveyEvents] = await Promise.all([
       // 일반 캘린더 이벤트 라벨
-      supabase
-        .from('calendar_events')
-        .select('labels')
-        .eq('is_deleted', false)
-        .not('labels', 'is', null),
+      queryAll(
+        `SELECT labels FROM calendar_events
+         WHERE is_deleted = $1 AND labels IS NOT NULL`,
+        [false]
+      ),
 
       // 실사 이벤트 라벨
-      supabase
-        .from('survey_events')
-        .select('labels')
-        .eq('event_type', 'survey')
-        .not('labels', 'is', null)
+      queryAll(
+        `SELECT labels FROM survey_events
+         WHERE event_type = $1 AND labels IS NOT NULL`,
+        ['survey']
+      )
     ]);
-
-    // 오류 처리
-    if (calendarResult.error) {
-      console.error('[일반 이벤트 라벨 조회 실패]', calendarResult.error);
-      return NextResponse.json(
-        { error: '라벨 조회에 실패했습니다.', details: calendarResult.error.message },
-        { status: 500 }
-      );
-    }
-
-    if (surveyResult.error) {
-      console.error('[실사 이벤트 라벨 조회 실패]', surveyResult.error);
-      return NextResponse.json(
-        { error: '라벨 조회에 실패했습니다.', details: surveyResult.error.message },
-        { status: 500 }
-      );
-    }
 
     // 중복 제거된 라벨 목록 생성 (일반 이벤트 + 실사 이벤트 통합)
     const allLabels = new Set<string>();
 
     // 일반 이벤트 라벨 추가
-    calendarResult.data?.forEach((event) => {
+    calendarEvents?.forEach((event) => {
       if (event.labels && Array.isArray(event.labels)) {
         event.labels.forEach((label: string) => {
           if (label && label.trim()) {
@@ -64,7 +45,7 @@ export async function GET() {
     });
 
     // 실사 이벤트 라벨 추가
-    surveyResult.data?.forEach((event) => {
+    surveyEvents?.forEach((event) => {
       if (event.labels && Array.isArray(event.labels)) {
         event.labels.forEach((label: string) => {
           if (label && label.trim()) {
@@ -77,7 +58,7 @@ export async function GET() {
     // Set을 배열로 변환하고 정렬
     const uniqueLabels = Array.from(allLabels).sort();
 
-    console.log(`✅ [라벨 조회 완료] 일반 이벤트: ${calendarResult.data?.length || 0}개, 실사 이벤트: ${surveyResult.data?.length || 0}개, 고유 라벨: ${uniqueLabels.length}개`);
+    console.log(`✅ [라벨 조회 완료] 일반 이벤트: ${calendarEvents?.length || 0}개, 실사 이벤트: ${surveyEvents?.length || 0}개, 고유 라벨: ${uniqueLabels.length}개`);
 
     const response = NextResponse.json({
       success: true,
