@@ -1,6 +1,6 @@
 // app/api/announcements/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { queryAll, queryOne } from '@/lib/supabase-direct';
 
 /**
  * GET /api/announcements
@@ -11,7 +11,6 @@ import { getSupabaseAdmin } from '@/lib/supabase';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
 
     // 쿼리 파라미터
@@ -20,35 +19,40 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
     const showPinnedOnly = searchParams.get('pinned') === 'true';
 
-    // 기본 쿼리
-    let query = supabase
-      .from('announcements')
-      .select('*', { count: 'exact' })
-      .eq('is_deleted', false);
+    // Direct PostgreSQL 쿼리 구성
+    let queryStr = `
+      SELECT * FROM announcements
+      WHERE is_deleted = false
+    `;
+    const params: any[] = [];
 
     // 상단 고정 필터
     if (showPinnedOnly) {
-      query = query.eq('is_pinned', true);
+      queryStr += ` AND is_pinned = true`;
     }
 
     // 정렬 (상단 고정 우선, 그 다음 최신순)
-    query = query.order('is_pinned', { ascending: false });
-    query = query.order('created_at', { ascending: false });
+    queryStr += ` ORDER BY is_pinned DESC, created_at DESC`;
 
     // 페이징 (상단 고정만 조회하는 경우 페이징 제외)
     if (!showPinnedOnly) {
-      query = query.range(offset, offset + limit - 1);
+      queryStr += ` LIMIT $1 OFFSET $2`;
+      params.push(limit, offset);
     }
 
-    const { data, error, count } = await query;
+    const data = await queryAll(queryStr, params);
 
-    if (error) {
-      console.error('[공지사항 조회 실패]', error);
-      return NextResponse.json(
-        { error: '공지사항을 조회하는데 실패했습니다.', details: error.message },
-        { status: 500 }
-      );
+    // 전체 개수 조회
+    let countQueryStr = `
+      SELECT COUNT(*) as count FROM announcements
+      WHERE is_deleted = false
+    `;
+    if (showPinnedOnly) {
+      countQueryStr += ` AND is_pinned = true`;
     }
+
+    const countResult = await queryOne(countQueryStr, []);
+    const count = parseInt(countResult?.count || '0');
 
     const response = NextResponse.json({
       success: true,
@@ -56,8 +60,8 @@ export async function GET(request: NextRequest) {
       pagination: {
         page,
         limit,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit)
+        total: count,
+        totalPages: Math.ceil(count / limit)
       }
     });
 
@@ -81,7 +85,6 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseAdmin();
     const body = await request.json();
 
     const { title, content, author_id, author_name, is_pinned } = body;
@@ -94,23 +97,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 공지사항 생성
-    const { data, error } = await supabase
-      .from('announcements')
-      .insert({
-        title,
-        content,
-        author_id,
-        author_name,
-        is_pinned: is_pinned || false
-      })
-      .select()
-      .single();
+    // 공지사항 생성 (Direct PostgreSQL)
+    const data = await queryOne(
+      `INSERT INTO announcements (
+        title, content, author_id, author_name, is_pinned
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *`,
+      [title, content, author_id, author_name, is_pinned || false]
+    );
 
-    if (error) {
-      console.error('[공지사항 생성 실패]', error);
+    if (!data) {
+      console.error('[공지사항 생성 실패] - 데이터 반환 없음');
       return NextResponse.json(
-        { error: '공지사항 생성에 실패했습니다.', details: error.message },
+        { error: '공지사항 생성에 실패했습니다.' },
         { status: 500 }
       );
     }

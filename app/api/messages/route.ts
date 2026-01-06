@@ -1,6 +1,6 @@
 // app/api/messages/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { queryAll, queryOne } from '@/lib/supabase-direct';
 
 /**
  * GET /api/messages
@@ -44,35 +44,46 @@ export async function GET(request: NextRequest) {
 
     const offset = (page - 1) * limit;
 
-    // 기본 쿼리
-    let query = supabase
-      .from('messages')
-      .select('*', { count: 'exact' })
-      .eq('is_deleted', false);
+    // Direct PostgreSQL 쿼리 구성
+    let queryStr = `
+      SELECT * FROM messages
+      WHERE is_deleted = false
+    `;
+    const params: any[] = [];
 
-    // 검색어가 있으면 제목 또는 내용에서 검색
+    // 검색어가 있으면 제목 또는 내용에서 검색 (ILIKE)
     if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`);
+      queryStr += ` AND (title ILIKE $1 OR content ILIKE $1)`;
+      params.push(`%${searchQuery}%`);
     }
 
     // 정렬 및 페이징
-    query = query
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    queryStr += ` ORDER BY created_at DESC`;
 
-    const { data, error, count } = await query;
-
-    if (error) {
-      console.error('[전달사항 조회 실패]', error);
-      return NextResponse.json(
-        {
-          success: false,
-          error: '전달사항을 조회하는데 실패했습니다.',
-          details: error.message
-        },
-        { status: 500 }
-      );
+    if (searchQuery) {
+      queryStr += ` LIMIT $2 OFFSET $3`;
+      params.push(limit, offset);
+    } else {
+      queryStr += ` LIMIT $1 OFFSET $2`;
+      params.push(limit, offset);
     }
+
+    const data = await queryAll(queryStr, params);
+
+    // 전체 개수 조회
+    let countQueryStr = `
+      SELECT COUNT(*) as count FROM messages
+      WHERE is_deleted = false
+    `;
+    const countParams: any[] = [];
+
+    if (searchQuery) {
+      countQueryStr += ` AND (title ILIKE $1 OR content ILIKE $1)`;
+      countParams.push(`%${searchQuery}%`);
+    }
+
+    const countResult = await queryOne(countQueryStr, countParams);
+    const count = parseInt(countResult?.count || '0');
 
     const response = NextResponse.json({
       success: true,
@@ -80,8 +91,8 @@ export async function GET(request: NextRequest) {
       pagination: {
         page,
         limit,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit)
+        total: count,
+        totalPages: Math.ceil(count / limit)
       }
     });
 
@@ -108,7 +119,6 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseAdmin();
     const body = await request.json();
 
     const { title, content, author_id, author_name } = body;
@@ -121,22 +131,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 전달사항 생성
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        title,
-        content,
-        author_id,
-        author_name
-      })
-      .select()
-      .single();
+    // 전달사항 생성 (Direct PostgreSQL)
+    const data = await queryOne(
+      `INSERT INTO messages (
+        title, content, author_id, author_name
+      )
+      VALUES ($1, $2, $3, $4)
+      RETURNING *`,
+      [title, content, author_id, author_name]
+    );
 
-    if (error) {
-      console.error('[전달사항 생성 실패]', error);
+    if (!data) {
+      console.error('[전달사항 생성 실패] - 데이터 반환 없음');
       return NextResponse.json(
-        { error: '전달사항 생성에 실패했습니다.', details: error.message },
+        { error: '전달사항 생성에 실패했습니다.' },
         { status: 500 }
       );
     }
