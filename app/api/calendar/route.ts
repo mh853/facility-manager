@@ -120,6 +120,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 배열 필드 정규화: undefined → 빈 배열로 변환
+    const normalizedAttachedFiles = Array.isArray(attached_files) ? attached_files : [];
+    const normalizedLabels = Array.isArray(labels) ? labels : [];
+
     // 이벤트 타입 검증
     if (event_type !== 'todo' && event_type !== 'schedule') {
       return NextResponse.json(
@@ -156,8 +160,8 @@ export async function POST(request: NextRequest) {
         event_type === 'todo' ? (is_completed || false) : false,
         author_id,
         author_name,
-        attached_files || [],  // JavaScript 배열 그대로 전달 (pg가 PostgreSQL 배열로 변환)
-        labels || [],           // JavaScript 배열 그대로 전달 (pg가 PostgreSQL 배열로 변환)
+        normalizedAttachedFiles,  // 정규화된 배열 사용
+        normalizedLabels,           // 정규화된 배열 사용
         business_id || null,
         business_name || null
       ]
