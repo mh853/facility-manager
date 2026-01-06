@@ -60,20 +60,20 @@ export async function GET(request: NextRequest) {
       // 배출구 및 시설 정보 조회
       const outlets = await queryAll(
         `SELECT
-          do.*,
+          outlet.*,
           (
             SELECT json_agg(df.*)
             FROM discharge_facilities df
-            WHERE df.outlet_id = do.id AND df.is_active = true AND df.is_deleted = false
+            WHERE df.outlet_id = outlet.id
           ) as discharge_facilities,
           (
             SELECT json_agg(pf.*)
             FROM prevention_facilities pf
-            WHERE pf.outlet_id = do.id AND pf.is_active = true AND pf.is_deleted = false
+            WHERE pf.outlet_id = outlet.id
           ) as prevention_facilities
-         FROM discharge_outlets do
-         WHERE do.air_permit_id = $1 AND do.is_active = true AND do.is_deleted = false
-         ORDER BY do.outlet_number`,
+         FROM discharge_outlets outlet
+         WHERE outlet.air_permit_id = $1 AND outlet.is_active = true AND outlet.is_deleted = false
+         ORDER BY outlet.outlet_number`,
         [permitId]
       );
 
@@ -179,9 +179,14 @@ export async function GET(request: NextRequest) {
     const allPermits = await queryAll(
       `SELECT DISTINCT
         api.*,
-        bi.business_name,
-        bi.business_management_code,
-        bi.local_government
+        json_build_object(
+          'business_name', bi.business_name,
+          'business_management_code', bi.business_management_code,
+          'local_government', bi.local_government,
+          'vpn_wired', bi.vpn_wired,
+          'vpn_wireless', bi.vpn_wireless,
+          'manufacturer', bi.manufacturer
+        ) as business
        FROM air_permit_info api
        LEFT JOIN business_info bi ON api.business_id = bi.id
        WHERE api.is_active = true AND api.is_deleted = false
@@ -370,20 +375,20 @@ export async function POST(request: NextRequest) {
 
     const fullOutlets = await queryAll(
       `SELECT
-        do.*,
+        outlet.*,
         (
           SELECT json_agg(df.*)
           FROM discharge_facilities df
-          WHERE df.outlet_id = do.id AND df.is_active = true AND df.is_deleted = false
+          WHERE df.outlet_id = outlet.id
         ) as discharge_facilities,
         (
           SELECT json_agg(pf.*)
           FROM prevention_facilities pf
-          WHERE pf.outlet_id = do.id AND pf.is_active = true AND pf.is_deleted = false
+          WHERE pf.outlet_id = outlet.id
         ) as prevention_facilities
-       FROM discharge_outlets do
-       WHERE do.air_permit_id = $1 AND do.is_active = true AND do.is_deleted = false
-       ORDER BY do.outlet_number`,
+       FROM discharge_outlets outlet
+       WHERE outlet.air_permit_id = $1 AND outlet.is_active = true AND outlet.is_deleted = false
+       ORDER BY outlet.outlet_number`,
       [newPermit.id]
     );
 
@@ -600,20 +605,20 @@ export async function PUT(request: NextRequest) {
 
     const updatedOutlets = await queryAll(
       `SELECT
-        do.*,
+        outlet.*,
         (
           SELECT json_agg(df.*)
           FROM discharge_facilities df
-          WHERE df.outlet_id = do.id AND df.is_active = true AND df.is_deleted = false
+          WHERE df.outlet_id = outlet.id
         ) as discharge_facilities,
         (
           SELECT json_agg(pf.*)
           FROM prevention_facilities pf
-          WHERE pf.outlet_id = do.id AND pf.is_active = true AND pf.is_deleted = false
+          WHERE pf.outlet_id = outlet.id
         ) as prevention_facilities
-       FROM discharge_outlets do
-       WHERE do.air_permit_id = $1 AND do.is_active = true AND do.is_deleted = false
-       ORDER BY do.outlet_number`,
+       FROM discharge_outlets outlet
+       WHERE outlet.air_permit_id = $1 AND outlet.is_active = true AND outlet.is_deleted = false
+       ORDER BY outlet.outlet_number`,
       [id]
     );
 
