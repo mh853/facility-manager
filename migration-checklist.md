@@ -17,10 +17,15 @@
 ### Phase 2: Supabase 마이그레이션
 - [ ] 새 Supabase 프로젝트 생성
 - [ ] 데이터베이스 스키마 복원
-- [ ] 데이터 복원
+  - ✅ 통합 SQL 파일 생성 완료: `sql/COMBINED_MIGRATION_COMPLETE.sql`
+  - ✅ 51개 핵심 SQL 파일 선별 완료 (총 173개 중)
+  - [ ] Supabase SQL Editor에서 통합 SQL 실행
+  - [ ] 테이블 생성 확인 (약 50~60개 예상)
+  - 📖 상세 가이드: `claudedocs/sql-migration-guide.md`
+- [ ] 데이터 복원 (필요시)
 - [ ] Storage 버킷 생성
-- [ ] Storage 파일 업로드
-- [ ] RLS 정책 적용
+- [ ] Storage 파일 업로드 (필요시)
+- [ ] RLS 정책 적용 (통합 SQL에 포함됨)
 - [ ] API Keys 확인
 
 ### Phase 3: Vercel 마이그레이션

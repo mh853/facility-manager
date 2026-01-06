@@ -36,14 +36,11 @@ export const getSupabaseAdmin = () => {
           persistSession: false,
           autoRefreshToken: false,
         },
-        db: {
-          schema: 'public',
-        },
+        // db.schema 제거 - Service Role은 자동으로 public 스키마 접근 가능
         global: {
           headers: {
             'Content-Type': 'application/json; charset=utf-8',
             'Accept-Charset': 'utf-8',
-            'x-connection-pooling': 'true', // Connection pooling 활성화
             'Prefer': 'return=representation', // Read-after-write consistency 보장
           }
         }

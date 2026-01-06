@@ -1129,6 +1129,8 @@ async function createTaskNotifications(params: {
       } catch (wsError) {
         console.warn('⚠️ [WEBSOCKET] 업무 변경 알림 WebSocket 전송 실패:', wsError);
       }
+    } catch (error) {
+      console.error('🔴 [AUTO-PROGRESS] 자동 알림 생성 중 오류:', error);
     }
   }
 }

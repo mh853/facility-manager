@@ -2,7 +2,8 @@
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifyTokenHybrid } from '@/lib/secure-jwt'
+import { verifyTokenHybrid } from '@/lib/secure-jwt';
+import { queryAll } from '@/lib/supabase-direct';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
@@ -119,16 +120,14 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     // 기존 로직: 대기필증이 등록된 사업장만 조회
     console.log('🏢 [BUSINESS-LIST] 대기필증이 등록된 사업장 목록 조회');
 
-    // 대기필증이 있는 business_id만 먼저 조회
-    const { data: businessIdsWithPermits, error: permitError } = await supabaseAdmin
-      .from('air_permit_info')
-      .select('business_id')
-      .not('business_id', 'is', null);
+    // 대기필증이 있는 business_id만 먼저 조회 - 직접 PostgreSQL 연결 사용
+    console.log('🔍 [DEBUG] PostgreSQL 직접 연결로 air_permit_info 쿼리 실행');
+    const businessIdsWithPermits = await queryAll(
+      'SELECT business_id FROM air_permit_info WHERE business_id IS NOT NULL',
+      []
+    );
 
-    if (permitError) {
-      console.error('🔴 [BUSINESS-LIST] air_permit_info 조회 오류:', permitError);
-      throw permitError;
-    }
+    console.log(`✅ [PG] air_permit_info 조회 완료: ${businessIdsWithPermits?.length || 0}개 레코드`);
 
     // 대기필증이 있는 business_id 목록 추출 (중복 제거)
     const businessIdsSet = new Set(
@@ -154,25 +153,36 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
     // 대기필증이 있는 사업장만 business_info에서 조회 (Facility 페이지 필수 필드만)
     // ✅ 성능 최적화: 40개 이상 필드 → 9개 필수 필드만 조회 (60% 데이터 감소)
-    const { data: businessWithPermits, error: businessError } = await supabaseAdmin
-      .from('business_info')
-      .select(`
-        id,
-        business_name,
-        address,
-        presurvey_inspector_name,
-        presurvey_inspector_date,
-        postinstall_installer_name,
-        postinstall_installer_date,
-        aftersales_technician_name,
-        aftersales_technician_date
-      `)
-      .in('id', businessIds)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .not('business_name', 'is', null)
-      .order('updated_at', { ascending: false });  // ✅ 최근 수정된 순서로 정렬
-    
+    // 직접 PostgreSQL 연결 사용
+    console.log('🔍 [DEBUG] PostgreSQL 직접 연결로 business_info 쿼리 실행');
+
+    let businessWithPermits: any[] | null = null;
+    let businessError: any = null;
+
+    try {
+      businessWithPermits = await queryAll(
+        `SELECT
+          id,
+          business_name,
+          address,
+          presurvey_inspector_name,
+          presurvey_inspector_date,
+          postinstall_installer_name,
+          postinstall_installer_date,
+          aftersales_technician_name,
+          aftersales_technician_date
+        FROM business_info
+        WHERE id = ANY($1)
+          AND is_active = true
+          AND is_deleted = false
+          AND business_name IS NOT NULL
+        ORDER BY updated_at DESC`,
+        [businessIds]
+      );
+    } catch (error) {
+      businessError = error;
+    }
+
     console.log(`🏢 [BUSINESS-LIST] 조회 결과:`, {
       permitBusinessesCount: businessIds.length,
       retrievedBusinesses: businessWithPermits?.length || 0,
@@ -182,7 +192,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
         id: b.id
       }))
     });
-    
+
     if (businessError) {
       console.error('🔴 [BUSINESS-LIST] business_info 조회 오류:', businessError);
       

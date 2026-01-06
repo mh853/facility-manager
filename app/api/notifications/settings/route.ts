@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Supabase 클라이언트 설정
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// JWT 토큰에서 사용자 정보 추출하는 헬퍼 함수
+import { queryOne } from '@/lib/supabase-direct';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
@@ -20,16 +13,14 @@ async function getUserFromToken(authHeader: string | null) {
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-    // 사용자 정보 조회
-    const { data: user, error } = await supabase
-      .from('employees')
-      .select('id, name, email, permission_level, department')
-      .eq('id', decoded.userId || decoded.id)
-      .eq('is_active', true)
-      .single();
+    // 사용자 정보 조회 - 직접 PostgreSQL 연결 사용
+    const user = await queryOne(
+      'SELECT id, name, email, permission_level, department FROM employees WHERE id = $1 AND is_active = true LIMIT 1',
+      [decoded.userId || decoded.id]
+    );
 
-    if (error || !user) {
-      console.warn('⚠️ [AUTH] 사용자 조회 실패:', error?.message);
+    if (!user) {
+      console.warn('⚠️ [AUTH] 사용자 조회 실패: User not found or inactive');
       return null;
     }
 
