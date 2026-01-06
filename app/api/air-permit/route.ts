@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
 
     // 모든 대기필증 조회 - Direct PostgreSQL
     const allPermits = await queryAll(
-      `SELECT DISTINCT
+      `SELECT
         api.*,
         json_build_object(
           'business_name', bi.business_name,
