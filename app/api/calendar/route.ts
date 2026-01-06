@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
       business_name || null
     ];
 
-    console.log('🔍 [캘린더 생성] SQL 파라미터:', {
+    console.log('🔍 [캘린더 생성] SQL 파라미터 (변환 전):', {
       param_11_attached_files: queryParams[10],
       param_11_type: typeof queryParams[10],
       param_11_isArray: Array.isArray(queryParams[10]),
@@ -187,13 +187,22 @@ export async function POST(request: NextRequest) {
       param_12_isArray: Array.isArray(queryParams[11])
     });
 
+    // ✅ PostgreSQL text[] 타입 변환: JavaScript 배열 → JSON 문자열
+    queryParams[10] = JSON.stringify(queryParams[10]); // attached_files
+    queryParams[11] = JSON.stringify(queryParams[11]); // labels
+
+    console.log('🔄 [캘린더 생성] JSON 변환 완료:', {
+      attached_files_json: queryParams[10],
+      labels_json: queryParams[11]
+    });
+
     const data = await queryOne(
       `INSERT INTO calendar_events (
         title, description, event_date, end_date, start_time, end_time,
         event_type, is_completed, author_id, author_name, attached_files,
         labels, business_id, business_name
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb, $13, $14)
       RETURNING *`,
       queryParams
     );
