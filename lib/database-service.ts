@@ -937,37 +937,57 @@ export class DatabaseService {
     recordId?: string
     limit?: number
   }): Promise<DataHistory[]> {
-    let query = supabase
-      .from('data_history')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { queryAll } = await import('./supabase-direct');
+
+    // Direct PostgreSQL 쿼리 구성
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
 
     if (options?.tableNames?.length) {
-      query = query.in('table_name', options.tableNames)
+      const placeholders = options.tableNames.map((_, i) => `$${paramIndex + i}`).join(', ');
+      conditions.push(`table_name IN (${placeholders})`);
+      params.push(...options.tableNames);
+      paramIndex += options.tableNames.length;
     }
 
     if (options?.recordId) {
-      query = query.eq('record_id', options.recordId)
+      conditions.push(`record_id = $${paramIndex}`);
+      params.push(options.recordId);
+      paramIndex++;
     }
 
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const limitClause = options?.limit ? `LIMIT $${paramIndex}` : '';
     if (options?.limit) {
-      query = query.limit(options.limit)
+      params.push(options.limit);
     }
 
-    const { data, error } = await query
-    if (error) throw new Error(`이력 조회 실패: ${error.message}`)
-    return data || []
+    const data = await queryAll(
+      `SELECT * FROM data_history
+       ${whereClause}
+       ORDER BY created_at DESC
+       ${limitClause}`,
+      params
+    );
+
+    return data || [];
   }
 
   /**
    * 이력에서 데이터 복구
    */
   static async restoreFromHistory(historyId: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .rpc('restore_data_from_history', { p_history_id: historyId })
+    const { queryOne } = await import('./supabase-direct');
 
-    if (error) throw new Error(`데이터 복구 실패: ${error.message}`)
-    return data === true
+    // Direct PostgreSQL - RPC 함수 호출
+    const data = await queryOne(
+      `SELECT restore_data_from_history($1) as result`,
+      [historyId]
+    );
+
+    if (!data) throw new Error(`데이터 복구 실패`);
+    return data.result === true;
   }
 
   // === 통합 조회 ===
