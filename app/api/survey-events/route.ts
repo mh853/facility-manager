@@ -1,12 +1,6 @@
 // app/api/survey-events/route.ts - 실사 이벤트 관리 API
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Supabase 클라이언트 초기화
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { queryAll, queryOne, query as pgQuery } from '@/lib/supabase-direct';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -20,10 +14,10 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get('month'); // YYYY-MM 형식
     const businessId = searchParams.get('businessId');
 
-    let query = supabase
-      .from('survey_events')
-      .select('*')
-      .order('event_date', { ascending: true });
+    // Direct PostgreSQL 쿼리 구성
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
 
     // 월별 필터링
     if (month) {
@@ -34,25 +28,32 @@ export async function GET(request: NextRequest) {
       const lastDay = new Date(parseInt(year), parseInt(monthNum), 0).getDate();
       const endDate = `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`;
 
-      query = query.gte('event_date', startDate).lte('event_date', endDate);
+      conditions.push(`event_date >= $${paramIndex}`);
+      params.push(startDate);
+      paramIndex++;
+
+      conditions.push(`event_date <= $${paramIndex}`);
+      params.push(endDate);
+      paramIndex++;
     }
 
     // 사업장별 필터링
     if (businessId) {
-      query = query.eq('business_id', businessId);
+      conditions.push(`business_id = $${paramIndex}`);
+      params.push(businessId);
+      paramIndex++;
     }
 
-    const { data, error } = await query;
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    if (error) {
-      console.error('❌ [SURVEY-EVENTS] 조회 실패:', error);
-      return Response.json({
-        success: false,
-        error: error.message
-      }, { status: 500 });
-    }
+    const data = await queryAll(
+      `SELECT * FROM survey_events
+       ${whereClause}
+       ORDER BY event_date ASC`,
+      params
+    );
 
-    console.log(`✅ [SURVEY-EVENTS] ${data.length}개 이벤트 조회 완료`);
+    console.log(`✅ [SURVEY-EVENTS] ${data?.length || 0}개 이벤트 조회 완료`);
 
     return Response.json({
       success: true,
@@ -112,30 +113,35 @@ export async function POST(request: NextRequest) {
     const eventId = `${survey_type}-${business_id}`;
     const title = `${business_name} - ${label}`;
 
-    // survey_events 테이블에 삽입 (트리거로 자동 동기화)
-    const { data, error } = await supabase
-      .from('survey_events')
-      .insert([{
-        id: eventId,
+    // survey_events 테이블에 삽입 - Direct PostgreSQL
+    const data = await queryOne(
+      `INSERT INTO survey_events (
+        id, title, event_date, start_time, end_time, labels,
+        business_id, business_name, author_name, event_type, survey_type, description
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *`,
+      [
+        eventId,
         title,
         event_date,
-        start_time: start_time || null,  // ✅ 시간 필드 추가
-        end_time: end_time || null,      // ✅ 시간 필드 추가
-        labels: [label],
+        start_time || null,
+        end_time || null,
+        JSON.stringify([label]),
         business_id,
         business_name,
-        author_name: author_name || '미지정',
-        event_type: 'survey',
+        author_name || '미지정',
+        'survey',
         survey_type,
-        description: description || null
-      }])
-      .select();
+        description || null
+      ]
+    );
 
-    if (error) {
-      console.error('❌ [SURVEY-EVENTS] 생성 실패:', error);
+    if (!data) {
+      console.error('❌ [SURVEY-EVENTS] 생성 실패');
       return Response.json({
         success: false,
-        error: error.message
+        error: '실사 이벤트 생성에 실패했습니다'
       }, { status: 500 });
     }
 
@@ -143,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     return Response.json({
       success: true,
-      data: data[0],
+      data,
       message: '실사 이벤트가 생성되었습니다 (business_info와 자동 동기화됨)'
     });
   } catch (error) {
@@ -177,29 +183,49 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // survey_events 업데이트 (트리거로 business_info 자동 동기화)
-    const { data, error } = await supabase
-      .from('survey_events')
-      .update({
-        event_date: event_date || undefined,
-        start_time: start_time !== undefined ? start_time : undefined,  // ✅ 시간 필드 추가
-        end_time: end_time !== undefined ? end_time : undefined,        // ✅ 시간 필드 추가
-        author_name: author_name || undefined,
-        description: description || undefined,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select();
+    // 동적 UPDATE 필드 구성 - Direct PostgreSQL
+    const updateFields: string[] = ['updated_at = $1'];
+    const params: any[] = [new Date().toISOString()];
+    let paramIndex = 2;
 
-    if (error) {
-      console.error('❌ [SURVEY-EVENTS] 수정 실패:', error);
-      return Response.json({
-        success: false,
-        error: error.message
-      }, { status: 500 });
+    if (event_date !== undefined) {
+      updateFields.push(`event_date = $${paramIndex}`);
+      params.push(event_date);
+      paramIndex++;
+    }
+    if (start_time !== undefined) {
+      updateFields.push(`start_time = $${paramIndex}`);
+      params.push(start_time);
+      paramIndex++;
+    }
+    if (end_time !== undefined) {
+      updateFields.push(`end_time = $${paramIndex}`);
+      params.push(end_time);
+      paramIndex++;
+    }
+    if (author_name !== undefined) {
+      updateFields.push(`author_name = $${paramIndex}`);
+      params.push(author_name);
+      paramIndex++;
+    }
+    if (description !== undefined) {
+      updateFields.push(`description = $${paramIndex}`);
+      params.push(description);
+      paramIndex++;
     }
 
-    if (!data || data.length === 0) {
+    // WHERE 조건용 파라미터 추가
+    params.push(id);
+
+    const data = await queryOne(
+      `UPDATE survey_events
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      params
+    );
+
+    if (!data) {
       return Response.json({
         success: false,
         error: '해당 이벤트를 찾을 수 없습니다'
@@ -210,7 +236,7 @@ export async function PUT(request: NextRequest) {
 
     return Response.json({
       success: true,
-      data: data[0],
+      data,
       message: '실사 이벤트가 수정되었습니다 (business_info와 자동 동기화됨)'
     });
   } catch (error) {
@@ -237,18 +263,18 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // survey_events 삭제
-    const { error } = await supabase
-      .from('survey_events')
-      .delete()
-      .eq('id', id);
+    // survey_events 삭제 - Direct PostgreSQL
+    const result = await pgQuery(
+      `DELETE FROM survey_events WHERE id = $1`,
+      [id]
+    );
 
-    if (error) {
-      console.error('❌ [SURVEY-EVENTS] 삭제 실패:', error);
+    if (!result || result.rowCount === 0) {
+      console.error('❌ [SURVEY-EVENTS] 삭제 실패: 이벤트를 찾을 수 없음');
       return Response.json({
         success: false,
-        error: error.message
-      }, { status: 500 });
+        error: '해당 이벤트를 찾을 수 없습니다'
+      }, { status: 404 });
     }
 
     console.log('✅ [SURVEY-EVENTS] 삭제 완료:', id);
@@ -270,10 +296,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (fieldToUpdate && businessId) {
-      await supabase
-        .from('business_info')
-        .update({ [fieldToUpdate]: null })
-        .eq('id', businessId);
+      await pgQuery(
+        `UPDATE business_info SET ${fieldToUpdate} = NULL WHERE id = $1`,
+        [businessId]
+      );
     }
 
     return Response.json({

@@ -1,6 +1,6 @@
 // app/api/calendar/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { queryAll, queryOne } from '@/lib/supabase-direct';
 
 // Next.js 캐싱 완전 비활성화 - 실시간 이벤트 업데이트를 위해 필수
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,6 @@ export const revalidate = 0;
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
 
     // 쿼리 파라미터
@@ -25,50 +24,68 @@ export async function GET(request: NextRequest) {
     const showCompletedOnly = searchParams.get('completed') === 'true';
     const showPendingOnly = searchParams.get('pending') === 'true';
 
-    // 기본 쿼리
-    let query = supabase
-      .from('calendar_events')
-      .select('*', { count: 'exact' })
-      .eq('is_deleted', false);
+    // Direct PostgreSQL 쿼리 구성
+    const conditions: string[] = ['is_deleted = $1'];
+    const params: any[] = [false];
+    let paramIndex = 2;
 
     // 날짜 범위 필터
     if (startDate) {
-      query = query.gte('event_date', startDate);
+      conditions.push(`event_date >= $${paramIndex}`);
+      params.push(startDate);
+      paramIndex++;
     }
     if (endDate) {
-      query = query.lte('event_date', endDate);
+      conditions.push(`event_date <= $${paramIndex}`);
+      params.push(endDate);
+      paramIndex++;
     }
 
     // 이벤트 타입 필터
     if (eventType === 'todo' || eventType === 'schedule') {
-      query = query.eq('event_type', eventType);
+      conditions.push(`event_type = $${paramIndex}`);
+      params.push(eventType);
+      paramIndex++;
     }
 
     // 완료 상태 필터 (todo 타입만 해당)
     if (showCompletedOnly) {
-      query = query.eq('event_type', 'todo').eq('is_completed', true);
+      conditions.push(`event_type = $${paramIndex}`);
+      params.push('todo');
+      paramIndex++;
+      conditions.push(`is_completed = $${paramIndex}`);
+      params.push(true);
+      paramIndex++;
     } else if (showPendingOnly) {
-      query = query.eq('event_type', 'todo').eq('is_completed', false);
+      conditions.push(`event_type = $${paramIndex}`);
+      params.push('todo');
+      paramIndex++;
+      conditions.push(`is_completed = $${paramIndex}`);
+      params.push(false);
+      paramIndex++;
     }
 
-    // 정렬 (날짜 오름차순)
-    query = query.order('event_date', { ascending: true });
-    query = query.order('created_at', { ascending: false });
+    const whereClause = conditions.join(' AND ');
 
-    const { data, error, count } = await query;
+    // 데이터 조회
+    const data = await queryAll(
+      `SELECT * FROM calendar_events
+       WHERE ${whereClause}
+       ORDER BY event_date ASC, created_at DESC`,
+      params
+    );
 
-    if (error) {
-      console.error('[캘린더 조회 실패]', error);
-      return NextResponse.json(
-        { error: '캘린더 이벤트를 조회하는데 실패했습니다.', details: error.message },
-        { status: 500 }
-      );
-    }
+    // 전체 개수 조회
+    const countResult = await queryOne(
+      `SELECT COUNT(*) as count FROM calendar_events WHERE ${whereClause}`,
+      params
+    );
+    const count = parseInt(countResult?.count || '0');
 
     const response = NextResponse.json({
       success: true,
       data: data || [],
-      total: count || 0
+      total: count
     });
 
     // 캐시 비활성화 (실시간 업데이트 필요)
@@ -91,7 +108,6 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseAdmin();
     const body = await request.json();
 
     const { title, description, event_date, end_date, start_time, end_time, event_type, is_completed, author_id, author_name, attached_files, labels, business_id, business_name } = body;
@@ -120,32 +136,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 캘린더 이벤트 생성
-    const { data, error } = await supabase
-      .from('calendar_events')
-      .insert({
+    // 캘린더 이벤트 생성 - Direct PostgreSQL
+    const data = await queryOne(
+      `INSERT INTO calendar_events (
+        title, description, event_date, end_date, start_time, end_time,
+        event_type, is_completed, author_id, author_name, attached_files,
+        labels, business_id, business_name
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *`,
+      [
         title,
-        description: description || null,
+        description || null,
         event_date,
-        end_date: end_date || null,
-        start_time: start_time || null,
-        end_time: end_time || null,
+        end_date || null,
+        start_time || null,
+        end_time || null,
         event_type,
-        is_completed: event_type === 'todo' ? (is_completed || false) : false,
+        event_type === 'todo' ? (is_completed || false) : false,
         author_id,
         author_name,
-        attached_files: attached_files || [],
-        labels: labels || [],
-        business_id: business_id || null,
-        business_name: business_name || null
-      })
-      .select()
-      .single();
+        JSON.stringify(attached_files || []),
+        JSON.stringify(labels || []),
+        business_id || null,
+        business_name || null
+      ]
+    );
 
-    if (error) {
-      console.error('[캘린더 이벤트 생성 실패]', error);
+    if (!data) {
+      console.error('[캘린더 이벤트 생성 실패]');
       return NextResponse.json(
-        { error: '캘린더 이벤트 생성에 실패했습니다.', details: error.message },
+        { error: '캘린더 이벤트 생성에 실패했습니다.' },
         { status: 500 }
       );
     }
