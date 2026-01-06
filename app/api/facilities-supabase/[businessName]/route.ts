@@ -1,6 +1,6 @@
 // app/api/facilities-supabase/[businessName]/route.ts - Supabase 기반 시설 정보 API
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct';
 import { memoryCache } from '@/lib/cache';
 import { FacilitiesData, Facility } from '@/types';
 import { generateFacilityNumbering, type FacilityNumberingResult } from '@/utils/facility-numbering';
@@ -53,29 +53,21 @@ export async function GET(
 
     console.log('🏭 [FACILITIES-SUPABASE] 대기필증 관리 데이터에서 조회 시작');
     
-    // 1. 사업장 정보 조회 (전체 정보 포함)
+    // 1. 사업장 정보 조회 (전체 정보 포함) - Direct PostgreSQL
     console.log(`🔍 [FACILITIES-SUPABASE] 사업장 조회: "${businessName}"`);
-    const { data: business, error: businessError } = await supabaseAdmin
-      .from('business_info')
-      .select(`
-        id,
-        business_name,
-        address,
-        business_contact,
-        manager_name,
-        manager_contact,
-        manager_position,
-        representative_name,
-        business_registration_number,
-        business_type,
-        manufacturer
-      `)
-      .eq('business_name', businessName)
-      .single();
+    const business = await queryOne(
+      `SELECT
+        id, business_name, address, business_contact, manager_name,
+        manager_contact, manager_position, representative_name,
+        business_registration_number, business_type, manufacturer
+       FROM business_info
+       WHERE business_name = $1`,
+      [businessName]
+    );
 
-    console.log(`🔍 [FACILITIES-SUPABASE] 사업장 조회 결과:`, { business, businessError });
+    console.log(`🔍 [FACILITIES-SUPABASE] 사업장 조회 결과:`, business);
 
-    if (businessError || !business) {
+    if (!business) {
       console.log(`🏭 [FACILITIES-SUPABASE] ⚠️ "${businessName}" 사업장을 찾을 수 없습니다`);
       const emptyResult = {
         facilities: { discharge: [], prevention: [] },
@@ -101,20 +93,19 @@ export async function GET(
       return NextResponse.json({ success: true, data: emptyResult }, { headers: CACHE_HEADERS });
     }
 
-    // 2. 대기필증 정보 조회 (삭제되지 않은 가장 최근 것)
+    // 2. 대기필증 정보 조회 (삭제되지 않은 가장 최근 것) - Direct PostgreSQL
     console.log(`🔍 [FACILITIES-SUPABASE] 대기필증 조회: business_id="${business.id}"`);
-    const { data: airPermit, error: permitError } = await supabaseAdmin
-      .from('air_permit_info')
-      .select('id')
-      .eq('business_id', business.id)
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const airPermit = await queryOne(
+      `SELECT id FROM air_permit_info
+       WHERE business_id = $1 AND is_deleted = false
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [business.id]
+    );
 
-    console.log(`🔍 [FACILITIES-SUPABASE] 대기필증 조회 결과:`, { airPermit, permitError });
+    console.log(`🔍 [FACILITIES-SUPABASE] 대기필증 조회 결과:`, airPermit);
 
-    if (permitError || !airPermit) {
+    if (!airPermit) {
       console.log(`🏭 [FACILITIES-SUPABASE] ⚠️ "${businessName}" 대기필증을 찾을 수 없습니다`);
       const emptyResult = {
         facilities: { discharge: [], prevention: [] },
@@ -128,21 +119,14 @@ export async function GET(
       return NextResponse.json({ success: true, data: emptyResult }, { headers: CACHE_HEADERS });
     }
 
-    // 3. 배출구 정보 조회
-    const { data: outlets, error: outletsError } = await supabaseAdmin
-      .from('discharge_outlets')
-      .select(`
-        id,
-        outlet_number,
-        outlet_name
-      `)
-      .eq('air_permit_id', airPermit.id)
-      .order('outlet_number');
-
-    if (outletsError) {
-      console.error('🏭 [FACILITIES-SUPABASE] 배출구 조회 실패:', outletsError);
-      throw new Error('배출구 정보 조회 실패');
-    }
+    // 3. 배출구 정보 조회 - Direct PostgreSQL
+    const outlets = await queryAll(
+      `SELECT id, outlet_number, outlet_name
+       FROM discharge_outlets
+       WHERE air_permit_id = $1
+       ORDER BY outlet_number`,
+      [airPermit.id]
+    );
 
     const outletIds = outlets?.map(o => o.id) || [];
     console.log(`🔍 [FACILITIES-SUPABASE] 배출구 조회 완료:`, {
@@ -150,29 +134,17 @@ export async function GET(
       outletsCount: outlets?.length
     });
 
-    // 3-1. 배출시설 정보 별도 조회
+    // 3-1. 배출시설 정보 별도 조회 - Direct PostgreSQL
     console.log(`🔍 [FACILITIES-SUPABASE] 배출시설 별도 조회 시작`);
-    const { data: dischargeFacilities, error: dischargeError } = await supabaseAdmin
-      .from('discharge_facilities')
-      .select(`
-        id,
-        outlet_id,
-        facility_name,
-        capacity,
-        quantity,
-        facility_number,
-        notes,
-        discharge_ct,
-        exemption_reason,
-        remarks,
-        last_updated_at,
-        last_updated_by
-      `)
-      .in('outlet_id', outletIds);
-
-    if (dischargeError) {
-      console.error('🏭 [FACILITIES-SUPABASE] 배출시설 조회 실패:', dischargeError);
-    }
+    const dischargeFacilities = outletIds.length > 0 ? await queryAll(
+      `SELECT
+        id, outlet_id, facility_name, capacity, quantity, facility_number,
+        notes, discharge_ct, exemption_reason, remarks,
+        last_updated_at, last_updated_by
+       FROM discharge_facilities
+       WHERE outlet_id = ANY($1)`,
+      [outletIds]
+    ) : [];
 
     // 배출시설 총 수량 계산 (quantity 필드 합산)
     const totalDischargeQuantity = dischargeFacilities?.reduce((sum, f) => sum + (f.quantity || 1), 0) || 0;
@@ -183,36 +155,21 @@ export async function GET(
       facilities: dischargeFacilities
     });
 
-    // 4. 방지시설 정보 별도 조회 (조인 문제 해결)
+    // 4. 방지시설 정보 별도 조회 - Direct PostgreSQL
     console.log(`🔍 [FACILITIES-SUPABASE] 방지시설 별도 조회 시작:`, {
       outletIds,
       outletsCount: outlets?.length
     });
 
-    const { data: preventionFacilities, error: preventionError } = await supabaseAdmin
-      .from('prevention_facilities')
-      .select(`
-        id,
-        outlet_id,
-        facility_name,
-        capacity,
-        quantity,
-        facility_number,
-        notes,
-        ph,
-        pressure,
-        temperature,
-        pump,
-        fan,
-        remarks,
-        last_updated_at,
-        last_updated_by
-      `)
-      .in('outlet_id', outletIds);
-
-    if (preventionError) {
-      console.error('🏭 [FACILITIES-SUPABASE] 방지시설 조회 실패:', preventionError);
-    }
+    const preventionFacilities = outletIds.length > 0 ? await queryAll(
+      `SELECT
+        id, outlet_id, facility_name, capacity, quantity, facility_number,
+        notes, ph, pressure, temperature, pump, fan, remarks,
+        last_updated_at, last_updated_by
+       FROM prevention_facilities
+       WHERE outlet_id = ANY($1)`,
+      [outletIds]
+    ) : [];
 
     console.log(`🔍 [FACILITIES-SUPABASE] 방지시설 조회 완료:`, {
       count: preventionFacilities?.length || 0,
@@ -667,17 +624,17 @@ export async function POST(
     console.log('🏭 [FACILITIES-SUPABASE] 시설 정보 저장 시작:', businessName);
     
     const { discharge = [], prevention = [] } = body;
-    
-    // 기존 데이터 삭제 (전체 교체)
+
+    // 기존 데이터 삭제 (전체 교체) - Direct PostgreSQL
     const [deleteDischarge, deletePrevention] = await Promise.allSettled([
-      supabaseAdmin
-        .from('discharge_facilities')
-        .delete()
-        .eq('business_name', businessName),
-      supabaseAdmin
-        .from('prevention_facilities')
-        .delete()
-        .eq('business_name', businessName)
+      pgQuery(
+        'DELETE FROM discharge_facilities WHERE business_name = $1',
+        [businessName]
+      ),
+      pgQuery(
+        'DELETE FROM prevention_facilities WHERE business_name = $1',
+        [businessName]
+      )
     ]);
 
     if (deleteDischarge.status === 'rejected') {
@@ -686,48 +643,76 @@ export async function POST(
     if (deletePrevention.status === 'rejected') {
       console.error('🏭 [FACILITIES-SUPABASE] 기존 방지시설 삭제 실패:', deletePrevention.reason);
     }
-    
-    // 새 데이터 삽입
+
+    // 새 데이터 삽입 - Direct PostgreSQL
     const promises = [];
-    
+
     if (discharge.length > 0) {
-      const dischargeInsertData = discharge.map((facility: any) => ({
-        business_name: businessName,
-        outlet_number: facility.outlet,
-        facility_number: facility.number,
-        facility_name: facility.name,
-        capacity: facility.capacity,
-        quantity: facility.quantity || 1,
-        notes: facility.notes || null
-      }));
-      
-      promises.push(
-        supabaseAdmin
-          .from('discharge_facilities')
-          .insert(dischargeInsertData)
-      );
+      // Build multi-row insert query
+      const values: any[] = [];
+      const valueStrings: string[] = [];
+      let paramIndex = 1;
+
+      discharge.forEach((facility: any) => {
+        valueStrings.push(
+          `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6})`
+        );
+        values.push(
+          businessName,
+          facility.outlet,
+          facility.number,
+          facility.name,
+          facility.capacity,
+          facility.quantity || 1,
+          facility.notes || null
+        );
+        paramIndex += 7;
+      });
+
+      const dischargeInsertQuery = `
+        INSERT INTO discharge_facilities (
+          business_name, outlet_number, facility_number, facility_name,
+          capacity, quantity, notes
+        ) VALUES ${valueStrings.join(', ')}
+      `;
+
+      promises.push(pgQuery(dischargeInsertQuery, values));
     }
-    
+
     if (prevention.length > 0) {
-      const preventionInsertData = prevention.map((facility: any) => ({
-        business_name: businessName,
-        outlet_number: facility.outlet,
-        facility_number: facility.number,
-        facility_name: facility.name,
-        capacity: facility.capacity,
-        quantity: facility.quantity || 1,
-        notes: facility.notes || null
-      }));
-      
-      promises.push(
-        supabaseAdmin
-          .from('prevention_facilities')
-          .insert(preventionInsertData)
-      );
+      // Build multi-row insert query
+      const values: any[] = [];
+      const valueStrings: string[] = [];
+      let paramIndex = 1;
+
+      prevention.forEach((facility: any) => {
+        valueStrings.push(
+          `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6})`
+        );
+        values.push(
+          businessName,
+          facility.outlet,
+          facility.number,
+          facility.name,
+          facility.capacity,
+          facility.quantity || 1,
+          facility.notes || null
+        );
+        paramIndex += 7;
+      });
+
+      const preventionInsertQuery = `
+        INSERT INTO prevention_facilities (
+          business_name, outlet_number, facility_number, facility_name,
+          capacity, quantity, notes
+        ) VALUES ${valueStrings.join(', ')}
+      `;
+
+      promises.push(pgQuery(preventionInsertQuery, values));
     }
-    
+
     const results = await Promise.allSettled(promises);
-    
+
     // 에러 체크
     const errors = results.filter(result => result.status === 'rejected');
     if (errors.length > 0) {

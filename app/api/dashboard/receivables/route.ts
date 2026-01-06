@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { queryAll } from '@/lib/supabase-direct'
 import {
   determineAggregationLevel,
   getAggregationKey,
@@ -29,54 +30,39 @@ export async function GET(request: NextRequest) {
 
     console.log('💰 [Dashboard Receivables API] Request params:', { months, startDate, endDate, year, office, manufacturer, salesOffice, progressStatus });
 
-    const supabase = supabaseAdmin;
+    // 1. 사업장 조회 (설치 완료된 사업장만) - 직접 PostgreSQL 연결 사용
+    const queryParts: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
 
-    // 1. 사업장 조회 (설치 완료된 사업장만) - Supabase 1000개 제한 우회
-    let baseQuery = supabase
-      .from('business_info')
-      .select('*', { count: 'exact' })
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .not('installation_date', 'is', null);
+    queryParts.push('SELECT * FROM business_info WHERE is_active = true AND is_deleted = false AND installation_date IS NOT NULL');
 
     // 날짜 범위 필터 (기간 지정 모드에서만 적용)
     if (startDate && endDate) {
-      baseQuery = baseQuery
-        .gte('installation_date', startDate)
-        .lte('installation_date', endDate);
+      queryParts.push(`AND installation_date >= $${paramIndex++}`);
+      params.push(startDate);
+      queryParts.push(`AND installation_date <= $${paramIndex++}`);
+      params.push(endDate);
     }
 
     // 필터 적용
-    if (manufacturer) baseQuery = baseQuery.eq('manufacturer', manufacturer);
-    if (salesOffice) baseQuery = baseQuery.eq('sales_office', salesOffice);
-    if (progressStatus) baseQuery = baseQuery.eq('progress_status', progressStatus);
-
-    // 페이지네이션으로 모든 데이터 가져오기
-    let businesses: any[] = [];
-    const pageSize = 1000;
-    let page = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      const rangeStart = page * pageSize;
-      const rangeEnd = rangeStart + pageSize - 1;
-
-      const { data, error: businessError } = await baseQuery
-        .range(rangeStart, rangeEnd);
-
-      if (businessError) {
-        console.error('❌ [Dashboard Receivables API] Business query error (page', page, '):', businessError);
-        throw businessError;
-      }
-
-      if (data && data.length > 0) {
-        businesses = businesses.concat(data);
-        console.log(`💰 [Dashboard Receivables API] 페이지 ${page} 로드: ${data.length}개 (누적: ${businesses.length}개)`);
-      }
-
-      hasMore = data && data.length === pageSize;
-      page++;
+    if (manufacturer) {
+      queryParts.push(`AND manufacturer = $${paramIndex++}`);
+      params.push(manufacturer);
     }
+    if (salesOffice) {
+      queryParts.push(`AND sales_office = $${paramIndex++}`);
+      params.push(salesOffice);
+    }
+    if (progressStatus) {
+      queryParts.push(`AND progress_status = $${paramIndex++}`);
+      params.push(progressStatus);
+    }
+
+    const finalQuery = queryParts.join(' ');
+    console.log('💰 [Dashboard Receivables API] Executing PostgreSQL query with', params.length, 'parameters');
+
+    const businesses = await queryAll(finalQuery, params);
 
     console.log('💰 [Dashboard Receivables API] Total businesses (before region filter):', businesses.length);
 

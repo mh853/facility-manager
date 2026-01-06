@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, queryAll } from '@/lib/supabase-direct';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
@@ -46,37 +47,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 사용자 존재 여부 재확인 (토큰은 유효하지만 사용자가 비활성화된 경우)
+    // 사용자 존재 여부 재확인 (토큰은 유효하지만 사용자가 비활성화된 경우) - 직접 PostgreSQL 연결 사용
     const userId = decoded.id || decoded.userId;
 
-    const { data: employee, error: fetchError } = await supabaseAdmin
-      .from('employees')
-      .select('*')
-      .eq('id', userId)
-      .eq('is_active', true)
-      .single();
+    const employee = await queryOne(
+      'SELECT * FROM employees WHERE id = $1 AND is_active = true LIMIT 1',
+      [userId]
+    );
 
-    console.log('📊 [AUTH] Supabase 조회 결과:', {
+    console.log('📊 [AUTH] PostgreSQL 조회 결과:', {
       found: !!employee,
-      permission_level: employee?.permission_level,
-      error: fetchError?.message
+      permission_level: employee?.permission_level
     });
 
-    if (fetchError || !employee) {
-      console.log('❌ [AUTH] 사용자 재조회 실패:', fetchError?.message);
+    if (!employee) {
+      console.log('❌ [AUTH] 사용자 재조회 실패: 존재하지 않거나 비활성 사용자');
       return NextResponse.json(
         { success: false, error: { code: 'USER_NOT_FOUND', message: '사용자를 찾을 수 없습니다.' } },
         { status: 401 }
       );
     }
 
-    // 소셜 계정 정보 조회
-    const { data: socialAccounts } = await supabaseAdmin
-      .from('social_accounts')
-      .select('*')
-      .eq('employee_id', employee.id)
-      .eq('is_active', true)
-      .order('connected_at', { ascending: false });
+    // 소셜 계정 정보 조회 - 직접 PostgreSQL 연결 사용
+    const socialAccounts = await queryAll(
+      'SELECT * FROM social_accounts WHERE employee_id = $1 AND is_active = true ORDER BY connected_at DESC',
+      [employee.id]
+    );
 
     console.log('✅ [AUTH] 토큰 검증 성공:', {
       email: employee.email,

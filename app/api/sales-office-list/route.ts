@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { queryAll } from '@/lib/supabase-direct';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
@@ -8,17 +9,19 @@ export const runtime = 'nodejs';
 // 영업점 목록 조회 (자동완성용 - 권한 불필요)
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 [SALES-OFFICE-LIST] 영업점 목록 조회 시작');
+    console.log('🔍 [SALES-OFFICE-LIST] Direct PostgreSQL 영업점 목록 조회 시작');
 
-    // 활성화된 영업점 목록 조회
-    const { data: settings, error } = await supabaseAdmin
-      .from('sales_office_cost_settings')
-      .select('sales_office, commission_percentage, commission_type')
-      .eq('is_active', true)
-      .order('sales_office', { ascending: true });
+    // 활성화된 영업점 목록 조회 - Direct PostgreSQL
+    const settings = await queryAll(
+      `SELECT sales_office, commission_percentage, commission_type
+       FROM sales_office_cost_settings
+       WHERE is_active = true
+       ORDER BY sales_office ASC`,
+      []
+    );
 
-    if (error) {
-      console.error('❌ [SALES-OFFICE-LIST] 조회 오류:', error);
+    if (!settings) {
+      console.error('❌ [SALES-OFFICE-LIST] 조회 오류: No data returned');
       return NextResponse.json({
         success: false,
         message: '영업점 목록 조회에 실패했습니다.'

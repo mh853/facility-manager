@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { queryAll, queryOne, query as pgQuery } from '@/lib/supabase-direct';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
@@ -24,189 +25,72 @@ export async function GET(request: Request) {
     const id = searchParams.get('id');
     const includeFileStats = searchParams.get('includeFileStats') === 'true';
 
-    log('📊 [BUSINESS-INFO-DIRECT] 직접 조회 시작 - 검색:', `"${searchQuery}"`, '제한:', limit, 'ID:', id || 'N/A', 'includeFileStats:', includeFileStats);
+    log('📊 [BUSINESS-INFO-DIRECT] Direct PostgreSQL 조회 시작 - 검색:', `"${searchQuery}"`, '제한:', limit, 'ID:', id || 'N/A');
 
-    // ⚡ 성능 최적화: 필요한 필드만 선택 조회 (네트워크 페이로드 57% 감소)
-    //
-    // 📋 필드 선택 가이드 (향후 유지보수 참고):
-    // - 사업장관리 페이지: 21개 기본 필드 (id, business_name, address 등)
-    // - 매출관리 페이지: 추가 38개 필드 (장비 수량, 금액, 실사 관리)
-    // - 새로운 기능 추가 시: 해당 기능에서 사용하는 필드를 아래에 추가 필요
-    //
-    // ⚠️ 주의: SELECT * 사용 시 2MB 페이로드로 초기 로딩 5-7초 소요
-    //         현재 선택적 조회로 ~850KB, 초기 로딩 2.5-3.5초 유지
-    let query = supabaseAdmin.from('business_info').select(`
-      /* === 기본 정보 필드 (21개) - 사업장관리 페이지 필수 === */
-      id,
-      business_name,
-      address,
-      local_government,
-      manager_name,
-      manager_contact,
-      manager_position,
-      business_contact,
-      representative_name,
-      business_registration_number,
-      manufacturer,
-      sales_office,
-      installation_date,
-      progress_status,
-      project_year,
-      installation_team,
-      is_active,
-      is_deleted,
-      updated_at,
-      created_at,
-      additional_info,
-
-      /* === 매출관리 필수 필드 (38개) === */
-
-      /* 1. 장비 수량 필드 (17개) - 매출/매입 계산 핵심 */
-      /* 사용처: /admin/revenue/page.tsx Line 345-381 calculateBusinessRevenue() */
-      /* 계산식: totalRevenue += unitRevenue * quantity */
-      ph_meter,
-      differential_pressure_meter,
-      temperature_meter,
-      discharge_current_meter,
-      fan_current_meter,
-      pump_current_meter,
-      gateway,
-      gateway_1_2,
-      gateway_3_4,
-      vpn_wired,
-      vpn_wireless,
-      explosion_proof_differential_pressure_meter_domestic,
-      explosion_proof_temperature_meter_domestic,
-      expansion_device,
-      relay_8ch,
-      relay_16ch,
-      main_board_replacement,
-      multiple_stack,
-
-      /* 2. 금액/비용 필드 (15개) - 추가비용, 협의사항, 미수금 계산 */
-      /* 사용처: /admin/revenue/page.tsx Line 386-408, 947-956 */
-      negotiation,                    /* Line 391: 협의사항 (매출 차감) */
-      installation_costs,             /* Line 398: 추가 설치비 (비용) */
-
-      /* 2-1. 보조금 사업장 계산서/입금 (8개) */
-      invoice_1st_date,               /* Line 947: 1차 계산서 발행일 */
-      invoice_1st_amount,             /* Line 947: 1차 계산서 금액 */
-      payment_1st_date,               /* Line 947: 1차 입금일 */
-      payment_1st_amount,             /* Line 947: 1차 입금액 */
-      invoice_2nd_date,               /* Line 948: 2차 계산서 발행일 */
-      invoice_2nd_amount,             /* Line 948: 2차 계산서 금액 */
-      payment_2nd_date,               /* Line 948: 2차 입금일 */
-      payment_2nd_amount,             /* Line 948: 2차 입금액 */
-      invoice_additional_date,        /* Line 950: 추가공사비 계산서 발행일 */
-      payment_additional_date,        /* Line 952: 추가공사비 입금일 */
-      payment_additional_amount,      /* Line 952: 추가공사비 입금액 */
-
-      /* 2-2. 자비 사업장 계산서/입금 (8개) */
-      invoice_advance_date,           /* 선금 계산서 발행일 */
-      invoice_advance_amount,         /* 선금 계산서 금액 */
-      payment_advance_date,           /* 선금 입금일 */
-      payment_advance_amount,         /* 선금 입금액 */
-      invoice_balance_date,           /* 잔금 계산서 발행일 */
-      invoice_balance_amount,         /* 잔금 계산서 금액 */
-      payment_balance_date,           /* 잔금 입금일 */
-      payment_balance_amount,         /* 잔금 입금액 */
-
-      /* 3. 실사 관리 필드 (6개) - 실사비용 계산 */
-      /* 사용처: /admin/revenue/page.tsx Line 443-455 */
-      /* 계산 조건: 실사일이 존재하고 빈 문자열이 아닌 경우에만 비용 추가 */
-      estimate_survey_date,           /* Line 444: 견적실사일 (비용 발생 조건) */
-      estimate_survey_manager,        /* 견적실사 담당자 */
-      pre_construction_survey_date,   /* Line 449: 착공전실사일 (비용 발생 조건) */
-      pre_construction_survey_manager, /* 착공전실사 담당자 */
-      completion_survey_date,         /* Line 454: 준공실사일 (비용 발생 조건) */
-      completion_survey_manager       /* 준공실사 담당자 */
-
-      /* === 향후 필드 추가 가이드 === */
-      /* 새로운 기능 개발 시:
-       * 1. 해당 기능에서 사용하는 필드 확인 (Grep으로 business.필드명 검색)
-       * 2. 위 섹션에 맞춰 필드 추가 (쉼표 주의)
-       * 3. 주석으로 사용처와 목적 명시 (Line 번호 포함)
-       * 4. 이 파일 상단 문서 업데이트
-       *
-       * 예시:
-       * revenue_source,  // Line XXX: 매출처 필터링
-       */
-    `, { count: 'exact' });
-
-    // 삭제되지 않은 사업장만 조회
-    query = query.eq('is_deleted', false);
+    // Build WHERE clause
+    const whereClauses: string[] = ['is_deleted = false'];
+    const params: any[] = [];
+    let paramIndex = 1;
 
     if (id) {
-      query = query.eq('id', id);
+      whereClauses.push(`id = $${paramIndex++}`);
+      params.push(id);
     } else if (searchQuery) {
-      query = query.or(
-        `business_name.ilike.%${searchQuery}%,` +
-        `address.ilike.%${searchQuery}%,` +
-        `manager_name.ilike.%${searchQuery}%`
-      );
+      whereClauses.push(`(
+        business_name ILIKE $${paramIndex} OR
+        address ILIKE $${paramIndex} OR
+        manager_name ILIKE $${paramIndex}
+      )`);
+      params.push(`%${searchQuery}%`);
+      paramIndex++;
     }
 
-    // ✅ 순차적 페이지네이션 (Supabase는 병렬 range 조회 미지원)
-    let businesses: any[] = [];
-    let count = 0;
-    const pageSize = 1000;
-    let page = 0;
-    let hasMore = true;
+    const whereClause = whereClauses.join(' AND ');
 
-    if (limit <= 1000) {
-      // 단일 쿼리로 처리 (대부분의 경우)
-      const { data, error, count: totalCount } = await query
-        .order('updated_at', { ascending: false })
-        .limit(limit);
+    // ⚡ Direct PostgreSQL query - 필요한 필드만 선택 조회
+    const selectFields = `
+      id, business_name, address, local_government,
+      manager_name, manager_contact, manager_position, business_contact,
+      representative_name, business_registration_number,
+      manufacturer, sales_office, installation_date, progress_status,
+      project_year, installation_team, is_active, is_deleted,
+      updated_at, created_at, additional_info,
+      ph_meter, differential_pressure_meter, temperature_meter,
+      discharge_current_meter, fan_current_meter, pump_current_meter,
+      gateway, gateway_1_2, gateway_3_4,
+      vpn_wired, vpn_wireless,
+      explosion_proof_differential_pressure_meter_domestic,
+      explosion_proof_temperature_meter_domestic,
+      expansion_device, relay_8ch, relay_16ch,
+      main_board_replacement, multiple_stack,
+      negotiation,
+      invoice_1st_date, invoice_1st_amount, payment_1st_date, payment_1st_amount,
+      invoice_2nd_date, invoice_2nd_amount, payment_2nd_date, payment_2nd_amount,
+      invoice_additional_date, payment_additional_date, payment_additional_amount,
+      invoice_advance_date, invoice_advance_amount, payment_advance_date, payment_advance_amount,
+      invoice_balance_date, invoice_balance_amount, payment_balance_date, payment_balance_amount,
+      estimate_survey_date, estimate_survey_manager,
+      pre_construction_survey_date, pre_construction_survey_manager,
+      completion_survey_date, completion_survey_manager
+    `;
 
-      if (error) {
-        logError('❌ [BUSINESS-INFO-DIRECT] 조회 오류:', error);
-        throw error;
-      }
+    const queryText = `
+      SELECT ${selectFields}
+      FROM business_info
+      WHERE ${whereClause}
+      ORDER BY updated_at DESC
+      LIMIT $${paramIndex}
+    `;
+    params.push(limit);
 
-      businesses = data || [];
-      count = totalCount || 0;
-      log(`✅ [BUSINESS-INFO-DIRECT] 단일 쿼리로 ${businesses.length}개 조회 완료`);
-    } else {
-      // 1000개 초과 시 순차적 페이지네이션
-      while (hasMore && businesses.length < limit) {
-        const rangeStart = page * pageSize;
-        const rangeEnd = rangeStart + pageSize - 1;
+    log('🔍 [BUSINESS-INFO-DIRECT] Executing PostgreSQL query with', params.length, 'parameters');
+    const businesses = await queryAll(queryText, params);
 
-        const { data, error, count: totalCount } = await query
-          .order('updated_at', { ascending: false })
-          .range(rangeStart, rangeEnd);
-
-        if (error) {
-          logError('❌ [BUSINESS-INFO-DIRECT] 페이지', page, '조회 오류:', error);
-          break;
-        }
-
-        if (data && data.length > 0) {
-          businesses = businesses.concat(data);
-          count = totalCount || 0;
-          log(`📄 [BUSINESS-INFO-DIRECT] 페이지 ${page} 로드: ${data.length}개 (누적: ${businesses.length}개)`);
-        }
-
-        hasMore = data && data.length === pageSize;
-        page++;
-      }
-
-      log(`✅ [BUSINESS-INFO-DIRECT] 페이지네이션으로 ${businesses.length}개 조회 완료 (${page}페이지)`);
-    }
-
-    log('🔍 [BUSINESS-INFO-DIRECT] Supabase 쿼리 완료:', {
-      businessesLength: businesses?.length,
-      totalCount: count,
-      requestedLimit: limit,
-      pages: limit <= 1000 ? 1 : page
-    });
+    log('✅ [BUSINESS-INFO-DIRECT] 조회 완료 -', `${businesses?.length || 0}개 사업장`);
 
     if (!businesses || businesses.length === 0) {
       log('⚠️ [BUSINESS-INFO-DIRECT] 조회 결과 없음');
     }
-
-    log('✅ [BUSINESS-INFO-DIRECT] 조회 완료 -', `${businesses?.length}개 사업장`);
 
     // Include file statistics if requested
     if (includeFileStats && businesses?.length) {
@@ -219,14 +103,14 @@ export async function GET(request: Request) {
       success: true,
       data: businesses || [],
       count: businesses?.length || 0,
-      totalCount: count, // Supabase에서 반환한 전체 개수
+      totalCount: businesses?.length || 0,
       requestedLimit: limit
     });
 
   } catch (error) {
     logError('❌ [BUSINESS-INFO-DIRECT] 조회 실패:', error);
-    return NextResponse.json({ 
-      success: false, 
+    return NextResponse.json({
+      success: false,
       error: error instanceof Error ? error.message : '알 수 없는 오류',
       data: []
     }, { status: 500 });
@@ -253,16 +137,15 @@ export async function PUT(request: Request) {
       }, { status: 400 });
     }
 
-    const business = await supabaseAdmin
-      .from('business_info')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const business = await queryOne(
+      'SELECT * FROM business_info WHERE id = $1',
+      [id]
+    );
 
-    if (business.error) {
-      return NextResponse.json({ 
-        success: false, 
-        error: `사업장을 찾을 수 없습니다: ${business.error.message}` 
+    if (!business) {
+      return NextResponse.json({
+        success: false,
+        error: '사업장을 찾을 수 없습니다'
       }, { status: 404 });
     }
 
@@ -275,14 +158,11 @@ export async function PUT(request: Request) {
       const normalizedName = normalizeUTF8(updateData.business_name || '').trim();
 
       // 현재 저장된 이름과 다른 경우에만 중복 체크
-      if (normalizedName !== business.data.business_name?.trim()) {
-        const { data: existingWithSameName } = await supabaseAdmin
-          .from('business_info')
-          .select('id')
-          .eq('business_name', normalizedName)
-          .eq('is_deleted', false)
-          .neq('id', id)  // 자기 자신 제외
-          .maybeSingle();
+      if (normalizedName !== business.business_name?.trim()) {
+        const existingWithSameName = await queryOne(
+          'SELECT id FROM business_info WHERE business_name = $1 AND is_deleted = false AND id != $2',
+          [normalizedName, id]
+        );
 
         if (existingWithSameName) {
           logError('❌ [BUSINESS-INFO-DIRECT] 중복 사업장명:', normalizedName);
@@ -605,19 +485,27 @@ export async function PUT(request: Request) {
     // Set updated timestamp
     updateObject.updated_at = new Date().toISOString();
 
-    // Update business
-    const { data: updatedBusiness, error: updateError } = await supabaseAdmin
-      .from('business_info')
-      .update(updateObject)
-      .eq('id', id)
-      .select('*')
-      .single();
+    // Build dynamic UPDATE query
+    const updateFields = Object.keys(updateObject);
+    const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+    const values = updateFields.map(field => updateObject[field]);
+    values.push(id); // Add id as the last parameter
 
-    if (updateError) {
-      logError('❌ [BUSINESS-INFO-DIRECT] PUT 실패:', updateError);
-      return NextResponse.json({ 
-        success: false, 
-        error: `업데이트 실패: ${updateError.message}` 
+    const updateQuery = `
+      UPDATE business_info
+      SET ${setClause}
+      WHERE id = $${values.length}
+      RETURNING *
+    `;
+
+    const result = await pgQuery(updateQuery, values);
+    const updatedBusiness = result.rows[0];
+
+    if (!updatedBusiness) {
+      logError('❌ [BUSINESS-INFO-DIRECT] PUT 실패: 업데이트된 레코드 없음');
+      return NextResponse.json({
+        success: false,
+        error: '업데이트 실패'
       }, { status: 500 });
     }
 
@@ -664,14 +552,13 @@ export async function POST(request: Request) {
           }
 
           // 기존 사업장 검색 (사업장명으로) - merge 모드를 위해 전체 데이터 가져오기
-          const { data: existing, error: searchError } = await supabaseAdmin
-            .from('business_info')
-            .select('*')
-            .eq('business_name', normalizedName)
-            .eq('is_deleted', false)
-            .maybeSingle();
-
-          if (searchError && searchError.code !== 'PGRST116') {
+          let existing = null;
+          try {
+            existing = await queryOne(
+              'SELECT * FROM business_info WHERE business_name = $1 AND is_deleted = false',
+              [normalizedName]
+            );
+          } catch (searchError: any) {
             logError('❌ [BATCH] 검색 오류:', normalizedName, searchError);
             errors++;
             errorDetails.push({ business_name: normalizedName, error: searchError.message });
@@ -774,46 +661,56 @@ export async function POST(request: Request) {
             switch (uploadMode) {
               case 'overwrite':
                 // 덮어쓰기: 모든 필드 업데이트
-                const { error: overwriteError } = await supabaseAdmin
-                  .from('business_info')
-                  .update(normalizedData)
-                  .eq('id', existing.id);
+                try {
+                  const updateFields = Object.keys(normalizedData);
+                  const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+                  const values = updateFields.map(field => (normalizedData as any)[field]);
+                  values.push(existing.id);
 
-                if (overwriteError) {
+                  await pgQuery(
+                    `UPDATE business_info SET ${setClause} WHERE id = $${values.length}`,
+                    values
+                  );
+
+                  updated++;
+                  log('✅ [BATCH] 덮어쓰기:', normalizedName);
+                } catch (overwriteError: any) {
                   logError('❌ [BATCH] 덮어쓰기 실패:', normalizedName, overwriteError);
                   errors++;
                   errorDetails.push({ business_name: normalizedName, error: overwriteError.message });
-                } else {
-                  updated++;
-                  log('✅ [BATCH] 덮어쓰기:', normalizedName);
                 }
                 break;
 
               case 'merge':
                 // 병합: 빈 값이 아닌 필드만 업데이트
-                const mergeData: any = { updated_at: new Date().toISOString() };
+                try {
+                  const mergeData: any = { updated_at: new Date().toISOString() };
 
-                // 각 필드를 확인하여 값이 있는 경우만 업데이트 데이터에 추가
-                Object.keys(normalizedData).forEach(key => {
-                  const value = (normalizedData as any)[key];
-                  // 값이 있으면 업데이트, 없거나 빈 문자열이면 기존 값 유지
-                  if (value !== null && value !== undefined && value !== '') {
-                    mergeData[key] = value;
-                  }
-                });
+                  // 각 필드를 확인하여 값이 있는 경우만 업데이트 데이터에 추가
+                  Object.keys(normalizedData).forEach(key => {
+                    const value = (normalizedData as any)[key];
+                    // 값이 있으면 업데이트, 없거나 빈 문자열이면 기존 값 유지
+                    if (value !== null && value !== undefined && value !== '') {
+                      mergeData[key] = value;
+                    }
+                  });
 
-                const { error: mergeError } = await supabaseAdmin
-                  .from('business_info')
-                  .update(mergeData)
-                  .eq('id', existing.id);
+                  const updateFields = Object.keys(mergeData);
+                  const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+                  const values = updateFields.map(field => mergeData[field]);
+                  values.push(existing.id);
 
-                if (mergeError) {
+                  await pgQuery(
+                    `UPDATE business_info SET ${setClause} WHERE id = $${values.length}`,
+                    values
+                  );
+
+                  updated++;
+                  log('✅ [BATCH] 병합:', normalizedName);
+                } catch (mergeError: any) {
                   logError('❌ [BATCH] 병합 실패:', normalizedName, mergeError);
                   errors++;
                   errorDetails.push({ business_name: normalizedName, error: mergeError.message });
-                } else {
-                  updated++;
-                  log('✅ [BATCH] 병합:', normalizedName);
                 }
                 break;
 
@@ -832,17 +729,22 @@ export async function POST(request: Request) {
               is_deleted: false
             };
 
-            const { error: insertError } = await supabaseAdmin
-              .from('business_info')
-              .insert([insertData]);
+            try {
+              const fields = Object.keys(insertData);
+              const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
+              const values = fields.map(field => (insertData as any)[field]);
 
-            if (insertError) {
+              await pgQuery(
+                `INSERT INTO business_info (${fields.join(', ')}) VALUES (${placeholders})`,
+                values
+              );
+
+              created++;
+              log('✅ [BATCH] 생성:', normalizedName);
+            } catch (insertError: any) {
               logError('❌ [BATCH] 삽입 실패:', normalizedName, insertError);
               errors++;
               errorDetails.push({ business_name: normalizedName, error: insertError.message });
-            } else {
-              created++;
-              log('✅ [BATCH] 생성:', normalizedName);
             }
           }
         } catch (itemError: any) {
@@ -996,17 +898,24 @@ export async function POST(request: Request) {
       is_deleted: businessData.is_deleted ?? false
     };
 
-    const { data: newBusiness, error } = await supabaseAdmin
-      .from('business_info')
-      .insert([normalizedData])
-      .select('*')
-      .single();
+    const fields = Object.keys(normalizedData);
+    const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
+    const values = fields.map(field => (normalizedData as any)[field]);
 
-    if (error) {
-      logError('❌ [BUSINESS-INFO-DIRECT] POST 실패:', error);
+    const insertQuery = `
+      INSERT INTO business_info (${fields.join(', ')})
+      VALUES (${placeholders})
+      RETURNING *
+    `;
+
+    const result = await pgQuery(insertQuery, values);
+    const newBusiness = result.rows[0];
+
+    if (!newBusiness) {
+      logError('❌ [BUSINESS-INFO-DIRECT] POST 실패: 생성된 레코드 없음');
       return NextResponse.json({
         success: false,
-        error: `생성 실패: ${error.message}`
+        error: '생성 실패'
       }, { status: 500 });
     }
 
@@ -1041,17 +950,16 @@ export async function DELETE(request: Request) {
     log('🗑️ [BUSINESS-INFO-DIRECT] 삭제 요청 - ID:', id);
 
     // 사업장 존재 여부 확인
-    const { data: existing, error: fetchError } = await supabaseAdmin
-      .from('business_info')
-      .select('id, business_name, is_deleted')
-      .eq('id', id)
-      .single();
+    const existing = await queryOne(
+      'SELECT id, business_name, is_deleted FROM business_info WHERE id = $1',
+      [id]
+    );
 
-    if (fetchError || !existing) {
-      logError('❌ [BUSINESS-INFO-DIRECT] 사업장을 찾을 수 없음:', fetchError);
+    if (!existing) {
+      logError('❌ [BUSINESS-INFO-DIRECT] 사업장을 찾을 수 없음');
       return NextResponse.json({
         success: false,
-        error: `사업장을 찾을 수 없습니다: ${fetchError?.message || 'Not found'}`
+        error: '사업장을 찾을 수 없습니다'
       }, { status: 404 });
     }
 
@@ -1063,21 +971,21 @@ export async function DELETE(request: Request) {
     }
 
     // Soft delete: is_deleted 플래그를 true로 설정
-    const { data: deletedBusiness, error: deleteError } = await supabaseAdmin
-      .from('business_info')
-      .update({
-        is_deleted: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    const result = await pgQuery(
+      `UPDATE business_info
+       SET is_deleted = true, updated_at = $1
+       WHERE id = $2
+       RETURNING *`,
+      [new Date().toISOString(), id]
+    );
 
-    if (deleteError) {
-      logError('❌ [BUSINESS-INFO-DIRECT] 삭제 실패:', deleteError);
+    const deletedBusiness = result.rows[0];
+
+    if (!deletedBusiness) {
+      logError('❌ [BUSINESS-INFO-DIRECT] 삭제 실패: 레코드 없음');
       return NextResponse.json({
         success: false,
-        error: `삭제에 실패했습니다: ${deleteError.message}`
+        error: '삭제에 실패했습니다'
       }, { status: 500 });
     }
 

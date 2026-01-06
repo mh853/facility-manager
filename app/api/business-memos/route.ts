@@ -1,7 +1,7 @@
 // app/api/business-memos/route.ts - Business Memos CRUD API
 import { NextRequest } from 'next/server'
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils'
-import { supabaseAdmin } from '@/lib/supabase'
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct'
 import type { BusinessMemo, CreateBusinessMemoInput, UpdateBusinessMemoInput } from '@/types/database'
 
 // Force dynamic rendering for API routes
@@ -24,22 +24,20 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
     let finalBusinessId = businessId;
 
-    // businessName이 제공된 경우 businessId로 변환
+    // businessName이 제공된 경우 businessId로 변환 - Direct PostgreSQL
     if (!businessId && businessName) {
       console.log(`🔍 [BUSINESS-MEMOS] businessName으로 business_id 조회: ${businessName}`)
 
-      const { data: businessInfo, error: businessError } = await supabaseAdmin
-        .from('business_info')
-        .select('id, business_name')
-        .eq('business_name', businessName)
-        .eq('is_active', true)
-        .eq('is_deleted', false)
-        .single();
+      const businessInfo = await queryOne(
+        `SELECT id, business_name FROM business_info
+         WHERE business_name = $1 AND is_active = true AND is_deleted = false`,
+        [businessName]
+      );
 
-      console.log(`🔍 [BUSINESS-MEMOS] business_info 조회 결과:`, { businessInfo, businessError })
+      console.log(`🔍 [BUSINESS-MEMOS] business_info 조회 결과:`, businessInfo)
 
-      if (businessError || !businessInfo) {
-        console.log(`⚠️ [BUSINESS-MEMOS] 사업장을 찾을 수 없음: ${businessName}`, businessError);
+      if (!businessInfo) {
+        console.log(`⚠️ [BUSINESS-MEMOS] 사업장을 찾을 수 없음: ${businessName}`);
         // 빈 결과 반환 (에러가 아닌)
         return createSuccessResponse({
           data: [],
@@ -55,18 +53,13 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       console.log(`✅ [BUSINESS-MEMOS] businessName → businessId 변환: ${businessName} → ${finalBusinessId}`)
     }
 
-    const { data: memos, error } = await supabaseAdmin
-      .from('business_memos')
-      .select('*')
-      .eq('business_id', finalBusinessId)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('❌ [BUSINESS-MEMOS] 메모 조회 실패:', error)
-      throw error;
-    }
+    // 메모 조회 - Direct PostgreSQL
+    const memos = await queryAll(
+      `SELECT * FROM business_memos
+       WHERE business_id = $1 AND is_active = true AND is_deleted = false
+       ORDER BY created_at DESC`,
+      [finalBusinessId]
+    );
 
     console.log(`✅ [BUSINESS-MEMOS] 메모 조회 완료 - ${memos?.length || 0}개`)
     console.log(`🔍 [BUSINESS-MEMOS] 조회된 메모 데이터:`, memos?.map(m => ({
@@ -114,22 +107,20 @@ export const POST = withApiHandler(async (request: NextRequest) => {
 
     let finalBusinessId = body.business_id;
 
-    // business_name이 제공된 경우 business_id로 변환
+    // business_name이 제공된 경우 business_id로 변환 - Direct PostgreSQL
     if (!body.business_id && body.business_name) {
       console.log(`🔍 [BUSINESS-MEMOS] POST - businessName으로 business_id 조회: ${body.business_name}`)
 
-      const { data: businessInfo, error: businessError } = await supabaseAdmin
-        .from('business_info')
-        .select('id, business_name')
-        .eq('business_name', body.business_name)
-        .eq('is_active', true)
-        .eq('is_deleted', false)
-        .single();
+      const businessInfo = await queryOne(
+        `SELECT id, business_name FROM business_info
+         WHERE business_name = $1 AND is_active = true AND is_deleted = false`,
+        [body.business_name]
+      );
 
-      console.log(`🔍 [BUSINESS-MEMOS] POST - business_info 조회 결과:`, { businessInfo, businessError })
+      console.log(`🔍 [BUSINESS-MEMOS] POST - business_info 조회 결과:`, businessInfo)
 
-      if (businessError || !businessInfo) {
-        console.error(`❌ [BUSINESS-MEMOS] POST - 사업장을 찾을 수 없음: ${body.business_name}`, businessError);
+      if (!businessInfo) {
+        console.error(`❌ [BUSINESS-MEMOS] POST - 사업장을 찾을 수 없음: ${body.business_name}`);
         return createErrorResponse(`사업장을 찾을 수 없습니다: ${body.business_name}`, 404);
       }
 
@@ -137,39 +128,41 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       console.log(`✅ [BUSINESS-MEMOS] POST - businessName → businessId 변환: ${body.business_name} → ${finalBusinessId}`)
     }
 
-    const memoData = {
-      business_id: finalBusinessId,
-      title: body.title.trim(),
-      content: body.content.trim(),
-      created_by: body.created_by || '관리자',
-      updated_by: body.created_by || '관리자'
+    // 메모 추가 - Direct PostgreSQL
+    const insertQuery = `
+      INSERT INTO business_memos (
+        business_id, title, content, created_by, updated_by
+      ) VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `;
+
+    const insertResult = await pgQuery(insertQuery, [
+      finalBusinessId,
+      body.title.trim(),
+      body.content.trim(),
+      body.created_by || '관리자',
+      body.created_by || '관리자'
+    ]);
+
+    if (!insertResult.rows || insertResult.rows.length === 0) {
+      console.error('❌ [BUSINESS-MEMOS] 메모 추가 실패');
+      throw new Error('메모 추가 실패');
     }
 
-    const { data: newMemo, error } = await supabaseAdmin
-      .from('business_memos')
-      .insert(memoData)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('❌ [BUSINESS-MEMOS] 메모 추가 실패:', error)
-      throw error;
-    }
-
+    const newMemo = insertResult.rows[0];
     console.log(`✅ [BUSINESS-MEMOS] 새 메모 추가 완료 - ID: ${newMemo.id}`)
 
-    // ✅ 메모 생성 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+    // ✅ 메모 생성 시 사업장 updated_at 업데이트 (리스트 상단 표시) - Direct PostgreSQL
     if (finalBusinessId) {
-      const { error: updateError } = await supabaseAdmin
-        .from('business_info')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', finalBusinessId);
-
-      if (updateError) {
+      try {
+        await pgQuery(
+          `UPDATE business_info SET updated_at = $1 WHERE id = $2`,
+          [new Date().toISOString(), finalBusinessId]
+        );
+        console.log(`✅ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 완료 - businessId: ${finalBusinessId}`);
+      } catch (updateError) {
         console.warn('⚠️ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 실패:', updateError);
         // 메모 생성은 성공했으므로 에러 throw 하지 않음
-      } else {
-        console.log(`✅ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 완료 - businessId: ${finalBusinessId}`);
       }
     }
 
@@ -214,34 +207,40 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       updateData.content = body.content.trim()
     }
 
-    const { data: updatedMemo, error } = await supabaseAdmin
-      .from('business_memos')
-      .update(updateData)
-      .eq('id', memoId)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .select()
-      .single()
+    // 메모 수정 - Direct PostgreSQL
+    const updateFields = Object.keys(updateData);
+    const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+    const values = updateFields.map(field => updateData[field]);
+    values.push(memoId); // Add memoId as the last parameter
 
-    if (error) {
-      console.error('❌ [BUSINESS-MEMOS] 메모 수정 실패:', error)
-      throw error;
+    const updateQuery = `
+      UPDATE business_memos
+      SET ${setClause}
+      WHERE id = $${values.length} AND is_active = true AND is_deleted = false
+      RETURNING *
+    `;
+
+    const updateResult = await pgQuery(updateQuery, values);
+
+    if (!updateResult.rows || updateResult.rows.length === 0) {
+      console.error('❌ [BUSINESS-MEMOS] 메모 수정 실패');
+      throw new Error('메모 수정 실패');
     }
 
+    const updatedMemo = updateResult.rows[0];
     console.log(`✅ [BUSINESS-MEMOS] 메모 수정 완료 - ID: ${memoId}`)
 
-    // ✅ 메모 수정 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+    // ✅ 메모 수정 시 사업장 updated_at 업데이트 (리스트 상단 표시) - Direct PostgreSQL
     if (updatedMemo?.business_id) {
-      const { error: updateError } = await supabaseAdmin
-        .from('business_info')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', updatedMemo.business_id);
-
-      if (updateError) {
+      try {
+        await pgQuery(
+          `UPDATE business_info SET updated_at = $1 WHERE id = $2`,
+          [new Date().toISOString(), updatedMemo.business_id]
+        );
+        console.log(`✅ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 완료 - businessId: ${updatedMemo.business_id}`);
+      } catch (updateError) {
         console.warn('⚠️ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 실패:', updateError);
         // 메모 수정은 성공했으므로 에러 throw 하지 않음
-      } else {
-        console.log(`✅ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 완료 - businessId: ${updatedMemo.business_id}`);
       }
     }
 
@@ -268,16 +267,15 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
 
     console.log(`🗑️ [BUSINESS-MEMOS] 메모 삭제 - ID: ${memoId}`)
 
-    // 메모 정보 조회 (자동 메모인지 확인)
-    const { data: memoInfo, error: memoError } = await supabaseAdmin
-      .from('business_memos')
-      .select('id, title, business_id')
-      .eq('id', memoId)
-      .eq('is_deleted', false)
-      .single();
+    // 메모 정보 조회 (자동 메모인지 확인) - Direct PostgreSQL
+    const memoInfo = await queryOne(
+      `SELECT id, title, business_id FROM business_memos
+       WHERE id = $1 AND is_deleted = false`,
+      [memoId]
+    );
 
-    if (memoError || !memoInfo) {
-      console.error(`❌ [BUSINESS-MEMOS] 메모 조회 실패: ${memoId}`, memoError);
+    if (!memoInfo) {
+      console.error(`❌ [BUSINESS-MEMOS] 메모 조회 실패: ${memoId}`);
       return createErrorResponse('메모를 찾을 수 없습니다.', 404);
     }
 
@@ -289,61 +287,61 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
       console.log(`⚠️ [BUSINESS-MEMOS] 자동 메모 삭제 시도 - 권한 확인 필요: ${memoId}`);
     }
 
-    const { data: deletedMemo, error } = await supabaseAdmin
-      .from('business_memos')
-      .update({
-        is_deleted: true,
-        updated_by: '관리자' // 향후 계정 시스템에서 실제 사용자로 변경
-      })
-      .eq('id', memoId)
-      .eq('is_deleted', false)
-      .select()
-      .single()
+    // 메모 삭제 (소프트 삭제) - Direct PostgreSQL
+    const deleteResult = await pgQuery(
+      `UPDATE business_memos
+       SET is_deleted = true, updated_by = $1
+       WHERE id = $2 AND is_deleted = false
+       RETURNING *`,
+      ['관리자', memoId]
+    );
 
-    if (error) {
-      console.error('❌ [BUSINESS-MEMOS] 메모 삭제 실패:', error)
-      throw error;
+    if (!deleteResult.rows || deleteResult.rows.length === 0) {
+      console.error('❌ [BUSINESS-MEMOS] 메모 삭제 실패');
+      throw new Error('메모 삭제 실패');
     }
 
+    const deletedMemo = deleteResult.rows[0];
     console.log(`✅ [BUSINESS-MEMOS] 메모 삭제 완료 - ID: ${memoId}`)
 
-    // ✅ 메모 삭제 시 사업장 updated_at 업데이트 (리스트 상단 표시)
+    // ✅ 메모 삭제 시 사업장 updated_at 업데이트 (리스트 상단 표시) - Direct PostgreSQL
     if (memoInfo?.business_id) {
-      const { error: updateError } = await supabaseAdmin
-        .from('business_info')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', memoInfo.business_id);
-
-      if (updateError) {
+      try {
+        await pgQuery(
+          `UPDATE business_info SET updated_at = $1 WHERE id = $2`,
+          [new Date().toISOString(), memoInfo.business_id]
+        );
+        console.log(`✅ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 완료 - businessId: ${memoInfo.business_id}`);
+      } catch (updateError) {
         console.warn('⚠️ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 실패:', updateError);
         // 메모 삭제는 성공했으므로 에러 throw 하지 않음
-      } else {
-        console.log(`✅ [BUSINESS-MEMOS] 사업장 updated_at 업데이트 완료 - businessId: ${memoInfo.business_id}`);
       }
     }
 
-    // 자동 메모 삭제 로그 기록 (슈퍼 관리자 전용 기능에 대한 감사 로그)
+    // 자동 메모 삭제 로그 기록 (슈퍼 관리자 전용 기능에 대한 감사 로그) - Direct PostgreSQL
     if (isAutoMemo) {
       try {
         // 사업장 정보 조회
-        const { data: businessInfo } = await supabaseAdmin
-          .from('business_info')
-          .select('business_name')
-          .eq('id', memoInfo.business_id)
-          .single();
+        const businessInfo = await queryOne(
+          `SELECT business_name FROM business_info WHERE id = $1`,
+          [memoInfo.business_id]
+        );
 
         // 삭제 로그 기록
-        await supabaseAdmin
-          .from('auto_memo_deletion_logs')
-          .insert({
-            memo_id: memoId,
-            memo_title: memoInfo.title,
-            business_name: businessInfo?.business_name || '알 수 없음',
-            deleted_by: '시스템', // TODO: 실제 사용자 ID로 변경
-            ip_address: request.headers.get('x-forwarded-for') ||
-                       request.headers.get('x-real-ip') ||
-                       '127.0.0.1'
-          });
+        await pgQuery(
+          `INSERT INTO auto_memo_deletion_logs (
+            memo_id, memo_title, business_name, deleted_by, ip_address
+           ) VALUES ($1, $2, $3, $4, $5)`,
+          [
+            memoId,
+            memoInfo.title,
+            businessInfo?.business_name || '알 수 없음',
+            '시스템', // TODO: 실제 사용자 ID로 변경
+            request.headers.get('x-forwarded-for') ||
+              request.headers.get('x-real-ip') ||
+              '127.0.0.1'
+          ]
+        );
 
         console.log(`📝 [BUSINESS-MEMOS] 자동 메모 삭제 로그 기록 완료 - ${memoInfo.title}`);
       } catch (logError) {

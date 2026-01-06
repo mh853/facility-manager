@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
+import { queryOne, query as pgQuery } from '@/lib/supabase-direct'
 import { verifyToken } from '@/lib/secure-jwt'
 
 // 기본 레이아웃 설정
@@ -15,8 +16,18 @@ const DEFAULT_LAYOUT = {
 // GET: 사용자의 레이아웃 설정 조회
 export async function GET(request: NextRequest) {
   try {
-    // 토큰에서 사용자 정보 추출
-    const token = request.cookies.get('auth-token')?.value;
+    // 토큰에서 사용자 정보 추출 (쿠키 또는 헤더에서)
+    let token = request.cookies.get('auth-token')?.value ||
+                 request.cookies.get('auth_token')?.value;
+
+    // 헤더에서도 확인
+    if (!token) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
     if (!token) {
       return NextResponse.json(
         { success: false, error: '인증이 필요합니다.' },
@@ -25,26 +36,20 @@ export async function GET(request: NextRequest) {
     }
 
     const decoded = await verifyToken(token);
-    const userId = decoded.userId;
+    const userId = decoded.userId || decoded.id;
 
-    const supabase = await createClient();
+    // 사용자의 레이아웃 설정 조회 - 직접 PostgreSQL 연결 사용
+    const data = await queryOne(
+      'SELECT * FROM dashboard_layouts WHERE user_id = $1 LIMIT 1',
+      [userId]
+    );
 
-    // 사용자의 레이아웃 설정 조회
-    const { data, error } = await supabase
-      .from('dashboard_layouts')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (error) {
+    if (!data) {
       // 레이아웃이 없으면 기본값 반환
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({
-          success: true,
-          data: DEFAULT_LAYOUT
-        });
-      }
-      throw error;
+      return NextResponse.json({
+        success: true,
+        data: DEFAULT_LAYOUT
+      });
     }
 
     return NextResponse.json({
@@ -64,7 +69,18 @@ export async function GET(request: NextRequest) {
 // POST: 레이아웃 설정 저장
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
+    // 토큰에서 사용자 정보 추출 (쿠키 또는 헤더에서)
+    let token = request.cookies.get('auth-token')?.value ||
+                 request.cookies.get('auth_token')?.value;
+
+    // 헤더에서도 확인
+    if (!token) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
     if (!token) {
       return NextResponse.json(
         { success: false, error: '인증이 필요합니다.' },
@@ -73,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     const decoded = await verifyToken(token);
-    const userId = decoded.userId;
+    const userId = decoded.userId || decoded.id;
 
     const body = await request.json();
     const { layout_config } = body;
@@ -85,28 +101,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    // upsert: 존재하면 업데이트, 없으면 생성 - 직접 PostgreSQL 연결 사용
+    const updatedAt = new Date().toISOString();
+    const result = await pgQuery(
+      `INSERT INTO dashboard_layouts (user_id, layout_config, updated_at, created_at)
+       VALUES ($1, $2, $3, $3)
+       ON CONFLICT (user_id)
+       DO UPDATE SET layout_config = $2, updated_at = $3
+       RETURNING *`,
+      [userId, JSON.stringify(layout_config), updatedAt]
+    );
 
-    // upsert: 존재하면 업데이트, 없으면 생성
-    const { data, error } = await supabase
-      .from('dashboard_layouts')
-      .upsert(
-        {
-          user_id: userId,
-          layout_config,
-          updated_at: new Date().toISOString()
-        },
-        {
-          onConflict: 'user_id'
-        }
-      )
-      .select()
-      .single();
-
-    if (error) {
-      console.error('❌ [Dashboard Layout API] POST error:', error);
-      throw error;
-    }
+    const data = result.rows[0];
 
     console.log('✅ [Dashboard Layout API] Layout saved for user:', userId);
 
@@ -127,7 +133,18 @@ export async function POST(request: NextRequest) {
 // DELETE: 레이아웃 설정 초기화 (기본값으로 되돌림)
 export async function DELETE(request: NextRequest) {
   try {
-    const token = request.cookies.get('auth-token')?.value;
+    // 토큰에서 사용자 정보 추출 (쿠키 또는 헤더에서)
+    let token = request.cookies.get('auth-token')?.value ||
+                 request.cookies.get('auth_token')?.value;
+
+    // 헤더에서도 확인
+    if (!token) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
     if (!token) {
       return NextResponse.json(
         { success: false, error: '인증이 필요합니다.' },
@@ -136,19 +153,13 @@ export async function DELETE(request: NextRequest) {
     }
 
     const decoded = await verifyToken(token);
-    const userId = decoded.userId;
+    const userId = decoded.userId || decoded.id;
 
-    const supabase = await createClient();
-
-    const { error } = await supabase
-      .from('dashboard_layouts')
-      .delete()
-      .eq('user_id', userId);
-
-    if (error) {
-      console.error('❌ [Dashboard Layout API] DELETE error:', error);
-      throw error;
-    }
+    // 레이아웃 삭제 - 직접 PostgreSQL 연결 사용
+    await pgQuery(
+      'DELETE FROM dashboard_layouts WHERE user_id = $1',
+      [userId]
+    );
 
     console.log('✅ [Dashboard Layout API] Layout reset for user:', userId);
 

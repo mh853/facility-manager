@@ -56,6 +56,12 @@ test-*.js
 *.backup
 *.tmp
 
+# Migration files - NEVER commit these (contain sensitive database credentials)
+.env.migration
+backups/
+logs/
+data_dump*.sql
+
 # Screenshots and temporary files
 스샷/
 *.png

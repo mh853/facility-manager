@@ -1,15 +1,10 @@
 // app/api/business-invoices/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, query as pgQuery } from '@/lib/supabase-direct';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 /**
  * GET - 사업장별 계산서 및 입금 정보 조회
@@ -27,45 +22,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 사업장 정보 조회
-    const { data: business, error } = await supabase
-      .from('business_info')
-      .select(`
-        id,
-        business_name,
-        business_category,
-        progress_status,
-        additional_cost,
-        invoice_1st_date,
-        invoice_1st_amount,
-        payment_1st_date,
-        payment_1st_amount,
-        invoice_2nd_date,
-        invoice_2nd_amount,
-        payment_2nd_date,
-        payment_2nd_amount,
-        invoice_additional_date,
-        payment_additional_date,
-        payment_additional_amount,
-        invoice_advance_date,
-        invoice_advance_amount,
-        payment_advance_date,
-        payment_advance_amount,
-        invoice_balance_date,
-        invoice_balance_amount,
-        payment_balance_date,
-        payment_balance_amount
-      `)
-      .eq('id', businessId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching business invoices:', error);
-      return NextResponse.json(
-        { success: false, message: '사업장 정보 조회 실패', error: error.message },
-        { status: 500 }
-      );
-    }
+    // 사업장 정보 조회 - Direct PostgreSQL
+    console.log('🔍 [BUSINESS-INVOICES] GET - 사업장 정보 조회:', businessId);
+    const business = await queryOne(
+      `SELECT
+        id, business_name, business_category, progress_status, additional_cost,
+        invoice_1st_date, invoice_1st_amount, payment_1st_date, payment_1st_amount,
+        invoice_2nd_date, invoice_2nd_amount, payment_2nd_date, payment_2nd_amount,
+        invoice_additional_date, payment_additional_date, payment_additional_amount,
+        invoice_advance_date, invoice_advance_amount, payment_advance_date, payment_advance_amount,
+        invoice_balance_date, invoice_balance_amount, payment_balance_date, payment_balance_amount
+       FROM business_info
+       WHERE id = $1`,
+      [businessId]
+    );
 
     if (!business) {
       return NextResponse.json(
@@ -73,6 +43,8 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    console.log('✅ [BUSINESS-INVOICES] GET - 조회 완료:', business.business_name);
 
     // 미수금 계산
     let totalReceivables = 0;
@@ -276,21 +248,32 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Supabase 업데이트
-    const { data, error } = await supabase
-      .from('business_info')
-      .update(updateData)
-      .eq('id', business_id)
-      .select()
-      .single();
+    // 업데이트 - Direct PostgreSQL
+    console.log('📝 [BUSINESS-INVOICES] PUT - 계산서 정보 업데이트:', { business_id, invoice_type });
+    const updateFields = Object.keys(updateData);
+    const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+    const values = updateFields.map(field => updateData[field]);
+    values.push(business_id);
 
-    if (error) {
-      console.error('Error updating business invoices:', error);
+    const updateQuery = `
+      UPDATE business_info
+      SET ${setClause}
+      WHERE id = $${values.length}
+      RETURNING *
+    `;
+
+    const updateResult = await pgQuery(updateQuery, values);
+
+    if (!updateResult.rows || updateResult.rows.length === 0) {
+      console.error('❌ [BUSINESS-INVOICES] PUT - 업데이트 실패');
       return NextResponse.json(
-        { success: false, message: '계산서 정보 업데이트 실패', error: error.message },
+        { success: false, message: '계산서 정보 업데이트 실패' },
         { status: 500 }
       );
     }
+
+    const data = updateResult.rows[0];
+    console.log('✅ [BUSINESS-INVOICES] PUT - 업데이트 완료');
 
     return NextResponse.json({
       success: true,

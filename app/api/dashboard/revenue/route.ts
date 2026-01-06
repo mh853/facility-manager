@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { queryAll } from '@/lib/supabase-direct'
 import {
   determineAggregationLevel,
   getAggregationKey,
@@ -36,55 +36,41 @@ export async function GET(request: NextRequest) {
 
     console.log('📊 [Dashboard Revenue API] Request params:', { months, startDate, endDate, year, office, manufacturer, salesOffice, progressStatus });
 
-    const supabase = supabaseAdmin;
     const calcDate = new Date().toISOString().split('T')[0];
 
-    // 1. 사업장 조회 (설치 완료된 사업장만) - Supabase 1000개 제한 우회
-    let baseQuery = supabase
-      .from('business_info')
-      .select('*', { count: 'exact' })
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .not('installation_date', 'is', null);
+    // 1. 사업장 조회 (설치 완료된 사업장만) - 직접 PostgreSQL 연결 사용
+    const queryParts: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    queryParts.push('SELECT * FROM business_info WHERE is_active = true AND is_deleted = false AND installation_date IS NOT NULL');
 
     // 날짜 범위 필터 (기간 지정 모드에서만 적용)
     if (startDate && endDate) {
-      baseQuery = baseQuery
-        .gte('installation_date', startDate)
-        .lte('installation_date', endDate);
+      queryParts.push(`AND installation_date >= $${paramIndex++}`);
+      params.push(startDate);
+      queryParts.push(`AND installation_date <= $${paramIndex++}`);
+      params.push(endDate);
     }
 
     // 필터 적용
-    if (manufacturer) baseQuery = baseQuery.eq('manufacturer', manufacturer);
-    if (salesOffice) baseQuery = baseQuery.eq('sales_office', salesOffice);
-    if (progressStatus) baseQuery = baseQuery.eq('progress_status', progressStatus);
-
-    // 페이지네이션으로 모든 데이터 가져오기
-    let businesses: any[] = [];
-    const pageSize = 1000;
-    let page = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      const rangeStart = page * pageSize;
-      const rangeEnd = rangeStart + pageSize - 1;
-
-      const { data, error: businessError } = await baseQuery
-        .range(rangeStart, rangeEnd);
-
-      if (businessError) {
-        console.error('❌ [Dashboard Revenue API] Business query error (page', page, '):', businessError);
-        throw businessError;
-      }
-
-      if (data && data.length > 0) {
-        businesses = businesses.concat(data);
-        console.log(`📊 [Dashboard Revenue API] 페이지 ${page} 로드: ${data.length}개 (누적: ${businesses.length}개)`);
-      }
-
-      hasMore = data && data.length === pageSize;
-      page++;
+    if (manufacturer) {
+      queryParts.push(`AND manufacturer = $${paramIndex++}`);
+      params.push(manufacturer);
     }
+    if (salesOffice) {
+      queryParts.push(`AND sales_office = $${paramIndex++}`);
+      params.push(salesOffice);
+    }
+    if (progressStatus) {
+      queryParts.push(`AND progress_status = $${paramIndex++}`);
+      params.push(progressStatus);
+    }
+
+    const finalQuery = queryParts.join(' ');
+    console.log('📊 [Dashboard Revenue API] Executing PostgreSQL query with', params.length, 'parameters');
+
+    const businesses = await queryAll(finalQuery, params);
 
     console.log('📊 [Dashboard Revenue API] Total businesses (before region filter):', businesses.length);
 
@@ -104,34 +90,22 @@ export async function GET(request: NextRequest) {
 
     console.log('📊 [Dashboard Revenue API] Total businesses (after filters):', filteredBusinesses.length);
 
-    // 2. 환경부 고시가 정보 조회
-    const { data: pricingData, error: pricingError } = await supabase
-      .from('government_pricing')
-      .select('*')
-      .eq('is_active', true)
-      .lte('effective_from', calcDate);
-
-    if (pricingError) {
-      console.error('❌ [Dashboard Revenue API] Pricing query error:', pricingError);
-      throw pricingError;
-    }
+    // 2. 환경부 고시가 정보 조회 - 직접 PostgreSQL 연결 사용
+    const pricingData = await queryAll(
+      'SELECT * FROM government_pricing WHERE is_active = true AND effective_from <= $1',
+      [calcDate]
+    );
 
     const priceMap = pricingData?.reduce((acc, item) => {
       acc[item.equipment_type] = item;
       return acc;
     }, {} as Record<string, any>) || {};
 
-    // 2-1. 제조사별 원가 정보 조회
-    const { data: manufacturerPricingData, error: manuPricingError } = await supabase
-      .from('manufacturer_pricing')
-      .select('*')
-      .eq('is_active', true)
-      .lte('effective_from', calcDate)
-      .or(`effective_to.is.null,effective_to.gte.${calcDate}`);
-
-    if (manuPricingError) {
-      console.error('❌ [Dashboard Revenue API] Manufacturer pricing query error:', manuPricingError);
-    }
+    // 2-1. 제조사별 원가 정보 조회 - 직접 PostgreSQL 연결 사용
+    const manufacturerPricingData = await queryAll(
+      'SELECT * FROM manufacturer_pricing WHERE is_active = true AND effective_from <= $1 AND (effective_to IS NULL OR effective_to >= $1)',
+      [calcDate]
+    );
 
     // 제조사별 원가 맵 생성 (제조사별로 구분)
     const manufacturerCostMap: Record<string, Record<string, number>> = {};
@@ -144,17 +118,11 @@ export async function GET(request: NextRequest) {
 
     console.log('📊 [Dashboard Revenue API] Manufacturer pricing loaded:', Object.keys(manufacturerCostMap).length, 'manufacturers');
 
-    // 2-2. 기본 설치비 정보 조회 (매출 관리와 동일한 테이블 사용)
-    const { data: installationCostData, error: installCostError } = await supabase
-      .from('equipment_installation_cost')
-      .select('*')
-      .eq('is_active', true)
-      .lte('effective_from', calcDate)
-      .or(`effective_to.is.null,effective_to.gte.${calcDate}`);
-
-    if (installCostError) {
-      console.error('❌ [Dashboard Revenue API] Installation cost query error:', installCostError);
-    }
+    // 2-2. 기본 설치비 정보 조회 (매출 관리와 동일한 테이블 사용) - 직접 PostgreSQL 연결 사용
+    const installationCostData = await queryAll(
+      'SELECT * FROM equipment_installation_cost WHERE is_active = true AND effective_from <= $1 AND (effective_to IS NULL OR effective_to >= $1)',
+      [calcDate]
+    );
 
     // 기본 설치비 맵 생성
     const installationCostMap: Record<string, number> = {};
@@ -169,15 +137,11 @@ export async function GET(request: NextRequest) {
     const surveyAdjustmentsMap: Record<string, number> = {};
 
     if (businessIds.length > 0) {
-      const { data: allSurveyAdjustments, error: surveyAdjError } = await supabase
-        .from('survey_cost_adjustments')
-        .select('*')
-        .in('business_id', businessIds)
-        .lte('applied_date', calcDate);
-
-      if (surveyAdjError) {
-        console.error('❌ [Dashboard Revenue API] Survey adjustments query error:', surveyAdjError);
-      }
+      // 직접 PostgreSQL 연결 사용
+      const allSurveyAdjustments = await queryAll(
+        'SELECT * FROM survey_cost_adjustments WHERE business_id = ANY($1) AND applied_date <= $2',
+        [businessIds, calcDate]
+      );
 
       // 사업장별 실사비용 조정 맵 생성
       allSurveyAdjustments?.forEach(adj => {
@@ -247,13 +211,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 4. 영업점 비용 설정 및 실사비용 설정 조회
-    const { data: salesSettings } = await supabase
-      .from('sales_office_cost_settings')
-      .select('*')
-      .eq('is_active', true)
-      .lte('effective_from', calcDate)
-      .order('effective_from', { ascending: false });
+    // 4. 영업점 비용 설정 및 실사비용 설정 조회 - 직접 PostgreSQL 연결 사용
+    const salesSettings = await queryAll(
+      'SELECT * FROM sales_office_cost_settings WHERE is_active = true AND effective_from <= $1 ORDER BY effective_from DESC',
+      [calcDate]
+    );
 
     const salesSettingsMap = new Map(
       salesSettings?.map(s => [s.sales_office, s]) || []
@@ -265,11 +227,10 @@ export async function GET(request: NextRequest) {
       commission_per_unit: null
     };
 
-    const { data: surveyCosts } = await supabase
-      .from('survey_cost_settings')
-      .select('*')
-      .eq('is_active', true)
-      .lte('effective_from', calcDate);
+    const surveyCosts = await queryAll(
+      'SELECT * FROM survey_cost_settings WHERE is_active = true AND effective_from <= $1',
+      [calcDate]
+    );
 
     const surveyCostMap = surveyCosts?.reduce((acc, item) => {
       acc[item.survey_type] = item.base_cost;
@@ -351,18 +312,19 @@ export async function GET(request: NextRequest) {
       // 실사비용 계산 (매출 관리와 동일: 실사일이 있는 경우에만 비용 추가)
       let totalSurveyCosts = 0;
 
-      // 견적실사 비용 (견적실사일이 있고 빈 문자열이 아닌 경우에만)
-      if (business.estimate_survey_date && business.estimate_survey_date.trim() !== '') {
+      // 견적실사 비용 (견적실사일이 있는 경우에만)
+      // 직접 PostgreSQL에서는 Date 객체 또는 null로 반환되므로 null 체크만 수행
+      if (business.estimate_survey_date) {
         totalSurveyCosts += surveyCostMap.estimate || 0;
       }
 
-      // 착공전실사 비용 (착공전실사일이 있고 빈 문자열이 아닌 경우에만)
-      if (business.pre_construction_survey_date && business.pre_construction_survey_date.trim() !== '') {
+      // 착공전실사 비용 (착공전실사일이 있는 경우에만)
+      if (business.pre_construction_survey_date) {
         totalSurveyCosts += surveyCostMap.pre_construction || 0;
       }
 
-      // 준공실사 비용 (준공실사일이 있고 빈 문자열이 아닌 경우에만)
-      if (business.completion_survey_date && business.completion_survey_date.trim() !== '') {
+      // 준공실사 비용 (준공실사일이 있는 경우에만)
+      if (business.completion_survey_date) {
         totalSurveyCosts += surveyCostMap.completion || 0;
       }
 
@@ -371,21 +333,25 @@ export async function GET(request: NextRequest) {
       totalSurveyCosts += totalAdjustments;
 
       // 추가설치비 (설치팀 요청 추가 비용)
-      const installationExtraCost = business.installation_extra_cost || 0;
+      const installationExtraCost = Number(business.installation_extra_cost) || 0;
 
       // 매출 관리와 동일한 계산 방식
       // total_cost = 제조사 매입만 (매입금액)
-      const totalCost = manufacturerCost;
+      const totalCost = Number(manufacturerCost) || 0;
 
       // 총이익 = 매출 - 제조사 매입
-      const grossProfit = businessRevenue - totalCost;
+      const grossProfit = (Number(businessRevenue) || 0) - totalCost;
 
       // 순이익 = 총이익 - 영업비용 - 실사비용 - 기본설치비 - 추가설치비
-      const netProfit = grossProfit - salesCommission - totalSurveyCosts - totalInstallationCosts - installationExtraCost;
+      const netProfit = grossProfit -
+                        (Number(salesCommission) || 0) -
+                        (Number(totalSurveyCosts) || 0) -
+                        (Number(totalInstallationCosts) || 0) -
+                        (Number(installationExtraCost) || 0);
 
       // 통계 집계
       totalSalesCommissionSum += salesCommission;
-      totalInstallationCostSum += totalInstallationCosts + installationExtraCost;
+      totalInstallationCostSum += (totalInstallationCosts || 0) + (installationExtraCost || 0);
 
       // 월별 데이터 업데이트
       const current = aggregationData.get(aggregationKey);
@@ -415,16 +381,11 @@ export async function GET(request: NextRequest) {
       prevProfit = data.profit;
     });
 
-    // 7. 목표값 조회
-    const { data: targets, error: targetError } = await supabase
-      .from('dashboard_targets')
-      .select('*')
-      .eq('target_type', 'revenue')
-      .in('month', sortedMonths);
-
-    if (targetError) {
-      console.warn('⚠️ [Dashboard Revenue API] Target query warning:', targetError);
-    }
+    // 7. 목표값 조회 - 직접 PostgreSQL 연결 사용
+    const targets = await queryAll(
+      'SELECT * FROM dashboard_targets WHERE target_type = $1 AND month = ANY($2)',
+      ['revenue', sortedMonths]
+    );
 
     const targetMap = new Map(targets?.map(t => [t.month, t.target_value]) || []);
 

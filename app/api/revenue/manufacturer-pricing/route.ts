@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct';
 import { verifyTokenString } from '@/utils/auth';
 
 // Force dynamic rendering for API routes
@@ -46,15 +46,13 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // DB에서 사용자 권한 조회
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('employees')
-      .select('id, permission_level')
-      .eq('id', userId)
-      .eq('is_active', true)
-      .single();
+    // DB에서 사용자 권한 조회 - Direct PostgreSQL
+    const user = await queryOne(
+      'SELECT id, permission_level FROM employees WHERE id = $1 AND is_active = true',
+      [userId]
+    );
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json({
         success: false,
         message: '사용자를 찾을 수 없습니다.'
@@ -77,41 +75,54 @@ export async function GET(request: NextRequest) {
     const manufacturer = url.searchParams.get('manufacturer');
     const equipmentType = url.searchParams.get('equipment_type');
 
-    // 제조사별 원가 조회
+    // 제조사별 원가 조회 - Direct PostgreSQL
+    console.log('🔍 [MANUFACTURER-PRICING] Direct PostgreSQL 조회 시작');
     const today = new Date().toISOString().split('T')[0];
 
-    let query = supabaseAdmin
-      .from('manufacturer_pricing')
-      .select('*')
-      .order('manufacturer', { ascending: true })
-      .order('equipment_name', { ascending: true });
+    // Build WHERE clause dynamically
+    const whereClauses: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
 
+    // is_active filter
     if (!includeInactive) {
-      query = query.eq('is_active', true);
+      whereClauses.push(`is_active = true`);
     }
 
-    // 현재 날짜 기준 유효한 가격만 조회
-    query = query
-      .lte('effective_from', today)
-      .or(`effective_to.is.null,effective_to.gte.${today}`);
+    // effective date filters
+    whereClauses.push(`effective_from <= $${paramIndex}`);
+    params.push(today);
+    paramIndex++;
 
+    whereClauses.push(`(effective_to IS NULL OR effective_to >= $${paramIndex})`);
+    params.push(today);
+    paramIndex++;
+
+    // manufacturer filter
     if (manufacturer) {
-      query = query.eq('manufacturer', manufacturer);
+      whereClauses.push(`manufacturer = $${paramIndex}`);
+      params.push(manufacturer);
+      paramIndex++;
     }
 
+    // equipment_type filter
     if (equipmentType) {
-      query = query.eq('equipment_type', equipmentType);
+      whereClauses.push(`equipment_type = $${paramIndex}`);
+      params.push(equipmentType);
+      paramIndex++;
     }
 
-    const { data: pricing, error } = await query;
+    const whereClause = whereClauses.join(' AND ');
 
-    if (error) {
-      console.error('❌ [MANUFACTURER-PRICING] 조회 오류:', error);
-      return NextResponse.json({
-        success: false,
-        message: '제조사별 원가 조회에 실패했습니다.'
-      }, { status: 500 });
-    }
+    const queryText = `
+      SELECT *
+      FROM manufacturer_pricing
+      WHERE ${whereClause}
+      ORDER BY manufacturer ASC, equipment_name ASC
+    `;
+
+    const pricing = await queryAll(queryText, params);
+    console.log(`✅ [MANUFACTURER-PRICING] 조회 완료: ${pricing.length}개 항목`);
 
     return NextResponse.json({
       success: true,
@@ -181,66 +192,75 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 데이터 조회
-    const { data: existingData } = await supabaseAdmin
-      .from('manufacturer_pricing')
-      .select('*')
-      .eq('equipment_type', equipment_type)
-      .eq('manufacturer', manufacturer)
-      .eq('is_active', true)
-      .single();
+    // 기존 데이터 조회 - Direct PostgreSQL
+    console.log('🔍 [MANUFACTURER-PRICING] POST - 기존 데이터 조회');
+    const existingData = await queryOne(
+      `SELECT * FROM manufacturer_pricing
+       WHERE equipment_type = $1 AND manufacturer = $2 AND is_active = true`,
+      [equipment_type, manufacturer]
+    );
 
-    // 새 데이터 삽입
-    const insertData = {
+    // 새 데이터 삽입 - Direct PostgreSQL
+    console.log('📝 [MANUFACTURER-PRICING] POST - 새 데이터 삽입');
+    const insertQuery = `
+      INSERT INTO manufacturer_pricing (
+        equipment_type, equipment_name, manufacturer, cost_price,
+        effective_from, effective_to, notes, created_by, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+      RETURNING *
+    `;
+
+    const insertResult = await pgQuery(insertQuery, [
       equipment_type,
       equipment_name,
       manufacturer,
       cost_price,
       effective_from,
-      effective_to,
-      notes,
-      created_by: userId,
-      is_active: true
-    };
+      effective_to || null,
+      notes || null,
+      userId
+    ]);
 
-    const { data: newPricing, error: insertError } = await supabaseAdmin
-      .from('manufacturer_pricing')
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('❌ [MANUFACTURER-PRICING] 삽입 오류:', insertError);
+    if (!insertResult.rows || insertResult.rows.length === 0) {
+      console.error('❌ [MANUFACTURER-PRICING] 삽입 실패');
       return NextResponse.json({
         success: false,
         message: '제조사별 원가 저장에 실패했습니다.'
       }, { status: 500 });
     }
 
-    // 기존 데이터가 있다면 비활성화
-    if (existingData) {
-      await supabaseAdmin
-        .from('manufacturer_pricing')
-        .update({
-          is_active: false,
-          effective_to: effective_from
-        })
-        .eq('id', existingData.id);
+    const newPricing = insertResult.rows[0];
+    console.log('✅ [MANUFACTURER-PRICING] POST - 삽입 완료:', newPricing.id);
 
-      // 원가 변경 히스토리 기록
-      await supabaseAdmin
-        .from('pricing_change_history')
-        .insert({
-          table_name: 'manufacturer_pricing',
-          record_id: newPricing.id,
-          change_type: 'cost_update',
-          old_values: existingData,
-          new_values: newPricing,
-          changed_fields: ['cost_price'],
-          change_reason: notes || '제조사 원가 업데이트',
-          user_id: userId,
-          user_name: decoded.name || decoded.username || '알 수 없음'
-        });
+    // 기존 데이터가 있다면 비활성화 - Direct PostgreSQL
+    if (existingData) {
+      console.log('🔄 [MANUFACTURER-PRICING] POST - 기존 데이터 비활성화');
+      await pgQuery(
+        `UPDATE manufacturer_pricing
+         SET is_active = false, effective_to = $1
+         WHERE id = $2`,
+        [effective_from, existingData.id]
+      );
+
+      // 원가 변경 히스토리 기록 - Direct PostgreSQL
+      console.log('📊 [MANUFACTURER-PRICING] POST - 히스토리 기록');
+      await pgQuery(
+        `INSERT INTO pricing_change_history (
+          table_name, record_id, change_type, old_values, new_values,
+          changed_fields, change_reason, user_id, user_name
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          'manufacturer_pricing',
+          newPricing.id,
+          'cost_update',
+          JSON.stringify(existingData),
+          JSON.stringify(newPricing),
+          JSON.stringify(['cost_price']),
+          notes || '제조사 원가 업데이트',
+          userId,
+          decoded.name || decoded.username || '알 수 없음'
+        ]
+      );
     }
 
     return NextResponse.json({
@@ -309,14 +329,14 @@ export async function PATCH(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 데이터 조회
-    const { data: existingData, error: fetchError } = await supabaseAdmin
-      .from('manufacturer_pricing')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // 기존 데이터 조회 - Direct PostgreSQL
+    console.log('🔍 [MANUFACTURER-PRICING] PATCH - 기존 데이터 조회:', id);
+    const existingData = await queryOne(
+      'SELECT * FROM manufacturer_pricing WHERE id = $1',
+      [id]
+    );
 
-    if (fetchError || !existingData) {
+    if (!existingData) {
       return NextResponse.json({
         success: false,
         message: '해당 데이터를 찾을 수 없습니다.'
@@ -339,47 +359,63 @@ export async function PATCH(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 레코드 업데이트
-    const { data: updatedData, error: updateError } = await supabaseAdmin
-      .from('manufacturer_pricing')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // 레코드 업데이트 - Direct PostgreSQL
+    console.log('📝 [MANUFACTURER-PRICING] PATCH - 데이터 업데이트');
+    const updateFields = Object.keys(updateData);
+    const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+    const values = updateFields.map(field => updateData[field]);
+    values.push(id); // Add id as the last parameter
 
-    if (updateError) {
-      console.error('❌ [MANUFACTURER-PRICING] 수정 오류:', updateError);
+    const updateQuery = `
+      UPDATE manufacturer_pricing
+      SET ${setClause}
+      WHERE id = $${values.length}
+      RETURNING *
+    `;
+
+    const updateResult = await pgQuery(updateQuery, values);
+
+    if (!updateResult.rows || updateResult.rows.length === 0) {
+      console.error('❌ [MANUFACTURER-PRICING] 수정 실패');
       return NextResponse.json({
         success: false,
         message: '제조사별 원가 수정에 실패했습니다.'
       }, { status: 500 });
     }
 
-    // 변경 이력 기록 (원가가 변경된 경우에만)
+    const updatedData = updateResult.rows[0];
+    console.log('✅ [MANUFACTURER-PRICING] PATCH - 업데이트 완료:', id);
+
+    // 변경 이력 기록 (원가가 변경된 경우에만) - Direct PostgreSQL
     if (cost_price !== undefined && cost_price !== existingData.cost_price) {
-      await supabaseAdmin
-        .from('pricing_change_history')
-        .insert({
-          table_name: 'manufacturer_pricing',
-          record_id: id,
-          change_type: 'cost_update',
-          old_values: {
+      console.log('📊 [MANUFACTURER-PRICING] PATCH - 히스토리 기록');
+      await pgQuery(
+        `INSERT INTO pricing_change_history (
+          table_name, record_id, change_type, old_values, new_values,
+          changed_fields, change_reason, user_id, user_name
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          'manufacturer_pricing',
+          id,
+          'cost_update',
+          JSON.stringify({
             cost_price: existingData.cost_price,
             effective_from: existingData.effective_from,
             effective_to: existingData.effective_to,
             notes: existingData.notes
-          },
-          new_values: {
+          }),
+          JSON.stringify({
             cost_price: updatedData.cost_price,
             effective_from: updatedData.effective_from,
             effective_to: updatedData.effective_to,
             notes: updatedData.notes
-          },
-          changed_fields: ['cost_price'],
-          change_reason: notes || `원가 변경: ${existingData.cost_price} → ${cost_price}`,
-          user_id: userId,
-          user_name: decoded.name || decoded.username || '알 수 없음'
-        });
+          }),
+          JSON.stringify(['cost_price']),
+          notes || `원가 변경: ${existingData.cost_price} → ${cost_price}`,
+          userId,
+          decoded.name || decoded.username || '알 수 없음'
+        ]
+      );
     }
 
     return NextResponse.json({
@@ -439,36 +475,40 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 데이터 조회
-    const { data: existingData, error: fetchError } = await supabaseAdmin
-      .from('manufacturer_pricing')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // 기존 데이터 조회 - Direct PostgreSQL
+    console.log('🔍 [MANUFACTURER-PRICING] DELETE - 기존 데이터 조회:', id);
+    const existingData = await queryOne(
+      'SELECT * FROM manufacturer_pricing WHERE id = $1',
+      [id]
+    );
 
-    if (fetchError || !existingData) {
+    if (!existingData) {
       return NextResponse.json({
         success: false,
         message: '해당 데이터를 찾을 수 없습니다.'
       }, { status: 404 });
     }
 
-    // 비활성화 처리
-    const { error: updateError } = await supabaseAdmin
-      .from('manufacturer_pricing')
-      .update({
-        is_active: false,
-        effective_to: new Date().toISOString().split('T')[0]
-      })
-      .eq('id', id);
+    // 비활성화 처리 - Direct PostgreSQL
+    console.log('📝 [MANUFACTURER-PRICING] DELETE - 비활성화 처리');
+    const today = new Date().toISOString().split('T')[0];
 
-    if (updateError) {
-      console.error('❌ [MANUFACTURER-PRICING] 삭제 오류:', updateError);
+    const deleteResult = await pgQuery(
+      `UPDATE manufacturer_pricing
+       SET is_active = false, effective_to = $1
+       WHERE id = $2`,
+      [today, id]
+    );
+
+    if (!deleteResult.rowCount || deleteResult.rowCount === 0) {
+      console.error('❌ [MANUFACTURER-PRICING] 삭제 실패');
       return NextResponse.json({
         success: false,
         message: '제조사별 원가 삭제에 실패했습니다.'
       }, { status: 500 });
     }
+
+    console.log('✅ [MANUFACTURER-PRICING] DELETE - 삭제 완료:', id);
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne } from '@/lib/supabase-direct';
 import { getTaskStatusKR, createStatusChangeMessage } from '@/lib/task-status-utils';
 import { createTaskAssignmentNotifications, updateTaskAssignmentNotifications, type TaskAssignee } from '@/lib/task-notification-service';
 import { verifyTokenHybrid } from '@/lib/secure-jwt';
@@ -319,23 +320,24 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       for (let i = 0; i < finalAssignees.length; i++) {
         const assigneeItem = finalAssignees[i];
         if (assigneeItem.name && !assigneeItem.id) {
-          // employees 테이블에서 이름으로 사용자 정보 조회
-          const { data: employee, error: employeeError } = await supabaseAdmin
-            .from('employees')
-            .select('id, name, email, position')
-            .eq('name', assigneeItem.name)
-            .eq('is_active', true)
-            .eq('is_deleted', false)
-            .single();
+          // employees 테이블에서 이름으로 사용자 정보 조회 - Direct PostgreSQL
+          try {
+            const employee = await queryOne(
+              'SELECT id, name, email, position FROM employees WHERE name = $1 AND is_active = true AND is_deleted = false',
+              [assigneeItem.name]
+            );
 
-          if (!employeeError && employee) {
-            finalAssignees[i] = {
-              id: employee.id,
-              name: employee.name,
-              position: employee.position || '미정',
-              email: employee.email || ''
-            };
-          } else {
+            if (employee) {
+              finalAssignees[i] = {
+                id: employee.id,
+                name: employee.name,
+                position: employee.position || '미정',
+                email: employee.email || ''
+              };
+            } else {
+              console.warn('⚠️ [FACILITY-TASKS] 담당자 ID 조회 실패:', assigneeItem.name, '- 직원 없음');
+            }
+          } catch (employeeError: any) {
             console.warn('⚠️ [FACILITY-TASKS] 담당자 ID 조회 실패:', assigneeItem.name, employeeError?.message);
           }
         }
@@ -580,23 +582,24 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       for (let i = 0; i < mappedAssignees.length; i++) {
         const assigneeItem = mappedAssignees[i];
         if (assigneeItem.name && !assigneeItem.id) {
-          // employees 테이블에서 이름으로 사용자 정보 조회
-          const { data: employee, error: employeeError } = await supabaseAdmin
-            .from('employees')
-            .select('id, name, email, position')
-            .eq('name', assigneeItem.name)
-            .eq('is_active', true)
-            .eq('is_deleted', false)
-            .single();
+          // employees 테이블에서 이름으로 사용자 정보 조회 - Direct PostgreSQL
+          try {
+            const employee = await queryOne(
+              'SELECT id, name, email, position FROM employees WHERE name = $1 AND is_active = true AND is_deleted = false',
+              [assigneeItem.name]
+            );
 
-          if (!employeeError && employee) {
-            mappedAssignees[i] = {
-              id: employee.id,
-              name: employee.name,
-              position: employee.position || '미정',
-              email: employee.email || ''
-            };
-          } else {
+            if (employee) {
+              mappedAssignees[i] = {
+                id: employee.id,
+                name: employee.name,
+                position: employee.position || '미정',
+                email: employee.email || ''
+              };
+            } else {
+              console.warn('⚠️ [FACILITY-TASKS] 수정 시 담당자 ID 조회 실패:', assigneeItem.name, '- 직원 없음');
+            }
+          } catch (employeeError: any) {
             console.warn('⚠️ [FACILITY-TASKS] 수정 시 담당자 ID 조회 실패:', assigneeItem.name, employeeError?.message);
           }
         }
@@ -607,23 +610,30 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
       updateData.assignee = assignee;
       // assignee가 있으면 assignees도 업데이트하고 ID 매핑
       if (assignee) {
-        // employees 테이블에서 이름으로 사용자 정보 조회
-        const { data: employee, error: employeeError } = await supabaseAdmin
-          .from('employees')
-          .select('id, name, email, position')
-          .eq('name', assignee)
-          .eq('is_active', true)
-          .eq('is_deleted', false)
-          .single();
+        // employees 테이블에서 이름으로 사용자 정보 조회 - Direct PostgreSQL
+        try {
+          const employee = await queryOne(
+            'SELECT id, name, email, position FROM employees WHERE name = $1 AND is_active = true AND is_deleted = false',
+            [assignee]
+          );
 
-        if (!employeeError && employee) {
-          updateData.assignees = [{
-            id: employee.id,
-            name: employee.name,
-            position: employee.position || '미정',
-            email: employee.email || ''
-          }];
-        } else {
+          if (employee) {
+            updateData.assignees = [{
+              id: employee.id,
+              name: employee.name,
+              position: employee.position || '미정',
+              email: employee.email || ''
+            }];
+          } else {
+            console.warn('⚠️ [FACILITY-TASKS] 단일 담당자 ID 조회 실패:', assignee, '- 직원 없음');
+            updateData.assignees = [{
+              id: '',
+              name: assignee,
+              position: '미정',
+              email: ''
+            }];
+          }
+        } catch (employeeError: any) {
           console.warn('⚠️ [FACILITY-TASKS] 단일 담당자 ID 조회 실패:', assignee, employeeError?.message);
           updateData.assignees = [{
             id: '',

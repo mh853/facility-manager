@@ -104,15 +104,15 @@ export async function verifyTokenHybrid(token: string): Promise<TokenVerificatio
   }
 
   try {
-    const { data: user, error } = await supabase
-      .from('employees')
-      .select('id, name, email, permission_level, department')
-      .eq('id', userId)
-      .eq('is_active', true)
-      .single();
+    // Direct PostgreSQL query
+    const { queryOne } = await import('@/lib/supabase-direct');
+    const user = await queryOne(
+      'SELECT id, name, email, permission_level, department FROM employees WHERE id = $1 AND is_active = true',
+      [userId]
+    );
 
-    if (error || !user) {
-      console.warn('⚠️ [JWT] 사용자 조회 실패:', error?.message);
+    if (!user) {
+      console.warn('⚠️ [JWT] 사용자 조회 실패: 사용자 없음');
       return {
         user: null,
         isOldToken,

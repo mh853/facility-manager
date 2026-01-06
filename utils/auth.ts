@@ -72,23 +72,16 @@ export async function findUserByEmail(email: string) {
   }
 }
 
-// ID로 사용자 찾기
+// ID로 사용자 찾기 - Direct PostgreSQL
 export async function findUserById(userId: string) {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('employees')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const { queryOne } = await import('@/lib/supabase-direct');
+    const user = await queryOne(
+      'SELECT * FROM employees WHERE id = $1',
+      [userId]
+    );
 
-    if (error) {
-      if (error.code === 'PGRST116') { // No rows returned
-        return null;
-      }
-      throw error;
-    }
-
-    return data;
+    return user || null;
   } catch (error) {
     console.error('Error finding user by ID:', error);
     return null;

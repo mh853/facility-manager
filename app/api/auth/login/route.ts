@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, query as pgQuery } from '@/lib/supabase-direct';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -85,16 +86,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 먼저 이메일로 사용자 조회 (활성 상태 무관)
-    const { data: employeeCheck, error: checkError } = await supabaseAdmin
-      .from('employees')
-      .select('*')
-      .eq('email', email)
-      .eq('is_deleted', false)
-      .single();
+    // 먼저 이메일로 사용자 조회 (활성 상태 무관) - 직접 PostgreSQL 연결 사용
+    console.log('🔍 [DEBUG] PostgreSQL 직접 연결로 쿼리 실행:', {
+      table: 'employees',
+      email,
+      method: 'direct-pg'
+    });
 
-    if (checkError || !employeeCheck) {
-      console.log('❌ [AUTH] 사용자 조회 실패:', checkError?.message);
+    const employeeCheck = await queryOne(
+      'SELECT * FROM employees WHERE email = $1 AND is_deleted = false LIMIT 1',
+      [email]
+    );
+
+    if (!employeeCheck) {
+      console.log('❌ [AUTH] 사용자 조회 실패: 존재하지 않는 사용자');
       return NextResponse.json(
         { success: false, error: { code: 'USER_NOT_FOUND', message: '존재하지 않는 사용자입니다.' } },
         { status: 401 }
@@ -139,11 +144,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 마지막 로그인 시간 업데이트
-    await supabaseAdmin
-      .from('employees')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', employee.id);
+    // 마지막 로그인 시간 업데이트 - 직접 PostgreSQL 연결 사용
+    await pgQuery(
+      'UPDATE employees SET last_login_at = $1 WHERE id = $2',
+      [new Date().toISOString(), employee.id]
+    );
 
     // JWT 토큰 생성 (verify API와 동일한 구조)
     const token = jwt.sign(
