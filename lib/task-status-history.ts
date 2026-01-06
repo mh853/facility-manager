@@ -1,5 +1,5 @@
 // 업무 단계 이력 관리 유틸리티
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct';
 
 export interface StatusHistoryEntry {
   id: string;
@@ -55,41 +55,43 @@ export async function startNewStatus(params: {
     createdByName
   } = params;
 
-  // 1. 이전 단계가 있으면 완료 처리
-  const { error: completeError } = await supabaseAdmin
-    .from('task_status_history')
-    .update({
-      completed_at: new Date().toISOString()
-    })
-    .eq('task_id', taskId)
-    .is('completed_at', null);
-
-  if (completeError) {
+  // 1. 이전 단계가 있으면 완료 처리 - Direct PostgreSQL
+  try {
+    await pgQuery(
+      `UPDATE task_status_history
+       SET completed_at = $1
+       WHERE task_id = $2 AND completed_at IS NULL`,
+      [new Date().toISOString(), taskId]
+    );
+  } catch (completeError) {
     console.error('❌ [STATUS-HISTORY] 이전 단계 완료 처리 실패:', completeError);
   }
 
-  // 2. 새 단계 시작 기록
-  const { data, error } = await supabaseAdmin
-    .from('task_status_history')
-    .insert([{
-      task_id: taskId,
+  // 2. 새 단계 시작 기록 - Direct PostgreSQL
+  const data = await queryOne(
+    `INSERT INTO task_status_history (
+      task_id, status, task_type, started_at, assignee_id, assignee_name,
+      primary_assignee_id, business_name, notes, created_by, created_by_name
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    RETURNING *`,
+    [
+      taskId,
       status,
-      task_type: taskType,
-      started_at: new Date().toISOString(),
-      assignee_id: assigneeId,
-      assignee_name: assigneeName,
-      primary_assignee_id: primaryAssigneeId,
-      business_name: businessName,
-      notes,
-      created_by: createdBy,
-      created_by_name: createdByName
-    }])
-    .select()
-    .single();
+      taskType,
+      new Date().toISOString(),
+      assigneeId || null,
+      assigneeName || null,
+      primaryAssigneeId || null,
+      businessName,
+      notes || null,
+      createdBy || null,
+      createdByName || null
+    ]
+  );
 
-  if (error) {
-    console.error('❌ [STATUS-HISTORY] 새 단계 기록 실패:', error);
-    throw error;
+  if (!data) {
+    console.error('❌ [STATUS-HISTORY] 새 단계 기록 실패');
+    throw new Error('새 단계 기록 실패');
   }
 
   console.log('✅ [STATUS-HISTORY] 새 단계 시작 기록:', {
@@ -107,21 +109,21 @@ export async function startNewStatus(params: {
 export async function completeCurrentStatus(taskId: string, notes?: string) {
   const now = new Date().toISOString();
 
-  const { data, error } = await supabaseAdmin
-    .from('task_status_history')
-    .update({
-      completed_at: now,
-      notes: notes || undefined
-    })
-    .eq('task_id', taskId)
-    .is('completed_at', null)
-    .select()
-    .single();
+  // Direct PostgreSQL - UPDATE with RETURNING
+  const result = await pgQuery(
+    `UPDATE task_status_history
+     SET completed_at = $1, notes = COALESCE($2, notes)
+     WHERE task_id = $3 AND completed_at IS NULL
+     RETURNING *`,
+    [now, notes || null, taskId]
+  );
 
-  if (error) {
-    console.error('❌ [STATUS-HISTORY] 단계 완료 처리 실패:', error);
-    throw error;
+  if (!result.rows || result.rows.length === 0) {
+    console.error('❌ [STATUS-HISTORY] 단계 완료 처리 실패: 진행 중인 단계를 찾을 수 없음');
+    throw new Error('진행 중인 단계를 찾을 수 없습니다');
   }
+
+  const data = result.rows[0];
 
   console.log('✅ [STATUS-HISTORY] 단계 완료 처리:', {
     taskId,
@@ -137,16 +139,13 @@ export async function completeCurrentStatus(taskId: string, notes?: string) {
  * 업무의 전체 단계 이력 조회
  */
 export async function getTaskStatusHistory(taskId: string): Promise<StatusHistoryEntry[]> {
-  const { data, error } = await supabaseAdmin
-    .from('task_status_history')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('started_at', { ascending: true });
-
-  if (error) {
-    console.error('❌ [STATUS-HISTORY] 이력 조회 실패:', error);
-    throw error;
-  }
+  // Direct PostgreSQL
+  const data = await queryAll(
+    `SELECT * FROM task_status_history
+     WHERE task_id = $1
+     ORDER BY started_at ASC`,
+    [taskId]
+  );
 
   return data || [];
 }
@@ -155,16 +154,13 @@ export async function getTaskStatusHistory(taskId: string): Promise<StatusHistor
  * 업무의 타임라인 조회 (다음 단계 정보 포함)
  */
 export async function getTaskTimeline(taskId: string): Promise<StatusTimelineEntry[]> {
-  const { data, error } = await supabaseAdmin
-    .from('task_status_timeline')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('started_at', { ascending: true });
-
-  if (error) {
-    console.error('❌ [STATUS-HISTORY] 타임라인 조회 실패:', error);
-    throw error;
-  }
+  // Direct PostgreSQL - task_status_timeline view 사용
+  const data = await queryAll(
+    `SELECT * FROM task_status_timeline
+     WHERE task_id = $1
+     ORDER BY started_at ASC`,
+    [taskId]
+  );
 
   return data || [];
 }
@@ -173,60 +169,58 @@ export async function getTaskTimeline(taskId: string): Promise<StatusTimelineEnt
  * 현재 진행 중인 단계 조회
  */
 export async function getCurrentStatus(taskId: string): Promise<StatusHistoryEntry | null> {
-  const { data, error } = await supabaseAdmin
-    .from('task_status_history')
-    .select('*')
-    .eq('task_id', taskId)
-    .is('completed_at', null)
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Direct PostgreSQL
+  try {
+    const data = await queryOne(
+      `SELECT * FROM task_status_history
+       WHERE task_id = $1 AND completed_at IS NULL
+       ORDER BY started_at DESC
+       LIMIT 1`,
+      [taskId]
+    );
 
-  if (error) {
+    return data;
+  } catch (error) {
     console.error('❌ [STATUS-HISTORY] 현재 단계 조회 실패:', error);
     return null;
   }
-
-  return data;
 }
 
 /**
  * 특정 단계의 통계 조회
  */
 export async function getStatusStatistics(status: string, taskType?: 'self' | 'subsidy') {
-  let query = supabaseAdmin
-    .from('task_status_statistics')
-    .select('*')
-    .eq('status', status);
+  // Direct PostgreSQL - task_status_statistics view 사용
+  try {
+    let queryText = `SELECT * FROM task_status_statistics WHERE status = $1`;
+    const params: any[] = [status];
 
-  if (taskType) {
-    query = query.eq('task_type', taskType);
-  }
+    if (taskType) {
+      queryText += ` AND task_type = $2`;
+      params.push(taskType);
+    }
 
-  const { data, error } = await query.maybeSingle();
+    queryText += ` LIMIT 1`;
 
-  if (error) {
+    const data = await queryOne(queryText, params);
+    return data;
+  } catch (error) {
     console.error('❌ [STATUS-HISTORY] 통계 조회 실패:', error);
     return null;
   }
-
-  return data;
 }
 
 /**
  * 사업장별 단계 이력 조회
  */
 export async function getBusinessStatusHistory(businessName: string): Promise<StatusHistoryEntry[]> {
-  const { data, error } = await supabaseAdmin
-    .from('task_status_history')
-    .select('*')
-    .eq('business_name', businessName)
-    .order('started_at', { ascending: false });
-
-  if (error) {
-    console.error('❌ [STATUS-HISTORY] 사업장 이력 조회 실패:', error);
-    throw error;
-  }
+  // Direct PostgreSQL
+  const data = await queryAll(
+    `SELECT * FROM task_status_history
+     WHERE business_name = $1
+     ORDER BY started_at DESC`,
+    [businessName]
+  );
 
   return data || [];
 }
