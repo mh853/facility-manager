@@ -7,7 +7,7 @@ import {
   createSuccessResponse,
   createErrorResponse
 } from '@/lib/api-utils'
-import { supabaseAdmin } from '@/lib/supabase'
+import { queryAll, queryOne } from '@/lib/supabase-direct'
 import { verifyTokenHybrid } from '@/lib/secure-jwt'
 import type {
   OrderListItem,
@@ -96,12 +96,13 @@ export const GET = withApiHandler(
 
       // 1. 상태에 따라 다른 쿼리 실행
       if (status === 'in_progress') {
-        // 발주 필요: facility_tasks에서 status='product_order'인 사업장
-        const { data: tasks, error: taskErr } = await supabaseAdmin
-          .from('facility_tasks')
-          .select('*')
-          .eq('status', 'product_order')
-          .eq('is_deleted', false)
+        // 발주 필요: facility_tasks에서 status='product_order'인 사업장 - Direct PostgreSQL
+        const tasks = await queryAll(
+          `SELECT * FROM facility_tasks
+           WHERE status = $1 AND is_deleted = $2`,
+          ['product_order', false]
+        )
+        const taskErr = null
 
         if (taskErr) {
           orderError = taskErr
@@ -133,28 +134,38 @@ export const GET = withApiHandler(
           let businesses: any[] = []
           let bizErr: any = null
 
-          // ✅ 쿼리 통합: business_id와 business_name 조회를 하나의 쿼리로 통합 (2 queries → 1 query)
+          // ✅ 쿼리 통합: business_id와 business_name 조회를 하나의 쿼리로 통합 - Direct PostgreSQL
           if (businessIds.length > 0 || businessNames.length > 0) {
-            let query = supabaseAdmin
-              .from('business_info')
-              .select('id, business_name, address, manufacturer, updated_at, order_date')
-              .eq('is_deleted', false)
+            const conditions: string[] = ['is_deleted = $1']
+            const params: any[] = [false]
+            let paramIndex = 2
 
             // OR 조건으로 business_id와 business_name 동시 조회
             const orConditions: string[] = []
             if (businessIds.length > 0) {
-              orConditions.push(`id.in.(${businessIds.join(',')})`)
+              const placeholders = businessIds.map((_, i) => `$${paramIndex + i}`).join(', ')
+              orConditions.push(`id IN (${placeholders})`)
+              params.push(...businessIds)
+              paramIndex += businessIds.length
             }
             if (businessNames.length > 0) {
-              const escapedNames = businessNames.map(name => `"${name}"`).join(',')
-              orConditions.push(`business_name.in.(${escapedNames})`)
+              const placeholders = businessNames.map((_, i) => `$${paramIndex + i}`).join(', ')
+              orConditions.push(`business_name IN (${placeholders})`)
+              params.push(...businessNames)
+              paramIndex += businessNames.length
             }
 
             if (orConditions.length > 0) {
-              query = query.or(orConditions.join(','))
+              conditions.push(`(${orConditions.join(' OR ')})`)
             }
 
-            const { data: businessData, error: queryErr } = await query
+            const businessData = await queryAll(
+              `SELECT id, business_name, address, manufacturer, updated_at, order_date
+               FROM business_info
+               WHERE ${conditions.join(' AND ')}`,
+              params
+            )
+            const queryErr = null
 
             if (queryErr) {
               bizErr = queryErr
@@ -181,18 +192,20 @@ export const GET = withApiHandler(
               businesses.map(b => [b.business_name, b])
             )
 
-            // order_management 데이터 조회 (진행률 계산용)
+            // order_management 데이터 조회 (진행률 계산용) - Direct PostgreSQL
             const businessIdsForOrder = businessIds.filter(id => id !== null && id !== undefined)
             let orderManagementData: any[] = []
 
             if (businessIdsForOrder.length > 0) {
-              const { data: omData, error: omError } = await supabaseAdmin
-                .from('order_management')
-                .select('*')
-                .in('business_id', businessIdsForOrder)
+              const placeholders = businessIdsForOrder.map((_, i) => `$${i + 1}`).join(', ')
+              const omData = await queryAll(
+                `SELECT * FROM order_management
+                 WHERE business_id IN (${placeholders})`,
+                businessIdsForOrder
+              )
 
-              if (omError) {
-                console.error('[ORDER-MANAGEMENT] order_management 조회 오류:', omError)
+              if (!omData) {
+                console.error('[ORDER-MANAGEMENT] order_management 조회 오류')
               } else {
                 orderManagementData = omData || []
               }
@@ -295,28 +308,35 @@ export const GET = withApiHandler(
           }
         }
       } else if (status === 'not_started') {
-        // 발주 진행 전: business_info에서 order_date가 NULL인 사업장
-        // ✅ 성능 최적화: 40개 이상 필드 → 6개 필수 필드만 조회 (85% 데이터 감소)
-        let businessQuery = supabaseAdmin
-          .from('business_info')
-          .select('id, business_name, address, manufacturer, updated_at, order_date')
-          .is('order_date', null)
-          .eq('is_deleted', false)
+        // 발주 진행 전: business_info에서 order_date가 NULL인 사업장 - Direct PostgreSQL
+        const conditions: string[] = ['order_date IS NULL', 'is_deleted = $1']
+        const params: any[] = [false]
+        let paramIndex = 2
 
         // 사업장명 검색
         if (search) {
-          businessQuery = businessQuery.ilike('business_name', `%${search}%`)
+          conditions.push(`business_name ILIKE $${paramIndex}`)
+          params.push(`%${search}%`)
+          paramIndex++
         }
 
         // 제조사 필터 (영문 키 → 한글 변환)
         if (manufacturer !== 'all') {
           const manufacturerKorean = MANUFACTURER_REVERSE_MAP[manufacturer as Manufacturer]
           if (manufacturerKorean) {
-            businessQuery = businessQuery.eq('manufacturer', manufacturerKorean)
+            conditions.push(`manufacturer = $${paramIndex}`)
+            params.push(manufacturerKorean)
+            paramIndex++
           }
         }
 
-        const { data: businesses, error: bizErr } = await businessQuery
+        const businesses = await queryAll(
+          `SELECT id, business_name, address, manufacturer, updated_at, order_date
+           FROM business_info
+           WHERE ${conditions.join(' AND ')}`,
+          params
+        )
+        const bizErr = null
 
         if (bizErr) {
           orderError = bizErr
@@ -340,28 +360,35 @@ export const GET = withApiHandler(
           })
         }
       } else if (status === 'completed') {
-        // 발주 완료: business_info에서 order_date가 있는 사업장
-        // ✅ 성능 최적화: 40개 이상 필드 → 6개 필수 필드만 조회 (85% 데이터 감소)
-        let businessQuery = supabaseAdmin
-          .from('business_info')
-          .select('id, business_name, address, manufacturer, updated_at, order_date')
-          .not('order_date', 'is', null)
-          .eq('is_deleted', false)
+        // 발주 완료: business_info에서 order_date가 있는 사업장 - Direct PostgreSQL
+        const conditions: string[] = ['order_date IS NOT NULL', 'is_deleted = $1']
+        const params: any[] = [false]
+        let paramIndex = 2
 
         // 사업장명 검색
         if (search) {
-          businessQuery = businessQuery.ilike('business_name', `%${search}%`)
+          conditions.push(`business_name ILIKE $${paramIndex}`)
+          params.push(`%${search}%`)
+          paramIndex++
         }
 
         // 제조사 필터 (영문 키 → 한글 변환)
         if (manufacturer !== 'all') {
           const manufacturerKorean = MANUFACTURER_REVERSE_MAP[manufacturer as Manufacturer]
           if (manufacturerKorean) {
-            businessQuery = businessQuery.eq('manufacturer', manufacturerKorean)
+            conditions.push(`manufacturer = $${paramIndex}`)
+            params.push(manufacturerKorean)
+            paramIndex++
           }
         }
 
-        const { data: businesses, error: bizErr } = await businessQuery
+        const businesses = await queryAll(
+          `SELECT id, business_name, address, manufacturer, updated_at, order_date
+           FROM business_info
+           WHERE ${conditions.join(' AND ')}`,
+          params
+        )
+        const bizErr = null
 
         if (bizErr) {
           orderError = bizErr
@@ -385,26 +412,34 @@ export const GET = withApiHandler(
           })
         }
       } else {
-        // 'all' 상태: 모든 사업장 조회
-        // ✅ 성능 최적화: 40개 이상 필드 → 6개 필수 필드만 조회 (85% 데이터 감소)
-        let businessQuery = supabaseAdmin
-          .from('business_info')
-          .select('id, business_name, address, manufacturer, updated_at, order_date')
-          .eq('is_deleted', false)
+        // 'all' 상태: 모든 사업장 조회 - Direct PostgreSQL
+        const conditions: string[] = ['is_deleted = $1']
+        const params: any[] = [false]
+        let paramIndex = 2
 
         if (search) {
-          businessQuery = businessQuery.ilike('business_name', `%${search}%`)
+          conditions.push(`business_name ILIKE $${paramIndex}`)
+          params.push(`%${search}%`)
+          paramIndex++
         }
 
         // 제조사 필터 (영문 키 → 한글 변환)
         if (manufacturer !== 'all') {
           const manufacturerKorean = MANUFACTURER_REVERSE_MAP[manufacturer as Manufacturer]
           if (manufacturerKorean) {
-            businessQuery = businessQuery.eq('manufacturer', manufacturerKorean)
+            conditions.push(`manufacturer = $${paramIndex}`)
+            params.push(manufacturerKorean)
+            paramIndex++
           }
         }
 
-        const { data: businesses, error: bizErr } = await businessQuery
+        const businesses = await queryAll(
+          `SELECT id, business_name, address, manufacturer, updated_at, order_date
+           FROM business_info
+           WHERE ${conditions.join(' AND ')}`,
+          params
+        )
+        const bizErr = null
 
         if (bizErr) {
           orderError = bizErr
@@ -499,27 +534,30 @@ export const GET = withApiHandler(
       const startIndex = (page - 1) * limit
       const paginatedOrders = orderList.slice(startIndex, startIndex + limit)
 
-      // 7. 통계 계산 (전체 데이터 기준)
+      // 7. 통계 계산 (전체 데이터 기준) - Direct PostgreSQL
       // 발주 필요: facility_tasks에서 status='product_order' 카운트
-      const { count: inProgressCount } = await supabaseAdmin
-        .from('facility_tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'product_order')
-        .eq('is_deleted', false)
+      const inProgressResult = await queryOne(
+        `SELECT COUNT(*) as count FROM facility_tasks
+         WHERE status = $1 AND is_deleted = $2`,
+        ['product_order', false]
+      )
+      const inProgressCount = parseInt(inProgressResult?.count || '0')
 
       // 발주 진행 전: business_info.order_date가 NULL인 사업장 카운트
-      const { count: notStartedCount } = await supabaseAdmin
-        .from('business_info')
-        .select('*', { count: 'exact', head: true })
-        .is('order_date', null)
-        .eq('is_deleted', false)
+      const notStartedResult = await queryOne(
+        `SELECT COUNT(*) as count FROM business_info
+         WHERE order_date IS NULL AND is_deleted = $1`,
+        [false]
+      )
+      const notStartedCount = parseInt(notStartedResult?.count || '0')
 
       // 발주 완료: business_info.order_date가 있는 사업장 카운트
-      const { count: completedCount } = await supabaseAdmin
-        .from('business_info')
-        .select('*', { count: 'exact', head: true })
-        .not('order_date', 'is', null)
-        .eq('is_deleted', false)
+      const completedResult = await queryOne(
+        `SELECT COUNT(*) as count FROM business_info
+         WHERE order_date IS NOT NULL AND is_deleted = $1`,
+        [false]
+      )
+      const completedCount = parseInt(completedResult?.count || '0')
 
       const summary = {
         total_orders: (inProgressCount || 0) + (notStartedCount || 0) + (completedCount || 0),

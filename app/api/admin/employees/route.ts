@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryAll } from '@/lib/supabase-direct';
 import { verifyTokenString } from '@/utils/auth';
 
 // Force dynamic rendering for API routes
@@ -44,14 +44,14 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ [EMPLOYEES] 관리자 권한 확인 완료');
 
-    // 직원 목록 조회
-    const { data: employees, error } = await supabaseAdmin
-      .from('employees')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // 직원 목록 조회 - Direct PostgreSQL
+    const employees = await queryAll(
+      `SELECT * FROM employees
+       ORDER BY created_at DESC`
+    )
 
-    if (error) {
-      console.error('❌ [EMPLOYEES] 직원 목록 조회 오류:', error);
+    if (!employees) {
+      console.error('❌ [EMPLOYEES] 직원 목록 조회 오류');
       return NextResponse.json({
         success: false,
         message: '직원 목록 조회에 실패했습니다.'

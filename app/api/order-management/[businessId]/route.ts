@@ -7,7 +7,7 @@ import {
   createSuccessResponse,
   createErrorResponse
 } from '@/lib/api-utils'
-import { supabaseAdmin } from '@/lib/supabase'
+import { queryOne } from '@/lib/supabase-direct'
 import { verifyTokenHybrid } from '@/lib/secure-jwt'
 import type {
   OrderDetailResponse,
@@ -75,34 +75,33 @@ export const GET = withApiHandler(
         businessId
       })
 
-      // 1. 사업장 정보 조회 (대기필증 정보 포함)
-      const { data: business, error: businessError } = await supabaseAdmin
-        .from('business_info')
-        .select(
-          `
-          id,
-          business_name,
-          business_management_code,
-          address,
-          manager_name,
-          manager_position,
-          manager_contact,
-          manufacturer,
-          vpn,
-          greenlink_id,
-          greenlink_pw,
-          air_permit_info!air_permit_info_business_id_fkey(
-            id,
-            is_active
-          )
-        `
-        )
-        .eq('id', businessId)
-        .eq('is_deleted', false)
-        .single()
+      // 1. 사업장 정보 조회 (대기필증 정보 포함) - Direct PostgreSQL
+      const business = await queryOne(
+        `SELECT
+          bi.id,
+          bi.business_name,
+          bi.business_management_code,
+          bi.address,
+          bi.manager_name,
+          bi.manager_position,
+          bi.manager_contact,
+          bi.manufacturer,
+          bi.vpn,
+          bi.greenlink_id,
+          bi.greenlink_pw,
+          (
+            SELECT json_agg(json_build_object('id', api.id, 'is_active', api.is_active))
+            FROM air_permit_info api
+            WHERE api.business_id = bi.id
+          ) as air_permit_info
+        FROM business_info bi
+        WHERE bi.id = $1 AND bi.is_deleted = $2
+        LIMIT 1`,
+        [businessId, false]
+      )
 
-      if (businessError || !business) {
-        console.error('[ORDER-DETAIL] 사업장 조회 오류:', businessError)
+      if (!business) {
+        console.error('[ORDER-DETAIL] 사업장 조회 오류')
         return createErrorResponse('사업장을 찾을 수 없습니다', 404)
       }
 
@@ -117,33 +116,27 @@ export const GET = withApiHandler(
         air_permit_id: airPermitId
       })
 
-      // 2. 발주 정보 조회 (없으면 생성)
-      let { data: order, error: orderError } = await supabaseAdmin
-        .from('order_management')
-        .select('*')
-        .eq('business_id', businessId)
-        .single()
+      // 2. 발주 정보 조회 (없으면 생성) - Direct PostgreSQL
+      let order = await queryOne(
+        `SELECT * FROM order_management
+         WHERE business_id = $1
+         LIMIT 1`,
+        [businessId]
+      )
 
-      if (orderError && orderError.code === 'PGRST116') {
+      if (!order) {
         // 발주 정보가 없으면 새로 생성
-        const { data: newOrder, error: createError } = await supabaseAdmin
-          .from('order_management')
-          .insert({
-            business_id: businessId,
-            status: 'in_progress'
-          })
-          .select()
-          .single()
+        order = await queryOne(
+          `INSERT INTO order_management (business_id, status)
+           VALUES ($1, $2)
+           RETURNING *`,
+          [businessId, 'in_progress']
+        )
 
-        if (createError) {
-          console.error('[ORDER-DETAIL] 발주 정보 생성 오류:', createError)
+        if (!order) {
+          console.error('[ORDER-DETAIL] 발주 정보 생성 오류')
           return createErrorResponse('발주 정보 생성 중 오류가 발생했습니다', 500)
         }
-
-        order = newOrder
-      } else if (orderError) {
-        console.error('[ORDER-DETAIL] 발주 정보 조회 오류:', orderError)
-        return createErrorResponse('발주 정보 조회 중 오류가 발생했습니다', 500)
       }
 
       // 3. 제조사별 워크플로우 정보
@@ -240,41 +233,63 @@ export const PUT = withApiHandler(
         updates: body
       })
 
-      // 1. 사업장 존재 확인
-      const { data: business, error: businessError } = await supabaseAdmin
-        .from('business_info')
-        .select('id, manufacturer')
-        .eq('id', businessId)
-        .eq('is_deleted', false)
-        .single()
+      // 1. 사업장 존재 확인 - Direct PostgreSQL
+      const business = await queryOne(
+        `SELECT id, manufacturer FROM business_info
+         WHERE id = $1 AND is_deleted = $2
+         LIMIT 1`,
+        [businessId, false]
+      )
 
-      if (businessError || !business) {
+      if (!business) {
         return createErrorResponse('사업장을 찾을 수 없습니다', 404)
       }
 
-      // 2. 발주 정보 업데이트
-      const updateData: any = {}
+      // 2. 발주 정보 업데이트 - Direct PostgreSQL
+      const updateFields: string[] = []
+      const params: any[] = []
+      let paramIndex = 1
 
       // 날짜 필드만 업데이트 (null 포함)
-      if ('layout_date' in body) updateData.layout_date = body.layout_date
-      if ('order_form_date' in body)
-        updateData.order_form_date = body.order_form_date
-      if ('ip_request_date' in body)
-        updateData.ip_request_date = body.ip_request_date
-      if ('greenlink_ip_setting_date' in body)
-        updateData.greenlink_ip_setting_date = body.greenlink_ip_setting_date
-      if ('router_request_date' in body)
-        updateData.router_request_date = body.router_request_date
+      if ('layout_date' in body) {
+        updateFields.push(`layout_date = $${paramIndex}`)
+        params.push(body.layout_date)
+        paramIndex++
+      }
+      if ('order_form_date' in body) {
+        updateFields.push(`order_form_date = $${paramIndex}`)
+        params.push(body.order_form_date)
+        paramIndex++
+      }
+      if ('ip_request_date' in body) {
+        updateFields.push(`ip_request_date = $${paramIndex}`)
+        params.push(body.ip_request_date)
+        paramIndex++
+      }
+      if ('greenlink_ip_setting_date' in body) {
+        updateFields.push(`greenlink_ip_setting_date = $${paramIndex}`)
+        params.push(body.greenlink_ip_setting_date)
+        paramIndex++
+      }
+      if ('router_request_date' in body) {
+        updateFields.push(`router_request_date = $${paramIndex}`)
+        params.push(body.router_request_date)
+        paramIndex++
+      }
 
-      const { data: updatedOrder, error: updateError } = await supabaseAdmin
-        .from('order_management')
-        .update(updateData)
-        .eq('business_id', businessId)
-        .select()
-        .single()
+      // WHERE 조건용 파라미터 추가
+      params.push(businessId)
 
-      if (updateError) {
-        console.error('[ORDER-UPDATE] 업데이트 오류:', updateError)
+      const updatedOrder = await queryOne(
+        `UPDATE order_management
+         SET ${updateFields.join(', ')}
+         WHERE business_id = $${paramIndex}
+         RETURNING *`,
+        params
+      )
+
+      if (!updatedOrder) {
+        console.error('[ORDER-UPDATE] 업데이트 오류')
         return createErrorResponse('발주 정보 업데이트 중 오류가 발생했습니다', 500)
       }
 
