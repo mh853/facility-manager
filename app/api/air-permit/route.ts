@@ -140,15 +140,15 @@ export async function GET(request: NextRequest) {
               (
                 SELECT json_agg(df.*)
                 FROM discharge_facilities df
-                WHERE df.outlet_id = outlet.id AND df.is_active = true AND df.is_deleted = false
+                WHERE df.outlet_id = outlet.id
               ) as discharge_facilities,
               (
                 SELECT json_agg(pf.*)
                 FROM prevention_facilities pf
-                WHERE pf.outlet_id = outlet.id AND pf.is_active = true AND pf.is_deleted = false
+                WHERE pf.outlet_id = outlet.id
               ) as prevention_facilities
              FROM discharge_outlets outlet
-             WHERE outlet.air_permit_id = $1 AND outlet.is_active = true AND outlet.is_deleted = false
+             WHERE outlet.air_permit_id = $1
              ORDER BY outlet.outlet_number`,
             [permit.id]
           );
