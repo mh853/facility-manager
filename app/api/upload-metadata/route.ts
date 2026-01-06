@@ -4,7 +4,7 @@
 // DB에 메타데이터만 저장
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryAll, queryOne, query } from '@/lib/supabase-direct';
 import { memoryCache } from '@/lib/cache';
 
 // Force dynamic rendering for API routes
@@ -17,57 +17,44 @@ export const runtime = 'nodejs';
  */
 async function getOrCreateBusiness(businessName: string): Promise<string> {
   // 기존 사업장 조회 (business_info 테이블)
-  const { data: existingBusiness, error: selectError } = await supabaseAdmin
-    .from('business_info')
-    .select('id')
-    .eq('business_name', businessName)
-    .eq('is_deleted', false)
-    .single();
+  const existingBusiness = await queryOne(
+    `SELECT id FROM business_info
+     WHERE business_name = $1 AND is_deleted = false`,
+    [businessName]
+  );
 
   if (existingBusiness) {
     console.log(`✅ [METADATA] 기존 사업장 사용: ${businessName} (${existingBusiness.id})`);
     return existingBusiness.id;
   }
 
-  if (selectError?.code !== 'PGRST116') {
-    // 'PGRST116'은 데이터가 없음을 의미
-    throw selectError;
-  }
-
   // 새 사업장 생성 (중복 방지)
-  const { data: newBusiness, error: insertError } = await supabaseAdmin
-    .from('business_info')
-    .insert({
-      business_name: businessName,
-      is_deleted: false,
-      is_active: true
-    })
-    .select('id')
-    .single();
+  try {
+    const newBusiness = await queryOne(
+      `INSERT INTO business_info (business_name, is_deleted, is_active)
+       VALUES ($1, false, true)
+       RETURNING id`,
+      [businessName]
+    );
 
-  if (insertError) {
+    console.log(`✅ [METADATA] 새 사업장 생성: ${businessName} (${newBusiness.id})`);
+    return newBusiness.id;
+  } catch (error: any) {
     // 중복 키 오류인 경우 다시 조회해서 반환
-    if (insertError.code === '23505') {
+    if (error.code === '23505') {
       console.log(`⚠️ [METADATA] 중복 생성 시도, 기존 사업장 재조회: ${businessName}`);
-      const { data: retryBusiness, error: retryError } = await supabaseAdmin
-        .from('business_info')
-        .select('id')
-        .eq('business_name', businessName)
-        .eq('is_deleted', false)
-        .single();
+      const retryBusiness = await queryOne(
+        `SELECT id FROM business_info
+         WHERE business_name = $1 AND is_deleted = false`,
+        [businessName]
+      );
 
       if (retryBusiness) {
         return retryBusiness.id;
       }
-      if (retryError) {
-        throw retryError;
-      }
     }
-    throw insertError;
+    throw error;
   }
-
-  console.log(`✅ [METADATA] 새 사업장 생성: ${businessName} (${newBusiness.id})`);
-  return newBusiness.id;
 }
 
 export async function POST(request: NextRequest) {
@@ -119,53 +106,45 @@ export async function POST(request: NextRequest) {
     const fileHash = `${filename}-${fileSize}-${Date.now()}`;
 
     // 3. DB에 파일 정보 저장
-    const { data: fileRecord, error: dbError } = await supabaseAdmin
-      .from('uploaded_files')
-      .insert({
-        business_id: businessId,
+    const fileRecord = await queryOne(
+      `INSERT INTO uploaded_files (
+        business_id, filename, original_filename, file_path,
+        file_size, mime_type, file_hash, upload_status, facility_info
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id, filename, original_filename, file_path, file_size,
+                mime_type, upload_status, created_at, facility_info`,
+      [
+        businessId,
         filename,
-        original_filename: originalFilename || filename,
-        file_path: filePath,
-        file_size: fileSize,
-        mime_type: mimeType,
-        file_hash: fileHash,
-        upload_status: 'uploaded',
-        facility_info: facilityInfo || null
-      })
-      .select(`
-        id,
-        filename,
-        original_filename,
-        file_path,
-        file_size,
-        mime_type,
-        upload_status,
-        created_at,
-        facility_info
-      `)
-      .single();
-
-    if (dbError) {
-      console.error(`❌ [METADATA-API] DB 저장 실패:`, dbError);
-      throw new Error(`DB 저장 실패: ${dbError.message}`);
-    }
+        originalFilename || filename,
+        filePath,
+        fileSize,
+        mimeType,
+        fileHash,
+        'uploaded',
+        facilityInfo || null
+      ]
+    );
 
     console.log(`✅ [METADATA-API] 메타데이터 저장 완료: ${fileRecord.id}`);
 
     // 4. Google 동기화 큐에 추가 (선택사항)
     try {
-      await supabaseAdmin
-        .from('sync_queue')
-        .insert({
-          operation_type: 'upload_to_drive',
-          payload: {
+      await query(
+        `INSERT INTO sync_queue (operation_type, payload)
+         VALUES ($1, $2)`,
+        [
+          'upload_to_drive',
+          JSON.stringify({
             file_id: fileRecord.id,
             business_name: businessName,
             file_type: fileType,
             facility_info: facilityInfo,
             system_type: systemType
-          }
-        });
+          })
+        ]
+      );
       console.log(`📤 [METADATA-API] Google 동기화 큐 추가 완료`);
     } catch (syncError) {
       console.warn(`⚠️ [METADATA-API] Google 동기화 큐 추가 실패 (무시):`, syncError);
