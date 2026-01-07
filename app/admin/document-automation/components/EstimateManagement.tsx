@@ -20,6 +20,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { formatDate, formatCurrency } from '@/utils/formatters'
 
 // Code Splitting: 모달은 사용할 때만 로드
 const EstimatePreviewModal = dynamic(() => import('./EstimatePreviewModal'), {
@@ -638,15 +639,15 @@ export default function EstimateManagement({ onDocumentCreated }: EstimateManage
                   >
                     <td className="py-3 px-4 text-sm">{estimate.estimate_number}</td>
                     <td className="py-3 px-4 text-sm">{estimate.business_name}</td>
-                    <td className="py-3 px-4 text-sm">{estimate.estimate_date}</td>
+                    <td className="py-3 px-4 text-sm">{formatDate(estimate.estimate_date)}</td>
                     <td className="py-3 px-4 text-sm text-right">
-                      ₩{estimate.subtotal.toLocaleString()}
+                      ₩{formatCurrency(estimate.subtotal)}
                     </td>
                     <td className="py-3 px-4 text-sm text-right">
-                      ₩{estimate.vat_amount.toLocaleString()}
+                      ₩{formatCurrency(estimate.vat_amount)}
                     </td>
                     <td className="py-3 px-4 text-sm text-right font-semibold">
-                      ₩{estimate.total_amount.toLocaleString()}
+                      ₩{formatCurrency(estimate.total_amount)}
                     </td>
                     <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
@@ -861,19 +862,19 @@ export default function EstimateManagement({ onDocumentCreated }: EstimateManage
                         <div className="text-center">
                           <div className="text-gray-600 mb-1">공급가액</div>
                           <div className="text-lg font-bold">
-                            ₩{selectedEstimate.subtotal.toLocaleString()}
+                            ₩{formatCurrency(selectedEstimate.subtotal)}
                           </div>
                         </div>
                         <div className="text-center">
                           <div className="text-gray-600 mb-1">부가세</div>
                           <div className="text-lg font-bold">
-                            ₩{selectedEstimate.vat_amount.toLocaleString()}
+                            ₩{formatCurrency(selectedEstimate.vat_amount)}
                           </div>
                         </div>
                         <div className="text-center">
                           <div className="text-gray-600 mb-1">합계금액</div>
                           <div className="text-xl font-bold text-blue-600">
-                            ₩{selectedEstimate.total_amount.toLocaleString()}
+                            ₩{formatCurrency(selectedEstimate.total_amount)}
                           </div>
                         </div>
                       </div>
