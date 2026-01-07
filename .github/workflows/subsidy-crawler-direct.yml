@@ -24,8 +24,8 @@ on:
 env:
   # Vercel 배포 URL (프로덕션)
   API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://facility.blueon-iot.com' }}
-  # 배치 크기 (Vercel 10초 제한 고려)
-  BATCH_SIZE: 10
+  # 배치 크기 (Vercel 10초 제한 고려 - Gemini AI 분석 시간 포함)
+  BATCH_SIZE: 5
 
 jobs:
   # ============================================================
