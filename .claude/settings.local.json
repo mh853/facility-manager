@@ -148,7 +148,13 @@
       "Bash(supabase db execute --help:*)",
       "Bash(supabase db --help:*)",
       "Bash(./migrate-with-cli.sh:*)",
-      "Bash(PGPASSWORD=\"chlansgh35855#\" /usr/local/opt/postgresql@17/bin/psql:*)"
+      "Bash(PGPASSWORD=\"chlansgh35855#\" /usr/local/opt/postgresql@17/bin/psql:*)",
+      "Bash(\"https://facility.blueon-iot.com/api/subsidy-crawler/runs?limit=1\")",
+      "Bash('https://facility.blueon-iot.com/api/subsidy-crawler/runs?limit=1')",
+      "Bash(CRAWLER_SECRET='7r7VQkjb734CNIyqryJrDz9GtmtfRs0dQHrd74bVG00=')",
+      "Bash(SECRET='7r7VQkjb734CNIyqryJrDz9GtmtfRs0dQHrd74bVG00=')",
+      "Bash(gh run view:*)",
+      "Bash(gh secret list:*)"
     ],
     "deny": [],
     "ask": [],

@@ -193,16 +193,18 @@ async function saveAnnouncements(
           title: announcement.title,
           content: announcement.content || '',
           source_url: announcement.source_url,
-          organization: 'Direct URL',
           region_code: '00000',
-          region_name: 'Direct',
-          announcement_date: new Date().toISOString(),
+          region_name: 'Direct URL Source',
+          region_type: 'basic', // Required NOT NULL field
+          published_at: new Date().toISOString(),
           relevance_score: relevanceScore,
-          ai_analysis: analysisResult?.analysis || null,
+          is_relevant: isRelevant, // Set boolean flag
           crawled_at: new Date().toISOString(),
         });
 
-      if (!error) {
+      if (error) {
+        console.error('❌ Failed to insert announcement:', announcement.title, error);
+      } else {
         newCount++;
       }
 
