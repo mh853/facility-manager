@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import TaskProgressMiniBoard from '@/components/business/TaskProgressMiniBoard'
 import { InvoiceDisplay } from '@/components/business/InvoiceDisplay'
+import { formatDate } from '@/utils/formatters'
 
 // UnifiedBusinessInfo interface
 interface UnifiedBusinessInfo {
@@ -589,7 +590,7 @@ export default function BusinessDetailModal({
                         </div>
                         {business.installation_date && (
                           <div className="text-xs sm:text-sm text-gray-700 p-2 sm:p-3 bg-green-50 rounded-lg">
-                            • 설치 예정일: {business.installation_date}
+                            • 설치 예정일: {formatDate(business.installation_date)}
                           </div>
                         )}
                       </div>
@@ -617,7 +618,7 @@ export default function BusinessDetailModal({
                         {business.additional_cost && business.additional_cost > 0 && (
                           <div className="text-xs sm:text-sm text-blue-600 p-2 bg-blue-50 rounded-lg flex items-center">
                             <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                            추가 비용 협의: {business.additional_cost?.toLocaleString()}원
+                            추가 비용 협의: {Number(business.additional_cost).toLocaleString()}원
                           </div>
                         )}
                       </div>
@@ -1133,49 +1134,49 @@ export default function BusinessDetailModal({
                     {business.order_date && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">발주일</div>
-                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.order_date}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{formatDate(business.order_date)}</div>
                       </div>
                     )}
 
                     {business.shipment_date && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">출고일</div>
-                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.shipment_date}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{formatDate(business.shipment_date)}</div>
                       </div>
                     )}
 
                     {business.installation_date && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">설치일</div>
-                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.installation_date}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{formatDate(business.installation_date)}</div>
                       </div>
                     )}
 
                     {business.construction_report_submitted_at && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">착공신고서 제출일</div>
-                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.construction_report_submitted_at}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{formatDate(business.construction_report_submitted_at)}</div>
                       </div>
                     )}
 
                     {business.greenlink_confirmation_submitted_at && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">그린링크 전송확인서 제출일</div>
-                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.greenlink_confirmation_submitted_at}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{formatDate(business.greenlink_confirmation_submitted_at)}</div>
                       </div>
                     )}
 
                     {business.attachment_completion_submitted_at && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">부착완료통보서 제출일</div>
-                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{business.attachment_completion_submitted_at}</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{formatDate(business.attachment_completion_submitted_at)}</div>
                       </div>
                     )}
 
                     {business.subsidy_approval_date && (
                       <div className="bg-white rounded-lg p-4 shadow-sm">
                         <div className="text-sm text-gray-600 mb-1">보조금 승인일</div>
-                        <div className="text-base font-medium text-gray-900">{business.subsidy_approval_date}</div>
+                        <div className="text-base font-medium text-gray-900">{formatDate(business.subsidy_approval_date)}</div>
                       </div>
                     )}
                   </div>

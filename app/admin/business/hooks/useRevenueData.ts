@@ -71,26 +71,12 @@ export function useRevenueData() {
           surveyCostsResult,
           manufacturerCostsResult
         ] = await Promise.allSettled([
-          // 1. 영업점별 수수료 정보 로드
+          // ❌ DEPRECATED: 1. 영업점별 수수료 정보 - Direct PostgreSQL로 이동
+          // Revenue Calculate API가 모든 계산 처리하므로 프론트엔드에서 조회 불필요
           (async () => {
-            console.log('🔄 영업점 수수료 로드 시작...');
-            const { data, error } = await supabase
-              .from('sales_office_cost_settings')
-              .select('sales_office, commission_percentage, is_active, effective_from')
-              .eq('is_active', true)
-              .order('effective_from', { ascending: false });
-
-            if (error) throw error;
-            if (data && data.length > 0) {
-              const commissionMap: { [key: string]: number } = {};
-              data.forEach((item: any) => {
-                if (!commissionMap[item.sales_office]) {
-                  commissionMap[item.sales_office] = item.commission_percentage || 10.0;
-                }
-              });
-              setSalesOfficeCommissions(commissionMap);
-              console.log('✅ 영업점별 수수료 로드 완료');
-            }
+            console.log('ℹ️ 영업점 수수료는 Revenue Calculate API에서 처리됩니다');
+            // 기본값 설정 (하위 호환성)
+            setSalesOfficeCommissions({});
           })(),
 
           // 2. 영업점 목록 로드 (자동완성용)

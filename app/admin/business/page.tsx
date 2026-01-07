@@ -689,42 +689,12 @@ function BusinessManagementPage() {
 
       console.log('🔍 현재 수수료 정보 상태:', currentCommissions)
 
-      if (Object.keys(currentCommissions).length === 0) {
-        console.log('⚠️ 수수료 정보 미로드 - 지금 로드 시작')
-        try {
-          // 먼저 조건 없이 전체 조회 (디버깅)
-          const { data: allData, error: allError } = await supabase
-            .from('sales_office_cost_settings')
-            .select('*')
-
-          console.log('🔍 전체 데이터 조회 (조건 없음):', { allData, allError })
-
-          const { data, error } = await supabase
-            .from('sales_office_cost_settings')
-            .select('sales_office, commission_percentage')
-            .eq('is_active', true)
-            .order('effective_from', { ascending: false })
-
-          console.log('📊 즉시 로드 응답 (is_active=true):', { data, error })
-
-          if (!error && data && data.length > 0) {
-            const commissionMap: { [key: string]: number } = {}
-            data.forEach((item: any) => {
-              if (!commissionMap[item.sales_office]) {
-                commissionMap[item.sales_office] = item.commission_percentage || 10.0
-                console.log(`  ✓ ${item.sales_office}: ${item.commission_percentage}%`)
-              }
-            })
-            // Note: setSalesOfficeCommissions removed - data now from useRevenueData hook
-            currentCommissions = commissionMap // 즉시 사용
-            console.log('✅ 수수료 정보 즉시 로드 완료:', commissionMap)
-          } else {
-            console.log('⚠️ 수수료 데이터 없음 또는 에러:', error)
-          }
-        } catch (err) {
-          console.error('❌ 수수료 정보 즉시 로드 실패:', err)
-        }
-      }
+      // ❌ DEPRECATED: Direct Supabase PostgREST calls removed
+      // Revenue Calculate API (/api/revenue/calculate) handles all calculations
+      // if (Object.keys(currentCommissions).length === 0) {
+      //   console.log('⚠️ 수수료 정보 미로드 - 지금 로드 시작')
+      //   ...
+      // }
 
       // 현재 수수료 정보를 사용해서 계산
       const salesOffice = business.sales_office || business.영업점 || ''

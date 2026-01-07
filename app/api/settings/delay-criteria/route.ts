@@ -41,27 +41,38 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   try {
     console.log('📊 [DELAY-CRITERIA] 설정 조회 요청');
 
-    // settings 테이블에서 delay_criteria 조회 - Direct PostgreSQL
-    const settings = await queryOne(
-      `SELECT value FROM settings WHERE key = $1 LIMIT 1`,
-      ['delay_criteria']
-    );
-
     let criteria = DEFAULT_CRITERIA;
-    if (settings?.value) {
-      try {
-        criteria = JSON.parse(settings.value);
-      } catch (parseError) {
-        console.warn('⚠️ [DELAY-CRITERIA] 설정 파싱 오류, 기본값 사용:', parseError);
+
+    try {
+      // settings 테이블에서 delay_criteria 조회 - Direct PostgreSQL
+      const settings = await queryOne(
+        `SELECT value FROM settings WHERE key = $1 LIMIT 1`,
+        ['delay_criteria']
+      );
+
+      if (settings?.value) {
+        try {
+          criteria = JSON.parse(settings.value);
+        } catch (parseError) {
+          console.warn('⚠️ [DELAY-CRITERIA] 설정 파싱 오류, 기본값 사용:', parseError);
+        }
+      }
+    } catch (dbError: any) {
+      // settings 테이블이 없는 경우 기본값 사용
+      if (dbError?.message?.includes('does not exist') || dbError?.message?.includes('relation')) {
+        console.warn('⚠️ [DELAY-CRITERIA] settings 테이블 없음, 기본값 사용');
+      } else {
+        // 다른 DB 오류는 throw
+        throw dbError;
       }
     }
 
     console.log('✅ [DELAY-CRITERIA] 조회 성공:', criteria);
 
-    return createSuccessResponse({
-      data: criteria,
-      message: '설정을 성공적으로 조회했습니다.'
-    });
+    return createSuccessResponse(
+      criteria,
+      '설정을 성공적으로 조회했습니다.'
+    );
 
   } catch (error: any) {
     console.error('🔴 [DELAY-CRITERIA] GET 오류:', error?.message || error);
@@ -97,27 +108,40 @@ export const POST = withApiHandler(async (request: NextRequest) => {
 
     const criteria: DelayCriteria = body;
 
-    // settings 테이블에 upsert - Direct PostgreSQL
-    const result = await queryOne(
-      `INSERT INTO settings (key, value, updated_at)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (key)
-       DO UPDATE SET value = $2, updated_at = $3
-       RETURNING *`,
-      ['delay_criteria', JSON.stringify(criteria), new Date().toISOString()]
-    );
+    try {
+      // settings 테이블에 upsert - Direct PostgreSQL
+      const result = await queryOne(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (key)
+         DO UPDATE SET value = $2, updated_at = $3
+         RETURNING *`,
+        ['delay_criteria', JSON.stringify(criteria), new Date().toISOString()]
+      );
 
-    if (!result) {
-      console.error('🔴 [DELAY-CRITERIA] 저장 실패');
-      throw new Error('설정 저장 실패');
+      if (!result) {
+        console.error('🔴 [DELAY-CRITERIA] 저장 실패');
+        throw new Error('설정 저장 실패');
+      }
+
+      console.log('✅ [DELAY-CRITERIA] 저장 성공:', result);
+
+      return createSuccessResponse(
+        criteria,
+        '설정이 성공적으로 저장되었습니다.'
+      );
+    } catch (dbError: any) {
+      // settings 테이블이 없는 경우 안내 메시지
+      if (dbError?.message?.includes('does not exist') || dbError?.message?.includes('relation')) {
+        console.warn('⚠️ [DELAY-CRITERIA] settings 테이블 없음, 저장 불가');
+        return createErrorResponse(
+          'settings 테이블이 없어 저장할 수 없습니다. 데이터베이스 관리자에게 문의하세요.',
+          503
+        );
+      }
+      // 다른 DB 오류는 throw
+      throw dbError;
     }
-
-    console.log('✅ [DELAY-CRITERIA] 저장 성공:', result);
-
-    return createSuccessResponse({
-      data: criteria,
-      message: '설정이 성공적으로 저장되었습니다.'
-    });
 
   } catch (error: any) {
     console.error('🔴 [DELAY-CRITERIA] POST 오류:', error?.message || error);

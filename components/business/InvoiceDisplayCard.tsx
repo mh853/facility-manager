@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { formatDate } from '@/utils/formatters';
 
 interface InvoiceDisplayCardProps {
   title: string;
@@ -52,7 +53,7 @@ export const InvoiceDisplayCard: React.FC<InvoiceDisplayCardProps> = ({
             <div className="bg-blue-50 rounded p-2 space-y-1">
               <div className="flex justify-between">
                 <span className="text-gray-600">📄 발행일</span>
-                <span className="font-medium text-gray-900">{invoiceDate}</span>
+                <span className="font-medium text-gray-900">{formatDate(invoiceDate || '')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">💵 발행금액</span>
@@ -77,7 +78,7 @@ export const InvoiceDisplayCard: React.FC<InvoiceDisplayCardProps> = ({
             <div className="flex justify-between">
               <span className="text-gray-600">📅 입금일</span>
               <span className="font-medium text-gray-900">
-                {paymentDate || <span className="text-gray-400">미입금</span>}
+                {paymentDate ? formatDate(paymentDate) : <span className="text-gray-400">미입금</span>}
               </span>
             </div>
             <div className="flex justify-between">

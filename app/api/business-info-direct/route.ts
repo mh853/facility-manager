@@ -63,7 +63,7 @@ export async function GET(request: Request) {
       explosion_proof_temperature_meter_domestic,
       expansion_device, relay_8ch, relay_16ch,
       main_board_replacement, multiple_stack,
-      negotiation,
+      additional_cost, negotiation,
       invoice_1st_date, invoice_1st_amount, payment_1st_date, payment_1st_amount,
       invoice_2nd_date, invoice_2nd_amount, payment_2nd_date, payment_2nd_amount,
       invoice_additional_date, payment_additional_date, payment_additional_amount,

@@ -313,20 +313,33 @@ export default function BusinessRevenueModal({
     additional_installation_revenue: Number(calculatedData.installation_extra_cost) || 0,
     survey_fee_adjustment: calculatedData.survey_fee_adjustment ?? business.survey_fee_adjustment
   } : {
-    total_revenue: business.total_revenue || 0,
-    total_cost: business.total_cost || 0,
-    gross_profit: business.gross_profit || 0,
-    sales_commission: business.sales_commission || 0,
-    survey_costs: business.survey_costs || 0,
-    installation_costs: business.installation_costs || 0,
+    total_revenue: Number(business.total_revenue) || 0,
+    total_cost: Number(business.total_cost) || 0,
+    gross_profit: Number(business.gross_profit) || 0,
+    sales_commission: Number(business.sales_commission) || 0,
+    survey_costs: Number(business.survey_costs) || 0,
+    installation_costs: Number(business.installation_costs) || 0,
     additional_installation_revenue: Number(business.installation_extra_cost) || Number(business.additional_installation_revenue) || 0,
-    net_profit: business.net_profit || 0,
+    net_profit: Number(business.net_profit) || 0,
     has_calculation: false,
-    survey_fee_adjustment: business.survey_fee_adjustment,
+    survey_fee_adjustment: Number(business.survey_fee_adjustment) || 0,
     operating_cost_adjustment: null,
     adjusted_sales_commission: null,
     equipment_breakdown: undefined
   };
+
+  // 디버깅용 콘솔 로그
+  console.log('📊 [REVENUE-MODAL] 표시 데이터:', {
+    calculatedData: calculatedData,
+    displayData: displayData,
+    business: {
+      additional_cost: business.additional_cost,
+      negotiation: business.negotiation,
+      survey_fee_adjustment: business.survey_fee_adjustment
+    },
+    operating_cost_adjustment: displayData.operating_cost_adjustment,
+    survey_fee_adjustment: displayData.survey_fee_adjustment
+  });
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -444,10 +457,10 @@ export default function BusinessRevenueModal({
                             <td className="border border-gray-300 px-4 py-2">{item.equipment_name}</td>
                             <td className="border border-gray-300 px-4 py-2 text-center font-medium">{item.quantity}대</td>
                             <td className="border border-gray-300 px-4 py-2 text-right font-mono">
-                              {item.unit_official_price.toLocaleString()}
+                              {Math.round(item.unit_official_price).toLocaleString()}
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-right font-mono text-red-600">
-                              {item.unit_manufacturer_price.toLocaleString()}
+                              {Math.round(item.unit_manufacturer_price).toLocaleString()}
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-right font-mono font-medium">
                               {item.total_revenue.toLocaleString()}
@@ -484,17 +497,21 @@ export default function BusinessRevenueModal({
               <div className="flex items-center justify-between py-2 border-b border-gray-200">
                 <span className="text-sm font-medium text-gray-700">추가공사비</span>
                 <span className="text-base font-semibold text-green-700">
-                  {business.additional_cost
-                    ? `+${formatCurrency(business.additional_cost)}`
-                    : '₩0'}
+                  {(() => {
+                    const value = Number(business.additional_cost || 0);
+                    console.log('💰 추가공사비:', { raw: business.additional_cost, parsed: value });
+                    return value > 0 ? `+${formatCurrency(value)}` : '₩0';
+                  })()}
                 </span>
               </div>
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm font-medium text-gray-700">협의사항 (할인 금액)</span>
                 <span className="text-base font-semibold text-red-700">
-                  {business.negotiation
-                    ? `-${formatCurrency(business.negotiation)}`
-                    : '₩0'}
+                  {(() => {
+                    const value = Number(business.negotiation || 0);
+                    console.log('📋 협의사항:', { raw: business.negotiation, parsed: value });
+                    return value > 0 ? `-${formatCurrency(value)}` : '₩0';
+                  })()}
                 </span>
               </div>
             </div>
@@ -506,19 +523,19 @@ export default function BusinessRevenueModal({
               <div className="bg-green-50 rounded-lg p-4">
                 <p className="text-xs font-medium text-green-600 mb-1">매출금액</p>
                 <p className="text-lg font-bold text-green-700">
-                  {formatCurrency(displayData.total_revenue)}
+                  {formatCurrency(Number(displayData.total_revenue))}
                 </p>
               </div>
               <div className="bg-red-50 rounded-lg p-4">
                 <p className="text-xs font-medium text-red-600 mb-1">매입금액</p>
                 <p className="text-lg font-bold text-red-700">
-                  {formatCurrency(displayData.total_cost)}
+                  {formatCurrency(Number(displayData.total_cost))}
                 </p>
               </div>
-              <div className={`rounded-lg p-4 ${displayData.net_profit >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
-                <p className={`text-xs font-medium mb-1 ${displayData.net_profit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>순이익</p>
-                <p className={`text-lg font-bold ${displayData.net_profit >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
-                  {formatCurrency(displayData.net_profit)}
+              <div className={`rounded-lg p-4 ${Number(displayData.net_profit) >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
+                <p className={`text-xs font-medium mb-1 ${Number(displayData.net_profit) >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>순이익</p>
+                <p className={`text-lg font-bold ${Number(displayData.net_profit) >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+                  {formatCurrency(Number(displayData.net_profit))}
                 </p>
               </div>
               <div className="bg-purple-50 rounded-lg p-4">
@@ -563,26 +580,26 @@ export default function BusinessRevenueModal({
                 <div className="flex items-center justify-between border-b border-blue-200 pb-2">
                   <span>기본 매출 (기기 합계)</span>
                   <span className="font-mono">{formatCurrency(
-                    displayData.total_revenue -
-                    (business.additional_cost || 0) +
-                    (business.negotiation || 0)
+                    Number(displayData.total_revenue) -
+                    Number(business.additional_cost || 0) +
+                    Number(business.negotiation || 0)
                   )}</span>
                 </div>
-                {business.additional_cost > 0 && (
+                {Number(business.additional_cost) > 0 && (
                   <div className="flex items-center justify-between text-green-700">
                     <span>+ 추가공사비</span>
-                    <span className="font-mono">+{formatCurrency(business.additional_cost)}</span>
+                    <span className="font-mono">+{formatCurrency(Number(business.additional_cost))}</span>
                   </div>
                 )}
-                {business.negotiation > 0 && (
+                {Number(business.negotiation) > 0 && (
                   <div className="flex items-center justify-between text-red-700">
                     <span>- 협의사항/네고</span>
-                    <span className="font-mono">-{formatCurrency(business.negotiation)}</span>
+                    <span className="font-mono">-{formatCurrency(Number(business.negotiation))}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between border-t-2 border-blue-300 pt-2 font-bold text-blue-900">
                   <span>= 최종 매출금액</span>
-                  <span className="font-mono text-lg">{formatCurrency(displayData.total_revenue)}</span>
+                  <span className="font-mono text-lg">{formatCurrency(Number(displayData.total_revenue))}</span>
                 </div>
               </div>
             </div>
@@ -847,7 +864,7 @@ export default function BusinessRevenueModal({
                   </div>
                   <p className="text-xl font-bold text-cyan-700">
                     {(() => {
-                      const total = (displayData.installation_costs || 0) + (displayData.additional_installation_revenue || 0);
+                      const total = Number(displayData.installation_costs || 0) + Number(displayData.additional_installation_revenue || 0);
                       console.log('🔧 총 설치비 계산:', {
                         installation_costs: displayData.installation_costs,
                         additional_installation_revenue: displayData.additional_installation_revenue,
@@ -868,10 +885,10 @@ export default function BusinessRevenueModal({
                   </div>
                   <p className="text-xl font-bold">
                     {(() => {
-                      const total = (displayData.adjusted_sales_commission || displayData.sales_commission || 0) +
-                        (displayData.survey_costs || 0) +
-                        (displayData.installation_costs || 0) +
-                        (displayData.additional_installation_revenue || 0);
+                      const total = Number(displayData.adjusted_sales_commission || displayData.sales_commission || 0) +
+                        Number(displayData.survey_costs || 0) +
+                        Number(displayData.installation_costs || 0) +
+                        Number(displayData.additional_installation_revenue || 0);
                       console.log('📊 총 비용 합계 계산:', {
                         sales_commission: displayData.adjusted_sales_commission || displayData.sales_commission,
                         survey_costs: displayData.survey_costs,
@@ -894,54 +911,54 @@ export default function BusinessRevenueModal({
                 <div className="text-sm text-gray-700 space-y-2 font-mono">
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>매출금액</span>
-                    <span className="font-bold text-green-700">{formatCurrency(displayData.total_revenue)}</span>
+                    <span className="font-bold text-green-700">{formatCurrency(Number(displayData.total_revenue))}</span>
                   </div>
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 매입금액</span>
-                    <span className="font-bold text-red-700">-{formatCurrency(displayData.total_cost)}</span>
+                    <span className="font-bold text-red-700">-{formatCurrency(Number(displayData.total_cost))}</span>
                   </div>
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>= 총 이익</span>
-                    <span className="font-bold text-gray-700">{formatCurrency(displayData.gross_profit)}</span>
+                    <span className="font-bold text-gray-700">{formatCurrency(Number(displayData.gross_profit))}</span>
                   </div>
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 영업비용</span>
                     <span className="font-bold text-orange-700">
-                      -{formatCurrency(displayData.adjusted_sales_commission || displayData.sales_commission)}
+                      -{formatCurrency(Number(displayData.adjusted_sales_commission || displayData.sales_commission))}
                     </span>
                   </div>
                   {displayData.operating_cost_adjustment && (
                     <div className="text-xs text-yellow-600 pl-4 -mt-1 mb-2">
-                      (기본 {formatCurrency(displayData.sales_commission)}
+                      (기본 {formatCurrency(Number(displayData.sales_commission))}
                       {displayData.operating_cost_adjustment.adjustment_type === 'add' ? ' + ' : ' - '}
-                      {formatCurrency(displayData.operating_cost_adjustment.adjustment_amount)})
+                      {formatCurrency(Number(displayData.operating_cost_adjustment.adjustment_amount))})
                     </div>
                   )}
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 실사비용</span>
-                    <span className="font-bold text-purple-700">-{formatCurrency(displayData.survey_costs)}</span>
+                    <span className="font-bold text-purple-700">-{formatCurrency(Number(displayData.survey_costs))}</span>
                   </div>
                   {displayData.survey_fee_adjustment && displayData.survey_fee_adjustment !== 0 && (
                     <div className="text-xs text-purple-600 pl-4 -mt-1 mb-2">
-                      (기본 {formatCurrency((displayData.survey_costs || 0) - (displayData.survey_fee_adjustment || 0))}
+                      (기본 {formatCurrency(Number(displayData.survey_costs || 0) - Number(displayData.survey_fee_adjustment || 0))}
                       {displayData.survey_fee_adjustment > 0 ? ' + ' : ' - '}
-                      {formatCurrency(Math.abs(displayData.survey_fee_adjustment))} 조정)
+                      {formatCurrency(Math.abs(Number(displayData.survey_fee_adjustment)))} 조정)
                     </div>
                   )}
                   <div className="flex justify-between border-b border-gray-200 pb-2">
                     <span>- 기본설치비</span>
-                    <span className="font-bold text-cyan-700">-{formatCurrency(displayData.installation_costs)}</span>
+                    <span className="font-bold text-cyan-700">-{formatCurrency(Number(displayData.installation_costs))}</span>
                   </div>
-                  {displayData.additional_installation_revenue > 0 && (
+                  {Number(displayData.additional_installation_revenue) > 0 && (
                     <div className="flex justify-between border-b border-gray-200 pb-2">
                       <span>- 추가설치비</span>
-                      <span className="font-bold text-orange-700">-{formatCurrency(displayData.additional_installation_revenue)}</span>
+                      <span className="font-bold text-orange-700">-{formatCurrency(Number(displayData.additional_installation_revenue))}</span>
                     </div>
                   )}
                   <div className="flex justify-between border-t-2 border-blue-400 pt-3">
                     <span className="font-bold text-lg">= 순이익</span>
-                    <span className={`font-bold text-lg ${displayData.net_profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                      {formatCurrency(displayData.net_profit)}
+                    <span className={`font-bold text-lg ${Number(displayData.net_profit) >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                      {formatCurrency(Number(displayData.net_profit))}
                     </span>
                   </div>
                 </div>

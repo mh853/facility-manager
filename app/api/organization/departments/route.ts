@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct';
 import { verifyTokenHybrid } from '@/lib/secure-jwt';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // 사용자 권한 확인 헬퍼
 async function checkUserPermission(request: NextRequest) {
@@ -38,39 +34,35 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const includeInactive = searchParams.get('include_inactive') === 'true';
 
-    let query = supabase
-      .from('departments')
-      .select(`
-        id,
-        name,
-        description,
-        created_at,
-        updated_at,
-        teams:teams(
-          id,
-          name,
-          description,
-          department_id
-        )
-      `)
-      .order('id', { ascending: true });
+    // 부서 목록 조회 - Direct PostgreSQL
+    const departments = await queryAll(
+      'SELECT * FROM departments ORDER BY id ASC',
+      []
+    );
 
-    // is_active 컬럼이 없을 수 있으므로 일단 모든 데이터를 조회
-    // if (!includeInactive) {
-    //   query = query.eq('is_active', true);
-    // }
-
-    const { data: departments, error } = await query;
-
-    if (error) {
-      console.error('부서 조회 오류:', error);
+    if (!departments) {
+      console.error('부서 조회 오류');
       return NextResponse.json({ error: '부서 목록을 불러올 수 없습니다.' }, { status: 500 });
     }
+
+    // 각 부서에 대한 팀 정보 조회
+    const departmentsWithTeams = await Promise.all(
+      departments.map(async (dept) => {
+        const teams = await queryAll(
+          'SELECT id, name, description, department_id FROM teams WHERE department_id = $1 ORDER BY id ASC',
+          [dept.id]
+        );
+        return {
+          ...dept,
+          teams: teams || []
+        };
+      })
+    );
 
     return NextResponse.json(
       {
         success: true,
-        data: departments || []
+        data: departmentsWithTeams
       },
       {
         headers: {
@@ -103,53 +95,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '부서명은 필수입니다.' }, { status: 400 });
     }
 
-    // 중복 체크
-    const { data: existing } = await supabase
-      .from('departments')
-      .select('id')
-      .eq('name', name)
-      .eq('is_active', true)
-      .single();
+    // 중복 체크 - Direct PostgreSQL
+    const existing = await queryOne(
+      'SELECT id FROM departments WHERE name = $1 LIMIT 1',
+      [name]
+    );
 
     if (existing) {
       return NextResponse.json({ error: '이미 존재하는 부서명입니다.' }, { status: 409 });
     }
 
-    // 다음 표시 순서 계산
-    const { data: maxOrder } = await supabase
-      .from('departments')
-      .select('display_order')
-      .order('display_order', { ascending: false })
-      .limit(1)
-      .single();
+    // 다음 표시 순서 계산 - Direct PostgreSQL
+    const maxOrder = await queryOne(
+      'SELECT display_order FROM departments ORDER BY display_order DESC LIMIT 1',
+      []
+    );
 
     const nextOrder = (maxOrder?.display_order || 0) + 1;
 
-    // 부서 생성
-    const { data: newDepartment, error } = await supabase
-      .from('departments')
-      .insert({
-        name,
-        description,
-        display_order: nextOrder,
-      })
-      .select()
-      .single();
+    // 부서 생성 - Direct PostgreSQL
+    const newDepartment = await queryOne(
+      `INSERT INTO departments (name, description, display_order)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [name, description || null, nextOrder]
+    );
 
-    if (error) {
-      console.error('부서 생성 오류:', error);
+    if (!newDepartment) {
+      console.error('부서 생성 오류');
       return NextResponse.json({ error: '부서를 생성할 수 없습니다.' }, { status: 500 });
     }
 
-    // 변경 히스토리 기록
-    await supabase.from('organization_changes').insert({
-      change_type: 'create',
-      entity_type: 'department',
-      entity_id: newDepartment.id,
-      new_data: newDepartment,
-      changed_by: user.id,
-      impact_summary: '새 부서 생성'
-    });
+    // 변경 히스토리 기록 - Direct PostgreSQL
+    await pgQuery(
+      `INSERT INTO organization_changes (change_type, entity_type, entity_id, new_data, changed_by, impact_summary)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      ['create', 'department', newDepartment.id, JSON.stringify(newDepartment), user.id, '새 부서 생성']
+    );
 
     return NextResponse.json({
       success: true,
@@ -178,58 +160,52 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '부서 ID와 부서명은 필수입니다.' }, { status: 400 });
     }
 
-    // 기존 데이터 조회 (히스토리용)
-    const { data: oldData } = await supabase
-      .from('departments')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // 기존 데이터 조회 (히스토리용) - Direct PostgreSQL
+    const oldData = await queryOne(
+      'SELECT * FROM departments WHERE id = $1',
+      [id]
+    );
 
     if (!oldData) {
       return NextResponse.json({ error: '부서를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 중복 체크 (자기 자신 제외)
-    const { data: existing } = await supabase
-      .from('departments')
-      .select('id')
-      .eq('name', name)
-      .eq('is_active', true)
-      .neq('id', id)
-      .single();
+    // 중복 체크 (자기 자신 제외) - Direct PostgreSQL
+    const existing = await queryOne(
+      'SELECT id FROM departments WHERE name = $1 AND id != $2 LIMIT 1',
+      [name, id]
+    );
 
     if (existing) {
       return NextResponse.json({ error: '이미 존재하는 부서명입니다.' }, { status: 409 });
     }
 
-    // 부서 수정
-    const { data: updatedDepartment, error } = await supabase
-      .from('departments')
-      .update({
+    // 부서 수정 - Direct PostgreSQL
+    const updatedDepartment = await queryOne(
+      `UPDATE departments
+       SET name = $1, description = $2, display_order = $3, updated_at = $4
+       WHERE id = $5
+       RETURNING *`,
+      [
         name,
-        description,
-        display_order: display_order !== undefined ? display_order : oldData.display_order,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
+        description || null,
+        display_order !== undefined ? display_order : oldData.display_order,
+        new Date().toISOString(),
+        id
+      ]
+    );
 
-    if (error) {
-      console.error('부서 수정 오류:', error);
+    if (!updatedDepartment) {
+      console.error('부서 수정 오류');
       return NextResponse.json({ error: '부서를 수정할 수 없습니다.' }, { status: 500 });
     }
 
-    // 변경 히스토리 기록
-    await supabase.from('organization_changes').insert({
-      change_type: 'update',
-      entity_type: 'department',
-      entity_id: id,
-      old_data: oldData,
-      new_data: updatedDepartment,
-      changed_by: user.id,
-      impact_summary: '부서 정보 수정'
-    });
+    // 변경 히스토리 기록 - Direct PostgreSQL
+    await pgQuery(
+      `INSERT INTO organization_changes (change_type, entity_type, entity_id, old_data, new_data, changed_by, impact_summary)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      ['update', 'department', id, JSON.stringify(oldData), JSON.stringify(updatedDepartment), user.id, '부서 정보 수정']
+    );
 
     return NextResponse.json({
       success: true,
@@ -259,29 +235,29 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '부서 ID가 필요합니다.' }, { status: 400 });
     }
 
-    // 영향도 분석
-    const { data: department } = await supabase
-      .from('departments')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // 영향도 분석 - Direct PostgreSQL
+    const department = await queryOne(
+      'SELECT * FROM departments WHERE id = $1',
+      [id]
+    );
 
     if (!department) {
       return NextResponse.json({ error: '부서를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 하위 팀 확인
-    const { data: teams, count: teamCount } = await supabase
-      .from('teams')
-      .select('id, name', { count: 'exact' })
-      .eq('department_id', id)
-      .eq('is_active', true);
+    // 하위 팀 확인 - Direct PostgreSQL
+    const teams = await queryAll(
+      'SELECT id, name FROM teams WHERE department_id = $1',
+      [id]
+    );
+    const teamCount = teams?.length || 0;
 
-    // 관련 알림 확인
-    const { count: notificationCount } = await supabase
-      .from('notifications')
-      .select('id', { count: 'exact' })
-      .eq('target_department_id', id);
+    // 관련 알림 확인 - Direct PostgreSQL
+    const notificationCountResult = await queryOne(
+      'SELECT COUNT(*) as count FROM notifications WHERE target_department_id = $1',
+      [id]
+    );
+    const notificationCount = parseInt(notificationCountResult?.count || '0');
 
     const impact = {
       canDelete: teamCount === 0,
@@ -307,54 +283,49 @@ export async function DELETE(request: NextRequest) {
       }, { status: 409 });
     }
 
-    // 트랜잭션으로 안전하게 삭제
-    const { error: deleteError } = await supabase
-      .from('departments')
-      .update({
-        is_active: false,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id);
+    // 트랜잭션으로 안전하게 삭제 - Direct PostgreSQL
+    await pgQuery(
+      `UPDATE departments
+       SET is_active = false, updated_at = $1
+       WHERE id = $2`,
+      [new Date().toISOString(), id]
+    );
 
-    if (deleteError) {
-      console.error('부서 삭제 오류:', deleteError);
-      return NextResponse.json({ error: '부서를 삭제할 수 없습니다.' }, { status: 500 });
-    }
-
-    // 하위 팀들도 비활성화
+    // 하위 팀들도 비활성화 - Direct PostgreSQL
     if (impact.affectedTeams > 0) {
-      await supabase
-        .from('teams')
-        .update({
-          is_active: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq('department_id', id);
+      await pgQuery(
+        `UPDATE teams
+         SET is_active = false, updated_at = $1
+         WHERE department_id = $2`,
+        [new Date().toISOString(), id]
+      );
     }
 
-    // 관련 알림들 처리 (다른 부서로 재할당 또는 전사 알림으로 변경)
+    // 관련 알림들 처리 (다른 부서로 재할당 또는 전사 알림으로 변경) - Direct PostgreSQL
     if (impact.affectedNotifications > 0) {
-      await supabase
-        .from('notifications')
-        .update({
-          target_department_id: null,
-          notification_tier: 'company', // 전사 알림으로 변경
-          metadata: supabase.raw(`
-            COALESCE(metadata, '{}') || '{"migration_note": "부서 삭제로 인한 전사 알림 변경"}'
-          `)
-        })
-        .eq('target_department_id', id);
+      await pgQuery(
+        `UPDATE notifications
+         SET target_department_id = NULL,
+             notification_tier = 'company',
+             metadata = COALESCE(metadata, '{}')::jsonb || '{"migration_note": "부서 삭제로 인한 전사 알림 변경"}'::jsonb
+         WHERE target_department_id = $1`,
+        [id]
+      );
     }
 
-    // 변경 히스토리 기록
-    await supabase.from('organization_changes').insert({
-      change_type: 'delete',
-      entity_type: 'department',
-      entity_id: parseInt(id),
-      old_data: department,
-      changed_by: user.id,
-      impact_summary: `부서 삭제 - 팀 ${impact.affectedTeams}개, 알림 ${impact.affectedNotifications}개 영향`
-    });
+    // 변경 히스토리 기록 - Direct PostgreSQL
+    await pgQuery(
+      `INSERT INTO organization_changes (change_type, entity_type, entity_id, old_data, changed_by, impact_summary)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        'delete',
+        'department',
+        parseInt(id),
+        JSON.stringify(department),
+        user.id,
+        `부서 삭제 - 팀 ${impact.affectedTeams}개, 알림 ${impact.affectedNotifications}개 영향`
+      ]
+    );
 
     return NextResponse.json({
       success: true,
