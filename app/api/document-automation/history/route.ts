@@ -7,7 +7,7 @@ import {
   createSuccessResponse,
   createErrorResponse
 } from '@/lib/api-utils'
-import { supabaseAdmin } from '@/lib/supabase'
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct'
 import { verifyTokenHybrid } from '@/lib/secure-jwt'
 import type { DocumentHistoryListResponse } from '@/types/document-automation'
 
@@ -69,76 +69,101 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       limit
     })
 
-    // 뷰에서 조회
-    let query = supabaseAdmin
-      .from('document_history_detail')
-      .select('*', { count: 'exact' })
+    // 뷰에서 조회 - Direct PostgreSQL
+    const whereClauses: string[] = []
+    const params: any[] = []
+    let paramIndex = 1
 
-    // 필터 적용
     if (businessId) {
-      query = query.eq('business_id', businessId)
+      whereClauses.push(`business_id = $${paramIndex}`)
+      params.push(businessId)
+      paramIndex++
     }
 
     if (documentType && documentType !== 'construction_report') {
-      query = query.eq('document_type', documentType)
+      whereClauses.push(`document_type = $${paramIndex}`)
+      params.push(documentType)
+      paramIndex++
     }
 
     if (fileFormat) {
-      query = query.eq('file_format', fileFormat)
+      whereClauses.push(`file_format = $${paramIndex}`)
+      params.push(fileFormat)
+      paramIndex++
     }
 
     if (startDate) {
-      query = query.gte('created_at', startDate)
+      whereClauses.push(`created_at >= $${paramIndex}`)
+      params.push(startDate)
+      paramIndex++
     }
 
     if (endDate) {
-      query = query.lte('created_at', endDate)
+      whereClauses.push(`created_at <= $${paramIndex}`)
+      params.push(endDate)
+      paramIndex++
     }
 
-    // 사업장명 검색
     if (search) {
-      query = query.ilike('business_name', `%${search}%`)
+      whereClauses.push(`business_name ILIKE $${paramIndex}`)
+      params.push(`%${search}%`)
+      paramIndex++
     }
 
-    // 정렬
-    query = query.order('created_at', { ascending: false })
+    const whereClause = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : ''
 
-    const { data: documents, error: documentsError, count } = await query
+    const documents = await queryAll(
+      `SELECT * FROM document_history_detail
+       ${whereClause}
+       ORDER BY created_at DESC`,
+      params
+    )
 
-    if (documentsError) {
-      console.error('[DOCUMENT-HISTORY] 조회 오류:', documentsError)
+    if (!documents) {
+      console.error('[DOCUMENT-HISTORY] 조회 오류')
       return createErrorResponse('문서 이력 조회 중 오류가 발생했습니다', 500)
     }
 
-    // 착공신고서 조회 (별도 테이블)
-    let constructionQuery = supabaseAdmin
-      .from('construction_reports')
-      .select('*', { count: 'exact' })
-      .eq('is_deleted', false)
+    // 착공신고서 조회 (별도 테이블) - Direct PostgreSQL
+    const constructionWhereClauses: string[] = ['is_deleted = false']
+    const constructionParams: any[] = []
+    let constructionParamIndex = 1
 
-    // 필터 적용
     if (businessId) {
-      constructionQuery = constructionQuery.eq('business_id', businessId)
+      constructionWhereClauses.push(`business_id = $${constructionParamIndex}`)
+      constructionParams.push(businessId)
+      constructionParamIndex++
     }
 
     if (startDate) {
-      constructionQuery = constructionQuery.gte('created_at', startDate)
+      constructionWhereClauses.push(`created_at >= $${constructionParamIndex}`)
+      constructionParams.push(startDate)
+      constructionParamIndex++
     }
 
     if (endDate) {
-      constructionQuery = constructionQuery.lte('created_at', endDate)
+      constructionWhereClauses.push(`created_at <= $${constructionParamIndex}`)
+      constructionParams.push(endDate)
+      constructionParamIndex++
     }
 
     if (search) {
-      constructionQuery = constructionQuery.ilike('business_name', `%${search}%`)
+      constructionWhereClauses.push(`business_name ILIKE $${constructionParamIndex}`)
+      constructionParams.push(`%${search}%`)
+      constructionParamIndex++
     }
 
-    constructionQuery = constructionQuery.order('created_at', { ascending: false })
+    const constructionWhereClause = 'WHERE ' + constructionWhereClauses.join(' AND ')
 
-    const { data: constructionReports, error: constructionError, count: constructionCount } = await constructionQuery
+    const constructionReports = await queryAll(
+      `SELECT * FROM construction_reports
+       ${constructionWhereClause}
+       ORDER BY created_at DESC`,
+      constructionParams
+    )
 
-    if (constructionError) {
-      console.error('[DOCUMENT-HISTORY] 착공신고서 조회 오류:', constructionError)
+    if (!constructionReports) {
+      console.error('[DOCUMENT-HISTORY] 착공신고서 조회 오류')
     }
 
     // 착공신고서를 문서 이력 형식으로 변환
@@ -176,18 +201,21 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     const paginatedDocs = allDocuments.slice(startIndex, startIndex + limit)
     const totalCount = allDocuments.length
 
-    // 통계 계산 (전체 문서 + 착공신고서)
-    const { data: allDocs } = await supabaseAdmin
-      .from('document_history_detail')
-      .select('document_type, file_format')
+    // 통계 계산 (전체 문서 + 착공신고서) - Direct PostgreSQL
+    const allDocs = await queryAll(
+      'SELECT document_type, file_format FROM document_history_detail',
+      []
+    )
 
-    const { data: allConstructionReports } = await supabaseAdmin
-      .from('construction_reports')
-      .select('id')
-      .eq('is_deleted', false)
+    const allConstructionReportsCount = await queryOne(
+      'SELECT COUNT(*) as count FROM construction_reports WHERE is_deleted = false',
+      []
+    )
+
+    const constructionReportCount = parseInt(allConstructionReportsCount?.count || '0')
 
     const summary = {
-      total_documents: (allDocs?.length || 0) + (allConstructionReports?.length || 0),
+      total_documents: (allDocs?.length || 0) + constructionReportCount,
       by_type: {
         purchase_order:
           allDocs?.filter((d) => d.document_type === 'purchase_order')
@@ -196,12 +224,12 @@ export const GET = withApiHandler(async (request: NextRequest) => {
           allDocs?.filter((d) => d.document_type === 'estimate').length || 0,
         contract:
           allDocs?.filter((d) => d.document_type === 'contract').length || 0,
-        construction_report: allConstructionReports?.length || 0,
+        construction_report: constructionReportCount,
         other: allDocs?.filter((d) => d.document_type === 'other').length || 0
       },
       by_format: {
         excel: allDocs?.filter((d) => d.file_format === 'excel').length || 0,
-        pdf: (allDocs?.filter((d) => d.file_format === 'pdf').length || 0) + (allConstructionReports?.length || 0)
+        pdf: (allDocs?.filter((d) => d.file_format === 'pdf').length || 0) + constructionReportCount
       }
     }
 
@@ -256,24 +284,27 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       document_name
     })
 
-    // 문서 이력 저장
-    const { data: historyData, error: historyError } = await supabaseAdmin
-      .from('document_history')
-      .insert({
+    // 문서 이력 저장 - Direct PostgreSQL
+    const historyData = await queryOne(
+      `INSERT INTO document_history (
+        business_id, document_type, document_name, document_data,
+        file_path, file_format, file_size, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *`,
+      [
         business_id,
         document_type,
         document_name,
         document_data,
-        file_path: file_path || null,
+        file_path || null,
         file_format,
-        file_size: file_size || 0,
-        created_by: user.id
-      })
-      .select()
-      .single()
+        file_size || 0,
+        user.id
+      ]
+    )
 
-    if (historyError) {
-      console.error('[DOCUMENT-HISTORY] 이력 저장 오류:', historyError)
+    if (!historyData) {
+      console.error('[DOCUMENT-HISTORY] 이력 저장 오류')
       return createErrorResponse('문서 이력 저장 중 오류가 발생했습니다', 500)
     }
 
