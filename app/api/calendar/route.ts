@@ -187,13 +187,15 @@ export async function POST(request: NextRequest) {
       param_12_isArray: Array.isArray(queryParams[11])
     });
 
-    // ✅ PostgreSQL text[] 타입 변환: JavaScript 배열 → JSON 문자열
-    queryParams[10] = JSON.stringify(queryParams[10]); // attached_files
-    queryParams[11] = JSON.stringify(queryParams[11]); // labels
+    // ✅ PostgreSQL 타입별 변환
+    // attached_files는 JSONB → JSON 문자열로 변환
+    queryParams[10] = JSON.stringify(queryParams[10]);
+    // labels는 text[] → 배열 그대로 유지 (pg 라이브러리가 자동 변환)
+    // queryParams[11]는 그대로 유지
 
-    console.log('🔄 [캘린더 생성] JSON 변환 완료:', {
+    console.log('🔄 [캘린더 생성] 타입 변환 완료:', {
       attached_files_json: queryParams[10],
-      labels_json: queryParams[11]
+      labels_array: queryParams[11]
     });
 
     const data = await queryOne(
@@ -202,7 +204,7 @@ export async function POST(request: NextRequest) {
         event_type, is_completed, author_id, author_name, attached_files,
         labels, business_id, business_name
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb, $13, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, $14)
       RETURNING *`,
       queryParams
     );
