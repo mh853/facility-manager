@@ -39,28 +39,45 @@ const MANUFACTURER_REVERSE_MAP: Record<Manufacturer, string> = {
 
 // 사용자 인증
 async function checkUserPermission(request: NextRequest) {
+  console.log('🔍 [ORDER-AUTH] 인증 시작')
+
   const authHeader = request.headers.get('authorization')
+  console.log('🔍 [ORDER-AUTH] Authorization 헤더:', authHeader ? 'exists' : 'missing')
+
   let token: string | null = null
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.replace('Bearer ', '')
+    console.log('🔍 [ORDER-AUTH] Bearer 토큰 추출 완료')
   } else {
     const cookieToken = request.cookies.get('auth_token')?.value
+    console.log('🔍 [ORDER-AUTH] 쿠키 토큰:', cookieToken ? 'exists' : 'missing')
     if (cookieToken) token = cookieToken
   }
 
   if (!token) {
+    console.log('❌ [ORDER-AUTH] 토큰 없음 - 401 반환')
     return { authorized: false, user: null }
   }
 
+  console.log('🔍 [ORDER-AUTH] verifyTokenHybrid 호출 시작')
   try {
     const result = await verifyTokenHybrid(token)
+    console.log('🔍 [ORDER-AUTH] verifyTokenHybrid 결과:', {
+      hasUser: !!result.user,
+      userName: result.user?.name,
+      userId: result.user?.id
+    })
+
     if (!result.user) {
+      console.log('❌ [ORDER-AUTH] 사용자 정보 없음 - 401 반환')
       return { authorized: false, user: null }
     }
+
+    console.log('✅ [ORDER-AUTH] 인증 성공:', result.user.name)
     return { authorized: true, user: result.user }
   } catch (error) {
-    console.error('[ORDER-MANAGEMENT] 권한 확인 오류:', error)
+    console.error('❌ [ORDER-AUTH] 권한 확인 오류:', error)
     return { authorized: false, user: null }
   }
 }

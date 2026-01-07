@@ -147,7 +147,8 @@
       "Bash(supabase db push --help:*)",
       "Bash(supabase db execute --help:*)",
       "Bash(supabase db --help:*)",
-      "Bash(./migrate-with-cli.sh:*)"
+      "Bash(./migrate-with-cli.sh:*)",
+      "Bash(PGPASSWORD=\"chlansgh35855#\" /usr/local/opt/postgresql@17/bin/psql:*)"
     ],
     "deny": [],
     "ask": [],

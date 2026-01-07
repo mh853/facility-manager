@@ -16,11 +16,10 @@ import { MANUFACTURERS } from '@/types/order-management'
 
 // Lazy load heavy components for better initial load performance
 const OrderDetailModal = lazy(() => import('./components/OrderDetailModal'))
-const RouterInventoryList = lazy(() => import('./components/RouterInventoryList'))
 
 export default function OrderManagementPage() {
   // 상태 관리
-  const [activeTab, setActiveTab] = useState<'in_progress' | 'not_started' | 'completed' | 'router_management'>('in_progress')
+  const [activeTab, setActiveTab] = useState<'in_progress' | 'not_started' | 'completed'>('in_progress')
   const [orders, setOrders] = useState<OrderListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -41,14 +40,6 @@ export default function OrderManagementPage() {
 
   // 담당자 목록 (발주 필요 탭에서만 사용)
   const [assigneeList, setAssigneeList] = useState<string[]>([])
-
-  // 라우터 통계 상태
-  const [routerSummary, setRouterSummary] = useState({
-    total: 0,
-    in_stock: 0,
-    assigned: 0,
-    shipped_pending: 0
-  })
 
   // 모달 상태
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(
@@ -99,12 +90,6 @@ export default function OrderManagementPage() {
   }, [orders, activeTab])
 
   const loadOrders = async () => {
-    // 라우터 관리 탭에서는 발주 목록을 로드하지 않음
-    if (activeTab === 'router_management') {
-      setLoading(false)
-      return
-    }
-
     try {
       setLoading(true)
 
@@ -190,7 +175,7 @@ export default function OrderManagementPage() {
   }
 
   // 탭 변경
-  const handleTabChange = (tab: 'in_progress' | 'not_started' | 'completed' | 'router_management') => {
+  const handleTabChange = (tab: 'in_progress' | 'not_started' | 'completed') => {
     setActiveTab(tab)
     setCurrentPage(1)
   }
@@ -202,49 +187,6 @@ export default function OrderManagementPage() {
     >
       <div className="space-y-3 sm:space-y-6">
       {/* 통계 카드 */}
-      {activeTab === 'router_management' ? (
-        // 라우터 관리 통계
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
-            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
-              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">전체 재고</span>
-              <Package className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-gray-400" />
-            </div>
-            <div className="text-base sm:text-lg md:text-2xl font-bold text-gray-900">{routerSummary.total}</div>
-          </div>
-
-          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
-            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
-              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">가용 재고</span>
-              <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-green-400" />
-            </div>
-            <div className="text-base sm:text-lg md:text-2xl font-bold text-green-600">{routerSummary.in_stock}</div>
-            {routerSummary.in_stock < 10 && (
-              <div className="flex items-center gap-0.5 sm:gap-1 mt-0.5 sm:mt-1">
-                <AlertCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-orange-500" />
-                <span className="text-[9px] sm:text-[10px] md:text-xs text-orange-500">재고 부족</span>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
-            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
-              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">할당됨</span>
-              <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-blue-400" />
-            </div>
-            <div className="text-base sm:text-lg md:text-2xl font-bold text-blue-600">{routerSummary.assigned}</div>
-          </div>
-
-          <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
-            <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
-              <span className="text-[10px] sm:text-xs md:text-sm text-gray-600">출고 대기</span>
-              <AlertCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-orange-400" />
-            </div>
-            <div className="text-base sm:text-lg md:text-2xl font-bold text-orange-600">{routerSummary.shipped_pending}</div>
-          </div>
-        </div>
-      ) : (
-        // 발주 관리 통계
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
           <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
             <div className="flex items-center justify-between mb-1 sm:mb-1.5 md:mb-2">
@@ -296,7 +238,6 @@ export default function OrderManagementPage() {
             </div>
           </div>
         </div>
-      )}
 
       {/* 탭 메뉴 */}
       <div className="bg-white rounded-md md:rounded-lg shadow overflow-hidden">
@@ -340,37 +281,9 @@ export default function OrderManagementPage() {
               <span className="whitespace-nowrap">완료 ({summary.completed})</span>
             </div>
           </button>
-          <button
-            onClick={() => handleTabChange('router_management')}
-            className={`flex-1 min-w-[100px] px-2 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-sm font-medium transition-colors ${
-              activeTab === 'router_management'
-                ? 'text-green-600 border-b-2 border-green-600 bg-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2">
-              <Package className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="whitespace-nowrap">라우터 관리</span>
-            </div>
-          </button>
         </div>
       </div>
 
-      {/* 라우터 관리 탭 컨텐츠 */}
-      {activeTab === 'router_management' ? (
-        <Suspense fallback={
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="animate-pulse space-y-4">
-              <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-              <div className="h-4 bg-gray-200 rounded"></div>
-              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-            </div>
-          </div>
-        }>
-          <RouterInventoryList onSummaryChange={setRouterSummary} />
-        </Suspense>
-      ) : (
-        <>
       {/* 필터 및 검색 */}
       <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
@@ -711,8 +624,6 @@ export default function OrderManagementPage() {
             showPurchaseOrderButton={activeTab === 'in_progress'}
           />
         </Suspense>
-      )}
-      </>
       )}
       </div>
     </AdminLayout>

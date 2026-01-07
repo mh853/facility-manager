@@ -88,9 +88,10 @@ function isStaticFile(pathname: string): boolean {
 // CSRF 검증 제외 API 경로 (외부 호출용 - Bearer 토큰 인증)
 function isCSRFExemptAPI(pathname: string): boolean {
   const exemptPaths = [
-    '/api/auth/login',       // 로그인 API (CSRF 토큰 없이 호출 가능)
-    '/api/subsidy-crawler',  // GitHub Actions 크롤러
-    '/api/webhooks/',        // 외부 웹훅
+    '/api/auth/login',         // 로그인 API (CSRF 토큰 없이 호출 가능)
+    '/api/subsidy-crawler',    // GitHub Actions 크롤러
+    '/api/webhooks/',          // 외부 웹훅
+    '/api/order-management',   // 발주 관리 API (Bearer 토큰 or 쿠키 인증)
   ];
   return exemptPaths.some(path => pathname.startsWith(path));
 }
