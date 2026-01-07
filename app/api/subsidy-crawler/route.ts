@@ -381,6 +381,8 @@ const GOVERNMENT_SOURCES = [
 // POST: 크롤링 실행
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
+  const startedAt = new Date().toISOString();
+  let runId: string | null = null; // Track runId for error handling
 
   try {
     // 인증 확인
@@ -400,6 +402,38 @@ export async function POST(request: NextRequest) {
     if (region_codes && region_codes.length > 0) {
       targets = targets.filter(t => region_codes.includes(t.region_code));
     }
+
+    // Generate unique run_id
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const crawlerType = enable_phase2 ? 'phase2' : 'government';
+    runId = `run_${crawlerType}_${timestamp}`;
+
+    // Create crawl_run record
+    const { data: crawlRun, error: runError } = await supabase
+      .from('crawl_runs')
+      .insert({
+        run_id: runId,
+        started_at: startedAt,
+        trigger_type: 'manual', // or 'scheduled' from GitHub Actions
+        total_batches: 1, // Single batch for government/phase2 crawlers
+        total_urls_crawled: 0,
+        successful_urls: 0,
+        failed_urls: 0,
+        total_announcements: 0,
+        new_announcements: 0,
+        relevant_announcements: 0,
+        ai_verified_announcements: 0,
+        status: 'running',
+      })
+      .select()
+      .single();
+
+    if (runError) {
+      console.error('[CRAWLER] Failed to create crawl_run:', runError);
+      throw new Error(`Failed to create crawl_run: ${runError.message}`);
+    }
+
+    console.log(`[CRAWLER] Created crawl_run: ${runId}`);
 
     const results: CrawlResult = {
       success: true,
@@ -632,32 +666,55 @@ export async function POST(request: NextRequest) {
 
     results.duration_ms = Date.now() - startTime;
 
-    // 크롤링 로그 저장
-    await supabase.from('crawl_logs').insert({
-      status: results.failed_regions === 0 ? 'success' : results.successful_regions > 0 ? 'partial' : 'failed',
-      announcements_found: results.new_announcements,
-      relevant_found: results.relevant_announcements,
-      duration_ms: results.duration_ms,
-      error_message: results.errors?.length ? JSON.stringify(results.errors) : null,
-    });
+    // Update crawl_run record with final statistics
+    const finalStatus = results.failed_regions === 0 ? 'completed' : results.successful_regions > 0 ? 'partial' : 'failed';
 
-    console.log(`[CRAWLER] 전체 크롤링 완료: ${results.new_announcements}개 공고, ${results.duration_ms}ms`);
+    await supabase
+      .from('crawl_runs')
+      .update({
+        completed_at: new Date().toISOString(),
+        completed_batches: 1,
+        total_urls_crawled: results.total_regions,
+        successful_urls: results.successful_regions,
+        failed_urls: results.failed_regions,
+        total_announcements: results.new_announcements,
+        new_announcements: results.new_announcements,
+        relevant_announcements: results.relevant_announcements,
+        ai_verified_announcements: results.relevant_announcements, // All relevant are AI-verified
+        total_processing_time_seconds: Math.floor(results.duration_ms / 1000),
+        status: finalStatus,
+        error_message: results.errors?.length ? results.errors.join('; ') : null,
+      })
+      .eq('run_id', runId);
 
-    return NextResponse.json(results);
+    console.log(`[CRAWLER] 전체 크롤링 완료 (${runId}): ${results.new_announcements}개 공고, ${results.duration_ms}ms`);
+
+    return NextResponse.json({ ...results, run_id: runId });
 
   } catch (error) {
     console.error('크롤러 오류:', error);
 
-    // 오류 로그 저장
-    await supabase.from('crawl_logs').insert({
-      status: 'failed',
-      error_message: error instanceof Error ? error.message : '알 수 없는 오류',
-      duration_ms: Date.now() - startTime,
-    });
+    // Try to update crawl_run if it was created
+    if (runId) {
+      try {
+        await supabase
+          .from('crawl_runs')
+          .update({
+            completed_at: new Date().toISOString(),
+            status: 'failed',
+            error_message: error instanceof Error ? error.message : '알 수 없는 오류',
+            total_processing_time_seconds: Math.floor((Date.now() - startTime) / 1000),
+          })
+          .eq('run_id', runId);
+      } catch (updateError) {
+        console.error('[CRAWLER] Failed to update crawl_run on error:', updateError);
+      }
+    }
 
     return NextResponse.json({
       success: false,
-      error: '크롤링 실패'
+      error: '크롤링 실패',
+      run_id: runId
     }, { status: 500 });
   }
 }
