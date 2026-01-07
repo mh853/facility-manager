@@ -1,7 +1,7 @@
 // app/api/weekly-reports/realtime/route.ts - 실시간 주간 리포트 자동 집계 API
 import { NextRequest } from 'next/server';
 import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryAll } from '@/lib/supabase-direct';
 import { verifyToken } from '@/lib/secure-jwt';
 import { getStepInfo, type TaskType, type TaskStatus } from '@/app/admin/tasks/types';
 
@@ -126,22 +126,26 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       end: end.split('T')[0]
     });
 
-    // facility_tasks에서 해당 주간의 모든 업무 조회
-    let query = supabaseAdmin
-      .from('facility_tasks')
-      .select('*')
-      .eq('is_deleted', false)
-      .gte('created_at', start)
-      .lte('created_at', end);
+    // facility_tasks에서 해당 주간의 모든 업무 조회 - Direct PostgreSQL
+    let tasks: any[] = [];
 
-    // 검색 필터 적용
-    if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,business_name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
-    }
+    try {
+      const searchCondition = searchQuery
+        ? `AND (title ILIKE $4 OR business_name ILIKE $4 OR description ILIKE $4)`
+        : '';
+      const params = searchQuery
+        ? [start, end, `%${searchQuery}%`]
+        : [start, end];
 
-    const { data: tasks, error } = await query;
-
-    if (error) {
+      tasks = await queryAll(
+        `SELECT * FROM facility_tasks
+         WHERE is_deleted = false
+         AND created_at >= $1
+         AND created_at <= $2
+         ${searchCondition}`,
+        params
+      );
+    } catch (error: any) {
       console.error('❌ [REALTIME-REPORTS] 업무 조회 오류:', error);
       throw error;
     }
