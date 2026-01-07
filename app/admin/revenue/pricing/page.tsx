@@ -24,6 +24,24 @@ import {
   Percent
 } from 'lucide-react';
 
+// 날짜 포맷 함수 (yyyy-mm-dd 형식)
+function formatDate(dateString: string | null | undefined): string {
+  if (!dateString) return '-';
+
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    return dateString;
+  }
+}
+
 interface GovernmentPricing {
   id: string;
   equipment_type: string;
@@ -553,7 +571,7 @@ function PricingManagement() {
                             </div>
                             <div>
                               <div className="text-gray-500">시행일</div>
-                              <div className="font-medium">{pricing.effective_from}</div>
+                              <div className="font-medium">{formatDate(pricing.effective_from)}</div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
@@ -604,7 +622,7 @@ function PricingManagement() {
                                 {formatCurrency(pricing.installation_cost)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                {pricing.effective_from}
+                                {formatDate(pricing.effective_from)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -686,7 +704,7 @@ function PricingManagement() {
                             </div>
                             <div className="col-span-2">
                               <div className="text-gray-500">시행일</div>
-                              <div className="font-medium">{setting.effective_from}</div>
+                              <div className="font-medium">{formatDate(setting.effective_from)}</div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
@@ -740,7 +758,7 @@ function PricingManagement() {
                                 }
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                {setting.effective_from}
+                                {formatDate(setting.effective_from)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -818,7 +836,7 @@ function PricingManagement() {
                             </div>
                             <div>
                               <div className="text-gray-500">시행일</div>
-                              <div className="font-medium">{cost.effective_from}</div>
+                              <div className="font-medium">{formatDate(cost.effective_from)}</div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
@@ -871,7 +889,7 @@ function PricingManagement() {
                                 {formatCurrency(cost.base_cost)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                {cost.effective_from}
+                                {formatDate(cost.effective_from)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -959,12 +977,12 @@ function PricingManagement() {
                             </div>
                             <div>
                               <div className="text-gray-500">시행일</div>
-                              <div className="font-medium">{pricing.effective_from}</div>
+                              <div className="font-medium">{formatDate(pricing.effective_from)}</div>
                             </div>
                             {pricing.effective_to && (
                               <div className="col-span-2">
                                 <div className="text-gray-500">종료일</div>
-                                <div className="font-medium">{pricing.effective_to}</div>
+                                <div className="font-medium">{formatDate(pricing.effective_to)}</div>
                               </div>
                             )}
                           </div>
@@ -1024,10 +1042,10 @@ function PricingManagement() {
                                 ₩{pricing.cost_price.toLocaleString()}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                {pricing.effective_from}
+                                {formatDate(pricing.effective_from)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                {pricing.effective_to || '-'}
+                                {formatDate(pricing.effective_to)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1096,11 +1114,11 @@ function PricingManagement() {
                             </div>
                             <div>
                               <div className="text-gray-500">시행일</div>
-                              <div className="font-medium">{cost.effective_from}</div>
+                              <div className="font-medium">{formatDate(cost.effective_from)}</div>
                             </div>
                             <div>
                               <div className="text-gray-500">종료일</div>
-                              <div className="font-medium">{cost.effective_to || '-'}</div>
+                              <div className="font-medium">{formatDate(cost.effective_to)}</div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
@@ -1144,10 +1162,10 @@ function PricingManagement() {
                                 ₩{cost.base_installation_cost.toLocaleString()}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                {cost.effective_from}
+                                {formatDate(cost.effective_from)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                {cost.effective_to || '-'}
+                                {formatDate(cost.effective_to)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1239,12 +1257,12 @@ function PricingManagement() {
                             </div>
                             <div>
                               <div className="text-gray-500">시행일</div>
-                              <div className="font-medium">{pricing.effective_from}</div>
+                              <div className="font-medium">{formatDate(pricing.effective_from)}</div>
                             </div>
                             {pricing.effective_to && (
                               <div className="col-span-2">
                                 <div className="text-gray-500">종료일</div>
-                                <div className="font-medium">{pricing.effective_to}</div>
+                                <div className="font-medium">{formatDate(pricing.effective_to)}</div>
                               </div>
                             )}
                           </div>
@@ -1313,10 +1331,10 @@ function PricingManagement() {
                                 </span>
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                {pricing.effective_from}
+                                {formatDate(pricing.effective_from)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                {pricing.effective_to || '-'}
+                                {formatDate(pricing.effective_to)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
