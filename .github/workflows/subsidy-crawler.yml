@@ -1,5 +1,5 @@
 # 지자체 보조금 공고 크롤러 스케줄러
-# 매일 오전 9시, 오후 2시, 오후 6시 (KST) 실행
+# 매일 오전 9시 (KST) 실행
 
 name: Subsidy Announcement Crawler
 
@@ -7,8 +7,6 @@ on:
   # 스케줄 (UTC 기준 - KST는 +9시간)
   schedule:
     - cron: '0 0 * * *'   # 매일 00:00 UTC = 09:00 KST
-    - cron: '0 5 * * *'   # 매일 05:00 UTC = 14:00 KST
-    - cron: '0 9 * * *'   # 매일 09:00 UTC = 18:00 KST
 
   # 수동 실행 가능
   workflow_dispatch:
