@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct';
 import { verifyTokenString } from '@/utils/auth';
 
 // Force dynamic rendering for API routes
@@ -46,16 +46,14 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // DB에서 사용자 정보 조회하여 최신 권한 확인
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('employees')
-      .select('id, permission_level')
-      .eq('id', userId)
-      .eq('is_active', true)
-      .single();
+    // DB에서 사용자 권한 조회 - Direct PostgreSQL
+    const user = await queryOne(
+      'SELECT id, permission_level FROM employees WHERE id = $1 AND is_active = true',
+      [userId]
+    );
 
-    if (userError || !user) {
-      console.log('❌ [SURVEY-COSTS] 사용자 조회 실패:', userError);
+    if (!user) {
+      console.log('❌ [SURVEY-COSTS] 사용자 조회 실패');
       return NextResponse.json({
         success: false,
         message: '사용자를 찾을 수 없습니다.'
@@ -80,30 +78,29 @@ export async function GET(request: NextRequest) {
     const includeInactive = url.searchParams.get('include_inactive') === 'true';
     const surveyType = url.searchParams.get('survey_type');
 
-    // 실사비용 조회
-    let query = supabaseAdmin
-      .from('survey_cost_settings')
-      .select('*')
-      .order('survey_type', { ascending: true })
-      .order('effective_from', { ascending: false });
+    // 실사비용 조회 - Direct PostgreSQL
+    const whereClauses: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
 
     if (!includeInactive) {
-      query = query.eq('is_active', true);
+      whereClauses.push(`is_active = true`);
     }
 
     if (surveyType) {
-      query = query.eq('survey_type', surveyType);
+      whereClauses.push(`survey_type = $${paramIndex}`);
+      params.push(surveyType);
+      paramIndex++;
     }
 
-    const { data: costs, error } = await query;
+    const whereClause = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+    const sqlQuery = `
+      SELECT * FROM survey_cost_settings
+      ${whereClause}
+      ORDER BY survey_type ASC, effective_from DESC
+    `;
 
-    if (error) {
-      console.error('❌ [SURVEY-COSTS] 조회 오류:', error);
-      return NextResponse.json({
-        success: false,
-        message: '실사비용 조회에 실패했습니다.'
-      }, { status: 500 });
-    }
+    const costs = await queryAll(sqlQuery, params);
 
     // 실사 유형별로 그룹화하여 최신 설정만 반환
     const groupedCosts = costs?.reduce((acc, cost) => {
@@ -196,78 +193,83 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 데이터 조회 (히스토리 용)
-    const { data: existingData } = await supabaseAdmin
-      .from('survey_cost_settings')
-      .select('*')
-      .eq('survey_type', survey_type)
-      .eq('is_active', true)
-      .single();
+    // 기존 데이터 조회 (히스토리 용) - Direct PostgreSQL
+    const existingData = await queryOne(
+      'SELECT * FROM survey_cost_settings WHERE survey_type = $1 AND is_active = true',
+      [survey_type]
+    );
 
-    // 새 데이터 삽입
-    const insertData = {
-      survey_type,
-      survey_name,
-      base_cost,
-      effective_from,
-      effective_to,
-      created_by: userId,
-      is_active: true
-    };
+    // 새 데이터 삽입 - Direct PostgreSQL
+    const newCost = await queryOne(
+      `INSERT INTO survey_cost_settings (
+        survey_type, survey_name, base_cost, effective_from, effective_to,
+        created_by, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, true)
+      RETURNING *`,
+      [
+        survey_type,
+        survey_name,
+        base_cost,
+        effective_from,
+        effective_to || null,
+        userId
+      ]
+    );
 
-    const { data: newCost, error: insertError } = await supabaseAdmin
-      .from('survey_cost_settings')
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('❌ [SURVEY-COSTS] 삽입 오류:', insertError);
+    if (!newCost) {
+      console.error('❌ [SURVEY-COSTS] 삽입 오류');
       return NextResponse.json({
         success: false,
         message: '실사비용 저장에 실패했습니다.'
       }, { status: 500 });
     }
 
-    // 기존 데이터가 있다면 비활성화
+    // 기존 데이터가 있다면 비활성화 - Direct PostgreSQL
     if (existingData) {
-      await supabaseAdmin
-        .from('survey_cost_settings')
-        .update({
-          is_active: false,
-          effective_to: effective_from
-        })
-        .eq('id', existingData.id);
+      await pgQuery(
+        `UPDATE survey_cost_settings
+         SET is_active = false, effective_to = $1
+         WHERE id = $2`,
+        [effective_from, existingData.id]
+      );
 
-      // 원가 변경 히스토리 기록
-      await supabaseAdmin
-        .from('pricing_change_history')
-        .insert({
-          table_name: 'survey_cost_settings',
-          record_id: newCost.id,
-          change_type: 'cost_update',
-          old_values: existingData,
-          new_values: newCost,
-          changed_fields: ['base_cost'],
-          change_reason: change_reason || '실사비용 업데이트',
-          user_id: userId,
-          user_name: decoded.name || decoded.username || '알 수 없음'
-        });
+      // 원가 변경 히스토리 기록 - Direct PostgreSQL
+      await pgQuery(
+        `INSERT INTO pricing_change_history (
+          table_name, record_id, change_type, old_values, new_values,
+          changed_fields, change_reason, user_id, user_name
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          'survey_cost_settings',
+          newCost.id,
+          'cost_update',
+          JSON.stringify(existingData),
+          JSON.stringify(newCost),
+          JSON.stringify(['base_cost']),
+          change_reason || '실사비용 업데이트',
+          userId,
+          decoded.name || decoded.username || '알 수 없음'
+        ]
+      );
     }
 
-    // 감사 로그 기록
-    await supabaseAdmin
-      .from('revenue_audit_log')
-      .insert({
-        table_name: 'survey_cost_settings',
-        record_id: newCost.id,
-        action_type: 'INSERT',
-        new_values: newCost,
-        action_description: `실사비용 ${existingData ? '수정' : '생성'}: ${survey_name}`,
-        user_id: userId,
-        user_name: decoded.name || decoded.username || '알 수 없음',
-        user_permission_level: permissionLevel
-      });
+    // 감사 로그 기록 - Direct PostgreSQL
+    await pgQuery(
+      `INSERT INTO revenue_audit_log (
+        table_name, record_id, action_type, new_values, action_description,
+        user_id, user_name, user_permission_level
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        'survey_cost_settings',
+        newCost.id,
+        'INSERT',
+        JSON.stringify(newCost),
+        `실사비용 ${existingData ? '수정' : '생성'}: ${survey_name}`,
+        userId,
+        decoded.name || decoded.username || '알 수 없음',
+        permissionLevel
+      ]
+    );
 
     console.log(`✅ [SURVEY-COSTS] ${existingData ? '수정' : '생성'} 완료:`, survey_name);
 
@@ -334,14 +336,13 @@ export async function PATCH(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 데이터 조회
-    const { data: existingData, error: fetchError } = await supabaseAdmin
-      .from('survey_cost_settings')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // 기존 데이터 조회 - Direct PostgreSQL
+    const existingData = await queryOne(
+      'SELECT * FROM survey_cost_settings WHERE id = $1',
+      [id]
+    );
 
-    if (fetchError || !existingData) {
+    if (!existingData) {
       return NextResponse.json({
         success: false,
         message: '해당 데이터를 찾을 수 없습니다.'
@@ -349,51 +350,80 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 업데이트할 데이터 준비 (survey_type은 수정 불가)
+    const updateFields: string[] = [];
+    const updateValues: any[] = [];
     const updateData: any = {};
+    let paramIndex = 1;
 
-    if (survey_name !== undefined) updateData.survey_name = survey_name;
-    if (base_cost !== undefined) updateData.base_cost = base_cost;
-    if (effective_from !== undefined) updateData.effective_from = effective_from;
-    if (effective_to !== undefined) updateData.effective_to = effective_to;
+    if (survey_name !== undefined) {
+      updateFields.push(`survey_name = $${paramIndex}`);
+      updateValues.push(survey_name);
+      updateData.survey_name = survey_name;
+      paramIndex++;
+    }
+    if (base_cost !== undefined) {
+      updateFields.push(`base_cost = $${paramIndex}`);
+      updateValues.push(base_cost);
+      updateData.base_cost = base_cost;
+      paramIndex++;
+    }
+    if (effective_from !== undefined) {
+      updateFields.push(`effective_from = $${paramIndex}`);
+      updateValues.push(effective_from);
+      updateData.effective_from = effective_from;
+      paramIndex++;
+    }
+    if (effective_to !== undefined) {
+      updateFields.push(`effective_to = $${paramIndex}`);
+      updateValues.push(effective_to);
+      updateData.effective_to = effective_to;
+      paramIndex++;
+    }
 
     // 수정할 내용이 없으면 에러
-    if (Object.keys(updateData).length === 0) {
+    if (updateFields.length === 0) {
       return NextResponse.json({
         success: false,
         message: '수정할 내용이 없습니다.'
       }, { status: 400 });
     }
 
-    // 레코드 업데이트
-    const { data: updatedData, error: updateError } = await supabaseAdmin
-      .from('survey_cost_settings')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // 레코드 업데이트 - Direct PostgreSQL
+    updateValues.push(id);
+    const updatedData = await queryOne(
+      `UPDATE survey_cost_settings
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      updateValues
+    );
 
-    if (updateError) {
-      console.error('❌ [SURVEY-COSTS] 수정 오류:', updateError);
+    if (!updatedData) {
+      console.error('❌ [SURVEY-COSTS] 수정 오류');
       return NextResponse.json({
         success: false,
         message: '실사비용 수정에 실패했습니다.'
       }, { status: 500 });
     }
 
-    // 변경 이력 기록
-    await supabaseAdmin
-      .from('pricing_change_history')
-      .insert({
-        table_name: 'survey_cost_settings',
-        record_id: id,
-        change_type: 'cost_update',
-        old_values: existingData,
-        new_values: updatedData,
-        changed_fields: Object.keys(updateData),
-        change_reason: '실사비용 수정',
-        user_id: userId,
-        user_name: decoded.name || decoded.username || '알 수 없음'
-      });
+    // 변경 이력 기록 - Direct PostgreSQL
+    await pgQuery(
+      `INSERT INTO pricing_change_history (
+        table_name, record_id, change_type, old_values, new_values,
+        changed_fields, change_reason, user_id, user_name
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        'survey_cost_settings',
+        id,
+        'cost_update',
+        JSON.stringify(existingData),
+        JSON.stringify(updatedData),
+        JSON.stringify(Object.keys(updateData)),
+        '실사비용 수정',
+        userId,
+        decoded.name || decoded.username || '알 수 없음'
+      ]
+    );
 
     console.log(`✏️ [SURVEY-COSTS] 수정 완료:`, existingData.survey_name);
 
@@ -454,50 +484,45 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 데이터 조회
-    const { data: existingData, error: fetchError } = await supabaseAdmin
-      .from('survey_cost_settings')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // 기존 데이터 조회 - Direct PostgreSQL
+    const existingData = await queryOne(
+      'SELECT * FROM survey_cost_settings WHERE id = $1',
+      [id]
+    );
 
-    if (fetchError || !existingData) {
+    if (!existingData) {
       return NextResponse.json({
         success: false,
         message: '해당 데이터를 찾을 수 없습니다.'
       }, { status: 404 });
     }
 
-    // 비활성화 (실제 삭제하지 않음)
-    const { error: deleteError } = await supabaseAdmin
-      .from('survey_cost_settings')
-      .update({
-        is_active: false,
-        effective_to: new Date().toISOString().split('T')[0]
-      })
-      .eq('id', id);
+    // 비활성화 (실제 삭제하지 않음) - Direct PostgreSQL
+    const today = new Date().toISOString().split('T')[0];
+    await pgQuery(
+      `UPDATE survey_cost_settings
+       SET is_active = false, effective_to = $1
+       WHERE id = $2`,
+      [today, id]
+    );
 
-    if (deleteError) {
-      console.error('❌ [SURVEY-COSTS] 삭제 오류:', deleteError);
-      return NextResponse.json({
-        success: false,
-        message: '실사비용 삭제에 실패했습니다.'
-      }, { status: 500 });
-    }
-
-    // 감사 로그 기록
-    await supabaseAdmin
-      .from('revenue_audit_log')
-      .insert({
-        table_name: 'survey_cost_settings',
-        record_id: id,
-        action_type: 'DELETE',
-        old_values: existingData,
-        action_description: `실사비용 삭제: ${existingData.survey_name}`,
-        user_id: userId,
-        user_name: decoded.name || decoded.username || '알 수 없음',
-        user_permission_level: permissionLevel
-      });
+    // 감사 로그 기록 - Direct PostgreSQL
+    await pgQuery(
+      `INSERT INTO revenue_audit_log (
+        table_name, record_id, action_type, old_values, action_description,
+        user_id, user_name, user_permission_level
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        'survey_cost_settings',
+        id,
+        'DELETE',
+        JSON.stringify(existingData),
+        `실사비용 삭제: ${existingData.survey_name}`,
+        userId,
+        decoded.name || decoded.username || '알 수 없음',
+        permissionLevel
+      ]
+    );
 
     console.log(`🗑️ [SURVEY-COSTS] 삭제 완료:`, existingData.survey_name);
 

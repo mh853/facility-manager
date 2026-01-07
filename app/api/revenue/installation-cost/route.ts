@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct';
 import { verifyTokenString } from '@/utils/auth';
 
 export const dynamic = 'force-dynamic';
@@ -43,14 +43,13 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('employees')
-      .select('id, permission_level')
-      .eq('id', userId)
-      .eq('is_active', true)
-      .single();
+    // DB에서 사용자 권한 조회 - Direct PostgreSQL
+    const user = await queryOne(
+      'SELECT id, permission_level FROM employees WHERE id = $1 AND is_active = true',
+      [userId]
+    );
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json({
         success: false,
         message: '사용자를 찾을 수 없습니다.'
@@ -70,29 +69,32 @@ export async function GET(request: NextRequest) {
     const includeInactive = url.searchParams.get('include_inactive') === 'true';
     const today = new Date().toISOString().split('T')[0];
 
-    let query = supabaseAdmin
-      .from('equipment_installation_cost')
-      .select('*')
-      .order('equipment_name', { ascending: true });
+    // 기본 설치비 조회 - Direct PostgreSQL
+    const whereClauses: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
 
     if (!includeInactive) {
-      query = query.eq('is_active', true);
+      whereClauses.push(`is_active = true`);
     }
 
-    // 현재 날짜 기준 유효한 가격만 조회
-    query = query
-      .lte('effective_from', today)
-      .or(`effective_to.is.null,effective_to.gte.${today}`);
+    // effective date filters
+    whereClauses.push(`effective_from <= $${paramIndex}`);
+    params.push(today);
+    paramIndex++;
 
-    const { data: costs, error } = await query;
+    whereClauses.push(`(effective_to IS NULL OR effective_to >= $${paramIndex})`);
+    params.push(today);
+    paramIndex++;
 
-    if (error) {
-      console.error('❌ [INSTALLATION-COST] 조회 오류:', error);
-      return NextResponse.json({
-        success: false,
-        message: '기본 설치비 조회에 실패했습니다.'
-      }, { status: 500 });
-    }
+    const whereClause = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+    const sqlQuery = `
+      SELECT * FROM equipment_installation_cost
+      ${whereClause}
+      ORDER BY equipment_name ASC
+    `;
+
+    const costs = await queryAll(sqlQuery, params);
 
     return NextResponse.json({
       success: true,
@@ -159,46 +161,46 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const { data: existingData } = await supabaseAdmin
-      .from('equipment_installation_cost')
-      .select('*')
-      .eq('equipment_type', equipment_type)
-      .eq('is_active', true)
-      .single();
+    // 기존 데이터 조회 - Direct PostgreSQL
+    const existingData = await queryOne(
+      'SELECT * FROM equipment_installation_cost WHERE equipment_type = $1 AND is_active = true',
+      [equipment_type]
+    );
 
-    const insertData = {
-      equipment_type,
-      equipment_name,
-      base_installation_cost,
-      effective_from,
-      effective_to,
-      notes,
-      created_by: userId,
-      is_active: true
-    };
+    // 새 데이터 삽입 - Direct PostgreSQL
+    const newCost = await queryOne(
+      `INSERT INTO equipment_installation_cost (
+        equipment_type, equipment_name, base_installation_cost,
+        effective_from, effective_to, notes, created_by, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+      RETURNING *`,
+      [
+        equipment_type,
+        equipment_name,
+        base_installation_cost,
+        effective_from,
+        effective_to || null,
+        notes || null,
+        userId
+      ]
+    );
 
-    const { data: newCost, error: insertError } = await supabaseAdmin
-      .from('equipment_installation_cost')
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('❌ [INSTALLATION-COST] 삽입 오류:', insertError);
+    if (!newCost) {
+      console.error('❌ [INSTALLATION-COST] 삽입 오류');
       return NextResponse.json({
         success: false,
         message: '기본 설치비 저장에 실패했습니다.'
       }, { status: 500 });
     }
 
+    // 기존 데이터가 있다면 비활성화 - Direct PostgreSQL
     if (existingData) {
-      await supabaseAdmin
-        .from('equipment_installation_cost')
-        .update({
-          is_active: false,
-          effective_to: effective_from
-        })
-        .eq('id', existingData.id);
+      await pgQuery(
+        `UPDATE equipment_installation_cost
+         SET is_active = false, effective_to = $1
+         WHERE id = $2`,
+        [effective_from, existingData.id]
+      );
     }
 
     console.log(`✅ [INSTALLATION-COST] ${existingData ? '수정' : '생성'} 완료:`, equipment_name);
@@ -269,14 +271,13 @@ export async function PATCH(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 데이터 조회
-    const { data: existingData, error: fetchError } = await supabaseAdmin
-      .from('equipment_installation_cost')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // 기존 데이터 조회 - Direct PostgreSQL
+    const existingData = await queryOne(
+      'SELECT * FROM equipment_installation_cost WHERE id = $1',
+      [id]
+    );
 
-    if (fetchError || !existingData) {
+    if (!existingData) {
       return NextResponse.json({
         success: false,
         message: '해당 데이터를 찾을 수 없습니다.'
@@ -284,31 +285,51 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 업데이트할 데이터 준비 (equipment_type은 수정 불가)
-    const updateData: any = {};
+    const updateFields: string[] = [];
+    const updateValues: any[] = [];
+    let paramIndex = 1;
 
-    if (base_installation_cost !== undefined) updateData.base_installation_cost = base_installation_cost;
-    if (effective_from !== undefined) updateData.effective_from = effective_from;
-    if (effective_to !== undefined) updateData.effective_to = effective_to;
-    if (notes !== undefined) updateData.notes = notes;
+    if (base_installation_cost !== undefined) {
+      updateFields.push(`base_installation_cost = $${paramIndex}`);
+      updateValues.push(base_installation_cost);
+      paramIndex++;
+    }
+    if (effective_from !== undefined) {
+      updateFields.push(`effective_from = $${paramIndex}`);
+      updateValues.push(effective_from);
+      paramIndex++;
+    }
+    if (effective_to !== undefined) {
+      updateFields.push(`effective_to = $${paramIndex}`);
+      updateValues.push(effective_to);
+      paramIndex++;
+    }
+    if (notes !== undefined) {
+      updateFields.push(`notes = $${paramIndex}`);
+      updateValues.push(notes);
+      paramIndex++;
+    }
 
     // 수정할 내용이 없으면 에러
-    if (Object.keys(updateData).length === 0) {
+    if (updateFields.length === 0) {
       return NextResponse.json({
         success: false,
         message: '수정할 내용이 없습니다.'
       }, { status: 400 });
     }
 
-    // 레코드 업데이트
-    const { data: updatedData, error: updateError } = await supabaseAdmin
-      .from('equipment_installation_cost')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // 레코드 업데이트 - Direct PostgreSQL
+    updateValues.push(id);
+    const updatedData = await queryOne(
+      `UPDATE equipment_installation_cost
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      updateValues
+    );
 
-    if (updateError) {
-      console.error('❌ [INSTALLATION-COST] 수정 오류:', updateError);
+    if (!updatedData) {
+      console.error('❌ [INSTALLATION-COST] 수정 오류');
       return NextResponse.json({
         success: false,
         message: '기본 설치비 수정에 실패했습니다.'
@@ -373,34 +394,27 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const { data: existingData, error: fetchError } = await supabaseAdmin
-      .from('equipment_installation_cost')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // 기존 데이터 조회 - Direct PostgreSQL
+    const existingData = await queryOne(
+      'SELECT * FROM equipment_installation_cost WHERE id = $1',
+      [id]
+    );
 
-    if (fetchError || !existingData) {
+    if (!existingData) {
       return NextResponse.json({
         success: false,
         message: '해당 데이터를 찾을 수 없습니다.'
       }, { status: 404 });
     }
 
-    const { error: updateError } = await supabaseAdmin
-      .from('equipment_installation_cost')
-      .update({
-        is_active: false,
-        effective_to: new Date().toISOString().split('T')[0]
-      })
-      .eq('id', id);
-
-    if (updateError) {
-      console.error('❌ [INSTALLATION-COST] 삭제 오류:', updateError);
-      return NextResponse.json({
-        success: false,
-        message: '기본 설치비 삭제에 실패했습니다.'
-      }, { status: 500 });
-    }
+    // 비활성화 처리 - Direct PostgreSQL
+    const today = new Date().toISOString().split('T')[0];
+    await pgQuery(
+      `UPDATE equipment_installation_cost
+       SET is_active = false, effective_to = $1
+       WHERE id = $2`,
+      [today, id]
+    );
 
     console.log(`🗑️ [INSTALLATION-COST] 삭제 완료:`, existingData.equipment_name);
 

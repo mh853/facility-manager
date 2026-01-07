@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { queryOne, queryAll, query as pgQuery } from '@/lib/supabase-direct';
 import { verifyTokenString } from '@/utils/auth';
 
 // Force dynamic rendering for API routes
@@ -47,16 +47,14 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // DB에서 사용자 정보 조회하여 최신 권한 확인
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('employees')
-      .select('id, permission_level')
-      .eq('id', userId)
-      .eq('is_active', true)
-      .single();
+    // DB에서 사용자 권한 조회 - Direct PostgreSQL
+    const user = await queryOne(
+      'SELECT id, permission_level FROM employees WHERE id = $1 AND is_active = true',
+      [userId]
+    );
 
-    if (userError || !user) {
-      console.log('❌ [SALES-OFFICE-SETTINGS] 사용자 조회 실패:', userError);
+    if (!user) {
+      console.log('❌ [SALES-OFFICE-SETTINGS] 사용자 조회 실패');
       return NextResponse.json({
         success: false,
         message: '사용자를 찾을 수 없습니다.'
@@ -81,29 +79,29 @@ export async function GET(request: NextRequest) {
     const includeInactive = url.searchParams.get('include_inactive') === 'true';
     const salesOffice = url.searchParams.get('sales_office');
 
-    // 영업점별 비용 설정 조회
-    let query = supabaseAdmin
-      .from('sales_office_cost_settings')
-      .select('*')
-      .order('sales_office', { ascending: true });
+    // 영업점별 비용 설정 조회 - Direct PostgreSQL
+    const whereClauses: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
 
     if (!includeInactive) {
-      query = query.eq('is_active', true);
+      whereClauses.push(`is_active = true`);
     }
 
     if (salesOffice) {
-      query = query.eq('sales_office', salesOffice);
+      whereClauses.push(`sales_office = $${paramIndex}`);
+      params.push(salesOffice);
+      paramIndex++;
     }
 
-    const { data: settings, error } = await query;
+    const whereClause = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+    const sqlQuery = `
+      SELECT * FROM sales_office_cost_settings
+      ${whereClause}
+      ORDER BY sales_office ASC
+    `;
 
-    if (error) {
-      console.error('❌ [SALES-OFFICE-SETTINGS] 조회 오류:', error);
-      return NextResponse.json({
-        success: false,
-        message: '영업점 비용 설정 조회에 실패했습니다.'
-      }, { status: 500 });
-    }
+    const settings = await queryAll(sqlQuery, params);
 
     // 영업점별로 그룹화하여 최신 설정만 반환
     const groupedSettings = settings?.reduce((acc, setting) => {
@@ -206,37 +204,39 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 활성 데이터 조회 (히스토리 용)
-    const { data: existingData } = await supabaseAdmin
-      .from('sales_office_cost_settings')
-      .select('*')
-      .eq('sales_office', sales_office)
-      .eq('is_active', true)
-      .single();
+    // 기존 활성 데이터 조회 (히스토리 용) - Direct PostgreSQL
+    const existingData = await queryOne(
+      'SELECT * FROM sales_office_cost_settings WHERE sales_office = $1 AND is_active = true',
+      [sales_office]
+    );
 
-    // 새 데이터 삽입 또는 업데이트 (UPSERT)
-    const upsertData = {
-      sales_office,
-      commission_type,
-      commission_percentage: commission_type === 'percentage' ? commission_percentage : null,
-      commission_per_unit: commission_type === 'per_unit' ? commission_per_unit : null,
-      effective_from,
-      effective_to,
-      created_by: userId,
-      is_active: true
-    };
+    // 새 데이터 삽입 또는 업데이트 (UPSERT) - Direct PostgreSQL
+    const newSettings = await queryOne(
+      `INSERT INTO sales_office_cost_settings (
+        sales_office, commission_type, commission_percentage, commission_per_unit,
+        effective_from, effective_to, created_by, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+      ON CONFLICT (sales_office, effective_from)
+      DO UPDATE SET
+        commission_type = EXCLUDED.commission_type,
+        commission_percentage = EXCLUDED.commission_percentage,
+        commission_per_unit = EXCLUDED.commission_per_unit,
+        effective_to = EXCLUDED.effective_to,
+        is_active = EXCLUDED.is_active
+      RETURNING *`,
+      [
+        sales_office,
+        commission_type,
+        commission_type === 'percentage' ? commission_percentage : null,
+        commission_type === 'per_unit' ? commission_per_unit : null,
+        effective_from,
+        effective_to || null,
+        userId
+      ]
+    );
 
-    const { data: newSettings, error: insertError } = await supabaseAdmin
-      .from('sales_office_cost_settings')
-      .upsert(upsertData, {
-        onConflict: 'sales_office,effective_from',
-        ignoreDuplicates: false
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('❌ [SALES-OFFICE-SETTINGS] 삽입 오류:', insertError);
+    if (!newSettings) {
+      console.error('❌ [SALES-OFFICE-SETTINGS] 삽입 오류');
       return NextResponse.json({
         success: false,
         message: '영업점 비용 설정 저장에 실패했습니다.'
@@ -246,43 +246,50 @@ export async function POST(request: NextRequest) {
     // 기존 활성 데이터가 있고, 새로 생성/수정된 레코드와 다른 경우에만 비활성화
     // (UPSERT로 같은 레코드를 업데이트한 경우 비활성화하지 않음)
     if (existingData && existingData.id !== newSettings.id) {
-      await supabaseAdmin
-        .from('sales_office_cost_settings')
-        .update({
-          is_active: false,
-          effective_to: effective_from
-        })
-        .eq('id', existingData.id);
+      await pgQuery(
+        `UPDATE sales_office_cost_settings
+         SET is_active = false, effective_to = $1
+         WHERE id = $2`,
+        [effective_from, existingData.id]
+      );
 
-      // 원가 변경 히스토리 기록
-      await supabaseAdmin
-        .from('pricing_change_history')
-        .insert({
-          table_name: 'sales_office_cost_settings',
-          record_id: newSettings.id,
-          change_type: 'commission_update',
-          old_values: existingData,
-          new_values: newSettings,
-          changed_fields: ['commission_type', 'commission_percentage', 'commission_per_unit'],
-          change_reason: change_reason || '영업비용 설정 업데이트',
-          user_id: userId,
-          user_name: decoded.name || decoded.username || '알 수 없음'
-        });
+      // 원가 변경 히스토리 기록 - Direct PostgreSQL
+      await pgQuery(
+        `INSERT INTO pricing_change_history (
+          table_name, record_id, change_type, old_values, new_values,
+          changed_fields, change_reason, user_id, user_name
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          'sales_office_cost_settings',
+          newSettings.id,
+          'commission_update',
+          JSON.stringify(existingData),
+          JSON.stringify(newSettings),
+          JSON.stringify(['commission_type', 'commission_percentage', 'commission_per_unit']),
+          change_reason || '영업비용 설정 업데이트',
+          userId,
+          decoded.name || decoded.username || '알 수 없음'
+        ]
+      );
     }
 
-    // 감사 로그 기록
-    await supabaseAdmin
-      .from('revenue_audit_log')
-      .insert({
-        table_name: 'sales_office_cost_settings',
-        record_id: newSettings.id,
-        action_type: 'INSERT',
-        new_values: newSettings,
-        action_description: `영업점 비용 설정 ${existingData ? '수정' : '생성'}: ${sales_office}`,
-        user_id: userId,
-        user_name: decoded.name || decoded.username || '알 수 없음',
-        user_permission_level: permissionLevel
-      });
+    // 감사 로그 기록 - Direct PostgreSQL
+    await pgQuery(
+      `INSERT INTO revenue_audit_log (
+        table_name, record_id, action_type, new_values, action_description,
+        user_id, user_name, user_permission_level
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        'sales_office_cost_settings',
+        newSettings.id,
+        'INSERT',
+        JSON.stringify(newSettings),
+        `영업점 비용 설정 ${existingData ? '수정' : '생성'}: ${sales_office}`,
+        userId,
+        decoded.name || decoded.username || '알 수 없음',
+        permissionLevel
+      ]
+    );
 
     console.log(`✅ [SALES-OFFICE-SETTINGS] ${existingData ? '수정' : '생성'} 완료:`, sales_office);
 
@@ -353,14 +360,13 @@ export async function PATCH(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 데이터 조회
-    const { data: existingData, error: fetchError } = await supabaseAdmin
-      .from('sales_office_cost_settings')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // 기존 데이터 조회 - Direct PostgreSQL
+    const existingData = await queryOne(
+      'SELECT * FROM sales_office_cost_settings WHERE id = $1',
+      [id]
+    );
 
-    if (fetchError || !existingData) {
+    if (!existingData) {
       return NextResponse.json({
         success: false,
         message: '해당 데이터를 찾을 수 없습니다.'
@@ -369,64 +375,106 @@ export async function PATCH(request: NextRequest) {
 
     // 업데이트할 데이터 준비 (sales_office는 수정 불가)
     const updateData: any = {};
+    const updateFields: string[] = [];
+    const updateValues: any[] = [];
+    let paramIndex = 1;
 
     if (commission_type !== undefined) {
+      updateFields.push(`commission_type = $${paramIndex}`);
+      updateValues.push(commission_type);
+      paramIndex++;
       updateData.commission_type = commission_type;
+
       // 방식 변경 시 해당 값만 업데이트
       if (commission_type === 'percentage') {
+        updateFields.push(`commission_percentage = $${paramIndex}`);
+        updateValues.push(commission_percentage);
+        paramIndex++;
+        updateFields.push(`commission_per_unit = NULL`);
         updateData.commission_percentage = commission_percentage;
         updateData.commission_per_unit = null;
       } else {
+        updateFields.push(`commission_per_unit = $${paramIndex}`);
+        updateValues.push(commission_per_unit);
+        paramIndex++;
+        updateFields.push(`commission_percentage = NULL`);
         updateData.commission_per_unit = commission_per_unit;
         updateData.commission_percentage = null;
       }
     } else {
       // 방식 변경 없이 값만 변경하는 경우
-      if (commission_percentage !== undefined) updateData.commission_percentage = commission_percentage;
-      if (commission_per_unit !== undefined) updateData.commission_per_unit = commission_per_unit;
+      if (commission_percentage !== undefined) {
+        updateFields.push(`commission_percentage = $${paramIndex}`);
+        updateValues.push(commission_percentage);
+        paramIndex++;
+        updateData.commission_percentage = commission_percentage;
+      }
+      if (commission_per_unit !== undefined) {
+        updateFields.push(`commission_per_unit = $${paramIndex}`);
+        updateValues.push(commission_per_unit);
+        paramIndex++;
+        updateData.commission_per_unit = commission_per_unit;
+      }
     }
 
-    if (effective_from !== undefined) updateData.effective_from = effective_from;
-    if (effective_to !== undefined) updateData.effective_to = effective_to;
+    if (effective_from !== undefined) {
+      updateFields.push(`effective_from = $${paramIndex}`);
+      updateValues.push(effective_from);
+      paramIndex++;
+      updateData.effective_from = effective_from;
+    }
+
+    if (effective_to !== undefined) {
+      updateFields.push(`effective_to = $${paramIndex}`);
+      updateValues.push(effective_to);
+      paramIndex++;
+      updateData.effective_to = effective_to;
+    }
 
     // 수정할 내용이 없으면 에러
-    if (Object.keys(updateData).length === 0) {
+    if (updateFields.length === 0) {
       return NextResponse.json({
         success: false,
         message: '수정할 내용이 없습니다.'
       }, { status: 400 });
     }
 
-    // 레코드 업데이트
-    const { data: updatedData, error: updateError } = await supabaseAdmin
-      .from('sales_office_cost_settings')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // 레코드 업데이트 - Direct PostgreSQL
+    updateValues.push(id);
+    const updatedData = await queryOne(
+      `UPDATE sales_office_cost_settings
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      updateValues
+    );
 
-    if (updateError) {
-      console.error('❌ [SALES-OFFICE-SETTINGS] 수정 오류:', updateError);
+    if (!updatedData) {
+      console.error('❌ [SALES-OFFICE-SETTINGS] 수정 오류');
       return NextResponse.json({
         success: false,
         message: '영업점 비용 설정 수정에 실패했습니다.'
       }, { status: 500 });
     }
 
-    // 변경 이력 기록
-    await supabaseAdmin
-      .from('pricing_change_history')
-      .insert({
-        table_name: 'sales_office_cost_settings',
-        record_id: id,
-        change_type: 'commission_update',
-        old_values: existingData,
-        new_values: updatedData,
-        changed_fields: Object.keys(updateData),
-        change_reason: '영업점 수수료 설정 수정',
-        user_id: userId,
-        user_name: decoded.name || decoded.username || '알 수 없음'
-      });
+    // 변경 이력 기록 - Direct PostgreSQL
+    await pgQuery(
+      `INSERT INTO pricing_change_history (
+        table_name, record_id, change_type, old_values, new_values,
+        changed_fields, change_reason, user_id, user_name
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        'sales_office_cost_settings',
+        id,
+        'commission_update',
+        JSON.stringify(existingData),
+        JSON.stringify(updatedData),
+        JSON.stringify(Object.keys(updateData)),
+        '영업점 수수료 설정 수정',
+        userId,
+        decoded.name || decoded.username || '알 수 없음'
+      ]
+    );
 
     console.log(`✏️ [SALES-OFFICE-SETTINGS] 수정 완료:`, existingData.sales_office);
 
@@ -503,48 +551,50 @@ export async function PUT(request: NextRequest) {
           effective_from
         } = setting;
 
-        // 기존 활성 데이터 조회
-        const { data: existingData } = await supabaseAdmin
-          .from('sales_office_cost_settings')
-          .select('*')
-          .eq('sales_office', sales_office)
-          .eq('is_active', true)
-          .single();
+        const effectiveFromDate = effective_from || new Date().toISOString().split('T')[0];
 
-        // 새 데이터 삽입 또는 업데이트 (UPSERT)
-        const upsertData = {
-          sales_office,
-          commission_type,
-          commission_percentage: commission_type === 'percentage' ? commission_percentage : null,
-          commission_per_unit: commission_type === 'per_unit' ? commission_per_unit : null,
-          effective_from: effective_from || new Date().toISOString().split('T')[0],
-          created_by: userId,
-          is_active: true
-        };
+        // 기존 활성 데이터 조회 - Direct PostgreSQL
+        const existingData = await queryOne(
+          'SELECT * FROM sales_office_cost_settings WHERE sales_office = $1 AND is_active = true',
+          [sales_office]
+        );
 
-        const { data: newSettings, error: insertError } = await supabaseAdmin
-          .from('sales_office_cost_settings')
-          .upsert(upsertData, {
-            onConflict: 'sales_office,effective_from',
-            ignoreDuplicates: false
-          })
-          .select()
-          .single();
+        // 새 데이터 삽입 또는 업데이트 (UPSERT) - Direct PostgreSQL
+        const newSettings = await queryOne(
+          `INSERT INTO sales_office_cost_settings (
+            sales_office, commission_type, commission_percentage, commission_per_unit,
+            effective_from, created_by, is_active
+          ) VALUES ($1, $2, $3, $4, $5, $6, true)
+          ON CONFLICT (sales_office, effective_from)
+          DO UPDATE SET
+            commission_type = EXCLUDED.commission_type,
+            commission_percentage = EXCLUDED.commission_percentage,
+            commission_per_unit = EXCLUDED.commission_per_unit,
+            is_active = EXCLUDED.is_active
+          RETURNING *`,
+          [
+            sales_office,
+            commission_type,
+            commission_type === 'percentage' ? commission_percentage : null,
+            commission_type === 'per_unit' ? commission_per_unit : null,
+            effectiveFromDate,
+            userId
+          ]
+        );
 
-        if (insertError) {
-          errors.push(`${sales_office}: ${insertError.message}`);
+        if (!newSettings) {
+          errors.push(`${sales_office}: 저장 실패`);
           continue;
         }
 
         // 기존 활성 데이터가 있고, 새로 생성/수정된 레코드와 다른 경우에만 비활성화
         if (existingData && existingData.id !== newSettings.id) {
-          await supabaseAdmin
-            .from('sales_office_cost_settings')
-            .update({
-              is_active: false,
-              effective_to: upsertData.effective_from
-            })
-            .eq('id', existingData.id);
+          await pgQuery(
+            `UPDATE sales_office_cost_settings
+             SET is_active = false, effective_to = $1
+             WHERE id = $2`,
+            [effectiveFromDate, existingData.id]
+          );
         }
 
         results.push({
@@ -559,20 +609,24 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // 변경 히스토리 기록 (성공한 건만)
+    // 변경 히스토리 기록 (성공한 건만) - Direct PostgreSQL
     if (results.length > 0) {
-      await supabaseAdmin
-        .from('pricing_change_history')
-        .insert({
-          table_name: 'sales_office_cost_settings',
-          record_id: results[0].settings.id, // 대표 ID
-          change_type: 'commission_batch_update',
-          new_values: { updated_offices: results.map(r => r.sales_office) },
-          changed_fields: ['commission_type', 'commission_percentage', 'commission_per_unit'],
-          change_reason: change_reason || '영업점 비용 설정 일괄 업데이트',
-          user_id: userId,
-          user_name: decoded.name || decoded.username || '알 수 없음'
-        });
+      await pgQuery(
+        `INSERT INTO pricing_change_history (
+          table_name, record_id, change_type, new_values, changed_fields,
+          change_reason, user_id, user_name
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          'sales_office_cost_settings',
+          results[0].settings.id,
+          'commission_batch_update',
+          JSON.stringify({ updated_offices: results.map(r => r.sales_office) }),
+          JSON.stringify(['commission_type', 'commission_percentage', 'commission_per_unit']),
+          change_reason || '영업점 비용 설정 일괄 업데이트',
+          userId,
+          decoded.name || decoded.username || '알 수 없음'
+        ]
+      );
     }
 
     console.log(`✅ [SALES-OFFICE-SETTINGS] 일괄 업데이트 완료: ${results.length}개 성공, ${errors.length}개 실패`);
@@ -643,50 +697,45 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 기존 데이터 조회
-    const { data: existingData, error: fetchError } = await supabaseAdmin
-      .from('sales_office_cost_settings')
-      .select('*')
-      .eq('id', id)
-      .single();
+    // 기존 데이터 조회 - Direct PostgreSQL
+    const existingData = await queryOne(
+      'SELECT * FROM sales_office_cost_settings WHERE id = $1',
+      [id]
+    );
 
-    if (fetchError || !existingData) {
+    if (!existingData) {
       return NextResponse.json({
         success: false,
         message: '해당 데이터를 찾을 수 없습니다.'
       }, { status: 404 });
     }
 
-    // 비활성화 처리
-    const { error: updateError } = await supabaseAdmin
-      .from('sales_office_cost_settings')
-      .update({
-        is_active: false,
-        effective_to: new Date().toISOString().split('T')[0]
-      })
-      .eq('id', id);
+    // 비활성화 처리 - Direct PostgreSQL
+    const today = new Date().toISOString().split('T')[0];
+    await pgQuery(
+      `UPDATE sales_office_cost_settings
+       SET is_active = false, effective_to = $1
+       WHERE id = $2`,
+      [today, id]
+    );
 
-    if (updateError) {
-      console.error('❌ [SALES-OFFICE-SETTINGS] 삭제 오류:', updateError);
-      return NextResponse.json({
-        success: false,
-        message: '영업점 비용 설정 삭제에 실패했습니다.'
-      }, { status: 500 });
-    }
-
-    // 감사 로그 기록
-    await supabaseAdmin
-      .from('revenue_audit_log')
-      .insert({
-        table_name: 'sales_office_cost_settings',
-        record_id: id,
-        action_type: 'DELETE',
-        old_values: existingData,
-        action_description: `영업점 비용 설정 삭제: ${existingData.sales_office}`,
-        user_id: userId,
-        user_name: decoded.name || decoded.username || '알 수 없음',
-        user_permission_level: permissionLevel
-      });
+    // 감사 로그 기록 - Direct PostgreSQL
+    await pgQuery(
+      `INSERT INTO revenue_audit_log (
+        table_name, record_id, action_type, old_values, action_description,
+        user_id, user_name, user_permission_level
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        'sales_office_cost_settings',
+        id,
+        'DELETE',
+        JSON.stringify(existingData),
+        `영업점 비용 설정 삭제: ${existingData.sales_office}`,
+        userId,
+        decoded.name || decoded.username || '알 수 없음',
+        permissionLevel
+      ]
+    );
 
     console.log(`🗑️ [SALES-OFFICE-SETTINGS] 삭제 완료:`, existingData.sales_office);
 
