@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
-import jwt from 'jsonwebtoken';
+import { queryOne, queryAll } from '@/lib/supabase-direct';
+import { verifyTokenString } from '@/utils/auth';
 
 // Force dynamic rendering for API routes
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 
 // 사용자 정보 조회
 export async function GET(
@@ -36,38 +33,30 @@ export async function GET(
       );
     }
 
-    let decodedToken;
-    try {
-      decodedToken = jwt.verify(token, JWT_SECRET) as any;
-    } catch (jwtError) {
+    const decodedToken = verifyTokenString(token);
+    if (!decodedToken) {
       return NextResponse.json(
         { success: false, message: '유효하지 않은 토큰입니다.' },
         { status: 401 }
       );
     }
 
+    const userId = decodedToken.userId || decodedToken.id;
+    const permissionLevel = decodedToken.permissionLevel || decodedToken.permission_level;
+
     // 자신의 정보이거나 관리자/슈퍼관리자인 경우에만 접근 허용
-    if (decodedToken.id !== params.id && decodedToken.permissionLevel < 3) {
+    if (userId !== params.id && permissionLevel < 3) {
       return NextResponse.json(
         { success: false, message: '접근 권한이 없습니다.' },
         { status: 403 }
       );
     }
 
-    // 사용자 정보 조회
-    const { data: employee, error: fetchError } = await supabaseAdmin
-      .from('employees')
-      .select('*')
-      .eq('id', params.id)
-      .single();
-
-    if (fetchError) {
-      console.error('사용자 조회 오류:', fetchError);
-      return NextResponse.json(
-        { success: false, message: `사용자 조회에 실패했습니다: ${fetchError.message}` },
-        { status: 500 }
-      );
-    }
+    // 사용자 정보 조회 - Direct PostgreSQL
+    const employee = await queryOne(
+      'SELECT * FROM employees WHERE id = $1',
+      [params.id]
+    );
 
     if (!employee) {
       return NextResponse.json(
@@ -76,11 +65,11 @@ export async function GET(
       );
     }
 
-    // 소셜 계정 정보도 함께 조회
-    const { data: socialAccounts, error: socialError } = await supabaseAdmin
-      .from('social_accounts')
-      .select('*')
-      .eq('user_id', params.id);
+    // 소셜 계정 정보도 함께 조회 - Direct PostgreSQL
+    const socialAccounts = await queryAll(
+      'SELECT * FROM social_accounts WHERE user_id = $1',
+      [params.id]
+    );
 
     return NextResponse.json({
       success: true,
@@ -136,26 +125,27 @@ export async function PUT(
       );
     }
 
-    let decodedToken;
-    try {
-      decodedToken = jwt.verify(token, JWT_SECRET) as any;
-    } catch (jwtError) {
+    const decodedToken = verifyTokenString(token);
+    if (!decodedToken) {
       return NextResponse.json(
         { success: false, message: '유효하지 않은 토큰입니다.' },
         { status: 401 }
       );
     }
 
+    const userId = decodedToken.userId || decodedToken.id;
+    const permissionLevel = decodedToken.permissionLevel || decodedToken.permission_level;
+
     const body = await request.json();
     const { name, email, department, position, permission_level, phone, mobile } = body;
 
     // 자신의 프로필 수정인지 확인
-    const isSelfUpdate = decodedToken.id === params.id;
+    const isSelfUpdate = userId === params.id;
 
     // 권한 레벨 변경 시도 시 관리자 권한 확인
     if (permission_level !== undefined && !isSelfUpdate) {
       // 다른 사람의 권한을 변경하려면 관리자 권한 필요
-      if (decodedToken.permissionLevel < 3) {
+      if (permissionLevel < 3) {
         return NextResponse.json(
           { success: false, message: '관리자 권한이 필요합니다.' },
           { status: 403 }
@@ -171,13 +161,11 @@ export async function PUT(
       );
     }
 
-    // 이메일 중복 확인 (자신 제외)
-    const { data: existingEmployee, error: emailCheckError } = await supabaseAdmin
-      .from('employees')
-      .select('id')
-      .eq('email', email)
-      .neq('id', params.id)
-      .single();
+    // 이메일 중복 확인 (자신 제외) - Direct PostgreSQL
+    const existingEmployee = await queryOne(
+      'SELECT id FROM employees WHERE email = $1 AND id != $2',
+      [email, params.id]
+    );
 
     if (existingEmployee) {
       return NextResponse.json(
@@ -186,51 +174,74 @@ export async function PUT(
       );
     }
 
-    // 기존 사용자 정보 조회 (권한 레벨 보존용)
-    const { data: currentEmployee } = await supabaseAdmin
-      .from('employees')
-      .select('permission_level')
-      .eq('id', params.id)
-      .single();
+    // 기존 사용자 정보 조회 (권한 레벨 보존용) - Direct PostgreSQL
+    const currentEmployee = await queryOne(
+      'SELECT permission_level FROM employees WHERE id = $1',
+      [params.id]
+    );
 
-    // 사용자 정보 업데이트
-    const updateData: any = {
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      department: department?.trim() || null,
-      position: position?.trim() || null,
-      phone: phone?.trim() || null,
-      mobile: mobile?.trim() || null
-    };
+    // 사용자 정보 업데이트 - Direct PostgreSQL
+    const updateFields: string[] = [];
+    const updateValues: any[] = [];
+    let paramIndex = 1;
+
+    updateFields.push(`name = $${paramIndex}`);
+    updateValues.push(name.trim());
+    paramIndex++;
+
+    updateFields.push(`email = $${paramIndex}`);
+    updateValues.push(email.trim().toLowerCase());
+    paramIndex++;
+
+    updateFields.push(`department = $${paramIndex}`);
+    updateValues.push(department?.trim() || null);
+    paramIndex++;
+
+    updateFields.push(`position = $${paramIndex}`);
+    updateValues.push(position?.trim() || null);
+    paramIndex++;
+
+    updateFields.push(`phone = $${paramIndex}`);
+    updateValues.push(phone?.trim() || null);
+    paramIndex++;
+
+    updateFields.push(`mobile = $${paramIndex}`);
+    updateValues.push(mobile?.trim() || null);
+    paramIndex++;
 
     // 권한 레벨은 명시적으로 전달된 경우에만 업데이트 (관리자만 가능)
-    if (permission_level !== undefined && decodedToken.permissionLevel >= 3 && !isSelfUpdate) {
-      updateData.permission_level = permission_level;
+    if (permission_level !== undefined && permissionLevel >= 3 && !isSelfUpdate) {
+      updateFields.push(`permission_level = $${paramIndex}`);
+      updateValues.push(permission_level);
+      paramIndex++;
     }
     // 자신의 프로필 업데이트 시 권한 레벨 유지
     else if (currentEmployee) {
-      updateData.permission_level = currentEmployee.permission_level;
+      updateFields.push(`permission_level = $${paramIndex}`);
+      updateValues.push(currentEmployee.permission_level);
+      paramIndex++;
     }
 
-    const { data: updatedEmployee, error: updateError } = await supabaseAdmin
-      .from('employees')
-      .update(updateData)
-      .eq('id', params.id)
-      .select()
-      .single();
+    // WHERE 조건용 파라미터 추가
+    updateValues.push(params.id);
 
-    if (updateError) {
-      console.error('❌ [USER-UPDATE] Supabase 업데이트 오류:', {
-        error: updateError,
-        code: updateError.code,
-        message: updateError.message,
-        details: updateError.details
-      });
+    const updatedEmployee = await queryOne(
+      `UPDATE employees
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      updateValues
+    );
+
+    if (!updatedEmployee) {
+      console.error('❌ [USER-UPDATE] 업데이트 실패');
       return NextResponse.json(
-        { success: false, message: `사용자 업데이트에 실패했습니다: ${updateError.message}` },
+        { success: false, message: '사용자 업데이트에 실패했습니다.' },
         { status: 500 }
       );
     }
+
+    console.log('✅ [USER-UPDATE] 업데이트 성공:', params.id);
 
     return NextResponse.json({
       success: true,
