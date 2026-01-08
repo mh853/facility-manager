@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
 
 // ============================================================
 // URL 데이터 관리 컴포넌트
@@ -10,6 +11,10 @@ import { useState, useEffect, useRef } from 'react';
 
 interface UrlDataManagerProps {
   onUploadComplete?: () => void;
+  user: {
+    id: string;
+    permission_level: number;
+  };
 }
 
 interface UploadResult {
@@ -31,7 +36,7 @@ interface UploadResult {
   duplicate_urls?: string[];
 }
 
-export default function UrlDataManager({ onUploadComplete }: UrlDataManagerProps) {
+export default function UrlDataManager({ onUploadComplete, user }: UrlDataManagerProps) {
   const [expanded, setExpanded] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -40,6 +45,12 @@ export default function UrlDataManager({ onUploadComplete }: UrlDataManagerProps
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Supabase 클라이언트 초기화
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   // URL 개수 로드
   useEffect(() => {
     loadUrlCount();
@@ -47,17 +58,26 @@ export default function UrlDataManager({ onUploadComplete }: UrlDataManagerProps
 
   const loadUrlCount = async () => {
     try {
-      // 쿠키 기반 세션 인증 사용 (Authorization 헤더 불필요)
+      // Supabase 세션에서 access token 가져오기
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        console.error('[UrlDataManager] 세션이 없습니다');
+        return;
+      }
+
+      console.log('[UrlDataManager] 세션 토큰 확인:', session.access_token ? '✅ 존재' : '❌ 없음');
+
+      // API 호출 시 Authorization 헤더에 세션 토큰 포함
       const response = await fetch('/api/subsidy-crawler/direct?limit=1000', {
-        credentials: 'include', // 쿠키 포함
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
       });
 
-      // 🔍 디버깅: 응답 상태 확인
       console.log('[UrlDataManager] API 응답 상태:', response.status, response.statusText);
 
       const data = await response.json();
-
-      // 🔍 디버깅: 응답 데이터 확인
       console.log('[UrlDataManager] API 응답 데이터:', data);
 
       if (data.success) {

@@ -285,7 +285,7 @@ async function recordCrawlFailure(url: string, error: string): Promise<void> {
 // ============================================================
 
 export async function GET(request: NextRequest) {
-  // 인증 확인: CRAWLER_SECRET 또는 사용자 세션 (권한 4 이상)
+  // 인증 확인: CRAWLER_SECRET, Authorization Bearer, 또는 쿠키 세션
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.replace('Bearer ', '');
 
@@ -293,7 +293,33 @@ export async function GET(request: NextRequest) {
   if (token && token === CRAWLER_SECRET) {
     // GitHub Actions 크롤러 인증 성공
   }
-  // 2. 사용자 세션 인증 (Admin UI용)
+  // 2. Authorization Bearer 토큰 인증 (Supabase 세션)
+  else if (token && token !== CRAWLER_SECRET) {
+    // Supabase 세션 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Invalid session token' },
+        { status: 401 }
+      );
+    }
+
+    // 사용자 권한 확인 (permission_level >= 4)
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('permission_level')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData || userData.permission_level < 4) {
+      return NextResponse.json(
+        { error: 'Forbidden: Insufficient permissions (requires level 4)' },
+        { status: 403 }
+      );
+    }
+  }
+  // 3. 쿠키 기반 세션 인증 (폴백)
   else {
     // 쿠키에서 세션 토큰 가져오기
     const cookieHeader = request.headers.get('cookie') || '';

@@ -55,73 +55,40 @@ interface UploadResult {
 // ============================================================
 
 export async function POST(request: NextRequest) {
-  // 인증 확인: CRAWLER_SECRET 또는 사용자 세션 (권한 4 이상)
+  // 인증 확인: CRAWLER_SECRET, Authorization Bearer, 또는 쿠키 세션
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.replace('Bearer ', '');
+
+  // 공통 오류 응답 템플릿
+  const createErrorResponse = (message: string, status: number) => NextResponse.json(
+    {
+      success: false,
+      error: message,
+      summary: {
+        total_rows: 0,
+        valid_rows: 0,
+        error_rows: 0,
+        inserted_rows: 0,
+        updated_rows: 0,
+        skipped_rows: 0,
+      },
+      errors: [{ row: 0, field: 'auth', message }],
+    },
+    { status }
+  );
 
   // 1. CRAWLER_SECRET 인증 (GitHub Actions용)
   if (token && token === CRAWLER_SECRET) {
     // GitHub Actions 크롤러 인증 성공
   }
-  // 2. 사용자 세션 인증 (Admin UI용)
-  else {
-    // 쿠키에서 세션 토큰 가져오기
-    const cookieHeader = request.headers.get('cookie') || '';
-    const cookies = Object.fromEntries(
-      cookieHeader.split('; ').map(c => c.split('=').map(decodeURIComponent))
-    );
-    const accessToken = cookies['sb-access-token'] || cookies['sb-uvdvfsjekqshxtxthxeq-auth-token'];
-
-    if (!accessToken) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '인증이 필요합니다',
-          summary: {
-            total_rows: 0,
-            valid_rows: 0,
-            error_rows: 0,
-            inserted_rows: 0,
-            updated_rows: 0,
-            skipped_rows: 0,
-          },
-          errors: [{
-            row: 0,
-            field: 'auth',
-            message: '로그인이 필요합니다.',
-          }],
-        },
-        { status: 401 }
-      );
-    }
-
-    // Supabase 세션 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+  // 2. Authorization Bearer 토큰 인증 (Supabase 세션)
+  else if (token && token !== CRAWLER_SECRET) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '인증이 실패했습니다',
-          summary: {
-            total_rows: 0,
-            valid_rows: 0,
-            error_rows: 0,
-            inserted_rows: 0,
-            updated_rows: 0,
-            skipped_rows: 0,
-          },
-          errors: [{
-            row: 0,
-            field: 'auth',
-            message: '세션이 만료되었습니다. 다시 로그인해주세요.',
-          }],
-        },
-        { status: 401 }
-      );
+      return createErrorResponse('인증이 실패했습니다. 세션이 만료되었습니다.', 401);
     }
 
-    // 사용자 권한 확인 (permission_level >= 4)
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('permission_level')
@@ -129,25 +96,40 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (userError || !userData || userData.permission_level < 4) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '권한이 부족합니다',
-          summary: {
-            total_rows: 0,
-            valid_rows: 0,
-            error_rows: 0,
-            inserted_rows: 0,
-            updated_rows: 0,
-            skipped_rows: 0,
-          },
-          errors: [{
-            row: 0,
-            field: 'auth',
-            message: '시스템 관리자 권한(레벨 4)이 필요합니다. 현재 권한: ' + (userData?.permission_level || 'unknown'),
-          }],
-        },
-        { status: 403 }
+      return createErrorResponse(
+        `시스템 관리자 권한(레벨 4)이 필요합니다. 현재 권한: ${userData?.permission_level || 'unknown'}`,
+        403
+      );
+    }
+  }
+  // 3. 쿠키 기반 세션 인증 (폴백)
+  else {
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookies = Object.fromEntries(
+      cookieHeader.split('; ').map(c => c.split('=').map(decodeURIComponent))
+    );
+    const accessToken = cookies['sb-access-token'] || cookies['sb-uvdvfsjekqshxtxthxeq-auth-token'];
+
+    if (!accessToken) {
+      return createErrorResponse('로그인이 필요합니다.', 401);
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      return createErrorResponse('세션이 만료되었습니다. 다시 로그인해주세요.', 401);
+    }
+
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('permission_level')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData || userData.permission_level < 4) {
+      return createErrorResponse(
+        `시스템 관리자 권한(레벨 4)이 필요합니다. 현재 권한: ${userData?.permission_level || 'unknown'}`,
+        403
       );
     }
   }

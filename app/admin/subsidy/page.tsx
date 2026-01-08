@@ -364,7 +364,7 @@ export default function SubsidyAnnouncementsPage() {
 
         {/* URL 데이터 관리 - 권한 4(시스템 관리자)만 접근 가능 */}
         {!authLoading && user && user.permission_level >= 4 && (
-          <UrlDataManager onUploadComplete={loadStats} />
+          <UrlDataManager onUploadComplete={loadStats} user={user} />
         )}
 
         {/* 디버깅: 권한 정보 표시 (개발 환경에서만) */}
