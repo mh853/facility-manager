@@ -81,25 +81,41 @@ export async function POST(request: NextRequest) {
   if (token && token === CRAWLER_SECRET) {
     // GitHub Actions 크롤러 인증 성공
   }
-  // 2. Authorization Bearer 토큰 인증 (Supabase 세션)
+  // 2. Authorization Bearer 토큰 인증 (JWT 또는 Supabase 세션)
   else if (token && token !== CRAWLER_SECRET) {
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // 2-1. JWT 토큰 검증 시도
+    const { getUserFromToken } = await import('@/lib/secure-jwt');
+    const jwtUser = await getUserFromToken(request);
 
-    if (authError || !user) {
-      return createErrorResponse('인증이 실패했습니다. 세션이 만료되었습니다.', 401);
-    }
+    if (jwtUser) {
+      // JWT 토큰으로 인증 성공
+      if (jwtUser.permission_level < 4) {
+        return createErrorResponse(
+          `시스템 관리자 권한(레벨 4)이 필요합니다. 현재 권한: ${jwtUser.permission_level}`,
+          403
+        );
+      }
+      // JWT 인증 성공, 계속 진행
+    } else {
+      // 2-2. JWT 실패 시 Supabase 세션 확인
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('permission_level')
-      .eq('id', user.id)
-      .single();
+      if (authError || !user) {
+        return createErrorResponse('인증이 실패했습니다. 세션이 만료되었습니다.', 401);
+      }
 
-    if (userError || !userData || userData.permission_level < 4) {
-      return createErrorResponse(
-        `시스템 관리자 권한(레벨 4)이 필요합니다. 현재 권한: ${userData?.permission_level || 'unknown'}`,
-        403
-      );
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('permission_level')
+        .eq('id', user.id)
+        .single();
+
+      if (userError || !userData || userData.permission_level < 4) {
+        return createErrorResponse(
+          `시스템 관리자 권한(레벨 4)이 필요합니다. 현재 권한: ${userData?.permission_level || 'unknown'}`,
+          403
+        );
+      }
     }
   }
   // 3. 쿠키 기반 세션 인증 (폴백)

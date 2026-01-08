@@ -53,25 +53,33 @@ export default function UrlDataManager({ onUploadComplete, user, supabase }: Url
 
   const loadUrlCount = async () => {
     try {
-      // Supabase 세션에서 access token 가져오기
+      // 1. Supabase 세션 확인
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (sessionError) {
-        console.error('[UrlDataManager] 세션 조회 오류:', sessionError);
+      let authToken: string | null = null;
+
+      if (session && session.access_token) {
+        // Supabase 세션이 있으면 사용
+        authToken = session.access_token;
+        console.log('[UrlDataManager] Supabase 세션 토큰 사용 ✅');
+      } else {
+        // 2. Supabase 세션이 없으면 JWT 토큰 확인
+        const jwtToken = localStorage.getItem('auth_token');
+        if (jwtToken) {
+          authToken = jwtToken;
+          console.log('[UrlDataManager] JWT 토큰 사용 ✅');
+        }
+      }
+
+      if (!authToken) {
+        console.error('[UrlDataManager] 인증 토큰이 없습니다 (Supabase 세션과 JWT 모두 없음)');
         return;
       }
 
-      if (!session) {
-        console.error('[UrlDataManager] 세션이 없습니다');
-        return;
-      }
-
-      console.log('[UrlDataManager] 세션 토큰 확인:', session.access_token ? '✅ 존재' : '❌ 없음');
-
-      // API 호출 시 Authorization 헤더에 세션 토큰 포함
+      // API 호출 시 Authorization 헤더에 토큰 포함
       const response = await fetch('/api/subsidy-crawler/direct?limit=1000', {
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${authToken}`,
         },
       });
 
@@ -158,33 +166,26 @@ export default function UrlDataManager({ onUploadComplete, user, supabase }: Url
     setUploadResult(null);
 
     try {
-      // Supabase 세션에서 access token 가져오기
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // 1. Supabase 세션 확인
+      const { data: { session } } = await supabase.auth.getSession();
 
-      if (sessionError) {
-        console.error('[UrlDataManager] 세션 조회 오류:', sessionError);
-        setUploadResult({
-          success: false,
-          summary: {
-            total_rows: 0,
-            valid_rows: 0,
-            error_rows: 0,
-            inserted_rows: 0,
-            updated_rows: 0,
-            skipped_rows: 0,
-          },
-          errors: [{
-            row: 0,
-            field: 'auth',
-            message: '세션 조회 실패: ' + sessionError.message,
-          }],
-        });
-        setUploading(false);
-        return;
+      let authToken: string | null = null;
+
+      if (session && session.access_token) {
+        // Supabase 세션이 있으면 사용
+        authToken = session.access_token;
+        console.log('[UrlDataManager] CSV 업로드: Supabase 세션 토큰 사용 ✅');
+      } else {
+        // 2. Supabase 세션이 없으면 JWT 토큰 확인
+        const jwtToken = localStorage.getItem('auth_token');
+        if (jwtToken) {
+          authToken = jwtToken;
+          console.log('[UrlDataManager] CSV 업로드: JWT 토큰 사용 ✅');
+        }
       }
 
-      if (!session) {
-        console.error('[UrlDataManager] 세션이 없습니다');
+      if (!authToken) {
+        console.error('[UrlDataManager] 인증 토큰이 없습니다');
         setUploadResult({
           success: false,
           summary: {
@@ -198,7 +199,7 @@ export default function UrlDataManager({ onUploadComplete, user, supabase }: Url
           errors: [{
             row: 0,
             field: 'auth',
-            message: '로그인이 필요합니다. 세션이 만료되었습니다.',
+            message: '로그인이 필요합니다. 인증 토큰을 찾을 수 없습니다.',
           }],
         });
         setUploading(false);
@@ -211,7 +212,7 @@ export default function UrlDataManager({ onUploadComplete, user, supabase }: Url
       const response = await fetch('/api/subsidy-crawler/direct-urls/upload', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${authToken}`,
         },
         body: formData,
       });

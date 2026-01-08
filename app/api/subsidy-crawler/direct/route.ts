@@ -293,30 +293,45 @@ export async function GET(request: NextRequest) {
   if (token && token === CRAWLER_SECRET) {
     // GitHub Actions 크롤러 인증 성공
   }
-  // 2. Authorization Bearer 토큰 인증 (Supabase 세션)
+  // 2. Authorization Bearer 토큰 인증 (JWT 또는 Supabase 세션)
   else if (token && token !== CRAWLER_SECRET) {
-    // Supabase 세션 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // 2-1. JWT 토큰 검증 시도
+    const { getUserFromToken } = await import('@/lib/secure-jwt');
+    const jwtUser = await getUserFromToken(request);
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized: Invalid session token' },
-        { status: 401 }
-      );
-    }
+    if (jwtUser) {
+      // JWT 토큰으로 인증 성공
+      if (jwtUser.permission_level < 4) {
+        return NextResponse.json(
+          { error: 'Forbidden: Insufficient permissions (requires level 4)' },
+          { status: 403 }
+        );
+      }
+      // JWT 인증 성공, 계속 진행
+    } else {
+      // 2-2. JWT 실패 시 Supabase 세션 확인
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
-    // 사용자 권한 확인 (permission_level >= 4)
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('permission_level')
-      .eq('id', user.id)
-      .single();
+      if (authError || !user) {
+        return NextResponse.json(
+          { error: 'Unauthorized: Invalid token (neither JWT nor Supabase session)' },
+          { status: 401 }
+        );
+      }
 
-    if (userError || !userData || userData.permission_level < 4) {
-      return NextResponse.json(
-        { error: 'Forbidden: Insufficient permissions (requires level 4)' },
-        { status: 403 }
-      );
+      // 사용자 권한 확인 (permission_level >= 4)
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('permission_level')
+        .eq('id', user.id)
+        .single();
+
+      if (userError || !userData || userData.permission_level < 4) {
+        return NextResponse.json(
+          { error: 'Forbidden: Insufficient permissions (requires level 4)' },
+          { status: 403 }
+        );
+      }
     }
   }
   // 3. 쿠키 기반 세션 인증 (폴백)
