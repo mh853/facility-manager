@@ -1,5 +1,5 @@
 # 지자체 보조금 공고 크롤러 스케줄러
-# 매일 오전 9시 (KST) 실행
+# 매일 오전 9시 (KST) 자동 실행
 
 name: Subsidy Announcement Crawler
 

@@ -1,5 +1,5 @@
 # 환경 기관 보조금 공고 크롤러 (Phase 2)
-# 매일 오전 10시 (KST) 실행 - 31개 환경센터 크롤링
+# 매일 오전 10시 (KST) 자동 실행 - 31개 환경센터 크롤링
 # 배치 처리 방식: 4개 배치로 분할하여 Vercel 타임아웃 방지
 
 name: Subsidy Crawler - Phase 2 (Environmental Agencies)
