@@ -285,15 +285,51 @@ async function recordCrawlFailure(url: string, error: string): Promise<void> {
 // ============================================================
 
 export async function GET(request: NextRequest) {
-  // 인증 확인 (프로덕션 환경에서만)
-  if (IS_PRODUCTION) {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+  // 인증 확인: CRAWLER_SECRET 또는 사용자 세션 (권한 4 이상)
+  const authHeader = request.headers.get('authorization');
+  const token = authHeader?.replace('Bearer ', '');
 
-    if (!token || token !== CRAWLER_SECRET) {
+  // 1. CRAWLER_SECRET 인증 (GitHub Actions용)
+  if (token && token === CRAWLER_SECRET) {
+    // GitHub Actions 크롤러 인증 성공
+  }
+  // 2. 사용자 세션 인증 (Admin UI용)
+  else {
+    // 쿠키에서 세션 토큰 가져오기
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookies = Object.fromEntries(
+      cookieHeader.split('; ').map(c => c.split('=').map(decodeURIComponent))
+    );
+    const accessToken = cookies['sb-access-token'] || cookies['sb-qdfqoykhmuiambtrrlnf-auth-token'];
+
+    if (!accessToken) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized: No session token' },
         { status: 401 }
+      );
+    }
+
+    // Supabase 세션 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Invalid session' },
+        { status: 401 }
+      );
+    }
+
+    // 사용자 권한 확인 (permission_level >= 4)
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('permission_level')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData || userData.permission_level < 4) {
+      return NextResponse.json(
+        { error: 'Forbidden: Insufficient permissions (requires level 4)' },
+        { status: 403 }
       );
     }
   }

@@ -47,14 +47,15 @@ export default function UrlDataManager({ onUploadComplete }: UrlDataManagerProps
 
   const loadUrlCount = async () => {
     try {
+      // 쿠키 기반 세션 인증 사용 (Authorization 헤더 불필요)
       const response = await fetch('/api/subsidy-crawler/direct?limit=1000', {
-        headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRAWLER_SECRET || ''}`,
-        },
+        credentials: 'include', // 쿠키 포함
       });
       const data = await response.json();
       if (data.success) {
         setUrlCount(data.total_urls || 0);
+      } else {
+        console.error('URL 조회 실패:', data.error);
       }
     } catch (error) {
       console.error('URL 개수 로드 실패:', error);
@@ -133,7 +134,7 @@ export default function UrlDataManager({ onUploadComplete }: UrlDataManagerProps
 
       const response = await fetch('/api/subsidy-crawler/direct-urls/upload', {
         method: 'POST',
-        // Authorization 헤더 제거 - 서버에서 선택적으로 처리
+        credentials: 'include', // 쿠키 기반 세션 인증 사용
         body: formData,
       });
 
