@@ -51,14 +51,23 @@ export default function UrlDataManager({ onUploadComplete }: UrlDataManagerProps
       const response = await fetch('/api/subsidy-crawler/direct?limit=1000', {
         credentials: 'include', // 쿠키 포함
       });
+
+      // 🔍 디버깅: 응답 상태 확인
+      console.log('[UrlDataManager] API 응답 상태:', response.status, response.statusText);
+
       const data = await response.json();
+
+      // 🔍 디버깅: 응답 데이터 확인
+      console.log('[UrlDataManager] API 응답 데이터:', data);
+
       if (data.success) {
         setUrlCount(data.total_urls || 0);
+        console.log('[UrlDataManager] URL 개수 설정:', data.total_urls);
       } else {
-        console.error('URL 조회 실패:', data.error);
+        console.error('[UrlDataManager] URL 조회 실패:', data.error);
       }
     } catch (error) {
-      console.error('URL 개수 로드 실패:', error);
+      console.error('[UrlDataManager] URL 개수 로드 실패:', error);
     }
   };
 
@@ -138,7 +147,13 @@ export default function UrlDataManager({ onUploadComplete }: UrlDataManagerProps
         body: formData,
       });
 
+      // 🔍 디버깅: 응답 상태 확인
+      console.log('[UrlDataManager] CSV 업로드 응답 상태:', response.status, response.statusText);
+
       const result: UploadResult = await response.json();
+
+      // 🔍 디버깅: 응답 데이터 확인
+      console.log('[UrlDataManager] CSV 업로드 응답 데이터:', result);
 
       // 응답 상태 코드 확인
       if (!response.ok) {
