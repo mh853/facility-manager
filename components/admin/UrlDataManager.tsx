@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // ============================================================
 // URL 데이터 관리 컴포넌트
@@ -15,6 +15,7 @@ interface UrlDataManagerProps {
     id: string;
     permission_level: number;
   };
+  supabase: SupabaseClient;
 }
 
 interface UploadResult {
@@ -36,7 +37,7 @@ interface UploadResult {
   duplicate_urls?: string[];
 }
 
-export default function UrlDataManager({ onUploadComplete, user }: UrlDataManagerProps) {
+export default function UrlDataManager({ onUploadComplete, user, supabase }: UrlDataManagerProps) {
   const [expanded, setExpanded] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -44,12 +45,6 @@ export default function UrlDataManager({ onUploadComplete, user }: UrlDataManage
   const [urlCount, setUrlCount] = useState<number>(0);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Supabase 클라이언트 초기화
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
 
   // URL 개수 로드
   useEffect(() => {
@@ -59,7 +54,12 @@ export default function UrlDataManager({ onUploadComplete, user }: UrlDataManage
   const loadUrlCount = async () => {
     try {
       // Supabase 세션에서 access token 가져오기
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error('[UrlDataManager] 세션 조회 오류:', sessionError);
+        return;
+      }
 
       if (!session) {
         console.error('[UrlDataManager] 세션이 없습니다');
@@ -158,12 +158,61 @@ export default function UrlDataManager({ onUploadComplete, user }: UrlDataManage
     setUploadResult(null);
 
     try {
+      // Supabase 세션에서 access token 가져오기
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error('[UrlDataManager] 세션 조회 오류:', sessionError);
+        setUploadResult({
+          success: false,
+          summary: {
+            total_rows: 0,
+            valid_rows: 0,
+            error_rows: 0,
+            inserted_rows: 0,
+            updated_rows: 0,
+            skipped_rows: 0,
+          },
+          errors: [{
+            row: 0,
+            field: 'auth',
+            message: '세션 조회 실패: ' + sessionError.message,
+          }],
+        });
+        setUploading(false);
+        return;
+      }
+
+      if (!session) {
+        console.error('[UrlDataManager] 세션이 없습니다');
+        setUploadResult({
+          success: false,
+          summary: {
+            total_rows: 0,
+            valid_rows: 0,
+            error_rows: 0,
+            inserted_rows: 0,
+            updated_rows: 0,
+            skipped_rows: 0,
+          },
+          errors: [{
+            row: 0,
+            field: 'auth',
+            message: '로그인이 필요합니다. 세션이 만료되었습니다.',
+          }],
+        });
+        setUploading(false);
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', uploadFile);
 
       const response = await fetch('/api/subsidy-crawler/direct-urls/upload', {
         method: 'POST',
-        credentials: 'include', // 쿠키 기반 세션 인증 사용
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: formData,
       });
 

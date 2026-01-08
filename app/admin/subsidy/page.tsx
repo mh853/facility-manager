@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdminLayout from '@/components/ui/AdminLayout';
 import UrlDataManager from '@/components/admin/UrlDataManager';
 import { useAuth } from '@/contexts/AuthContext';
+import { createBrowserClient } from '@supabase/ssr';
 import type { SubsidyAnnouncement, SubsidyDashboardStats, AnnouncementStatus } from '@/types/subsidy';
 
 // 상태별 색상
@@ -21,6 +22,12 @@ export default function SubsidyAnnouncementsPage() {
   const [stats, setStats] = useState<SubsidyDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<SubsidyAnnouncement | null>(null);
+
+  // Supabase 클라이언트 (단일 인스턴스, 컴포넌트 최상위에서 생성)
+  const supabase = useMemo(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ), []);
 
   // 필터 상태 (기본값: 관련 공고만 표시 - 75% 이상)
   const [filterStatus, setFilterStatus] = useState('all');
@@ -364,7 +371,7 @@ export default function SubsidyAnnouncementsPage() {
 
         {/* URL 데이터 관리 - 권한 4(시스템 관리자)만 접근 가능 */}
         {!authLoading && user && user.permission_level >= 4 && (
-          <UrlDataManager onUploadComplete={loadStats} user={user} />
+          <UrlDataManager onUploadComplete={loadStats} user={user} supabase={supabase} />
         )}
 
         {/* 디버깅: 권한 정보 표시 (개발 환경에서만) */}
