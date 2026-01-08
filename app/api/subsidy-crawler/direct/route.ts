@@ -86,7 +86,7 @@ function isRelevantTitle(title: string): boolean {
 }
 
 // ============================================================
-// 직접 URL 크롤링 함수
+// 직접 URL 크롤링 함수 (Playwright 기반)
 // ============================================================
 
 async function crawlDirectUrl(url: string): Promise<{
@@ -94,45 +94,73 @@ async function crawlDirectUrl(url: string): Promise<{
   announcements: any[];
   error?: string;
 }> {
+  let browser;
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃
+    const { chromium } = await import('playwright');
 
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
+    // 브라우저 실행 (headless 모드)
+    browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'], // Vercel 호환
     });
 
-    clearTimeout(timeoutId);
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const page = await context.newPage();
+
+    // 페이지 로드 (8초 타임아웃)
+    await page.goto(url, {
+      timeout: 8000,
+      waitUntil: 'domcontentloaded',
+    });
+
+    // 페이지 콘텐츠 추출 시도
+    let content = '';
+    try {
+      // 1차 시도: main, article, .content 등 주요 콘텐츠 영역
+      const mainContent = await page.locator('main, article, [role="main"], .content, #content, .board-content, .post-content').first().textContent({ timeout: 2000 });
+      content = mainContent?.trim() || '';
+    } catch (e) {
+      // 2차 시도: body 전체
+      try {
+        const bodyContent = await page.locator('body').textContent({ timeout: 2000 });
+        content = bodyContent?.trim() || '';
+      } catch (e2) {
+        console.warn(`Failed to extract content from ${url}`);
+      }
     }
 
-    const html = await response.text();
+    // 콘텐츠 정리 (중복 공백, 줄바꿈 제거)
+    content = content.replace(/\s+/g, ' ').trim();
 
-    // HTML 파싱 (간단한 정규표현식 기반)
-    // 실제로는 cheerio 등의 라이브러리 사용 권장
+    // HTML 소스에서 제목 추출 (기존 로직 유지)
+    const html = await page.content();
     const announcements: any[] = [];
 
     // 제목 추출 (a 태그, h1-h6 등)
     const titleRegex = /<(?:a[^>]*|h[1-6][^>]*)>([^<]+)<\//gi;
     const matches = html.matchAll(titleRegex);
 
+    const seenTitles = new Set<string>();
+
     for (const match of matches) {
       const title = match[1].trim();
 
-      // 관련성 검사
-      if (isRelevantTitle(title)) {
+      // 중복 제거 및 관련성 검사
+      if (!seenTitles.has(title) && isRelevantTitle(title)) {
+        seenTitles.add(title);
         announcements.push({
           title,
+          content, // ✅ Playwright로 추출한 본문 추가
           source_url: url,
           crawled_at: new Date().toISOString(),
         });
       }
     }
+
+    await browser.close();
 
     return {
       success: true,
@@ -140,6 +168,9 @@ async function crawlDirectUrl(url: string): Promise<{
     };
 
   } catch (error: any) {
+    if (browser) {
+      await browser.close();
+    }
     return {
       success: false,
       announcements: [],

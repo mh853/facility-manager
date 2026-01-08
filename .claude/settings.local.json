@@ -158,7 +158,15 @@
       "Bash(TZ=Asia/Seoul date:*)",
       "Bash(git log:*)",
       "Bash(gh workflow run:*)",
-      "Bash(vercel ls:*)"
+      "Bash(vercel ls:*)",
+      "Bash(gh run list:*)",
+      "Bash(npx tsx:*)",
+      "Bash(__NEW_LINE__ curl -s -X POST \"https://facility.blueon-iot.com/api/subsidy-crawler/reanalyze\" )",
+      "Bash(for i in {1..20})",
+      "Bash(do)",
+      "Bash(./test-reanalyze.sh:*)",
+      "Bash(__NEW_LINE__ curl -s -X POST 'https://facility.blueon-iot.com/api/subsidy-crawler/reanalyze' )",
+      "Bash(bash test-reanalyze.sh:*)"
     ],
     "deny": [],
     "ask": [],
