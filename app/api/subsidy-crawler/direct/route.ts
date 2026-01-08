@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { analyzeAnnouncement } from '@/lib/gemini';
+import { analyzeAnnouncement, normalizeDate } from '@/lib/gemini';
 
 // ============================================================
 // Direct URL Crawler API
@@ -159,6 +159,16 @@ async function saveAnnouncements(
   let newCount = 0;
   let relevantCount = 0;
 
+  // sourceUrl에서 지자체 정보 가져오기
+  const { data: urlSource } = await supabase
+    .from('direct_url_sources')
+    .select('region_code, region_name, category')
+    .eq('url', sourceUrl)
+    .single();
+
+  const regionCode = urlSource?.region_code || '00000';
+  const regionName = urlSource?.region_name || 'Direct URL Source';
+
   for (const announcement of announcements) {
     try {
       // Gemini AI 분석
@@ -186,6 +196,13 @@ async function saveAnnouncements(
         continue; // 이미 존재하면 스킵
       }
 
+      // Gemini AI가 추출한 정보
+      const extractedInfo = analysisResult?.extracted_info || {};
+
+      // 날짜 정규화
+      const startDate = normalizeDate(extractedInfo.application_period_start);
+      const endDate = normalizeDate(extractedInfo.application_period_end);
+
       // 삽입
       const { error } = await supabase
         .from('subsidy_announcements')
@@ -193,13 +210,20 @@ async function saveAnnouncements(
           title: announcement.title,
           content: announcement.content || '',
           source_url: announcement.source_url,
-          region_code: '00000',
-          region_name: 'Direct URL Source',
+          region_code: regionCode,
+          region_name: regionName,
           region_type: 'basic', // Required NOT NULL field
           published_at: new Date().toISOString(),
           relevance_score: relevanceScore,
           is_relevant: isRelevant, // Set boolean flag
           crawled_at: new Date().toISOString(),
+          // Gemini AI 추출 정보
+          application_period_start: startDate,
+          application_period_end: endDate,
+          budget: extractedInfo.budget || null,
+          target_description: extractedInfo.target_description || null,
+          support_amount: extractedInfo.support_amount || null,
+          keywords_matched: analysisResult?.keywords_matched || [],
         });
 
       if (error) {
