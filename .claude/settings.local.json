@@ -154,7 +154,11 @@
       "Bash(CRAWLER_SECRET='7r7VQkjb734CNIyqryJrDz9GtmtfRs0dQHrd74bVG00=')",
       "Bash(SECRET='7r7VQkjb734CNIyqryJrDz9GtmtfRs0dQHrd74bVG00=')",
       "Bash(gh run view:*)",
-      "Bash(gh secret list:*)"
+      "Bash(gh secret list:*)",
+      "Bash(TZ=Asia/Seoul date:*)",
+      "Bash(git log:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(vercel ls:*)"
     ],
     "deny": [],
     "ask": [],

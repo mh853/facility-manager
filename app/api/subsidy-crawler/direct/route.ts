@@ -300,7 +300,7 @@ export async function GET(request: NextRequest) {
     const cookies = Object.fromEntries(
       cookieHeader.split('; ').map(c => c.split('=').map(decodeURIComponent))
     );
-    const accessToken = cookies['sb-access-token'] || cookies['sb-qdfqoykhmuiambtrrlnf-auth-token'];
+    const accessToken = cookies['sb-access-token'] || cookies['sb-uvdvfsjekqshxtxthxeq-auth-token'];
 
     if (!accessToken) {
       return NextResponse.json(
