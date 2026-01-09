@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { analyzeAnnouncement, normalizeDate } from '@/lib/gemini';
+import { smartExtractContent, validateContentQuality, detectPageType } from '@/lib/smart-content-extractor';
 
 // ============================================================
 // Direct URL Crawler API
@@ -116,51 +117,102 @@ async function crawlDirectUrl(url: string): Promise<{
       waitUntil: 'domcontentloaded',
     });
 
-    // 페이지 콘텐츠 추출 시도
-    let content = '';
-    try {
-      // 1차 시도: main, article, .content 등 주요 콘텐츠 영역
-      const mainContent = await page.locator('main, article, [role="main"], .content, #content, .board-content, .post-content').first().textContent({ timeout: 2000 });
-      content = mainContent?.trim() || '';
-    } catch (e) {
-      // 2차 시도: body 전체
-      try {
-        const bodyContent = await page.locator('body').textContent({ timeout: 2000 });
-        content = bodyContent?.trim() || '';
-      } catch (e2) {
-        console.warn(`Failed to extract content from ${url}`);
-      }
-    }
+    // 🔍 페이지 타입 감지 (하이브리드 크롤링)
+    const pageType = await detectPageType(page);
+    console.log(`  📊 페이지 타입: ${pageType.type} (신뢰도: ${pageType.confidence.toFixed(2)})`);
 
-    // 콘텐츠 정리 (중복 공백, 줄바꿈 제거)
-    content = content.replace(/\s+/g, ' ').trim();
-
-    // HTML 소스에서 제목 추출 (기존 로직 유지)
-    const html = await page.content();
     const announcements: any[] = [];
 
-    // 제목 추출 (a 태그, h1-h6 등)
-    const titleRegex = /<(?:a[^>]*|h[1-6][^>]*)>([^<]+)<\//gi;
-    const matches = html.matchAll(titleRegex);
+    if (pageType.type === 'list' && pageType.detailLinks && pageType.detailLinks.length > 0) {
+      // 📋 목록 페이지: 각 상세 페이지 크롤링
+      console.log(`  📋 목록 페이지 감지 - ${pageType.detailLinks.length}개 링크 처리`);
 
-    const seenTitles = new Set<string>();
+      for (const link of pageType.detailLinks) {
+        try {
+          console.log(`  → 상세 페이지 크롤링: ${link}`);
+          await page.goto(link, { timeout: 8000, waitUntil: 'domcontentloaded' });
 
-    for (const match of matches) {
-      const title = match[1].trim();
+          // 상세 페이지에서 콘텐츠 추출
+          const extractionResult = await smartExtractContent(page, link);
+          const content = extractionResult.content.replace(/\s+/g, ' ').trim();
 
-      // 중복 제거 및 관련성 검사
-      if (!seenTitles.has(title) && isRelevantTitle(title)) {
-        seenTitles.add(title);
-        announcements.push({
-          title,
-          content, // ✅ Playwright로 추출한 본문 추가
-          source_url: url,
-          crawled_at: new Date().toISOString(),
-        });
+          // 콘텐츠 품질 검증
+          const validation = validateContentQuality(content);
+          console.log(`    📊 품질: ${validation.score.toFixed(2)} | 신뢰도: ${extractionResult.confidence.toFixed(2)}`);
+
+          // 제목 추출 (페이지 타이틀 또는 h1 태그)
+          let title = await page.title();
+          if (!title || title.length < 5) {
+            const h1 = await page.locator('h1').first().textContent({ timeout: 1000 }).catch(() => null);
+            title = h1 || '제목 없음';
+          }
+          title = title.trim();
+
+          // 최소 품질 기준 통과 시 추가
+          if (content.length >= 100 && validation.score >= 0.3) {
+            announcements.push({
+              title,
+              content,
+              source_url: link,
+              crawled_at: new Date().toISOString(),
+            });
+            console.log(`    ✅ 추가 완료: ${title}`);
+          } else {
+            console.warn(`    ⚠️  품질 미달: ${validation.issues.join(', ')}`);
+          }
+
+          // Rate limiting (500ms 대기)
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+        } catch (error: any) {
+          console.warn(`  ⚠️  상세 페이지 크롤링 실패: ${link} - ${error.message}`);
+        }
+      }
+
+    } else {
+      // 📄 상세 페이지: 직접 콘텐츠 추출
+      console.log(`  📄 상세 페이지 감지 - 직접 추출`);
+
+      // 스마트 콘텐츠 추출
+      const extractionResult = await smartExtractContent(page, url);
+      const content = extractionResult.content.replace(/\s+/g, ' ').trim();
+
+      // 콘텐츠 품질 검증
+      const validation = validateContentQuality(content);
+      console.log(`  📊 품질 점수: ${validation.score.toFixed(2)} (신뢰도: ${extractionResult.confidence.toFixed(2)})`);
+
+      if (!validation.isValid) {
+        console.warn(`  ⚠️  품질 이슈: ${validation.issues.join(', ')}`);
+      }
+
+      // HTML 소스에서 제목 추출 (기존 로직 유지)
+      const html = await page.content();
+
+      // 제목 추출 (a 태그, h1-h6 등)
+      const titleRegex = /<(?:a[^>]*|h[1-6][^>]*)>([^<]+)<\//gi;
+      const matches = html.matchAll(titleRegex);
+
+      const seenTitles = new Set<string>();
+
+      for (const match of matches) {
+        const title = match[1].trim();
+
+        // 중복 제거 및 관련성 검사
+        if (!seenTitles.has(title) && isRelevantTitle(title)) {
+          seenTitles.add(title);
+          announcements.push({
+            title,
+            content,
+            source_url: url,
+            crawled_at: new Date().toISOString(),
+          });
+        }
       }
     }
 
     await browser.close();
+
+    console.log(`  ✅ 크롤링 완료: ${announcements.length}개 공고 발견`);
 
     return {
       success: true,

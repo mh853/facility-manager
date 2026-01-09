@@ -166,7 +166,8 @@
       "Bash(do)",
       "Bash(./test-reanalyze.sh:*)",
       "Bash(__NEW_LINE__ curl -s -X POST 'https://facility.blueon-iot.com/api/subsidy-crawler/reanalyze' )",
-      "Bash(bash test-reanalyze.sh:*)"
+      "Bash(bash test-reanalyze.sh:*)",
+      "Bash(npx tsx scripts/test-gemini-extraction.ts)"
     ],
     "deny": [],
     "ask": [],
