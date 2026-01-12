@@ -1604,7 +1604,7 @@ function RevenueDashboard() {
                 <div className="md:hidden space-y-2 sm:space-y-3 md:space-y-4">
                   {paginatedBusinesses.map((business) => {
                     const profitMargin = business.total_revenue > 0
-                      ? ((business.net_profit / business.total_revenue) * 100).toFixed(1)
+                      ? (((business.net_profit || 0) / business.total_revenue) * 100).toFixed(1)
                       : '0';
 
                     return (
@@ -1670,8 +1670,8 @@ function RevenueDashboard() {
                           </div>
                           <div className="col-span-2">
                             <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5">이익금액</div>
-                            <div className={`font-mono font-bold text-sm sm:text-base md:text-lg ${business.net_profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                              {formatCurrency(business.net_profit)}
+                            <div className={`font-mono font-bold text-sm sm:text-base md:text-lg ${(business.net_profit || 0) >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                              {formatCurrency(business.net_profit || 0)}
                             </div>
                           </div>
                           {showReceivablesOnly && business.total_receivables > 0 && (
@@ -1740,7 +1740,7 @@ function RevenueDashboard() {
                     <tbody>
                       {paginatedBusinesses.map((business) => {
                         const profitMargin = business.total_revenue > 0
-                          ? ((business.net_profit / business.total_revenue) * 100).toFixed(1)
+                          ? (((business.net_profit || 0) / business.total_revenue) * 100).toFixed(1)
                           : '0';
 
                         return (
@@ -1785,8 +1785,8 @@ function RevenueDashboard() {
                               {formatCurrency(business.total_cost)}
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-right font-mono font-bold">
-                              <span className={business.net_profit >= 0 ? 'text-blue-600' : 'text-red-600'}>
-                                {formatCurrency(business.net_profit)}
+                              <span className={(business.net_profit || 0) >= 0 ? 'text-blue-600' : 'text-red-600'}>
+                                {formatCurrency(business.net_profit || 0)}
                               </span>
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-right">
