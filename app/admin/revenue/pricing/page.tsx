@@ -42,6 +42,33 @@ function formatDate(dateString: string | null | undefined): string {
   }
 }
 
+// 가격 포맷 함수 (천 단위 구분, 소수점 제거)
+function formatPrice(amount: number): string {
+  return Math.round(amount).toLocaleString('ko-KR');
+}
+
+// 제조사 이름 매핑 함수
+function getManufacturerName(manufacturer: string): string {
+  const names: Record<string, string> = {
+    'ecosense': '에코센스',
+    'cleanearth': '크린어스',
+    'gaia_cns': '가이아씨앤에스',
+    'evs': '이브이에스'
+  };
+  return names[manufacturer] || manufacturer;
+}
+
+// 제조사별 색상 클래스 함수
+function getManufacturerColorClass(manufacturer: string): string {
+  const colors: Record<string, string> = {
+    'ecosense': 'bg-blue-100 text-blue-800 border-blue-200',
+    'cleanearth': 'bg-green-100 text-green-800 border-green-200',
+    'gaia_cns': 'bg-purple-100 text-purple-800 border-purple-200',
+    'evs': 'bg-orange-100 text-orange-800 border-orange-200'
+  };
+  return colors[manufacturer] || 'bg-gray-100 text-gray-800 border-gray-200';
+}
+
 interface GovernmentPricing {
   id: string;
   equipment_type: string;
@@ -944,139 +971,139 @@ function PricingManagement() {
                       </button>
                     </div>
 
-                    {/* 모바일 카드뷰 */}
-                    <div className="md:hidden space-y-3">
-                      {manufacturerPricing.map(pricing => (
-                        <div key={pricing.id} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h4 className="font-semibold text-gray-900 mb-1">{pricing.equipment_name}</h4>
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                pricing.manufacturer === 'ecosense' ? 'bg-blue-100 text-blue-800' :
-                                pricing.manufacturer === 'cleanearth' ? 'bg-green-100 text-green-800' :
-                                pricing.manufacturer === 'gaia_cns' ? 'bg-purple-100 text-purple-800' :
-                                pricing.manufacturer === 'evs' ? 'bg-orange-100 text-orange-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {pricing.manufacturer === 'ecosense' ? '에코센스' :
-                                 pricing.manufacturer === 'cleanearth' ? '크린어스' :
-                                 pricing.manufacturer === 'gaia_cns' ? '가이아씨앤에스' :
-                                 pricing.manufacturer === 'evs' ? '이브이에스' : pricing.manufacturer}
-                              </span>
-                            </div>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              pricing.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {pricing.is_active ? '활성' : '비활성'}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-                            <div>
-                              <div className="text-gray-500">원가</div>
-                              <div className="font-mono font-semibold text-red-700">₩{pricing.cost_price.toLocaleString()}</div>
-                            </div>
-                            <div>
-                              <div className="text-gray-500">시행일</div>
-                              <div className="font-medium">{formatDate(pricing.effective_from)}</div>
-                            </div>
-                            {pricing.effective_to && (
-                              <div className="col-span-2">
-                                <div className="text-gray-500">종료일</div>
-                                <div className="font-medium">{formatDate(pricing.effective_to)}</div>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
-                            <button
-                              onClick={() => handleEdit(pricing, 'manufacturer')}
-                              className="flex-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-1"
-                            >
-                              <Edit className="w-3 h-3" />
-                              수정
-                            </button>
-                            <button
-                              onClick={() => openDeleteModal(pricing, 'manufacturer')}
-                              className="flex-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-1"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                              삭제
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    {/* 제조사별 그룹화된 뷰 */}
+                    {(() => {
+                      // 제조사별로 데이터 그룹화
+                      const groupedByManufacturer = manufacturerPricing.reduce((acc, pricing) => {
+                        if (!acc[pricing.manufacturer]) {
+                          acc[pricing.manufacturer] = [];
+                        }
+                        acc[pricing.manufacturer].push(pricing);
+                        return acc;
+                      }, {} as Record<string, typeof manufacturerPricing>);
 
-                    {/* 데스크톱 테이블뷰 */}
-                    <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full border-collapse border border-gray-300">
-                        <thead>
-                          <tr className="bg-gray-50">
-                            <th className="border border-gray-300 px-4 py-2 text-left">기기명</th>
-                            <th className="border border-gray-300 px-4 py-2 text-left">제조사</th>
-                            <th className="border border-gray-300 px-4 py-2 text-right">원가</th>
-                            <th className="border border-gray-300 px-4 py-2 text-center">시행일</th>
-                            <th className="border border-gray-300 px-4 py-2 text-center">종료일</th>
-                            <th className="border border-gray-300 px-4 py-2 text-center">상태</th>
-                            <th className="border border-gray-300 px-4 py-2 text-center">작업</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {manufacturerPricing.map(pricing => (
-                            <tr key={pricing.id} className="hover:bg-gray-50">
-                              <td className="border border-gray-300 px-4 py-2 font-medium">{pricing.equipment_name}</td>
-                              <td className="border border-gray-300 px-4 py-2">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  pricing.manufacturer === 'ecosense' ? 'bg-blue-100 text-blue-800' :
-                                  pricing.manufacturer === 'cleanearth' ? 'bg-green-100 text-green-800' :
-                                  pricing.manufacturer === 'gaia_cns' ? 'bg-purple-100 text-purple-800' :
-                                  pricing.manufacturer === 'evs' ? 'bg-orange-100 text-orange-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {pricing.manufacturer === 'ecosense' ? '에코센스' :
-                                   pricing.manufacturer === 'cleanearth' ? '크린어스' :
-                                   pricing.manufacturer === 'gaia_cns' ? '가이아씨앤에스' :
-                                   pricing.manufacturer === 'evs' ? '이브이에스' : pricing.manufacturer}
-                                </span>
-                              </td>
-                              <td className="border border-gray-300 px-4 py-2 text-right font-mono">
-                                ₩{pricing.cost_price.toLocaleString()}
-                              </td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">
-                                {formatDate(pricing.effective_from)}
-                              </td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">
-                                {formatDate(pricing.effective_to)}
-                              </td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  pricing.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {pricing.is_active ? '활성' : '비활성'}
-                                </span>
-                              </td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">
-                                <div className="flex items-center justify-center gap-2">
-                                  <button
-                                    onClick={() => handleEdit(pricing, 'manufacturer')}
-                                    className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
-                                    title="수정"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => openDeleteModal(pricing, 'manufacturer')}
-                                    className="p-1 text-red-600 hover:text-red-800 transition-colors"
-                                    title="삭제"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                      const manufacturers = Object.keys(groupedByManufacturer).sort();
+
+                      return manufacturers.map(manufacturer => {
+                        const items = groupedByManufacturer[manufacturer];
+
+                        return (
+                          <div key={manufacturer} className="space-y-3">
+                            {/* 제조사 헤더 */}
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 ${getManufacturerColorClass(manufacturer)}`}>
+                              <Building2 className="w-5 h-5" />
+                              <h4 className="font-bold text-lg">{getManufacturerName(manufacturer)}</h4>
+                              <span className="ml-auto text-sm font-medium">({items.length}개 기기)</span>
+                            </div>
+
+                            {/* 모바일 카드뷰 */}
+                            <div className="md:hidden space-y-3">
+                              {items.map(pricing => (
+                                <div key={pricing.id} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                                  <div className="flex items-start justify-between mb-3">
+                                    <h4 className="font-semibold text-gray-900">{pricing.equipment_name}</h4>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                      pricing.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {pricing.is_active ? '활성' : '비활성'}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                                    <div>
+                                      <div className="text-gray-500">원가</div>
+                                      <div className="font-mono font-semibold text-red-700">₩{formatPrice(pricing.cost_price)}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-gray-500">시행일</div>
+                                      <div className="font-medium">{formatDate(pricing.effective_from)}</div>
+                                    </div>
+                                    {pricing.effective_to && (
+                                      <div className="col-span-2">
+                                        <div className="text-gray-500">종료일</div>
+                                        <div className="font-medium">{formatDate(pricing.effective_to)}</div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                                    <button
+                                      onClick={() => handleEdit(pricing, 'manufacturer')}
+                                      className="flex-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-1"
+                                    >
+                                      <Edit className="w-3 h-3" />
+                                      수정
+                                    </button>
+                                    <button
+                                      onClick={() => openDeleteModal(pricing, 'manufacturer')}
+                                      className="flex-1 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-1"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                      삭제
+                                    </button>
+                                  </div>
                                 </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                              ))}
+                            </div>
+
+                            {/* 데스크톱 테이블뷰 */}
+                            <div className="hidden md:block overflow-x-auto">
+                              <table className="w-full border-collapse border border-gray-300">
+                                <thead>
+                                  <tr className="bg-gray-50">
+                                    <th className="border border-gray-300 px-4 py-2 text-left">기기명</th>
+                                    <th className="border border-gray-300 px-4 py-2 text-right">원가</th>
+                                    <th className="border border-gray-300 px-4 py-2 text-center">시행일</th>
+                                    <th className="border border-gray-300 px-4 py-2 text-center">종료일</th>
+                                    <th className="border border-gray-300 px-4 py-2 text-center">상태</th>
+                                    <th className="border border-gray-300 px-4 py-2 text-center">작업</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {items.map(pricing => (
+                                    <tr key={pricing.id} className="hover:bg-gray-50">
+                                      <td className="border border-gray-300 px-4 py-2 font-medium">{pricing.equipment_name}</td>
+                                      <td className="border border-gray-300 px-4 py-2 text-right font-mono">
+                                        ₩{formatPrice(pricing.cost_price)}
+                                      </td>
+                                      <td className="border border-gray-300 px-4 py-2 text-center">
+                                        {formatDate(pricing.effective_from)}
+                                      </td>
+                                      <td className="border border-gray-300 px-4 py-2 text-center">
+                                        {formatDate(pricing.effective_to)}
+                                      </td>
+                                      <td className="border border-gray-300 px-4 py-2 text-center">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                          pricing.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                        }`}>
+                                          {pricing.is_active ? '활성' : '비활성'}
+                                        </span>
+                                      </td>
+                                      <td className="border border-gray-300 px-4 py-2 text-center">
+                                        <div className="flex items-center justify-center gap-2">
+                                          <button
+                                            onClick={() => handleEdit(pricing, 'manufacturer')}
+                                            className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                                            title="수정"
+                                          >
+                                            <Edit className="w-4 h-4" />
+                                          </button>
+                                          <button
+                                            onClick={() => openDeleteModal(pricing, 'manufacturer')}
+                                            className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                                            title="삭제"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 )}
 
@@ -1110,7 +1137,7 @@ function PricingManagement() {
                           <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                             <div className="col-span-2">
                               <div className="text-gray-500">기본 설치비</div>
-                              <div className="font-mono font-semibold text-blue-700">₩{cost.base_installation_cost.toLocaleString()}</div>
+                              <div className="font-mono font-semibold text-blue-700">₩{formatPrice(cost.base_installation_cost)}</div>
                             </div>
                             <div>
                               <div className="text-gray-500">시행일</div>
@@ -1159,7 +1186,7 @@ function PricingManagement() {
                             <tr key={cost.id} className="hover:bg-gray-50">
                               <td className="border border-gray-300 px-4 py-2 font-medium">{cost.equipment_name}</td>
                               <td className="border border-gray-300 px-4 py-2 text-right font-mono">
-                                ₩{cost.base_installation_cost.toLocaleString()}
+                                ₩{formatPrice(cost.base_installation_cost)}
                               </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">
                                 {formatDate(cost.effective_from)}
