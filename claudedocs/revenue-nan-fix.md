@@ -2,8 +2,8 @@
 
 ## 📊 요약
 
-**총 수정 개수**: 7곳 (1차: 3곳, 2차: 4곳)
-**커밋**: `dafb7c3` (1차), `a62409d` (2차)
+**총 수정 개수**: 11곳 (1차: 3곳, 2차: 4곳, 3차: 4곳)
+**커밋**: `dafb7c3` (1차), `a62409d` (2차), `4f9c625` (3차)
 **상태**: ✅ 완료
 
 ### 수정 내역
@@ -14,6 +14,9 @@
 - ✅ 모바일 카드뷰 이익금액 표시 (2차)
 - ✅ 데스크톱 테이블 이익률 계산 (2차)
 - ✅ 데스크톱 테이블 이익금액 표시 (2차)
+- ✅ formatCurrency 함수 개선 (3차)
+- ✅ 총 영업비용 NaN 수정 (3차)
+- ✅ 이익금액 nullish coalescing 적용 (3차 x2)
 
 ## 🐛 문제 상황
 
@@ -29,6 +32,11 @@ admin/revenue 페이지 테이블 및 모바일 카드뷰에서 추가 `NaN` 발
 - **모바일 카드뷰 이익금액**: NaN
 - **데스크톱 테이블 이익률**: NaN
 - **데스크톱 테이블 이익금액**: NaN
+
+### 3차 발견 (커밋 4f9c625)
+사용자 피드백으로 추가 문제 확인:
+- **총 영업비용 통계 카드**: NaN
+- **규원테크, 영빈산업 이익금액**: ₩0 (음수 표시 문제 가능성)
 
 ## 🔍 원인 분석
 
@@ -62,23 +70,78 @@ b.adjusted_sales_commission || b.sales_commission || 0
 
 ### 수정 내용
 
-#### 1. 총 이익금액
+#### 1차 수정: 총 이익금액 & 평균 이익률
 ```typescript
-// Before
+// 총 이익금액 (Before)
 sortedBusinesses.reduce((sum, b) => sum + b.net_profit, 0)
 
-// After
+// 총 이익금액 (After)
 sortedBusinesses.reduce((sum, b) => sum + (b.net_profit || 0), 0)
-```
 
-#### 2. 사업장 평균 이익률 (2곳)
-```typescript
-// Before
+// 평균 이익률 (Before)
 b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0
 
-// After
+// 평균 이익률 (After)
 b.total_revenue > 0 ? ((b.net_profit || 0) / b.total_revenue * 100) : 0
 ```
+
+#### 2차 수정: 테이블 & 모바일뷰
+```typescript
+// 이익률 계산 (Before)
+((business.net_profit / business.total_revenue) * 100).toFixed(1)
+
+// 이익률 계산 (After)
+(((business.net_profit || 0) / business.total_revenue) * 100).toFixed(1)
+
+// 이익금액 표시 (Before)
+{formatCurrency(business.net_profit)}
+
+// 이익금액 표시 (After)
+{formatCurrency(business.net_profit || 0)}
+```
+
+#### 3차 수정: formatCurrency & 총 영업비용 & Nullish Coalescing
+```typescript
+// formatCurrency 함수 개선 (Before)
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('ko-KR', {
+    style: 'currency',
+    currency: 'KRW'
+  }).format(amount);
+};
+
+// formatCurrency 함수 개선 (After)
+const formatCurrency = (amount: number | undefined | null) => {
+  const value = Number(amount) || 0;
+  if (isNaN(value)) return '₩0';
+  return new Intl.NumberFormat('ko-KR', {
+    style: 'currency',
+    currency: 'KRW'
+  }).format(value);
+};
+
+// 총 영업비용 (Before)
+sortedBusinesses.reduce((sum, b) => {
+  const salesCommission = b.adjusted_sales_commission || b.sales_commission || 0;
+  return sum + salesCommission;
+}, 0)
+
+// 총 영업비용 (After)
+sortedBusinesses.reduce((sum, b) => {
+  const salesCommission = Number(b.adjusted_sales_commission || b.sales_commission || 0);
+  return sum + (isNaN(salesCommission) ? 0 : salesCommission);
+}, 0)
+
+// 이익금액 표시 (Before)
+{formatCurrency(business.net_profit || 0)}
+
+// 이익금액 표시 (After - Nullish Coalescing)
+{formatCurrency(business.net_profit ?? 0)}
+```
+
+**Nullish Coalescing (`??`) vs Logical OR (`||`)**:
+- `||`: `0`, `""`, `false`, `null`, `undefined` 모두 폴백 → **음수도 0으로 변환 위험**
+- `??`: `null`, `undefined`만 폴백 → **음수는 정상 표시**
 
 ### 파일 위치
 
@@ -92,6 +155,12 @@ b.total_revenue > 0 ? ((b.net_profit || 0) / b.total_revenue * 100) : 0
 - [app/admin/revenue/page.tsx:1673-1674](app/admin/revenue/page.tsx#L1673-L1674) - 모바일 카드뷰 이익금액 표시
 - [app/admin/revenue/page.tsx:1743](app/admin/revenue/page.tsx#L1743) - 데스크톱 테이블 이익률 계산
 - [app/admin/revenue/page.tsx:1788-1789](app/admin/revenue/page.tsx#L1788-L1789) - 데스크톱 테이블 이익금액 표시
+
+#### 🎯 3차 수정 (커밋 4f9c625)
+- [app/admin/revenue/page.tsx:876-883](app/admin/revenue/page.tsx#L876-L883) - formatCurrency 함수 개선 (undefined/null 처리)
+- [app/admin/revenue/page.tsx:1288-1291](app/admin/revenue/page.tsx#L1288-L1291) - 총 영업비용 계산 (Number 변환 및 NaN 검증)
+- [app/admin/revenue/page.tsx:1675-1676](app/admin/revenue/page.tsx#L1675-L1676) - 모바일 카드뷰 이익금액 (|| → ??)
+- [app/admin/revenue/page.tsx:1790-1791](app/admin/revenue/page.tsx#L1790-L1791) - 데스크톱 테이블 이익금액 (|| → ??)
 
 ## 📊 영향
 
@@ -176,9 +245,16 @@ const netProfit = (grossProfit || 0)
 - [x] 데스크톱 테이블 이익금액 표시 NaN 수정
 - [x] 커밋 및 푸시
 
+### 3차 수정 (커밋 4f9c625)
+- [x] formatCurrency 함수 타입 안전성 강화
+- [x] 총 영업비용 NaN 수정 (Number 변환 + NaN 검증)
+- [x] 이익금액 표시 개선 (|| → ?? nullish coalescing)
+- [x] 커밋 및 푸시
+
 ### 배포 및 검증
 - [ ] Vercel 배포 확인
 - [ ] 프로덕션 테스트
+- [ ] 규원테크, 영빈산업 이익금액 실제 값 확인
 
 ## 🚀 배포
 
@@ -197,6 +273,14 @@ git commit -m "fix: admin/revenue 테이블 및 모바일 카드뷰 NaN 오류 �
 git push origin main
 ```
 **배포 상태**: ✅ 완료 (커밋 `a62409d`)
+
+### 3차 배포
+```bash
+git add app/admin/revenue/page.tsx
+git commit -m "fix: admin/revenue 총 영업비용 NaN 및 이익금액 표시 개선"
+git push origin main
+```
+**배포 상태**: ✅ 완료 (커밋 `4f9c625`)
 
 ## 📌 참고
 
