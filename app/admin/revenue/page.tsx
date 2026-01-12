@@ -1271,7 +1271,7 @@ function RevenueDashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 이익금액</p>
                 <p className="text-xs sm:text-sm md:text-base font-bold text-purple-600 break-words">
-                  {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.net_profit, 0))}
+                  {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + (b.net_profit || 0), 0))}
                 </p>
               </div>
             </div>
@@ -1320,7 +1320,7 @@ function RevenueDashboard() {
                 <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">사업장 평균 이익률</p>
                 <p className="text-xs sm:text-sm md:text-base font-bold text-indigo-600">
                   {sortedBusinesses.length > 0 ?
-                    ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
+                    ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? ((b.net_profit || 0) / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
                     : '0'}%
                 </p>
               </div>
@@ -1455,7 +1455,7 @@ function RevenueDashboard() {
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 md:gap-4 w-full sm:w-auto">
                 <div className="text-[10px] sm:text-xs md:text-sm text-gray-500">
                   사업장 평균 이익률: {sortedBusinesses.length > 0 ?
-                    ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? (b.net_profit / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
+                    ((sortedBusinesses.reduce((sum, b) => sum + (b.total_revenue > 0 ? ((b.net_profit || 0) / b.total_revenue * 100) : 0), 0) / sortedBusinesses.length)).toFixed(1)
                     : '0'}%
                 </div>
                 {/* 재계산 버튼 - 권한 레벨 4 (슈퍼관리자) 전용 */}
