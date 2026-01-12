@@ -101,6 +101,9 @@ function RevenueDashboard() {
   const [baseInstallationCosts, setBaseInstallationCosts] = useState<Record<string, number>>({});
   const [costSettingsLoaded, setCostSettingsLoaded] = useState(false);
 
+  // 🔧 DB 계산 결과 매핑 (business_id → CalculationResult) - calculations 배열에서 자동 생성
+  // 더 이상 Batch API를 호출하지 않고 DB에 저장된 최신 계산 결과만 사용
+
   // 제조사별 수수료율 데이터 (영업점 → 제조사 → 수수료율)
   const [commissionRates, setCommissionRates] = useState<Record<string, Record<string, number>>>({});
   const [commissionRatesLoaded, setCommissionRatesLoaded] = useState(false);
@@ -109,6 +112,7 @@ function RevenueDashboard() {
   const [selectedProjectYears, setSelectedProjectYears] = useState<string[]>([]); // 사업 진행 연도 필터
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]); // 월별 필터 (1-12)
   const [showReceivablesOnly, setShowReceivablesOnly] = useState(false); // 미수금 필터
+  const [showUninstalledOnly, setShowUninstalledOnly] = useState(false); // 미설치 필터
   const [sortField, setSortField] = useState<string>('business_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -363,7 +367,7 @@ function RevenueDashboard() {
     'multiple_stack': 480000
   };
 
-  // 제조사별 원가 (매입 단가) - 에코센스 기준
+  // 🔧 제조사별 원가 (매입 단가) - API의 DEFAULT_COSTS와 완전히 동일하게 유지
   const MANUFACTURER_COSTS: Record<string, number> = {
     'ph_meter': 250000,
     'differential_pressure_meter': 100000,
@@ -371,7 +375,7 @@ function RevenueDashboard() {
     'discharge_current_meter': 80000,
     'fan_current_meter': 80000,
     'pump_current_meter': 80000,
-    'gateway': 200000, // @deprecated
+    'gateway': 1000000, // @deprecated - API와 동일하게 수정 (이전: 200000)
     'gateway_1_2': 1000000, // 게이트웨이(1,2) - 에코센스 매입금액
     'gateway_3_4': 1420000, // 게이트웨이(3,4) - 에코센스 매입금액 (다름!)
     'vpn_wired': 100000,
@@ -416,167 +420,7 @@ function RevenueDashboard() {
     'relay_8ch', 'relay_16ch', 'main_board_replacement', 'multiple_stack'
   ];
 
-  // 사업장별 매출/매입/이익 자동 계산 함수
-  const calculateBusinessRevenue = (business: any) => {
-    let totalRevenue = 0;
-    let totalCost = 0;
-    let totalBaseInstallationCost = 0; // 기본 설치비 (비용)
-    let totalAdditionalInstallationCost = 0; // 추가 설치비 (비용)
-
-    // 사업장의 제조사 정보 (한글 → 영문 코드 변환)
-    const rawManufacturer = business.manufacturer || 'ecosense';
-    const businessManufacturer = MANUFACTURER_NAMES_REVERSE[rawManufacturer as ManufacturerName] || rawManufacturer;
-
-    // 일신산업 디버깅을 위한 상세 로그
-    const equipmentDetails: any[] = [];
-
-    // 각 기기별 매출/매입 계산
-    EQUIPMENT_FIELDS.forEach(field => {
-      const quantity = business[field] || 0;
-      if (quantity > 0) {
-        // 동적 가격 사용 (로드 실패 시 하드코딩된 기본값 사용)
-        // 주의: 0원도 유효한 값이므로 !== undefined로 확인
-        const unitRevenue = (pricesLoaded && officialPrices[field] !== undefined)
-          ? officialPrices[field]
-          : (OFFICIAL_PRICES[field] || 0);
-
-        const unitCost = (pricesLoaded && manufacturerPrices[businessManufacturer]?.[field] !== undefined)
-          ? manufacturerPrices[businessManufacturer][field]
-          : (MANUFACTURER_COSTS[field] || 0);
-
-        // 기본 설치비 (DB에서 로드, 없으면 하드코딩 값 사용)
-        const unitBaseInstallation = (costSettingsLoaded && baseInstallationCosts[field] !== undefined)
-          ? baseInstallationCosts[field]
-          : (INSTALLATION_COSTS[field] || 0);
-
-        totalRevenue += unitRevenue * quantity;
-        totalCost += unitCost * quantity;
-        totalBaseInstallationCost += unitBaseInstallation * quantity;
-
-        // 일신산업 디버깅용
-        if (business.business_name && business.business_name.includes('일신산업')) {
-          equipmentDetails.push({
-            기기명: field,
-            수량: quantity,
-            제조사: businessManufacturer,
-            단가_매출: unitRevenue,
-            단가_매입: unitCost,
-            합계_매출: unitRevenue * quantity,
-            합계_매입: unitCost * quantity,
-            가격출처: pricesLoaded ? 'DB' : '하드코딩'
-          });
-        }
-      }
-    });
-
-    // 일신산업 상세 로그 출력
-
-    // 추가공사비 및 협의사항 반영 (문자열을 숫자로 변환)
-    const additionalCost = business.additional_cost
-      ? (typeof business.additional_cost === 'string'
-          ? parseInt(business.additional_cost.replace(/,/g, '')) || 0
-          : business.additional_cost || 0)
-      : 0;
-    const negotiation = business.negotiation
-      ? (typeof business.negotiation === 'string'
-          ? parseFloat(business.negotiation.replace(/,/g, '')) || 0
-          : business.negotiation || 0)
-      : 0;
-
-    // 추가 설치비 (DB에 저장된 값, 비용으로 차감)
-    const additionalInstallationCost = business.installation_costs
-      ? (typeof business.installation_costs === 'string'
-          ? parseInt(business.installation_costs.replace(/,/g, '')) || 0
-          : business.installation_costs || 0)
-      : 0;
-
-    // 영업비용 계산 기준: 기본 매출 - 협의사항 (추가공사비, 추가설치비 제외)
-    const commissionBaseRevenue = totalRevenue - negotiation;
-
-    // 최종 매출 = 기본 매출 + 추가공사비 - 협의사항
-    const adjustedRevenue = totalRevenue + additionalCost - negotiation;
-
-    // 영업비용 계산 (제조사별 수수료율 우선, 없으면 영업점 설정, 최종 기본값 10%)
-    let salesCommission = 0;
-    const salesOffice = business.sales_office || '';
-
-    // 1순위: 제조사별 수수료율
-    if (commissionRatesLoaded && salesOffice && commissionRates[salesOffice] && commissionRates[salesOffice][businessManufacturer] !== undefined) {
-      const commissionRate = commissionRates[salesOffice][businessManufacturer];
-      salesCommission = commissionBaseRevenue * (commissionRate / 100);
-    }
-    // 2순위: 영업점별 기본 설정
-    else if (costSettingsLoaded && salesOffice && salesOfficeSettings[salesOffice]) {
-      const setting = salesOfficeSettings[salesOffice];
-      if (setting.commission_type === 'percentage' && setting.commission_percentage !== undefined) {
-        // 퍼센트 방식 (추가공사비 제외)
-        salesCommission = commissionBaseRevenue * (setting.commission_percentage / 100);
-      } else if (setting.commission_type === 'per_unit' && setting.commission_per_unit !== undefined) {
-        // 단가 방식 (전체 기기 수량 계산)
-        const totalQuantity = EQUIPMENT_FIELDS.reduce((sum, field) => sum + (business[field] || 0), 0);
-        salesCommission = totalQuantity * setting.commission_per_unit;
-      } else {
-        // 설정이 있지만 값이 없으면 기본값 사용
-        salesCommission = commissionBaseRevenue * 0.10;
-      }
-    }
-    // 3순위: 기본값 10%
-    else {
-      salesCommission = commissionBaseRevenue * 0.10;
-    }
-
-    // 실사비용 계산 (실사일이 있는 경우에만 비용 추가)
-    let surveyCosts = 0;
-
-    if (costSettingsLoaded && Object.keys(surveyCostSettings).length > 0) {
-      // 견적실사 비용 (견적실사일이 있고 빈 문자열이 아닌 경우에만)
-      if (business.estimate_survey_date && business.estimate_survey_date.trim() !== '') {
-        surveyCosts += surveyCostSettings['estimate'] || 0;
-      }
-
-      // 착공전실사 비용 (착공전실사일이 있고 빈 문자열이 아닌 경우에만)
-      if (business.pre_construction_survey_date && business.pre_construction_survey_date.trim() !== '') {
-        surveyCosts += surveyCostSettings['pre_construction'] || 0;
-      }
-
-      // 준공실사 비용 (준공실사일이 있고 빈 문자열이 아닌 경우에만)
-      if (business.completion_survey_date && business.completion_survey_date.trim() !== '') {
-        surveyCosts += surveyCostSettings['completion'] || 0;
-      }
-    } else {
-      // DB 로드 실패 → 실사비용 0으로 설정
-      surveyCosts = 0;
-    }
-
-    // 총 이익 = 매출 - 매입
-    const grossProfit = adjustedRevenue - totalCost;
-
-    // 순이익 = 총이익 - 영업비용 - 실사비용 - 기본설치비 - 추가설치비
-    const netProfit = grossProfit - salesCommission - surveyCosts - totalBaseInstallationCost - additionalInstallationCost;
-
-    // 디버깅 로그 (필요시 활성화)
-    // if (business.business_name && business.business_name.includes('특정사업장명')) {
-    //   console.log('🔍 [매출계산] 상세:', {
-    //     사업장명: business.business_name,
-    //     기본매출: totalRevenue,
-    //     추가공사비: additionalCost,
-    //     최종매출: adjustedRevenue,
-    //     순이익: netProfit
-    //   });
-    // }
-
-    return {
-      total_revenue: adjustedRevenue,
-      total_cost: totalCost,
-      gross_profit: grossProfit,
-      net_profit: netProfit,
-      installation_costs: totalBaseInstallationCost, // 기본 설치비 (비용)
-      additional_installation_cost: additionalInstallationCost, // 추가 설치비 (비용)
-      sales_commission: salesCommission,
-      survey_costs: surveyCosts,
-      has_calculation: true // 자동 계산되었음을 표시
-    };
-  };
+  // 🔧 Fallback 계산 함수 완전 제거 - DB 저장 결과만 사용
 
   const loadBusinesses = async () => {
     console.log('📊 [LOAD-BUSINESSES] 사업장 데이터 로드 시작');
@@ -592,22 +436,55 @@ function RevenueDashboard() {
         const businessData = data.data || [];
         console.log(`📊 [LOAD-BUSINESSES] ${businessData.length}개 사업장 조회 완료`);
 
-        // 각 사업장에 대해 자동 매출 계산 적용
-        const businessesWithCalculation = businessData.map((business: any) => {
-          const calculatedData = calculateBusinessRevenue(business);
-          return {
-            ...business,
-            ...calculatedData
-          };
-        });
-
-        setBusinesses(businessesWithCalculation);
+        // 🔧 기존 클라이언트 계산 로직 제거, businesses를 그대로 저장
+        setBusinesses(businessData);
         console.log('✅ [LOAD-BUSINESSES] businesses 상태 업데이트 완료');
+
+        // ⚠️ 자동 재계산 비활성화: 관리자가 수동으로 "전체 재계산" 버튼을 사용
+        // 페이지 로드 시 DB에 저장된 기존 계산 결과만 표시
+        console.log('ℹ️ [LOAD-BUSINESSES] 자동 재계산 비활성화 - 수동 재계산 버튼 사용 필요');
       } else {
         console.error('🔴 [REVENUE] 사업장 로드 실패:', data.message);
       }
     } catch (error) {
       console.error('🔴 [REVENUE] 사업장 목록 로드 오류:', error);
+    }
+  };
+
+  // 🔧 Batch API를 호출하여 모든 사업장의 계산 결과를 DB에 저장
+  const loadBatchCalculations = async (businessIds: number[]) => {
+    if (businessIds.length === 0) {
+      console.log('⚠️ [BATCH-CALC] 계산할 사업장이 없습니다');
+      return;
+    }
+
+    console.log(`🚀 [BATCH-CALC] ${businessIds.length}개 사업장 계산 요청 (DB 저장 포함)`);
+    try {
+      const token = TokenManager.getToken();
+      const response = await fetch('/api/revenue/calculate-batch', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          business_ids: businessIds,
+          save_result: true  // 🔑 DB에 저장
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success && Array.isArray(data.data)) {
+        console.log(`✅ [BATCH-CALC] ${data.data.length}개 사업장 계산 완료 (DB 저장 완료)`);
+
+        // DB에 저장 완료 후 calculations 재로드
+        await loadCalculations();
+      } else {
+        console.error('❌ [BATCH-CALC] API 응답 오류:', data.message);
+      }
+    } catch (error) {
+      console.error('❌ [BATCH-CALC] API 호출 오류:', error);
     }
   };
 
@@ -629,26 +506,8 @@ function RevenueDashboard() {
 
       if (data.success) {
         const calculations = data.data.calculations || [];
-        console.log(`📊 [LOAD-CALCULATIONS] ${calculations.length}개 계산 결과 조회 완료`);
-
-        // 영업비용 조정 정보 로깅
-        const adjustedCount = calculations.filter((c: any) => c.adjusted_sales_commission).length;
-        console.log(`💰 [LOAD-CALCULATIONS] 영업비용 조정된 계산: ${adjustedCount}개`);
-
-        // 각 계산 결과의 영업비용 필드 확인
-        calculations.forEach((calc: any) => {
-          if (calc.adjusted_sales_commission || calc.sales_commission) {
-            console.log(`🔍 [LOAD-CALCULATIONS] ${calc.business_name}:`, {
-              sales_commission: calc.sales_commission,
-              adjusted_sales_commission: calc.adjusted_sales_commission,
-              has_adjustment: !!calc.adjusted_sales_commission
-            });
-          }
-        });
-
         setCalculations(calculations);
         // calculateStats는 useEffect에서 필터링된 데이터로 자동 계산됨
-        console.log('✅ [LOAD-CALCULATIONS] calculations 상태 업데이트 완료');
       }
     } catch (error) {
       console.error('🔴 [LOAD-CALCULATIONS] 계산 결과 로드 오류:', error);
@@ -946,21 +805,36 @@ function RevenueDashboard() {
         const month = String(date.getMonth() + 1);
         monthMatch = selectedMonths.includes(month);
       } else {
-        monthMatch = false; // 설치일이 없으면 필터에서 제외
+        monthMatch = true; // 🔧 설치일이 없어도 필터 통과 (매출 계산은 가능)
       }
     }
 
     return searchMatch && officeMatch && regionMatch && categoryMatch && yearMatch && monthMatch;
   }).map(business => {
-    // 해당 사업장의 매출 계산 결과 찾기 (가장 최신)
-    const revenueCalc = calculations
-      .filter(calc => calc.business_id === business.id)
-      .sort((a, b) => new Date(b.calculation_date).getTime() - new Date(a.calculation_date).getTime())[0];
+    // 🔧 DB 계산 결과 직접 조회 (calculations 배열에서 business_id 매칭)
+    const dbCalc = calculations.find(calc => calc.business_id === business.id);
 
-    // 디버깅: 영업비용 조정 정보 확인
-    if (revenueCalc?.adjusted_sales_commission) {
-      console.log(`💰 [TABLE-RENDER] ${business.business_name}: 조정된 영업비용 = ${revenueCalc.adjusted_sales_commission}`);
-    }
+    const calculatedData = dbCalc ? {
+      total_revenue: dbCalc.total_revenue || 0,
+      total_cost: dbCalc.total_cost || 0,
+      gross_profit: dbCalc.gross_profit || 0,
+      net_profit: dbCalc.net_profit || 0,
+      installation_costs: dbCalc.installation_costs || 0,
+      additional_installation_cost: dbCalc.installation_extra_cost || 0,
+      sales_commission: dbCalc.sales_commission || 0,
+      survey_costs: dbCalc.survey_costs || 0,
+      has_calculation: true
+    } : {
+      total_revenue: 0,
+      total_cost: 0,
+      gross_profit: 0,
+      net_profit: 0,
+      installation_costs: 0,
+      additional_installation_cost: 0,
+      sales_commission: 0,
+      survey_costs: 0,
+      has_calculation: false
+    };
 
     // 기기 수 계산
     const equipmentFields = [
@@ -976,53 +850,16 @@ function RevenueDashboard() {
       return sum + (business[field as keyof BusinessInfo] as number || 0);
     }, 0);
 
-    // 설치 기기 목록 기준 매입금액 계산 (모달과 동일)
-    const businessManufacturer = business.manufacturer || 'ecosense';
-    const actualTotalCost = equipmentFields.reduce((sum, field) => {
-      const quantity = business[field as keyof BusinessInfo] as number || 0;
-      if (quantity > 0) {
-        const unitCost = (pricesLoaded && manufacturerPrices[businessManufacturer]?.[field] !== undefined)
-          ? manufacturerPrices[businessManufacturer][field]
-          : (MANUFACTURER_COSTS[field] || 0);
-        sum += unitCost * quantity;
-      }
-      return sum;
-    }, 0);
+    // 🔧 API 계산 결과 사용
+    const actualTotalCost = calculatedData.total_cost;
+    const grossProfit = calculatedData.gross_profit;
+    const salesCommission = calculatedData.sales_commission;
+    const surveyCosts = calculatedData.survey_costs;
+    const installationCosts = calculatedData.installation_costs;
+    const installationExtraCost = calculatedData.additional_installation_cost;
 
-    // 총이익 = 매출 - 매입
-    const grossProfit = business.total_revenue - actualTotalCost;
-
-    // 영업비용: 저장된 계산 결과에서 조정된 값 우선 사용
-    console.log(`🔍 [TABLE-CALC] ${business.business_name} - revenueCalc:`, {
-      has_revenueCalc: !!revenueCalc,
-      adjusted_sales_commission: revenueCalc?.adjusted_sales_commission,
-      sales_commission: revenueCalc?.sales_commission,
-      business_adjusted: business.adjusted_sales_commission,
-      business_sales: business.sales_commission
-    });
-
-    const salesCommission = revenueCalc?.adjusted_sales_commission
-      || revenueCalc?.sales_commission
-      || business.adjusted_sales_commission
-      || business.sales_commission
-      || 0;
-
-    // 디버깅: 최종 영업비용 및 순이익 로깅
-    const netProfitCalc = grossProfit - salesCommission - (business.survey_costs || 0) - (business.installation_costs || 0) - ((business as any).installation_extra_cost || 0);
-    console.log(`📊 [TABLE-CALC] ${business.business_name} - 최종 계산:`, {
-      grossProfit,
-      salesCommission,
-      netProfit: netProfitCalc,
-      source: revenueCalc?.adjusted_sales_commission ? '조정된 영업비용' :
-              revenueCalc?.sales_commission ? '기본 영업비용' : '사업장 기본값'
-    });
-
-    // 순이익 = 총이익 - 조정된 영업비용 - 실사비용 - 기본설치비 - 추가설치비
-    const netProfit = grossProfit
-      - salesCommission
-      - (business.survey_costs || 0)
-      - (business.installation_costs || 0)
-      - ((business as any).installation_extra_cost || 0);
+    // 🔧 순이익은 API 계산 결과 사용
+    const netProfit = calculatedData.net_profit;
 
     // 미수금 계산 (진행구분에 따라 다르게 계산)
     let totalReceivables = 0;
@@ -1048,20 +885,22 @@ function RevenueDashboard() {
 
     return {
       ...business,
-      // 실시간 계산 값 사용 (모달과 동일한 로직)
-      total_revenue: business.total_revenue || 0,
-      total_cost: actualTotalCost, // 설치 기기 목록 기준 매입금액
-      net_profit: netProfit, // 순이익 (총이익 - 조정된 영업비용 포함)
-      gross_profit: grossProfit, // 총이익 (매출 - 매입)
-      sales_commission: revenueCalc?.sales_commission || business.sales_commission || 0, // 기본 영업비용
-      adjusted_sales_commission: salesCommission, // 조정된 영업비용 (실제 사용된 값)
+      // 🔧 API 계산 결과 사용 (모달과 동일한 로직)
+      total_revenue: calculatedData.total_revenue,
+      total_cost: calculatedData.total_cost,
+      net_profit: calculatedData.net_profit,
+      gross_profit: calculatedData.gross_profit,
+      sales_commission: calculatedData.sales_commission,
+      adjusted_sales_commission: calculatedData.sales_commission, // 조정된 영업비용
+      survey_costs: calculatedData.survey_costs,
+      installation_costs: calculatedData.installation_costs,
       equipment_count: totalEquipment,
-      calculation_date: revenueCalc?.calculation_date || null,
-      category: business.progress_status || 'N/A', // progress_status 사용 (진행구분)
-      has_calculation: !!revenueCalc || business.has_calculation || false, // 서버 계산 또는 클라이언트 자동 계산
-      additional_cost: business.additional_cost || 0, // 추가공사비
-      negotiation: business.negotiation ? parseFloat(business.negotiation.toString()) : 0, // 협의사항/네고
-      total_receivables: totalReceivables // 총 미수금
+      calculation_date: new Date().toISOString(), // 실시간 계산 시각
+      category: business.progress_status || 'N/A',
+      has_calculation: calculatedData.has_calculation,
+      additional_cost: business.additional_cost || 0,
+      negotiation: business.negotiation ? parseFloat(business.negotiation.toString()) : 0,
+      total_receivables: totalReceivables
     };
   }).filter(business => {
     // 매출 금액 필터 적용 - 매출 계산이 없는 경우 필터에서 제외하지 않음
@@ -1077,6 +916,12 @@ function RevenueDashboard() {
       return true; // 미수금 필터가 꺼져있으면 모두 표시
     }
     return business.total_receivables > 0; // 미수금이 있는 사업장만 표시
+  }).filter(business => {
+    // 미설치 필터 적용
+    if (!showUninstalledOnly) {
+      return true; // 미설치 필터가 꺼져있으면 모두 표시
+    }
+    return !business.installation_date || business.installation_date === ''; // 설치일이 없는 사업장만 표시
   });
 
   const salesOffices = [...new Set(businesses.map(b => b.sales_office).filter(Boolean))];
@@ -1259,7 +1104,13 @@ function RevenueDashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 매출금액</p>
                 <p className="text-xs sm:text-sm md:text-base font-bold text-green-600 break-words">
-                  {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + b.total_revenue, 0))}
+                  {formatCurrency((() => {
+                    const totalRevenue = sortedBusinesses.reduce((sum, b) => {
+                      const revenue = Number(b.total_revenue) || 0;
+                      return sum + revenue;
+                    }, 0);
+                    return totalRevenue;
+                  })())}
                 </p>
               </div>
             </div>
@@ -1273,7 +1124,13 @@ function RevenueDashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 이익금액</p>
                 <p className="text-xs sm:text-sm md:text-base font-bold text-purple-600 break-words">
-                  {formatCurrency(sortedBusinesses.reduce((sum, b) => sum + (b.net_profit || 0), 0))}
+                  {formatCurrency((() => {
+                    const totalProfit = sortedBusinesses.reduce((sum, b) => {
+                      const profit = Number(b.net_profit) || 0;
+                      return sum + profit;
+                    }, 0);
+                    return totalProfit;
+                  })())}
                 </p>
               </div>
             </div>
@@ -1304,10 +1161,14 @@ function RevenueDashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] sm:text-xs md:text-sm font-medium text-gray-600">총 설치비용</p>
                 <p className="text-xs sm:text-sm md:text-base font-bold text-blue-600 break-words">
-                  {formatCurrency(sortedBusinesses.reduce((sum, b) => {
-                    const installationCosts = (b.installation_costs || 0) + (b.installation_extra_cost || 0);
-                    return sum + installationCosts;
-                  }, 0))}
+                  {formatCurrency((() => {
+                    const totalInstallation = sortedBusinesses.reduce((sum, b) => {
+                      const baseCost = Number(b.installation_costs) || 0;
+                      const extraCost = Number(b.installation_extra_cost) || 0;
+                      return sum + baseCost + extraCost;
+                    }, 0);
+                    return totalInstallation;
+                  })())}
                 </p>
               </div>
             </div>
@@ -1385,60 +1246,72 @@ function RevenueDashboard() {
               />
             </div>
 
-            {/* 두 번째 행: 검색, 매출금액, 미수금 필터 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-              <div className="flex items-center gap-2">
-                <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">검색</label>
+            {/* 두 번째 행: 검색, 매출금액, 필터 (2줄 압축) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2 items-center">
+              <div className="flex items-center gap-1.5 md:col-span-2">
+                <label className="text-xs sm:text-sm font-medium whitespace-nowrap shrink-0">검색</label>
                 <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="사업장명 또는 영업점"
+                    placeholder="사업장명/영업점"
                     value={searchTerm}
                     onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                    className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-7 pr-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">최소 매출 (원)</label>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs sm:text-sm font-medium whitespace-nowrap shrink-0">최소</label>
                 <input
                   type="number"
                   placeholder="0"
                   value={revenueFilter.min}
                   onChange={(e) => { setRevenueFilter(prev => ({ ...prev, min: e.target.value })); setCurrentPage(1); }}
-                  className="flex-1 px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent w-20"
                   min="0"
                   step="100000"
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <label className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">최대 매출 (원)</label>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs sm:text-sm font-medium whitespace-nowrap shrink-0">최대</label>
                 <input
                   type="number"
                   placeholder="제한없음"
                   value={revenueFilter.max}
                   onChange={(e) => { setRevenueFilter(prev => ({ ...prev, max: e.target.value })); setCurrentPage(1); }}
-                  className="flex-1 px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent w-20"
                   min="0"
                   step="100000"
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <label htmlFor="receivables-filter" className="text-[10px] sm:text-xs md:text-sm font-medium whitespace-nowrap shrink-0">미수금 필터</label>
-                <div className="flex items-center h-8 px-2 py-1.5 bg-gray-50 border border-gray-300 rounded flex-1">
+              <div className="flex items-center justify-end gap-3">
+                <div className="flex items-center gap-1.5">
                   <input
                     type="checkbox"
                     id="receivables-filter"
                     checked={showReceivablesOnly}
                     onChange={(e) => { setShowReceivablesOnly(e.target.checked); setCurrentPage(1); }}
-                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
+                    className="w-3.5 h-3.5 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
                   />
-                  <label htmlFor="receivables-filter" className="ml-1.5 sm:ml-2 text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 cursor-pointer">
-                    미수금만
+                  <label htmlFor="receivables-filter" className="text-xs sm:text-sm font-medium text-gray-700 cursor-pointer whitespace-nowrap">
+                    미수금
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    id="uninstalled-filter"
+                    checked={showUninstalledOnly}
+                    onChange={(e) => { setShowUninstalledOnly(e.target.checked); setCurrentPage(1); }}
+                    className="w-3.5 h-3.5 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+                  />
+                  <label htmlFor="uninstalled-filter" className="text-xs sm:text-sm font-medium text-gray-700 cursor-pointer whitespace-nowrap">
+                    미설치
                   </label>
                 </div>
               </div>

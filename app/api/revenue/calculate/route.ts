@@ -106,6 +106,17 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
+    console.log('🏢 [REVENUE-API] 사업장 정보 조회:', {
+      business_id,
+      business_name: businessInfo.business_name,
+      survey_fee_adjustment: businessInfo.survey_fee_adjustment,
+      additional_cost: businessInfo.additional_cost,
+      negotiation: businessInfo.negotiation,
+      estimate_survey_date: businessInfo.estimate_survey_date,
+      pre_construction_survey_date: businessInfo.pre_construction_survey_date,
+      completion_survey_date: businessInfo.completion_survey_date
+    });
+
     // 계산일 결정 우선순위:
     // 1. 명시적으로 전달된 calculation_date
     // 2. 사업장의 설치완료일 (completion_date)
@@ -194,7 +205,8 @@ export async function POST(request: NextRequest) {
     }
 
     const installationCostMap = installationCosts?.reduce((acc, item) => {
-      acc[item.equipment_type] = item.base_installation_cost;
+      // 🔧 PostgreSQL DECIMAL 타입이 문자열로 반환되므로 Number()로 변환
+      acc[item.equipment_type] = Number(item.base_installation_cost) || 0;
       return acc;
     }, {} as Record<string, number>) || {};
 
@@ -217,7 +229,8 @@ export async function POST(request: NextRequest) {
       if (!acc[key]) {
         acc[key] = 0;
       }
-      acc[key] += item.additional_cost;
+      // 🔧 PostgreSQL DECIMAL 타입이 문자열로 반환되므로 Number()로 변환
+      acc[key] += Number(item.additional_cost) || 0;
       return acc;
     }, {} as Record<string, number>) || {};
 
@@ -271,11 +284,17 @@ export async function POST(request: NextRequest) {
     if (commissionRate) {
       commissionSettings = {
         commission_type: 'percentage',
-        commission_percentage: commissionRate.commission_rate,
+        // 🔧 PostgreSQL DECIMAL 타입이 문자열로 반환되므로 Number()로 변환
+        commission_percentage: Number(commissionRate.commission_rate) || 10.0,
         commission_per_unit: null
       };
     } else if (salesSettings) {
-      commissionSettings = salesSettings;
+      // 🔧 salesSettings의 숫자 필드도 변환
+      commissionSettings = {
+        ...salesSettings,
+        commission_percentage: salesSettings.commission_percentage ? Number(salesSettings.commission_percentage) : undefined,
+        commission_per_unit: salesSettings.commission_per_unit ? Number(salesSettings.commission_per_unit) : undefined
+      };
     } else {
       commissionSettings = defaultCommission;
     }
@@ -289,13 +308,21 @@ export async function POST(request: NextRequest) {
     );
 
     const surveyCostMap = surveyCosts?.reduce((acc, item) => {
-      acc[item.survey_type] = item.base_cost;
+      // 🔧 PostgreSQL DECIMAL 타입이 문자열로 반환되므로 Number()로 변환
+      acc[item.survey_type] = Number(item.base_cost) || 0;
       return acc;
     }, {} as Record<string, number>) || {
       estimate: 100000,
       pre_construction: 150000,
       completion: 200000
     };
+
+    console.log('📋 [REVENUE-API] 실사비용 설정 로드:', {
+      business_id,
+      calcDate,
+      surveyCosts_count: surveyCosts?.length || 0,
+      surveyCostMap
+    });
 
     // 5. 실사비용 조정 조회 - Direct PostgreSQL
     const surveyAdjustments = await queryAll(
@@ -305,7 +332,10 @@ export async function POST(request: NextRequest) {
       [business_id, calcDate]
     );
 
-    const totalAdjustments = surveyAdjustments?.reduce((sum, adj) => sum + adj.adjustment_amount, 0) || 0;
+    const totalAdjustments = surveyAdjustments?.reduce((sum, adj) => {
+      // 🔧 PostgreSQL DECIMAL 타입이 문자열로 반환되므로 Number()로 변환
+      return sum + (Number(adj.adjustment_amount) || 0);
+    }, 0) || 0;
 
     // 6. 측정기기별 매출/매입 계산
     const equipmentFields = [
@@ -354,7 +384,8 @@ export async function POST(request: NextRequest) {
 
         let unitRevenue = 0;
         if (officialPrice) {
-          unitRevenue = officialPrice.official_price;
+          // 🔧 PostgreSQL DECIMAL 타입이 문자열로 반환되므로 Number()로 변환
+          unitRevenue = Number(officialPrice.official_price) || 0;
         } else {
           unitRevenue = DEFAULT_OFFICIAL_PRICES[field] || 0;
         }
@@ -386,7 +417,8 @@ export async function POST(request: NextRequest) {
 
         let unitCost = 0;
         if (manufacturerCost) {
-          unitCost = manufacturerCost.cost_price;
+          // 🔧 PostgreSQL DECIMAL 타입이 문자열로 반환되므로 Number()로 변환
+          unitCost = Number(manufacturerCost.cost_price) || 0;
         } else {
           unitCost = DEFAULT_COSTS[field] || 0;
         }
@@ -462,13 +494,21 @@ export async function POST(request: NextRequest) {
     }
 
     // 실사비 조정 (기본 실사비 100,000원 기준 조정)
-    const surveyFeeAdjustment = Number(businessInfo.survey_fee_adjustment) || 0;
+    const surveyFeeAdjustment = Math.round(Number(businessInfo.survey_fee_adjustment) || 0);
 
-    const totalSurveyCosts = baseSurveyCosts + totalAdjustments + surveyFeeAdjustment;
+    const totalSurveyCosts = Math.round(baseSurveyCosts + totalAdjustments + surveyFeeAdjustment);
+
+    console.log('💰 [REVENUE-API] 실사비용 계산:', {
+      business_id,
+      baseSurveyCosts,
+      totalAdjustments,
+      surveyFeeAdjustment,
+      totalSurveyCosts
+    });
 
     // 8. 추가공사비 및 협의사항 반영
-    const additionalCost = Number(businessInfo.additional_cost) || 0; // 추가공사비 (매출에 더하기)
-    const negotiationDiscount = businessInfo.negotiation ? parseFloat(businessInfo.negotiation) || 0 : 0; // 협의사항 (매출에서 빼기)
+    const additionalCost = Math.round(Number(businessInfo.additional_cost) || 0); // 추가공사비 (매출에 더하기)
+    const negotiationDiscount = Math.round(businessInfo.negotiation ? parseFloat(businessInfo.negotiation) || 0 : 0); // 협의사항 (매출에서 빼기)
 
     // 영업비용 계산 기준: 기본 매출 - 협의사항 (추가공사비 제외)
     const commissionBaseRevenue = totalRevenue - negotiationDiscount;
@@ -506,8 +546,20 @@ export async function POST(request: NextRequest) {
 
     // 10. 최종 계산 (조정된 매출 기준)
     // 순이익 = 매출 - 매입 - 추가설치비 - 조정된 영업비용 - 실사비용 - 설치비용
-    const grossProfit = adjustedRevenue - totalCost;
-    const netProfit = grossProfit - installationExtraCost - adjustedSalesCommission - totalSurveyCosts - totalInstallationCosts;
+    const grossProfit = Math.round(adjustedRevenue - totalCost);
+    const netProfit = Math.round(grossProfit - installationExtraCost - adjustedSalesCommission - totalSurveyCosts - totalInstallationCosts);
+
+    console.log('📊 [REVENUE-API] 순이익 계산:', {
+      business_id,
+      adjustedRevenue,
+      totalCost,
+      grossProfit,
+      installationExtraCost,
+      adjustedSalesCommission,
+      totalSurveyCosts,
+      totalInstallationCosts,
+      netProfit
+    });
 
     // 기본 매출 = equipment_breakdown의 total_revenue 합계 (장비 합계만)
     const baseRevenue = equipmentBreakdown.reduce((sum, item) => sum + item.total_revenue, 0);
@@ -622,6 +674,15 @@ export async function POST(request: NextRequest) {
       }
       }
     }
+
+    console.log('🎯 [REVENUE-API] 응답 데이터 생성:', {
+      business_id,
+      business_name: businessInfo.business_name,
+      result_survey_costs: result.survey_costs,
+      result_net_profit: result.net_profit,
+      saved_survey_costs: savedCalculation?.survey_costs,
+      saved_net_profit: savedCalculation?.net_profit
+    });
 
     return NextResponse.json({
       success: true,
