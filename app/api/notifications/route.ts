@@ -204,23 +204,39 @@ export const GET = withApiHandler(async (request: NextRequest) => {
       let paramIndex = 1;
 
       queryParts.push(`
-        SELECT id, user_id, message, related_task_id, related_user_id,
-               is_read, read_at, created_at, expires_at
-        FROM user_notifications
-        WHERE user_id = $${paramIndex++}
+        SELECT
+          un.id,
+          un.user_id,
+          un.notification_id,
+          un.is_read,
+          un.read_at,
+          un.created_at,
+          n.title,
+          n.message,
+          n.category,
+          n.priority,
+          n.notification_tier,
+          n.related_resource_type,
+          n.related_resource_id,
+          n.related_url,
+          n.expires_at,
+          n.created_by_name
+        FROM user_notifications un
+        INNER JOIN notifications n ON un.notification_id = n.id
+        WHERE un.user_id = $${paramIndex++}
       `);
       params.push(user.id);
 
-      queryParts.push(`AND expires_at > $${paramIndex++}`);
+      queryParts.push(`AND (n.expires_at IS NULL OR n.expires_at > $${paramIndex++})`);
       params.push(new Date().toISOString());
 
       // 읽지 않은 알림만 조회
       if (unreadOnly) {
-        queryParts.push(`AND is_read = $${paramIndex++}`);
+        queryParts.push(`AND un.is_read = $${paramIndex++}`);
         params.push(false);
       }
 
-      queryParts.push(`ORDER BY created_at DESC LIMIT $${paramIndex++}`);
+      queryParts.push(`ORDER BY un.created_at DESC LIMIT $${paramIndex++}`);
       params.push(limit);
 
       const notifications = await queryAll(queryParts.join(' '), params);
