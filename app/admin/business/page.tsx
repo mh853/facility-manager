@@ -4774,16 +4774,33 @@ function BusinessManagementPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">VPN</label>
-                      <select
-                        value={formData.vpn || ''}
-                        onChange={(e) => setFormData({...formData, vpn: (e.target.value || null) as 'wired' | 'wireless' | null})}
-                        className="w-full px-2 sm:px-2.5 py-1.5 sm:py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
-                      >
-                        <option value="">선택하세요</option>
-                        <option value="wired">유선</option>
-                        <option value="wireless">무선</option>
-                      </select>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">VPN 연결</label>
+                      <div className="space-y-2">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={(formData.vpn_wired || 0) > 0}
+                            onChange={(e) => {
+                              const newValue = e.target.checked ? 1 : 0;
+                              setFormData({...formData, vpn_wired: newValue});
+                            }}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">🔗 유선</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={(formData.vpn_wireless || 0) > 0}
+                            onChange={(e) => {
+                              const newValue = e.target.checked ? 1 : 0;
+                              setFormData({...formData, vpn_wireless: newValue});
+                            }}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">📶 무선</span>
+                        </label>
+                      </div>
                     </div>
 
                     <div>
