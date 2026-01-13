@@ -4775,7 +4775,7 @@ function BusinessManagementPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">VPN 연결</label>
-                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white space-y-2">
+                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white flex items-center gap-4">
                         <label className="flex items-center cursor-pointer">
                           <input
                             type="checkbox"
