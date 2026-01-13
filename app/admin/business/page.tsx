@@ -2718,8 +2718,41 @@ function BusinessManagementPage() {
         return null
       }
 
+      /**
+       * VPN 타입 정규화 함수
+       * vpn_wired, vpn_wireless 값을 기반으로 vpn 타입 자동 결정
+       */
+      const normalizeVpnType = (vpnWired: number, vpnWireless: number, explicitVpnType?: string): 'wired' | 'wireless' | null => {
+        // 명시적으로 VPN타입이 지정된 경우 우선 사용
+        if (explicitVpnType) {
+          if (explicitVpnType === '무선' || explicitVpnType === 'wireless') return 'wireless'
+          if (explicitVpnType === '유선' || explicitVpnType === 'wired') return 'wired'
+        }
+
+        const wired = vpnWired || 0
+        const wireless = vpnWireless || 0
+
+        // 둘 다 0이면 null
+        if (wired === 0 && wireless === 0) return null
+
+        // VPN(유선)만 있는 경우
+        if (wired > 0 && wireless === 0) return 'wired'
+
+        // VPN(무선)만 있는 경우
+        if (wireless > 0 && wired === 0) return 'wireless'
+
+        // 둘 다 있는 경우 - 더 많은 쪽 (같으면 유선 우선)
+        if (wired >= wireless) return 'wired'
+        return 'wireless'
+      }
+
       // 엑셀 헤더를 API 필드명으로 매핑
-      const mappedBusinesses = jsonData.map((row: any) => ({
+      const mappedBusinesses = jsonData.map((row: any) => {
+        const vpnWired = parseInt(row['VPN(유선)'] || '0') || 0
+        const vpnWireless = parseInt(row['VPN(무선)'] || '0') || 0
+        const explicitVpnType = row['VPN타입']
+
+        return {
         business_name: row['사업장명'] || '',
         address: row['주소'] || '',
         manager_name: row['사업장담당자'] || '',
@@ -2747,9 +2780,9 @@ function BusinessManagementPage() {
         gateway: parseInt(row['게이트웨이'] || '0') || 0, // @deprecated
         gateway_1_2: parseInt(row['게이트웨이(1,2)'] || '0') || 0,
         gateway_3_4: parseInt(row['게이트웨이(3,4)'] || '0') || 0,
-        vpn_wired: parseInt(row['VPN(유선)'] || '0') || 0,
-        vpn_wireless: parseInt(row['VPN(무선)'] || '0') || 0,
-        vpn: row['VPN타입'] === '무선' ? 'wireless' : row['VPN타입'] === '유선' ? 'wired' : null,
+        vpn_wired: vpnWired,
+        vpn_wireless: vpnWireless,
+        vpn: normalizeVpnType(vpnWired, vpnWireless, explicitVpnType),
         multiple_stack: parseInt(row['복수굴뚝(설치비)'] || '0') || 0,
 
         // 추가 측정기기
@@ -2823,7 +2856,8 @@ function BusinessManagementPage() {
         construction_report_submitted_at: parseExcelDate(row['착공신고서제출일']),
         greenlink_confirmation_submitted_at: parseExcelDate(row['그린링크전송확인서제출일']),
         attachment_completion_submitted_at: parseExcelDate(row['부착완료통보서제출일'])
-      }));
+        }
+      });
       
       console.log('🔄 헤더 기반 매핑 완료:', mappedBusinesses.slice(0, 2));
       
