@@ -5067,7 +5067,7 @@ function BusinessManagementPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">추가공사비 (원)</label>
                       <input
                         type="text"
-                        value={formData.additional_cost ? formData.additional_cost.toLocaleString() : ''}
+                        value={formData.additional_cost ? parseInt(formData.additional_cost).toLocaleString() : ''}
                         onChange={(e) => {
                           const value = e.target.value.replace(/,/g, '');
                           setFormData({...formData, additional_cost: value ? parseInt(value) : null});
