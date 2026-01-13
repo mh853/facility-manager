@@ -359,12 +359,13 @@ export async function updateBusinessMemo(id: string, updates: UpdateBusinessMemo
 
 export async function deleteBusinessMemo(id: string) {
   // ✅ 최적화: DELETE와 SELECT를 결합하여 쿼리 1개 절약 (3개 → 2개)
+  // ⚠️ single() 대신 maybeSingle() 사용: 이미 삭제된 경우 0 rows 허용
   const { data: memo, error } = await supabaseAdmin
     .from('business_memos')
     .delete()
     .eq('id', id)
     .select('business_id')
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('❌ [SUPABASE] 메모 삭제 실패:', error);

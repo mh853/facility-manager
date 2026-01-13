@@ -169,7 +169,8 @@
       "Bash(bash test-reanalyze.sh:*)",
       "Bash(npx tsx scripts/test-gemini-extraction.ts)",
       "Bash(PORT=3001 npm run dev:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(git push)"
     ],
     "deny": [],
     "ask": [],

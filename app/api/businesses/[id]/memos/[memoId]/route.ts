@@ -1,6 +1,6 @@
 // app/api/businesses/[id]/memos/[memoId]/route.ts - 개별 메모 관리 API
-import { NextRequest, NextResponse } from 'next/server';
-import { withApiHandler, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
+import { NextRequest } from 'next/server';
+import { createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
 import {
   updateBusinessMemo,
   deleteBusinessMemo
@@ -31,21 +31,17 @@ export async function PUT(
       return createErrorResponse('유효하지 않은 토큰입니다', 401);
     }
 
-    const { id: businessId, memoId } = params;
+    const { memoId } = params;
     const updateData = await request.json();
 
-    const result = await updateBusinessMemo(memoId, {
+    const memo = await updateBusinessMemo(memoId, {
       title: updateData.title,
       content: updateData.content,
       updated_by: tokenPayload.name || 'Unknown'
     });
 
-    if (!(result as any).success) {
-      return createErrorResponse((result as any).error || '메모 업데이트에 실패했습니다', 500);
-    }
-
     return createSuccessResponse({
-      memo: (result as any).data,
+      memo: memo,
       message: '메모가 성공적으로 업데이트되었습니다'
     });
 
@@ -77,13 +73,9 @@ export async function DELETE(
       return createErrorResponse('유효하지 않은 토큰입니다', 401);
     }
 
-    const { id: businessId, memoId } = params;
+    const { memoId } = params;
 
-    const result = await deleteBusinessMemo(memoId);
-
-    if (!(result as any).success) {
-      return createErrorResponse((result as any).error || '메모 삭제에 실패했습니다', 500);
-    }
+    await deleteBusinessMemo(memoId);
 
     return createSuccessResponse({
       message: '메모가 성공적으로 삭제되었습니다'
