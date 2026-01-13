@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { InvoiceDisplay } from './InvoiceDisplay';
+import { MemoSection } from './MemoSection';
 import { TokenManager } from '@/lib/api-client';
 import type { CalculatedData, OperatingCostAdjustment } from '@/types';
 
@@ -335,7 +336,7 @@ export default function BusinessRevenueModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col overflow-hidden">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <h3 className="text-xl font-bold text-gray-900">
@@ -366,8 +367,11 @@ export default function BusinessRevenueModal({
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* 에러 메시지 */}
+        {/* 두 열 레이아웃: 왼쪽 메인 콘텐츠 + 오른쪽 메모 */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* 왼쪽: 메인 콘텐츠 (스크롤 가능) */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* 에러 메시지 */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-800">
@@ -980,14 +984,24 @@ export default function BusinessRevenueModal({
             </div>
           )}
 
-          {/* 읽기 전용 안내 (권한 0-1) */}
-          {isReadOnly && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
-                ℹ️ 현재 읽기 전용 모드입니다. 정보 수정은 권한 레벨 2 이상이 필요합니다.
-              </p>
-            </div>
-          )}
+            {/* 읽기 전용 안내 (권한 0-1) */}
+            {isReadOnly && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  ℹ️ 현재 읽기 전용 모드입니다. 정보 수정은 권한 레벨 2 이상이 필요합니다.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 오른쪽: 메모 사이드바 */}
+          <div className="w-80 border-l border-gray-200 flex flex-col overflow-hidden">
+            <MemoSection
+              businessId={business.id}
+              businessName={business.business_name || business.사업장명 || ''}
+              userPermission={userPermission}
+            />
+          </div>
         </div>
 
         <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200">
