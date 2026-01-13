@@ -836,21 +836,40 @@ export default function BusinessDetailModal({
                     </div>
 
                     <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
-                      <div className="text-xs sm:text-sm text-gray-600 mb-1">VPN 연결</div>
-                      <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">
+                      <div className="text-xs sm:text-sm text-gray-600 mb-2">VPN 연결</div>
+                      <div className="space-y-1.5">
                         {(() => {
                           const hasWired = (business.vpn_wired || business.VPN유선 || 0) > 0;
                           const hasWireless = (business.vpn_wireless || business.VPN무선 || 0) > 0;
 
-                          if (hasWired && hasWireless) {
-                            return '🔗 유선 + 📶 무선';
-                          } else if (hasWired) {
-                            return '🔗 유선';
-                          } else if (hasWireless) {
-                            return '📶 무선';
-                          } else {
-                            return '-';
+                          if (!hasWired && !hasWireless) {
+                            return <div className="text-xs sm:text-sm font-medium text-gray-400">-</div>;
                           }
+
+                          return (
+                            <>
+                              {hasWired && (
+                                <div className="flex items-center">
+                                  <div className="w-4 h-4 bg-blue-500 rounded flex items-center justify-center mr-2">
+                                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                  <span className="text-xs sm:text-sm font-medium text-gray-900">🔗 유선</span>
+                                </div>
+                              )}
+                              {hasWireless && (
+                                <div className="flex items-center">
+                                  <div className="w-4 h-4 bg-blue-500 rounded flex items-center justify-center mr-2">
+                                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                  <span className="text-xs sm:text-sm font-medium text-gray-900">📶 무선</span>
+                                </div>
+                              )}
+                            </>
+                          );
                         })()}
                       </div>
                     </div>
