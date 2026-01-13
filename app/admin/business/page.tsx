@@ -2674,6 +2674,50 @@ function BusinessManagementPage() {
         return null
       }
 
+      // 제조사 값 정규화 함수
+      const normalizeManufacturer = (value: any): string | null => {
+        if (!value) return null
+
+        const normalized = String(value).trim().toLowerCase()
+
+        const mapping: Record<string, string> = {
+          'ecosense': '에코센스',
+          '에코센스': '에코센스',
+          'cleanearth': '크린어스',
+          '크린어스': '크린어스',
+          '클린어스': '크린어스',
+          'gaia_cns': '가이아씨앤에스',
+          'gaia': '가이아씨앤에스',
+          '가이아씨앤에스': '가이아씨앤에스',
+          '가이아': '가이아씨앤에스',
+          'evs': '이브이에스',
+          '이브이에스': '이브이에스'
+        }
+
+        // 정확한 매칭
+        if (mapping[normalized]) {
+          return mapping[normalized]
+        }
+
+        // 부분 매칭 (예: "2.크린어스" -> "크린어스")
+        if (normalized.includes('크린어스') || normalized.includes('cleanearth')) {
+          return '크린어스'
+        }
+        if (normalized.includes('에코센스') || normalized.includes('ecosense')) {
+          return '에코센스'
+        }
+        if (normalized.includes('가이아') || normalized.includes('gaia')) {
+          return '가이아씨앤에스'
+        }
+        if (normalized.includes('이브이에스') || normalized.includes('evs')) {
+          return '이브이에스'
+        }
+
+        // 인식할 수 없는 값은 null 반환
+        console.warn('⚠️ 인식할 수 없는 제조사 값:', value)
+        return null
+      }
+
       // 엑셀 헤더를 API 필드명으로 매핑
       const mappedBusinesses = jsonData.map((row: any) => ({
         business_name: row['사업장명'] || '',
@@ -2717,7 +2761,7 @@ function BusinessManagementPage() {
         main_board_replacement: parseInt(row['메인보드교체'] || '0') || 0,
 
         // 기타 정보
-        manufacturer: row['제조사'] || '',
+        manufacturer: normalizeManufacturer(row['제조사']),
         sales_office: row['영업점'] || '',
         department: row['담당부서'] || '',
         progress_status: row['진행구분'] || '',
