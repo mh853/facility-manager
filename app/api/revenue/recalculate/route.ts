@@ -53,26 +53,103 @@ export async function POST(request: NextRequest) {
 
     // 전체 재계산 요청인 경우
     if (recalculateAll === true) {
-      console.log('🔄 [RECALCULATE-ALL] 전체 재계산 요청:', {
-        requestedBy: decodedToken.email
-      });
+      console.log('🔄 [RECALCULATE-ALL] 전체 재계산 시작');
 
-      // revenue_calculations 테이블의 모든 기록 삭제
+      // 1. revenue_calculations 테이블의 모든 기록 삭제
       const { error: deleteAllError } = await supabaseAdmin
         .from('revenue_calculations')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // 모든 레코드 삭제
+        .neq('id', '00000000-0000-0000-0000-000000000000');
 
       if (deleteAllError) {
-        console.log('⚠️  [RECALCULATE-ALL] revenue_calculations 전체 삭제 시 오류:', deleteAllError.message);
+        console.error('❌ [RECALCULATE-ALL] 삭제 실패:', deleteAllError.message);
+        return NextResponse.json(
+          { success: false, message: '기존 데이터 삭제 실패' },
+          { status: 500 }
+        );
       }
 
-      console.log('✅ [RECALCULATE-ALL] 전체 재계산 준비 완료');
+      // 2. 모든 사업장 조회
+      const { data: allBusinesses, error: fetchAllError } = await supabaseAdmin
+        .from('business_info')
+        .select('id, business_name')
+        .eq('is_deleted', false);
+
+      if (fetchAllError || !allBusinesses) {
+        console.error('❌ [RECALCULATE-ALL] 사업장 조회 실패');
+        return NextResponse.json(
+          { success: false, message: '사업장 조회 실패' },
+          { status: 500 }
+        );
+      }
+
+      console.log(`📊 [RECALCULATE-ALL] ${allBusinesses.length}개 사업장 처리 중...`);
+
+      // 3. 병렬 처리 (5개씩 배치)
+      const BATCH_SIZE = 5;
+      let successCount = 0;
+      let failCount = 0;
+      const failedBusinesses: string[] = [];
+
+      for (let i = 0; i < allBusinesses.length; i += BATCH_SIZE) {
+        const batch = allBusinesses.slice(i, i + BATCH_SIZE);
+
+        const results = await Promise.allSettled(
+          batch.map(async (business) => {
+            const calculateResponse = await fetch(`${request.nextUrl.origin}/api/revenue/calculate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                business_id: business.id,
+                save_result: true
+              })
+            });
+
+            const calculateResult = await calculateResponse.json();
+
+            if (!calculateResult.success) {
+              throw new Error(calculateResult.message || '계산 실패');
+            }
+
+            return business.business_name;
+          })
+        );
+
+        // 배치 결과 집계
+        results.forEach((result, idx) => {
+          if (result.status === 'fulfilled') {
+            successCount++;
+          } else {
+            failCount++;
+            failedBusinesses.push(batch[idx].business_name);
+          }
+        });
+
+        // 진행상황 로그 (배치 단위로만)
+        if ((i + BATCH_SIZE) % 25 === 0 || i + BATCH_SIZE >= allBusinesses.length) {
+          console.log(`📊 [RECALCULATE-ALL] 진행: ${Math.min(i + BATCH_SIZE, allBusinesses.length)}/${allBusinesses.length}`);
+        }
+      }
+
+      console.log(`✅ [RECALCULATE-ALL] 완료 - 성공: ${successCount}, 실패: ${failCount}`);
+
+      if (failedBusinesses.length > 0) {
+        console.log('⚠️ [RECALCULATE-ALL] 실패 사업장:', failedBusinesses.join(', '));
+      }
 
       return NextResponse.json({
         success: true,
-        message: '모든 사업장의 매출 정보가 재계산되었습니다.',
-        data: { recalculatedAll: true }
+        message: `전체 재계산 완료 (성공: ${successCount}개, 실패: ${failCount}개)`,
+        data: {
+          recalculatedAll: true,
+          total: allBusinesses.length,
+          success: successCount,
+          fail: failCount,
+          failedBusinesses: failedBusinesses.length > 0 ? failedBusinesses : undefined
+        }
       });
     }
 

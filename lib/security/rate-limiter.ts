@@ -44,7 +44,11 @@ export class RateLimiter {
     },
     '/api/revenue/calculate': {
       windowMs: 60 * 60 * 1000, // 1시간
-      maxRequests: 1000 // 대량 재계산을 위한 높은 제한
+      maxRequests: 10000 // 대량 재계산 지원 (슈퍼관리자 전용)
+    },
+    '/api/revenue/recalculate': {
+      windowMs: 60 * 60 * 1000, // 1시간
+      maxRequests: 50 // 슈퍼관리자 전용 (전체 재계산 포함)
     },
     '/api/revenue/business-summary': {
       windowMs: 15 * 60 * 1000, // 15분

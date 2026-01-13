@@ -424,7 +424,11 @@ export async function POST(request: NextRequest) {
         }
 
         // 설치비 = 기본 설치비 + 사업장 추가비(공통) + 사업장 추가비(기기별)
-        const baseInstallCost = installationCostMap[field] || 0;
+        // 🔧 게이트웨이(1,2), 게이트웨이(3,4) 모두 gateway 기본설치비 사용
+        let baseInstallCost = installationCostMap[field] || 0;
+        if ((field === 'gateway_1_2' || field === 'gateway_3_4') && baseInstallCost === 0) {
+          baseInstallCost = installationCostMap['gateway'] || 0;
+        }
         const commonAdditionalCost = additionalCostMap['all'] || 0;
         const equipmentAdditionalCost = additionalCostMap[field] || 0;
         const unitInstallation = baseInstallCost + commonAdditionalCost + equipmentAdditionalCost;

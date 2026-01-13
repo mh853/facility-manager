@@ -495,18 +495,25 @@ function RevenueDashboard() {
       const params = new URLSearchParams();
       // 다중 선택 필터는 클라이언트에서 처리하므로 서버 필터는 제거
       if (selectedOffices.length === 1) params.append('sales_office', selectedOffices[0]);
+      // 캐시 버스팅을 위한 타임스탬프 추가
+      params.append('_t', Date.now().toString());
       // limit 파라미터 제거 (API 기본값 10000 사용)
 
       console.log('📊 [LOAD-CALCULATIONS] 요청 파라미터:', params.toString());
 
       const response = await fetch(`/api/revenue/calculate?${params}`, {
-        headers: getAuthHeaders()
+        headers: {
+          ...getAuthHeaders(),
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
       });
       const data = await response.json();
 
       if (data.success) {
         const calculations = data.data.calculations || [];
         setCalculations(calculations);
+        console.log('✅ [LOAD-CALCULATIONS] 계산 결과 로드 완료:', calculations.length, '개');
         // calculateStats는 useEffect에서 필터링된 데이터로 자동 계산됨
       }
     } catch (error) {
@@ -532,9 +539,13 @@ function RevenueDashboard() {
       if (data.success) {
         alert(`✅ ${businessName}의 매출 정보가 재계산되었습니다.`);
 
-        // 데이터 다시 로드
-        await loadBusinesses();
-        await loadCalculations();
+        // 즉시 데이터 다시 로드 (캐시 무시)
+        console.log('🔄 [RECALCULATE] 데이터 재로드 시작...');
+        await Promise.all([
+          loadBusinesses(),
+          loadCalculations()
+        ]);
+        console.log('✅ [RECALCULATE] 데이터 재로드 완료');
       } else {
         alert(`❌ 재계산 실패: ${data.message}`);
         console.error('❌ [RECALCULATE] 실패:', data.message);
@@ -552,6 +563,9 @@ function RevenueDashboard() {
         return;
       }
 
+      console.log('🔄 [RECALCULATE-ALL] 전체 재계산 시작...');
+      setLoading(true);
+
       const response = await fetch('/api/revenue/recalculate', {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -561,11 +575,16 @@ function RevenueDashboard() {
       const data = await response.json();
 
       if (data.success) {
-        alert(`✅ 모든 사업장의 매출 정보가 재계산되었습니다.`);
+        const { total, success, fail } = data.data;
+        alert(`✅ 전체 재계산 완료\n\n전체: ${total}개\n성공: ${success}개\n실패: ${fail}개`);
 
-        // 데이터 다시 로드
-        await loadBusinesses();
-        await loadCalculations();
+        // 즉시 데이터 다시 로드
+        console.log('🔄 [RECALCULATE-ALL] 데이터 재로드 시작...');
+        await Promise.all([
+          loadBusinesses(),
+          loadCalculations()
+        ]);
+        console.log('✅ [RECALCULATE-ALL] 데이터 재로드 완료');
       } else {
         alert(`❌ 전체 재계산 실패: ${data.message}`);
         console.error('❌ [RECALCULATE-ALL] 실패:', data.message);
@@ -573,6 +592,8 @@ function RevenueDashboard() {
     } catch (error) {
       console.error('❌ [RECALCULATE-ALL] 오류:', error);
       alert('전체 재계산 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
