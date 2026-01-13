@@ -151,7 +151,7 @@ export default function DataTable<T extends { id: string }>({
           rounded-lg text-[10px] sm:text-sm font-medium border transition-colors
           ${variants[action.variant || 'secondary']}
         `}
-        title={action.label}
+        title={typeof action.label === 'string' ? action.label : undefined}
       >
         {Icon && <Icon className="w-4 h-4 flex-shrink-0" />}
         <span className="hidden sm:inline">{action.label}</span>
@@ -313,7 +313,10 @@ export default function DataTable<T extends { id: string }>({
                         ${column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : 'text-left'}
                       `}
                       style={column.width ? { width: column.width } : undefined}
-                      title={String(column.render ? column.render(item) : (item[column.key as keyof T] || ''))}
+                      title={(() => {
+                        const value = column.render ? column.render(item) : (item[column.key as keyof T] || '');
+                        return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
+                      })()}
                     >
                       {column.render ? column.render(item) : (item[column.key as keyof T] as ReactNode)}
                     </td>

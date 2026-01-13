@@ -995,7 +995,7 @@ export default function BusinessRevenueModal({
           </div>
 
           {/* 오른쪽: 메모 사이드바 */}
-          <div className="w-80 border-l border-gray-200 flex flex-col overflow-hidden">
+          <div className="w-80 border-l border-indigo-200 flex flex-col overflow-hidden bg-gradient-to-b from-indigo-50/30 to-white">
             <MemoSection
               businessId={business.id}
               businessName={business.business_name || business.사업장명 || ''}

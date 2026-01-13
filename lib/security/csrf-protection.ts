@@ -149,7 +149,9 @@ export function protectCSRF(request: NextRequest): { valid: boolean; error?: str
     '/api/subsidy-announcements',  // 보조금 공고 목록 API (Supabase Admin 인증 사용)
     '/api/subsidy-announcements/*',  // 보조금 공고 개별 API (Supabase Admin 인증 사용)
     '/api/admin/monthly-closing',  // 월 마감 관리 API (JWT 인증 사용)
-    '/api/admin/monthly-closing/*'  // 월 마감 관리 API 전체 제외 (JWT 인증 사용)
+    '/api/admin/monthly-closing/*',  // 월 마감 관리 API 전체 제외 (JWT 인증 사용)
+    '/api/businesses/*/memos',  // 사업장별 메모 관리 API (JWT 인증 사용)
+    '/api/businesses/*/memos/*'  // 사업장별 메모 개별 API 전체 제외 (JWT 인증 사용)
   ];
 
   if (excludePaths.includes(request.nextUrl.pathname)) {

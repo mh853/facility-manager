@@ -167,7 +167,9 @@
       "Bash(./test-reanalyze.sh:*)",
       "Bash(__NEW_LINE__ curl -s -X POST 'https://facility.blueon-iot.com/api/subsidy-crawler/reanalyze' )",
       "Bash(bash test-reanalyze.sh:*)",
-      "Bash(npx tsx scripts/test-gemini-extraction.ts)"
+      "Bash(npx tsx scripts/test-gemini-extraction.ts)",
+      "Bash(PORT=3001 npm run dev:*)",
+      "Bash(git diff:*)"
     ],
     "deny": [],
     "ask": [],

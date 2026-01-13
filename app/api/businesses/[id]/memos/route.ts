@@ -32,15 +32,11 @@ export async function GET(
     }
 
     const { id: businessId } = params;
-    const result = await getBusinessMemos(businessId);
-
-    if (!(result as any).success) {
-      return createErrorResponse((result as any).error || '메모 조회에 실패했습니다', 500);
-    }
+    const memos = await getBusinessMemos(businessId);
 
     return createSuccessResponse({
-      memos: (result as any).data,
-      count: (result as any).data?.length || 0
+      memos: memos,
+      count: memos?.length || 0
     });
 
   } catch (error) {
@@ -81,14 +77,10 @@ export async function POST(
       created_by: tokenPayload.name || 'Unknown'
     };
 
-    const result = await createBusinessMemo(createInput);
-
-    if (!(result as any).success) {
-      return createErrorResponse((result as any).error || '메모 생성에 실패했습니다', 500);
-    }
+    const memo = await createBusinessMemo(createInput);
 
     return createSuccessResponse({
-      memo: (result as any).data,
+      memo: memo,
       message: '메모가 성공적으로 생성되었습니다'
     });
 

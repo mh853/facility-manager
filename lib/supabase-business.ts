@@ -284,13 +284,7 @@ export async function getOutletsByPermitId(permitId: string) {
 export async function getBusinessMemos(businessId: string) {
   const { data, error } = await supabaseAdmin
     .from('business_memos')
-    .select(`
-      *,
-      created_by_user:users!business_memos_created_by_fkey(
-        name,
-        email
-      )
-    `)
+    .select('*')
     .eq('business_id', businessId)
     .order('created_at', { ascending: false });
 
@@ -308,13 +302,7 @@ export async function createBusinessMemo(memoData: CreateBusinessMemoInput) {
     supabaseAdmin
       .from('business_memos')
       .insert([memoData])
-      .select(`
-        *,
-        created_by_user:users!business_memos_created_by_fkey(
-          name,
-          email
-        )
-      `)
+      .select('*')
       .single(),
     supabaseAdmin
       .from('business_info')
@@ -344,13 +332,7 @@ export async function updateBusinessMemo(id: string, updates: UpdateBusinessMemo
     .from('business_memos')
     .update(updates)
     .eq('id', id)
-    .select(`
-      *,
-      created_by_user:users!business_memos_created_by_fkey(
-        name,
-        email
-      )
-    `)
+    .select('*')
     .single();
 
   if (error) {
