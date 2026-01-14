@@ -112,12 +112,15 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
           (payload: any) => {
             if (!isComponentMountedRef.current) return;
 
-            console.log(`📡 [REALTIME] ${eventType} 이벤트 수신:`, {
-              table: tableName,
-              eventType,
-              timestamp: new Date().toISOString(),
-              recordId: payload.new?.id || payload.old?.id
-            });
+            // Phase 1: 프로덕션에서는 이벤트 수신 로그 최소화
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`📡 [REALTIME] ${eventType} 이벤트 수신:`, {
+                table: tableName,
+                eventType,
+                timestamp: new Date().toISOString(),
+                recordId: payload.new?.id || payload.old?.id
+              });
+            }
 
             updateState({
               lastEvent: new Date(),
@@ -133,7 +136,13 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
       const subscriptionStatus = await channel.subscribe((status, error) => {
         if (!isComponentMountedRef.current) return;
 
-        console.log(`📡 [REALTIME] 구독 상태 변경: ${status}`, error ? { error } : {});
+        // Phase 1: 프로덕션에서는 성공 로그만 표시, 에러는 warn으로 처리
+        const isProduction = process.env.NODE_ENV === 'production';
+        if (status === 'SUBSCRIBED' && !isProduction) {
+          console.log(`📡 [REALTIME] 구독 상태 변경: ${status}`);
+        } else if (status !== 'SUBSCRIBED' && error) {
+          console.warn(`⚠️ [REALTIME] 구독 상태: ${status}`, error.message);
+        }
 
         switch (status) {
           case 'SUBSCRIBED':
@@ -151,6 +160,10 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
           case 'TIMED_OUT':
           case 'CLOSED':
             isSubscribingRef.current = false; // 구독 실패 - 플래그 해제
+
+            // Phase 1: 프로덕션 환경에서는 조용히 재연결 (사용자 경험 개선)
+            const isProduction = process.env.NODE_ENV === 'production';
+
             updateState({
               isConnected: false,
               isConnecting: false,
@@ -163,7 +176,10 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
               reconnectAttemptsRef.current++;
               const delay = Math.min(reconnectDelay * Math.pow(2, reconnectAttemptsRef.current - 1), 30000);
 
-              console.log(`🔄 [REALTIME] 재연결 시도 ${reconnectAttemptsRef.current}/${maxReconnectAttempts} (${delay}ms 후)`);
+              // 프로덕션에서는 첫 2회 시도는 조용히 처리 (콘솔 로그 최소화)
+              if (!isProduction || reconnectAttemptsRef.current > 2) {
+                console.log(`🔄 [REALTIME] 재연결 시도 ${reconnectAttemptsRef.current}/${maxReconnectAttempts} (${delay}ms 후)`);
+              }
 
               reconnectTimeoutRef.current = setTimeout(() => {
                 if (isComponentMountedRef.current) {
@@ -171,9 +187,14 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
                 }
               }, delay);
             } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-              const errorMessage = `최대 재연결 시도 횟수 초과 (${maxReconnectAttempts}회)`;
-              updateState({ connectionError: errorMessage });
-              onErrorRef.current?.(new Error(errorMessage));
+              // 프로덕션에서는 최대 재연결 실패를 조용히 처리
+              if (isProduction) {
+                console.warn('⚠️ [REALTIME] 연결 불안정 - 백그라운드에서 재시도 중');
+              } else {
+                const errorMessage = `최대 재연결 시도 횟수 초과 (${maxReconnectAttempts}회)`;
+                updateState({ connectionError: errorMessage });
+                onErrorRef.current?.(new Error(errorMessage));
+              }
             }
             break;
         }
@@ -181,15 +202,24 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
 
       channelRef.current = channel;
 
-      console.log('📡 [REALTIME] 채널 구독 시작:', {
-        channelName,
-        tableName,
-        eventTypes,
-        status: subscriptionStatus
-      });
+      // Phase 1: 프로덕션에서는 구독 시작 로그 최소화
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('📡 [REALTIME] 채널 구독 시작:', {
+          channelName,
+          tableName,
+          eventTypes,
+          status: subscriptionStatus
+        });
+      }
 
     } catch (error) {
-      console.error('❌ [REALTIME] 구독 오류:', error);
+      // Phase 1: 프로덕션에서는 에러를 warn으로 처리하고 조용히 재시도
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('⚠️ [REALTIME] 일시적 연결 문제 - 자동 재시도 중');
+      } else {
+        console.error('❌ [REALTIME] 구독 오류:', error);
+      }
+
       isSubscribingRef.current = false; // 오류 발생 - 플래그 해제
       const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
       updateState({
@@ -197,7 +227,11 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
         isConnecting: false,
         connectionError: errorMessage
       });
-      onErrorRef.current?.(error instanceof Error ? error : new Error(errorMessage));
+
+      // 프로덕션에서는 에러 콜백 호출 안 함 (조용한 실패)
+      if (process.env.NODE_ENV !== 'production') {
+        onErrorRef.current?.(error instanceof Error ? error : new Error(errorMessage));
+      }
     }
   }, [tableName, eventTypes, autoConnect, reconnectDelay, updateState]);
 

@@ -15,6 +15,9 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     params: {
       eventsPerSecond: 10, // 초당 이벤트 제한
     },
+    // Phase 1: 타임아웃 증가로 네트워크 불안정 환경 대응
+    timeout: 15000, // 5초 → 15초로 증가 (모바일 네트워크 대응)
+    heartbeatIntervalMs: 20000, // heartbeat 간격 증가 (연결 안정성)
   },
   global: {
     headers: {
