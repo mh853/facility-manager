@@ -21,6 +21,7 @@
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.56.0",
     "@tanstack/react-query": "^5.90.7",
+    "@tanstack/react-virtual": "^3.13.18",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
