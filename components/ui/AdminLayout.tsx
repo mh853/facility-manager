@@ -276,9 +276,9 @@ export default function AdminLayout({ children, title, description, actions }: A
 
       {/* Container with improved layout */}
       <div className="lg:flex lg:gap-4 lg:p-4 lg:h-screen">
-        {/* Sidebar - Improved responsive design */}
+        {/* Sidebar - Improved responsive design (20% reduced width) */}
         <div className={`
-          fixed inset-y-0 left-0 z-50 w-80 lg:w-64 xl:w-80 bg-white/95 lg:bg-white backdrop-blur-md
+          fixed inset-y-0 left-0 z-50 w-80 lg:w-52 xl:w-64 bg-white/95 lg:bg-white backdrop-blur-md
           shadow-xl lg:shadow-lg lg:border lg:border-gray-200 lg:rounded-xl transform transition-all duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0 lg:static lg:z-0 lg:flex lg:flex-col lg:h-full lg:min-w-0 lg:flex-shrink-0
