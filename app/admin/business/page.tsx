@@ -2955,7 +2955,27 @@ function BusinessManagementPage() {
       // 담당자 정보는 개별 필드로 직접 사용
       let processedFormData = { ...finalFormData };
 
-      const body = editingBusiness 
+      // 날짜 필드에서 시간 정보 제거 (YYYY-MM-DDTHH:mm:ss.sssZ → YYYY-MM-DD)
+      const dateFields = [
+        'order_request_date', 'order_date', 'shipment_date', 'installation_date',
+        'construction_report_submitted_at', 'greenlink_confirmation_submitted_at',
+        'attachment_completion_submitted_at',
+        'estimate_survey_date', 'pre_construction_survey_date', 'completion_survey_date',
+        'invoice_1st_date', 'payment_1st_date', 'invoice_2nd_date', 'payment_2nd_date',
+        'invoice_additional_date', 'payment_additional_date',
+        'invoice_advance_date', 'payment_advance_date', 'invoice_balance_date', 'payment_balance_date',
+        'representative_birth_date'
+      ];
+
+      dateFields.forEach(field => {
+        const value = (processedFormData as any)[field];
+        if (value && typeof value === 'string' && value.includes('T')) {
+          // ISO 8601 datetime 형식에서 날짜 부분만 추출
+          (processedFormData as any)[field] = value.split('T')[0];
+        }
+      });
+
+      const body = editingBusiness
         ? { id: editingBusiness.id, updateData: processedFormData }
         : processedFormData
 
