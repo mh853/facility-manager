@@ -2644,9 +2644,14 @@ function BusinessManagementPage() {
       const parseExcelDate = (value: any): string | null => {
         if (!value || value === '-' || value === '') return null
 
-        // 이미 YYYY-MM-DD 형식인 경우
+        // 이미 YYYY-MM-DD 형식인 경우 (정확한 날짜 형식만)
         if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
           return value
+        }
+
+        // ISO 8601 형식에서 시간 부분 제거 (YYYY-MM-DDTHH:mm:ss.sssZ → YYYY-MM-DD)
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+          return value.split('T')[0]
         }
 
         // 엑셀 시리얼 날짜 (숫자)인 경우
