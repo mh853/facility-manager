@@ -1724,7 +1724,7 @@ function VirtualizedTable({
                     {formatCurrency(business.net_profit ?? 0)}
                   </span>
                 </div>
-                <div className={`${showReceivablesOnly ? 'border-r' : ''} border-gray-300 px-2 py-2 text-right text-xs`}>
+                <div className={`${showReceivablesOnly ? 'border-r' : ''} border-gray-300 px-2 py-2 flex items-center justify-end text-right text-xs`}>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                     parseFloat(profitMargin) >= 10 ? 'bg-green-100 text-green-800' :
                     parseFloat(profitMargin) >= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
