@@ -1,0 +1,41 @@
+{
+  "mapKeys": [
+    "cleanearth",
+    "ecosense",
+    "gaia_cns",
+    "evs"
+  ],
+  "equipmentCounts": {
+    "cleanearth": 11,
+    "ecosense": 11,
+    "gaia_cns": 11,
+    "evs": 11
+  },
+  "sampleBusinesses": [
+    {
+      "manufacturer": "에코센스",
+      "code": "ecosense",
+      "matched": true
+    },
+    {
+      "manufacturer": "크린어스",
+      "code": "cleanearth",
+      "matched": true
+    },
+    {
+      "manufacturer": "에코센스",
+      "code": "ecosense",
+      "matched": true
+    },
+    {
+      "manufacturer": "에코센스",
+      "code": "ecosense",
+      "matched": true
+    },
+    {
+      "manufacturer": "에코센스",
+      "code": "ecosense",
+      "matched": true
+    }
+  ]
+}
