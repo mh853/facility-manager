@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +12,8 @@ import StatsCard from '@/components/ui/StatsCard';
 import Modal, { ModalActions } from '@/components/ui/Modal';
 import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
 import { MANUFACTURER_NAMES_REVERSE, type ManufacturerName } from '@/constants/manufacturers';
+import { calculateBusinessRevenue, type PricingData } from '@/lib/revenue-calculator';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 // Code Splitting: 무거운 모달 및 디스플레이 컴포넌트를 동적 로딩
 const InvoiceDisplay = dynamic(() => import('@/components/business/InvoiceDisplay').then(mod => ({ default: mod.InvoiceDisplay })), {
@@ -131,95 +133,18 @@ function RevenueDashboard() {
   }, []);
 
   useEffect(() => {
-    // 가격 데이터가 로드되면 사업장 데이터 로드
+    // 가격 데이터가 로드되면 사업장 데이터와 계산 결과를 병렬로 로드
     if (pricesLoaded) {
-      loadBusinesses();
-      loadCalculations();
+      Promise.all([
+        loadBusinesses(),
+        loadCalculations()
+      ]).then(() => {
+        console.log('✅ 초기 데이터 로드 완료');
+      }).catch((error) => {
+        console.error('❌ 초기 데이터 로드 오류:', error);
+      });
     }
   }, [pricesLoaded]);
-
-  // 필터가 변경될 때마다 통계 재계산
-  useEffect(() => {
-    if (!businesses.length || !calculations.length) return;
-
-    // 필터링된 사업장 계산
-    const filtered = businesses.filter(business => {
-      const searchMatch = !searchTerm ||
-        business.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (business.sales_office && business.sales_office.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (business.manager_name && business.manager_name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-      const officeMatch = selectedOffices.length === 0 || selectedOffices.includes(business.sales_office || '');
-      const regionMatch = selectedRegions.length === 0 || selectedRegions.some(region =>
-        business.address && business.address.toLowerCase().includes(region.toLowerCase())
-      );
-      const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(business.progress_status || '');
-      const yearMatch = selectedProjectYears.length === 0 || selectedProjectYears.includes(String(business.project_year || ''));
-
-      let monthMatch = true;
-      if (selectedMonths.length > 0) {
-        const installDate = business.installation_date;
-        if (installDate) {
-          const date = new Date(installDate);
-          const month = String(date.getMonth() + 1);
-          monthMatch = selectedMonths.includes(month);
-        } else {
-          monthMatch = false;
-        }
-      }
-
-      return searchMatch && officeMatch && regionMatch && categoryMatch && yearMatch && monthMatch;
-    });
-
-    // 필터링된 사업장 중 매출 계산이 있는 것만 추출
-    const filteredCalculations = calculations.filter(calc => {
-      // 해당 calculation의 business가 필터 조건을 만족하는지 확인
-      const business = businesses.find(b => b.id === calc.business_id);
-      if (!business) return false;
-
-      const searchMatch = !searchTerm ||
-        business.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (business.sales_office && business.sales_office.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (business.manager_name && business.manager_name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-      const officeMatch = selectedOffices.length === 0 || selectedOffices.includes(business.sales_office || '');
-      const regionMatch = selectedRegions.length === 0 || selectedRegions.some(region =>
-        business.address && business.address.toLowerCase().includes(region.toLowerCase())
-      );
-      const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(business.progress_status || '');
-      const yearMatch = selectedProjectYears.length === 0 || selectedProjectYears.includes(String(business.project_year || ''));
-
-      let monthMatch = true;
-      if (selectedMonths.length > 0) {
-        const installDate = business.installation_date;
-        if (installDate) {
-          const date = new Date(installDate);
-          const month = String(date.getMonth() + 1);
-          monthMatch = selectedMonths.includes(month);
-        } else {
-          monthMatch = false;
-        }
-      }
-
-      return searchMatch && officeMatch && regionMatch && categoryMatch && yearMatch && monthMatch;
-    });
-
-    // 중복 제거: 같은 business_id의 경우 가장 최신 것만 유지
-    const latestCalcsMap = new Map();
-    filteredCalculations.forEach(calc => {
-      const existing = latestCalcsMap.get(calc.business_id);
-      if (!existing ||
-          calc.calculation_date > existing.calculation_date ||
-          (calc.calculation_date === existing.calculation_date && calc.created_at > existing.created_at)) {
-        latestCalcsMap.set(calc.business_id, calc);
-      }
-    });
-
-    const uniqueFilteredCalculations = Array.from(latestCalcsMap.values());
-
-    // 필터링된 데이터로 통계 계산
-    calculateStats(uniqueFilteredCalculations);
-  }, [businesses, calculations, searchTerm, selectedOffices, selectedRegions, selectedCategories, selectedProjectYears, selectedMonths]);
 
   const getAuthHeaders = () => {
     const token = TokenManager.getToken();
@@ -279,15 +204,20 @@ function RevenueDashboard() {
       }
 
       // 제조사별 원가 처리
+      // ✅ 제조사 이름 정규화: 대소문자 무시 + 공백 제거로 매칭 성공률 향상
       if (manuData.success) {
         const manuPrices: Record<string, Record<string, number>> = {};
         manuData.data.pricing.forEach((item: any) => {
-          if (!manuPrices[item.manufacturer]) {
-            manuPrices[item.manufacturer] = {};
+          const normalizedManufacturer = item.manufacturer.toLowerCase().trim();
+          if (!manuPrices[normalizedManufacturer]) {
+            manuPrices[normalizedManufacturer] = {};
           }
-          manuPrices[item.manufacturer][item.equipment_type] = item.cost_price;
+          // 🔧 PostgreSQL DECIMAL 타입이 문자열로 반환되므로 Number()로 변환
+          manuPrices[normalizedManufacturer][item.equipment_type] = Number(item.cost_price) || 0;
         });
         setManufacturerPrices(manuPrices);
+        console.log('✅ [PRICING] 제조사별 원가 로드 완료:', manuPrices);
+        console.log('✅ [PRICING] 로드된 제조사 목록:', Object.keys(manuPrices));
       }
 
       // 영업점별 비용 설정 처리
@@ -597,39 +527,6 @@ function RevenueDashboard() {
     }
   };
 
-  const calculateStats = (calcs: RevenueCalculation[]) => {
-    if (!calcs.length) {
-      setStats(null);
-      return;
-    }
-
-    const totalRevenue = calcs.reduce((sum, calc) => sum + calc.total_revenue, 0);
-    const totalProfit = calcs.reduce((sum, calc) => sum + calc.net_profit, 0);
-    const avgMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0';
-
-    // 영업점별 수익 계산
-    const officeStats = calcs.reduce((acc, calc) => {
-      const office = calc.sales_office || '기본';
-      if (!acc[office]) {
-        acc[office] = { revenue: 0, profit: 0 };
-      }
-      acc[office].revenue += calc.total_revenue;
-      acc[office].profit += calc.net_profit;
-      return acc;
-    }, {} as Record<string, {revenue: number, profit: number}>);
-
-    const topOffice = Object.entries(officeStats)
-      .sort(([,a], [,b]) => b.profit - a.profit)[0]?.[0] || '';
-
-    setStats({
-      total_businesses: new Set(calcs.map(c => c.business_id)).size,
-      total_revenue: totalRevenue,
-      total_profit: totalProfit,
-      average_margin: avgMargin + '%',
-      top_performing_office: topOffice
-    });
-  };
-
   const calculateRevenue = async (businessId: string) => {
     if (!businessId) return;
 
@@ -801,86 +698,77 @@ function RevenueDashboard() {
     calc.sales_office.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // 사업장 데이터와 매출 계산 통합
-  const filteredBusinesses = businesses.filter(business => {
-    // 검색어 필터
-    const searchMatch = !searchTerm ||
-      business.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (business.sales_office && business.sales_office.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (business.manager_name && business.manager_name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    // 드롭다운 필터 (다중 선택)
-    const officeMatch = selectedOffices.length === 0 || selectedOffices.includes(business.sales_office || '');
-    const regionMatch = selectedRegions.length === 0 || selectedRegions.some(region =>
-      business.address && business.address.toLowerCase().includes(region.toLowerCase())
-    );
-    const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(business.progress_status || '');
-    const yearMatch = selectedProjectYears.length === 0 || selectedProjectYears.includes(String(business.project_year || ''));
-
-    // 월별 필터 (설치일 기준, 다중 선택)
-    let monthMatch = true;
-    if (selectedMonths.length > 0) {
-      const installDate = business.installation_date;
-      if (installDate) {
-        const date = new Date(installDate);
-        const month = String(date.getMonth() + 1);
-        monthMatch = selectedMonths.includes(month);
-      } else {
-        monthMatch = true; // 🔧 설치일이 없어도 필터 통과 (매출 계산은 가능)
-      }
+  // ✅ 실시간 매출 계산 (useMemo로 성능 최적화)
+  const filteredBusinesses = useMemo(() => {
+    // 가격 데이터가 로드되지 않았으면 빈 배열 반환
+    if (!pricesLoaded || !costSettingsLoaded) {
+      return [];
     }
 
-    return searchMatch && officeMatch && regionMatch && categoryMatch && yearMatch && monthMatch;
-  }).map(business => {
-    // 🔧 DB 계산 결과 직접 조회 (calculations 배열에서 business_id 매칭)
-    const dbCalc = calculations.find(calc => calc.business_id === business.id);
-
-    const calculatedData = dbCalc ? {
-      total_revenue: dbCalc.total_revenue || 0,
-      total_cost: dbCalc.total_cost || 0,
-      gross_profit: dbCalc.gross_profit || 0,
-      net_profit: dbCalc.net_profit || 0,
-      installation_costs: dbCalc.installation_costs || 0,
-      additional_installation_cost: dbCalc.installation_extra_cost || 0,
-      sales_commission: dbCalc.sales_commission || 0,
-      survey_costs: dbCalc.survey_costs || 0,
-      has_calculation: true
-    } : {
-      total_revenue: 0,
-      total_cost: 0,
-      gross_profit: 0,
-      net_profit: 0,
-      installation_costs: 0,
-      additional_installation_cost: 0,
-      sales_commission: 0,
-      survey_costs: 0,
-      has_calculation: false
+    // PricingData 구성
+    const pricingData: PricingData = {
+      officialPrices,
+      manufacturerPrices,
+      salesOfficeSettings,
+      surveyCostSettings,
+      baseInstallationCosts
     };
 
-    // 기기 수 계산
-    const equipmentFields = [
-      'ph_meter', 'differential_pressure_meter', 'temperature_meter',
-      'discharge_current_meter', 'fan_current_meter', 'pump_current_meter',
-      'gateway_1_2', 'gateway_3_4', 'vpn_wired', 'vpn_wireless', // ✅ gateway removed (deprecated)
-      'explosion_proof_differential_pressure_meter_domestic',
-      'explosion_proof_temperature_meter_domestic', 'expansion_device',
-      'relay_8ch', 'relay_16ch', 'main_board_replacement', 'multiple_stack'
-    ];
+    return businesses.filter(business => {
+      // 검색어 필터
+      const searchMatch = !searchTerm ||
+        business.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (business.sales_office && business.sales_office.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (business.manager_name && business.manager_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const totalEquipment = equipmentFields.reduce((sum, field) => {
-      return sum + (business[field as keyof BusinessInfo] as number || 0);
-    }, 0);
+      // 드롭다운 필터 (다중 선택)
+      const officeMatch = selectedOffices.length === 0 || selectedOffices.includes(business.sales_office || '');
+      const regionMatch = selectedRegions.length === 0 || selectedRegions.some(region =>
+        business.address && business.address.toLowerCase().includes(region.toLowerCase())
+      );
+      const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(business.progress_status || '');
+      const yearMatch = selectedProjectYears.length === 0 || selectedProjectYears.includes(String(business.project_year || ''));
 
-    // 🔧 API 계산 결과 사용
-    const actualTotalCost = calculatedData.total_cost;
-    const grossProfit = calculatedData.gross_profit;
-    const salesCommission = calculatedData.sales_commission;
-    const surveyCosts = calculatedData.survey_costs;
-    const installationCosts = calculatedData.installation_costs;
-    const installationExtraCost = calculatedData.additional_installation_cost;
+      // 월별 필터 (설치일 기준, 다중 선택)
+      let monthMatch = true;
+      if (selectedMonths.length > 0) {
+        const installDate = business.installation_date;
+        if (installDate) {
+          const date = new Date(installDate);
+          const month = String(date.getMonth() + 1);
+          monthMatch = selectedMonths.includes(month);
+        } else {
+          monthMatch = true;
+        }
+      }
 
-    // 🔧 순이익은 API 계산 결과 사용
-    const netProfit = calculatedData.net_profit;
+      return searchMatch && officeMatch && regionMatch && categoryMatch && yearMatch && monthMatch;
+    }).map(business => {
+      // ✅ 실시간 계산 적용 (Admin 대시보드와 동일한 계산식)
+      const calculatedData = calculateBusinessRevenue(business, pricingData);
+
+      // 기기 수 계산
+      const equipmentFields = [
+        'ph_meter', 'differential_pressure_meter', 'temperature_meter',
+        'discharge_current_meter', 'fan_current_meter', 'pump_current_meter',
+        'gateway_1_2', 'gateway_3_4', 'vpn_wired', 'vpn_wireless',
+        'explosion_proof_differential_pressure_meter_domestic',
+        'explosion_proof_temperature_meter_domestic', 'expansion_device',
+        'relay_8ch', 'relay_16ch', 'main_board_replacement', 'multiple_stack'
+      ];
+
+      const totalEquipment = equipmentFields.reduce((sum, field) => {
+        return sum + (business[field as keyof BusinessInfo] as number || 0);
+      }, 0);
+
+      // ✅ 실시간 계산 결과 사용
+      const actualTotalCost = calculatedData.total_cost;
+      const grossProfit = calculatedData.gross_profit;
+      const salesCommission = calculatedData.sales_commission;
+      const surveyCosts = calculatedData.survey_costs;
+      const installationCosts = calculatedData.installation_costs;
+      const installationExtraCost = calculatedData.installation_extra_cost;
+      const netProfit = calculatedData.net_profit;
 
     // 미수금 계산 (진행구분에 따라 다르게 계산)
     let totalReceivables = 0;
@@ -904,46 +792,96 @@ function RevenueDashboard() {
       totalReceivables = receivableAdvance + receivableBalance;
     }
 
-    return {
-      ...business,
-      // 🔧 API 계산 결과 사용 (모달과 동일한 로직)
-      total_revenue: calculatedData.total_revenue,
-      total_cost: calculatedData.total_cost,
-      net_profit: calculatedData.net_profit,
-      gross_profit: calculatedData.gross_profit,
-      sales_commission: calculatedData.sales_commission,
-      adjusted_sales_commission: calculatedData.sales_commission, // 조정된 영업비용
-      survey_costs: calculatedData.survey_costs,
-      installation_costs: calculatedData.installation_costs,
-      equipment_count: totalEquipment,
-      calculation_date: new Date().toISOString(), // 실시간 계산 시각
-      category: business.progress_status || 'N/A',
-      has_calculation: calculatedData.has_calculation,
-      additional_cost: business.additional_cost || 0,
-      negotiation: business.negotiation ? parseFloat(business.negotiation.toString()) : 0,
-      total_receivables: totalReceivables
-    };
-  }).filter(business => {
-    // 매출 금액 필터 적용 - 매출 계산이 없는 경우 필터에서 제외하지 않음
-    if (!business.has_calculation && !revenueFilter.min && !revenueFilter.max) {
-      return true; // 매출 필터가 없고 계산이 없는 경우 표시
+      return {
+        ...business,
+        // ✅ 실시간 계산 결과 사용 (Admin 대시보드와 동일한 계산식)
+        total_revenue: calculatedData.total_revenue,
+        total_cost: calculatedData.total_cost,
+        net_profit: calculatedData.net_profit,
+        gross_profit: calculatedData.gross_profit,
+        sales_commission: calculatedData.sales_commission,
+        adjusted_sales_commission: calculatedData.adjusted_sales_commission,
+        survey_costs: calculatedData.survey_costs,
+        installation_costs: calculatedData.installation_costs,
+        equipment_count: totalEquipment,
+        calculation_date: new Date().toISOString(), // 실시간 계산 시각
+        category: business.progress_status || 'N/A',
+        has_calculation: true, // ✅ 항상 true (실시간 계산)
+        additional_cost: business.additional_cost || 0,
+        negotiation: business.negotiation ? parseFloat(business.negotiation.toString()) : 0,
+        total_receivables: totalReceivables
+      };
+    }).filter(business => {
+      // 매출 금액 필터 적용
+      const minRevenue = revenueFilter.min ? parseFloat(revenueFilter.min) : 0;
+      const maxRevenue = revenueFilter.max ? parseFloat(revenueFilter.max) : Number.MAX_SAFE_INTEGER;
+      return business.total_revenue >= minRevenue && business.total_revenue <= maxRevenue;
+    }).filter(business => {
+      // 미수금 필터 적용
+      if (!showReceivablesOnly) {
+        return true;
+      }
+      return business.total_receivables > 0;
+    }).filter(business => {
+      // 미설치 필터 적용
+      if (!showUninstalledOnly) {
+        return true;
+      }
+      return !business.installation_date || business.installation_date === '';
+    });
+  }, [
+    businesses,
+    pricesLoaded,
+    costSettingsLoaded,
+    officialPrices,
+    manufacturerPrices,
+    salesOfficeSettings,
+    surveyCostSettings,
+    baseInstallationCosts,
+    searchTerm,
+    selectedOffices,
+    selectedRegions,
+    selectedCategories,
+    selectedProjectYears,
+    selectedMonths,
+    revenueFilter,
+    showReceivablesOnly,
+    showUninstalledOnly
+  ]);
+
+  // ✅ 실시간 계산 결과로 통계 계산 (filteredBusinesses 기반)
+  useEffect(() => {
+    if (!filteredBusinesses.length) {
+      setStats(null);
+      return;
     }
-    const minRevenue = revenueFilter.min ? parseFloat(revenueFilter.min) : 0;
-    const maxRevenue = revenueFilter.max ? parseFloat(revenueFilter.max) : Number.MAX_SAFE_INTEGER;
-    return business.total_revenue >= minRevenue && business.total_revenue <= maxRevenue;
-  }).filter(business => {
-    // 미수금 필터 적용
-    if (!showReceivablesOnly) {
-      return true; // 미수금 필터가 꺼져있으면 모두 표시
-    }
-    return business.total_receivables > 0; // 미수금이 있는 사업장만 표시
-  }).filter(business => {
-    // 미설치 필터 적용
-    if (!showUninstalledOnly) {
-      return true; // 미설치 필터가 꺼져있으면 모두 표시
-    }
-    return !business.installation_date || business.installation_date === ''; // 설치일이 없는 사업장만 표시
-  });
+
+    const totalRevenue = filteredBusinesses.reduce((sum, biz) => sum + biz.total_revenue, 0);
+    const totalProfit = filteredBusinesses.reduce((sum, biz) => sum + biz.net_profit, 0);
+    const avgMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0';
+
+    // 영업점별 수익 계산
+    const officeStats = filteredBusinesses.reduce((acc, biz) => {
+      const office = biz.sales_office || '기본';
+      if (!acc[office]) {
+        acc[office] = { revenue: 0, profit: 0 };
+      }
+      acc[office].revenue += biz.total_revenue;
+      acc[office].profit += biz.net_profit;
+      return acc;
+    }, {} as Record<string, {revenue: number, profit: number}>);
+
+    const topOffice = Object.entries(officeStats)
+      .sort(([,a], [,b]) => b.profit - a.profit)[0]?.[0] || '';
+
+    setStats({
+      total_businesses: filteredBusinesses.length,
+      total_revenue: totalRevenue,
+      total_profit: totalProfit,
+      average_margin: avgMargin + '%',
+      top_performing_office: topOffice
+    });
+  }, [filteredBusinesses]);
 
   const salesOffices = [...new Set(businesses.map(b => b.sales_office).filter(Boolean))];
   const regions = [...new Set(businesses.map(b => b.address ? b.address.split(' ').slice(0, 2).join(' ') : '').filter(Boolean))];
@@ -1584,175 +1522,17 @@ function RevenueDashboard() {
                   })}
                 </div>
 
-                {/* 데스크톱 테이블뷰 */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th
-                          className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-left cursor-pointer hover:bg-gray-100 text-[10px] sm:text-xs md:text-sm"
-                          onClick={() => handleSort('business_name')}
-                        >
-                          사업장명 {sortField === 'business_name' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-left text-[10px] sm:text-xs md:text-sm">지역</th>
-                        <th className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-left text-[10px] sm:text-xs md:text-sm">담당자</th>
-                        <th className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-center text-[10px] sm:text-xs md:text-sm">카테고리</th>
-                        <th
-                          className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-left cursor-pointer hover:bg-gray-100 text-[10px] sm:text-xs md:text-sm"
-                          onClick={() => handleSort('sales_office')}
-                        >
-                          영업점 {sortField === 'sales_office' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th
-                          className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-right cursor-pointer hover:bg-gray-100 text-[10px] sm:text-xs md:text-sm"
-                          onClick={() => handleSort('total_revenue')}
-                        >
-                          매출금액 {sortField === 'total_revenue' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th
-                          className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-right cursor-pointer hover:bg-gray-100 text-[10px] sm:text-xs md:text-sm"
-                          onClick={() => handleSort('total_cost')}
-                        >
-                          매입금액 {sortField === 'total_cost' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th
-                          className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-right cursor-pointer hover:bg-gray-100 text-[10px] sm:text-xs md:text-sm"
-                          onClick={() => handleSort('net_profit')}
-                        >
-                          이익금액 {sortField === 'net_profit' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th className="border border-gray-300 px-2 py-1.5 md:px-3 md:py-2 text-right text-[10px] sm:text-xs md:text-sm">이익률</th>
-                        {showReceivablesOnly && (
-                          <th
-                            className="border border-gray-300 px-4 py-2 text-right cursor-pointer hover:bg-gray-100 bg-red-50"
-                            onClick={() => handleSort('total_receivables')}
-                          >
-                            미수금 {sortField === 'total_receivables' && (sortOrder === 'asc' ? '↑' : '↓')}
-                          </th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedBusinesses.map((business) => {
-                        const profitMargin = business.total_revenue > 0
-                          ? (((business.net_profit || 0) / business.total_revenue) * 100).toFixed(1)
-                          : '0';
-
-                        return (
-                          <tr key={business.id} className="hover:bg-gray-50">
-                            <td className="border border-gray-300 px-4 py-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedEquipmentBusiness(business);
-                                  setShowEquipmentModal(true);
-                                }}
-                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
-                              >
-                                {business.business_name}
-                              </button>
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2">
-                              {business.address ? business.address.split(' ').slice(0, 2).join(' ') : '미등록'}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2">
-                              {business.manager_name || '미등록'}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                business.category === '보조금' || business.category === '보조금 동시진행'
-                                  ? 'bg-purple-100 text-purple-800' :
-                                business.category === '자비' ? 'bg-green-100 text-green-800' :
-                                business.category === 'AS' ? 'bg-blue-100 text-blue-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {business.category || 'N/A'}
-                              </span>
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {business.sales_office || '미배정'}
-                              </span>
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-right font-mono">
-                              {formatCurrency(business.total_revenue)}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-right font-mono">
-                              {formatCurrency(business.total_cost)}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-right font-mono font-bold">
-                              <span className={(business.net_profit ?? 0) >= 0 ? 'text-blue-600' : 'text-red-600'}>
-                                {formatCurrency(business.net_profit ?? 0)}
-                              </span>
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-right">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                parseFloat(profitMargin) >= 10 ? 'bg-green-100 text-green-800' :
-                                parseFloat(profitMargin) >= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {profitMargin}%
-                              </span>
-                            </td>
-                            {showReceivablesOnly && (
-                              <td className="border border-gray-300 px-4 py-2 text-right font-mono font-bold bg-red-50">
-                                <span className={`${
-                                  business.total_receivables > 0 ? 'text-red-600' : 'text-green-600'
-                                }`}>
-                                  {formatCurrency(business.total_receivables)}
-                                  {business.total_receivables > 0 ? ' ⚠️' : ' ✅'}
-                                </span>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* 페이지네이션 */}
-                {totalPages > 1 && (
-                  <div className="mt-4 flex justify-between items-center">
-                    <div className="text-sm text-gray-500">
-                      {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedBusinesses.length)} / {sortedBusinesses.length}건
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        이전
-                      </button>
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const startPage = Math.max(1, currentPage - 2);
-                        const pageNumber = startPage + i;
-                        if (pageNumber > totalPages) return null;
-
-                        return (
-                          <button
-                            key={pageNumber}
-                            onClick={() => setCurrentPage(pageNumber)}
-                            className={`px-3 py-1 text-sm border border-gray-300 rounded ${
-                              currentPage === pageNumber
-                                ? 'bg-blue-500 text-white border-blue-500'
-                                : 'hover:bg-gray-50'
-                            }`}
-                          >
-                            {pageNumber}
-                          </button>
-                        );
-                      })}
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        다음
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* 데스크톱 테이블뷰 - 가상 스크롤링 적용 */}
+                <VirtualizedTable
+                  businesses={sortedBusinesses}
+                  showReceivablesOnly={showReceivablesOnly}
+                  sortField={sortField}
+                  sortOrder={sortOrder}
+                  handleSort={handleSort}
+                  formatCurrency={formatCurrency}
+                  setSelectedEquipmentBusiness={setSelectedEquipmentBusiness}
+                  setShowEquipmentModal={setShowEquipmentModal}
+                />
               </>
             )}
           </div>
@@ -1780,6 +1560,194 @@ function RevenueDashboard() {
         />
       </AdminLayout>
     </ProtectedPage>
+  );
+}
+
+// 가상 스크롤링 테이블 컴포넌트
+function VirtualizedTable({
+  businesses,
+  showReceivablesOnly,
+  sortField,
+  sortOrder,
+  handleSort,
+  formatCurrency,
+  setSelectedEquipmentBusiness,
+  setShowEquipmentModal
+}: {
+  businesses: any[];
+  showReceivablesOnly: boolean;
+  sortField: string;
+  sortOrder: 'asc' | 'desc';
+  handleSort: (field: string) => void;
+  formatCurrency: (value: number) => string;
+  setSelectedEquipmentBusiness: (business: any) => void;
+  setShowEquipmentModal: (show: boolean) => void;
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: businesses.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60,
+    overscan: 5,
+  });
+
+  const columnWidths = showReceivablesOnly
+    ? ['18%', '9%', '7%', '8%', '8%', '11%', '11%', '11%', '7%', '10%']  // 총합 100%
+    : ['20%', '10%', '8%', '9%', '9%', '12%', '12%', '12%', '8%'];  // 총합 100%
+
+  return (
+    <div className="hidden md:block">
+      {/* 테이블 컨테이너 (스크롤 영역) */}
+      <div
+        ref={parentRef}
+        className="border border-gray-300 bg-white overflow-y-auto overflow-x-hidden"
+        style={{ height: '660px' }}  // 헤더 높이(60px) + 바디(600px)
+      >
+        {/* 헤더 (sticky로 고정) */}
+        <div
+          className="grid bg-gray-50 sticky top-0 z-10 border-b border-gray-300"
+          style={{
+            gridTemplateColumns: columnWidths.join(' '),
+            width: '100%',
+            boxSizing: 'border-box'
+          }}
+        >
+          <div
+            className="border-r border-gray-300 px-2 py-2 flex items-center justify-start text-left cursor-pointer hover:bg-gray-100 text-xs font-semibold"
+            onClick={() => handleSort('business_name')}
+          >
+            사업장명 {sortField === 'business_name' && (sortOrder === 'asc' ? '↑' : '↓')}
+          </div>
+          <div className="border-r border-gray-300 px-2 py-2 flex items-center justify-start text-left text-xs font-semibold">지역</div>
+          <div className="border-r border-gray-300 px-2 py-2 flex items-center justify-start text-left text-xs font-semibold">담당자</div>
+          <div className="border-r border-gray-300 px-2 py-2 flex items-center justify-center text-center text-xs font-semibold">카테고리</div>
+          <div
+            className="border-r border-gray-300 px-2 py-2 flex items-center justify-start text-left cursor-pointer hover:bg-gray-100 text-xs font-semibold"
+            onClick={() => handleSort('sales_office')}
+          >
+            영업점 {sortField === 'sales_office' && (sortOrder === 'asc' ? '↑' : '↓')}
+          </div>
+          <div
+            className="border-r border-gray-300 px-2 py-2 flex items-center justify-end text-right cursor-pointer hover:bg-gray-100 text-xs font-semibold"
+            onClick={() => handleSort('total_revenue')}
+          >
+            매출금액 {sortField === 'total_revenue' && (sortOrder === 'asc' ? '↑' : '↓')}
+          </div>
+          <div
+            className="border-r border-gray-300 px-2 py-2 flex items-center justify-end text-right cursor-pointer hover:bg-gray-100 text-xs font-semibold"
+            onClick={() => handleSort('total_cost')}
+          >
+            매입금액 {sortField === 'total_cost' && (sortOrder === 'asc' ? '↑' : '↓')}
+          </div>
+          <div
+            className="border-r border-gray-300 px-2 py-2 flex items-center justify-end text-right cursor-pointer hover:bg-gray-100 text-xs font-semibold"
+            onClick={() => handleSort('net_profit')}
+          >
+            이익금액 {sortField === 'net_profit' && (sortOrder === 'asc' ? '↑' : '↓')}
+          </div>
+          <div className={`${showReceivablesOnly ? 'border-r' : ''} border-gray-300 px-2 py-2 flex items-center justify-end text-right text-xs font-semibold`}>이익률</div>
+          {showReceivablesOnly && (
+            <div
+              className="px-2 py-2 flex items-center justify-end text-right cursor-pointer hover:bg-gray-100 bg-red-50 text-xs font-semibold"
+              onClick={() => handleSort('total_receivables')}
+            >
+              미수금 {sortField === 'total_receivables' && (sortOrder === 'asc' ? '↑' : '↓')}
+            </div>
+          )}
+        </div>
+
+        {/* 바디 (가상 스크롤) */}
+        <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const business = businesses[virtualRow.index];
+            const profitMargin = business.total_revenue > 0
+              ? (((business.net_profit || 0) / business.total_revenue) * 100).toFixed(1)
+              : '0';
+
+            return (
+              <div
+                key={business.id}
+                className="grid hover:bg-gray-50 border-b border-gray-300"
+                style={{
+                  gridTemplateColumns: columnWidths.join(' '),
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                  boxSizing: 'border-box'
+                }}
+              >
+                <div className="border-r border-gray-300 px-2 py-2 flex items-center text-xs">
+                  <button
+                    onClick={() => {
+                      setSelectedEquipmentBusiness(business);
+                      setShowEquipmentModal(true);
+                    }}
+                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left w-full truncate"
+                  >
+                    {business.business_name}
+                  </button>
+                </div>
+                <div className="border-r border-gray-300 px-2 py-2 flex items-center text-xs truncate">
+                  {business.address ? business.address.split(' ').slice(0, 2).join(' ') : '미등록'}
+                </div>
+                <div className="border-r border-gray-300 px-2 py-2 flex items-center text-xs truncate">
+                  {business.manager_name || '미등록'}
+                </div>
+                <div className="border-r border-gray-300 px-2 py-2 flex items-center justify-center text-center text-xs">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    business.category === '보조금' || business.category === '보조금 동시진행'
+                      ? 'bg-purple-100 text-purple-800' :
+                    business.category === '자비' ? 'bg-green-100 text-green-800' :
+                    business.category === 'AS' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {business.category || 'N/A'}
+                  </span>
+                </div>
+                <div className="border-r border-gray-300 px-2 py-2 flex items-center text-xs">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {business.sales_office || '미배정'}
+                  </span>
+                </div>
+                <div className="border-r border-gray-300 px-2 py-2 flex items-center justify-end text-right font-mono text-xs">
+                  {formatCurrency(business.total_revenue)}
+                </div>
+                <div className="border-r border-gray-300 px-2 py-2 flex items-center justify-end text-right font-mono text-xs">
+                  {formatCurrency(business.total_cost)}
+                </div>
+                <div className="border-r border-gray-300 px-2 py-2 flex items-center justify-end text-right font-mono font-bold text-xs">
+                  <span className={(business.net_profit ?? 0) >= 0 ? 'text-blue-600' : 'text-red-600'}>
+                    {formatCurrency(business.net_profit ?? 0)}
+                  </span>
+                </div>
+                <div className={`${showReceivablesOnly ? 'border-r' : ''} border-gray-300 px-2 py-2 text-right text-xs`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    parseFloat(profitMargin) >= 10 ? 'bg-green-100 text-green-800' :
+                    parseFloat(profitMargin) >= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {profitMargin}%
+                  </span>
+                </div>
+                {showReceivablesOnly && (
+                  <div className="px-2 py-2 flex items-center justify-end text-right font-mono font-bold bg-red-50 text-xs">
+                    <span className={`${
+                      business.total_receivables > 0 ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {formatCurrency(business.total_receivables)}
+                      {business.total_receivables > 0 ? ' ⚠️' : ' ✅'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>  {/* 테이블 컨테이너 닫기 */}
+    </div>
   );
 }
 

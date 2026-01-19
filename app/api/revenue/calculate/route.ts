@@ -128,9 +128,10 @@ export async function POST(request: NextRequest) {
       || new Date().toISOString().split('T')[0];
 
     // 2. 환경부 고시가 정보 조회 (활성화된 최신 데이터) - Direct PostgreSQL
+    // 날짜 조건 제거하여 최신 활성 데이터만 조회
     const pricingData = await queryAll(
-      'SELECT * FROM government_pricing WHERE is_active = $1 AND effective_from <= $2',
-      [true, calcDate]
+      'SELECT * FROM government_pricing WHERE is_active = $1',
+      [true]
     );
 
     if (!pricingData) {
@@ -167,14 +168,14 @@ export async function POST(request: NextRequest) {
       manufacturer = manufacturer.trim();
     }
 
-    // Direct PostgreSQL query with OR condition for effective_to
+    // Direct PostgreSQL query - 날짜 조건 제거하여 최신 활성 데이터만 조회
+    // 문제: calcDate(2024-10-27)보다 effective_from(2025-01-01)이 미래여서 조회 실패
+    // 해결: 날짜 조건 없이 is_active=true인 최신 데이터만 조회
     const manufacturerPricing = await queryAll(
       `SELECT * FROM manufacturer_pricing
        WHERE manufacturer = $1
-       AND is_active = $2
-       AND effective_from <= $3
-       AND (effective_to IS NULL OR effective_to >= $3)`,
-      [manufacturer, true, calcDate]
+       AND is_active = $2`,
+      [manufacturer, true]
     );
 
     if (!manufacturerPricing) {
@@ -192,12 +193,11 @@ export async function POST(request: NextRequest) {
     }, {} as Record<string, any>) || {};
 
     // 2-2. 기기별 기본 설치비 조회 - Direct PostgreSQL
+    // 날짜 조건 제거하여 최신 활성 데이터만 조회
     const installationCosts = await queryAll(
       `SELECT * FROM equipment_installation_cost
-       WHERE is_active = $1
-       AND effective_from <= $2
-       AND (effective_to IS NULL OR effective_to >= $2)`,
-      [true, calcDate]
+       WHERE is_active = $1`,
+      [true]
     );
 
     if (!installationCosts) {
@@ -211,6 +211,7 @@ export async function POST(request: NextRequest) {
     }, {} as Record<string, number>) || {};
 
     // 2-3. 사업장별 추가 설치비 조회 - Direct PostgreSQL
+    // applied_date 조건은 유지 (사업장별 추가 설치비는 날짜별로 적용)
     const additionalCosts = await queryAll(
       `SELECT * FROM business_additional_installation_cost
        WHERE business_id = $1
@@ -251,26 +252,25 @@ export async function POST(request: NextRequest) {
     const manufacturerCode = manufacturerCodeMap[manufacturer] || manufacturer.toLowerCase();
 
     // 3-1. 영업점별 + 제조사별 수수료율 조회 (최우선) - Direct PostgreSQL
+    // 날짜 조건 제거하여 최신 활성 데이터만 조회
     const commissionRate = await queryOne(
       `SELECT * FROM sales_office_commission_rates
        WHERE sales_office = $1
        AND manufacturer = $2
-       AND effective_from <= $3
-       AND (effective_to IS NULL OR effective_to >= $3)
        ORDER BY effective_from DESC
        LIMIT 1`,
-      [salesOffice, manufacturerCode, calcDate]
+      [salesOffice, manufacturerCode]
     );
 
     // 3-2. 영업점별 기본 설정 조회 (제조사별 수수료율 없을 경우 폴백) - Direct PostgreSQL
+    // 날짜 조건 제거하여 최신 활성 데이터만 조회
     const salesSettings = await queryOne(
       `SELECT * FROM sales_office_cost_settings
        WHERE sales_office = $1
        AND is_active = $2
-       AND effective_from <= $3
        ORDER BY effective_from DESC
        LIMIT 1`,
-      [salesOffice, true, calcDate]
+      [salesOffice, true]
     );
 
     // 기본 영업비용 설정 (최종 폴백, 10%)
@@ -300,11 +300,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. 실사비용 설정 조회 - Direct PostgreSQL
+    // 날짜 조건 제거하여 최신 활성 데이터만 조회
     const surveyCosts = await queryAll(
       `SELECT * FROM survey_cost_settings
-       WHERE is_active = $1
-       AND effective_from <= $2`,
-      [true, calcDate]
+       WHERE is_active = $1`,
+      [true]
     );
 
     const surveyCostMap = surveyCosts?.reduce((acc, item) => {
@@ -390,37 +390,26 @@ export async function POST(request: NextRequest) {
           unitRevenue = DEFAULT_OFFICIAL_PRICES[field] || 0;
         }
 
-        // 제조사별 원가 (매입) - DB에서 조회, 없으면 기본값 사용
+        // 제조사별 원가 (매입) - DB에서 조회
         const manufacturerCost = manufacturerCostMap[field];
 
-        // 기본 원가 (fallback)
-        const DEFAULT_COSTS: Record<string, number> = {
-          'ph_meter': 250000,
-          'differential_pressure_meter': 100000,
-          'temperature_meter': 125000,
-          'discharge_current_meter': 80000,
-          'fan_current_meter': 80000,
-          'pump_current_meter': 80000,
-          'gateway': 1000000, // @deprecated
-          'gateway_1_2': 1000000, // 게이트웨이(1,2) - 에코센스 매입금액
-          'gateway_3_4': 1420000, // 게이트웨이(3,4) - 에코센스 매입금액 (다름!)
-          'vpn_wired': 100000,
-          'vpn_wireless': 120000,
-          'explosion_proof_differential_pressure_meter_domestic': 150000,
-          'explosion_proof_temperature_meter_domestic': 180000,
-          'expansion_device': 120000,
-          'relay_8ch': 80000,
-          'relay_16ch': 150000,
-          'main_board_replacement': 100000,
-          'multiple_stack': 120000
-        };
+        // ❌ DEFAULT_COSTS 제거됨 - 사용자 명시적 요구사항
+        // "하드코딩하지 말고 제조사별 원가 탭에서 직접 데이터를 가져다 사용하는 로직으로 작성해줘야해"
+        // 이제 DB에서 로드된 제조사별 원가만 사용합니다.
+        //
+        // 이전 하드코딩된 DEFAULT_COSTS는 실제 DB 값과 불일치했습니다:
+        // - 차압계: DEFAULT ₩100,000 vs DB ₩140,000
+        // - 온도계: DEFAULT ₩125,000 vs DB ₩120,000
+        // - 전류계들: DEFAULT ₩80,000 vs DB ₩70,000
+        // - PH센서: DEFAULT ₩250,000 vs DB ₩580,000
 
-        let unitCost = 0;
-        if (manufacturerCost) {
-          // 🔧 PostgreSQL DECIMAL 타입이 문자열로 반환되므로 Number()로 변환
-          unitCost = Number(manufacturerCost.cost_price) || 0;
-        } else {
-          unitCost = DEFAULT_COSTS[field] || 0;
+        // 🔧 제조사별 원가 직접 사용 (DB에서 로드된 값만 사용)
+        // DEFAULT_COSTS 사용 안 함 - 사용자 명시적 요구사항
+        let unitCost = manufacturerCost ? Number(manufacturerCost.cost_price) || 0 : 0;
+
+        // 디버깅: 원가가 0인 경우 경고 출력
+        if (unitCost === 0 && quantity > 0) {
+          console.warn(`⚠️ [API CALC] ${field}: 제조사별 원가 없음`);
         }
 
         // 설치비 = 기본 설치비 + 사업장 추가비(공통) + 사업장 추가비(기기별)

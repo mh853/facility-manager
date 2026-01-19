@@ -82,8 +82,6 @@ export async function GET(request: NextRequest) {
     const equipmentType = url.searchParams.get('equipment_type');
 
     // 환경부 고시가 조회 - Direct PostgreSQL
-    const today = new Date().toISOString().split('T')[0];
-
     const whereClauses: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -93,14 +91,8 @@ export async function GET(request: NextRequest) {
       whereClauses.push(`is_active = true`);
     }
 
-    // effective date filters
-    whereClauses.push(`effective_from <= $${paramIndex}`);
-    params.push(today);
-    paramIndex++;
-
-    whereClauses.push(`(effective_to IS NULL OR effective_to >= $${paramIndex})`);
-    params.push(today);
-    paramIndex++;
+    // 날짜 조건 제거: 시스템이 is_active=true인 최신 데이터만 사용
+    // (revenue-calculate-api-date-filter-fix.md 참조)
 
     // equipment_type filter
     if (equipmentType) {
