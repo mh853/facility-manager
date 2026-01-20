@@ -2,71 +2,109 @@
  * POST /api/subsidy-crawler/manual
  *
  * 관리자 대시보드에서 수동으로 크롤링을 실행하는 엔드포인트
- * 인증 없이 사용 가능 (내부 관리자 전용)
+ * 3개의 GitHub Actions 워크플로우를 모두 트리거:
+ * 1. Direct URL Subsidy Crawler
+ * 2. Subsidy Crawler - Phase 2
+ * 3. Subsidy Announcement Crawler
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-interface ManualCrawlRequest {
-  enable_phase2?: boolean;
-  force?: boolean;
-}
-
 interface ManualCrawlResponse {
   success: boolean;
-  run_id?: string;
   message?: string;
-  error?: string;
+  workflows_triggered?: string[];
+  errors?: string[];
 }
+
+const WORKFLOWS = [
+  { name: 'Direct URL Subsidy Crawler', file: 'subsidy-crawler-direct.yml' },
+  { name: 'Subsidy Crawler - Phase 2', file: 'subsidy-crawler-phase2.yml' },
+  { name: 'Subsidy Announcement Crawler', file: 'subsidy-crawler.yml' },
+];
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ManualCrawlResponse>> {
   try {
-    const body: ManualCrawlRequest = await request.json().catch(() => ({}));
-    const { enable_phase2 = true, force = false } = body;
+    const githubToken = process.env.GITHUB_TOKEN;
+    const githubRepo = process.env.GITHUB_REPOSITORY || 'mhc-projects/facility-manager';
 
-    // CRAWLER_SECRET 가져오기
-    const crawlerSecret = process.env.CRAWLER_SECRET || 'dev-secret';
-
-    // 기존 크롤러 API 호출
-    const crawlerUrl = new URL('/api/subsidy-crawler', request.url);
-    const crawlerResponse = await fetch(crawlerUrl.toString(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${crawlerSecret}`,
-      },
-      body: JSON.stringify({
-        enable_phase2,
-        force,
-        batch_size: 5, // 기본값
-      }),
-    });
-
-    const result = await crawlerResponse.json();
-
-    if (!crawlerResponse.ok) {
-      console.error('[Manual Crawler] API call failed:', result);
+    if (!githubToken) {
       return NextResponse.json(
         {
           success: false,
-          error: result.error || 'Failed to start crawler',
+          error: 'GITHUB_TOKEN not configured',
         },
-        { status: crawlerResponse.status }
+        { status: 500 }
       );
     }
 
-    // run_id 추출 (응답 구조에 따라 조정 필요)
-    const runId = result.run_id || result.data?.run_id || 'unknown';
+    const triggeredWorkflows: string[] = [];
+    const errors: string[] = [];
 
-    return NextResponse.json({
-      success: true,
-      run_id: runId,
-      message: '크롤링이 시작되었습니다.',
-    });
+    // 3개의 워크플로우를 모두 트리거
+    for (const workflow of WORKFLOWS) {
+      try {
+        console.log(`[Manual Crawler] Triggering ${workflow.name}...`);
+
+        const response = await fetch(
+          `https://api.github.com/repos/${githubRepo}/actions/workflows/${workflow.file}/dispatches`,
+          {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/vnd.github+json',
+              'Authorization': `Bearer ${githubToken}`,
+              'X-GitHub-Api-Version': '2022-11-28',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ref: 'main',
+            }),
+          }
+        );
+
+        if (response.status === 204) {
+          console.log(`[Manual Crawler] ✅ ${workflow.name} triggered successfully`);
+          triggeredWorkflows.push(workflow.name);
+        } else {
+          const errorText = await response.text();
+          console.error(`[Manual Crawler] ❌ Failed to trigger ${workflow.name}:`, errorText);
+          errors.push(`${workflow.name}: HTTP ${response.status}`);
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[Manual Crawler] Error triggering ${workflow.name}:`, error);
+        errors.push(`${workflow.name}: ${errorMsg}`);
+      }
+    }
+
+    // 결과 반환
+    if (triggeredWorkflows.length === WORKFLOWS.length) {
+      return NextResponse.json({
+        success: true,
+        message: `${triggeredWorkflows.length}개의 크롤링 워크플로우가 시작되었습니다.`,
+        workflows_triggered: triggeredWorkflows,
+      });
+    } else if (triggeredWorkflows.length > 0) {
+      return NextResponse.json({
+        success: true,
+        message: `${triggeredWorkflows.length}/${WORKFLOWS.length}개의 크롤링 워크플로우가 시작되었습니다.`,
+        workflows_triggered: triggeredWorkflows,
+        errors,
+      });
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          message: '모든 워크플로우 트리거에 실패했습니다.',
+          errors,
+        },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('[Manual Crawler] Unexpected error:', error);
     return NextResponse.json(
