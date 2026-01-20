@@ -6,7 +6,7 @@ import { analyzeAnnouncement } from '@/lib/gemini';
 // Force dynamic rendering and extend timeout for crawler
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 10; // Vercel Hobby: 10초 (GitHub Actions에서 배치 처리)
+export const maxDuration = 300; // Vercel Pro: 300초 (5분) - Phase 2 크롤링 최적화
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -379,6 +379,125 @@ const GOVERNMENT_SOURCES = [
 ];
 
 // POST: 크롤링 실행
+// ============================================================
+// 헬퍼 함수: Phase 2 크롤링 with 재시도 로직 (Exponential Backoff)
+// ============================================================
+/**
+ * Phase 2 소스 크롤링 with 재시도
+ * @param source - 크롤링 대상 환경센터
+ * @param supabase - Supabase 클라이언트
+ * @param force - 중복 공고도 재처리 여부
+ * @param maxRetries - 최대 재시도 횟수 (기본값 3)
+ * @returns 크롤링 결과 (성공 여부, 발견된 공고 수, 저장된 공고 수)
+ */
+async function crawlPhase2SourceWithRetry(
+  source: Phase2Source,
+  supabase: ReturnType<typeof createClient>,
+  force: boolean,
+  maxRetries = 3
+): Promise<{ success: boolean; announcements: number; savedCount: number }> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[CRAWLER-P2] ${source.name} 시도 ${attempt}/${maxRetries}`);
+
+      // 크롤링 실행
+      const announcements = await crawlPhase2Source(source);
+      console.log(`[CRAWLER-P2] ${source.name}: ${announcements.length}개 관련 공고 발견`);
+
+      let savedCount = 0;
+
+      // 각 공고 처리
+      for (const announcement of announcements) {
+        try {
+          // 중복 체크
+          const { data: existing } = await supabase
+            .from('subsidy_announcements')
+            .select('id')
+            .eq('source_url', announcement.source_url)
+            .single();
+
+          if (existing && !force) {
+            console.log(`[CRAWLER-P2] 중복 건너뜀: ${announcement.title.substring(0, 50)}...`);
+            continue;
+          }
+
+          // Gemini AI 관련성 분석
+          let analysisResult;
+          try {
+            analysisResult = await analyzeAnnouncement(
+              announcement.title,
+              announcement.content || ''
+            );
+            console.log(`[CRAWLER-P2] Gemini 분석 완료: ${announcement.title.substring(0, 30)}... (관련도 ${Math.round(analysisResult.relevance_score * 100)}%)`);
+          } catch (geminiError) {
+            console.warn(`[CRAWLER-P2] Gemini 분석 실패, 키워드 폴백 사용`);
+            const keywordsCount = announcement.keywords_matched?.length || 0;
+            analysisResult = {
+              is_relevant: true,
+              relevance_score: Math.min(0.7 + keywordsCount * 0.1, 1.0),
+              keywords_matched: announcement.keywords_matched || [],
+              extracted_info: {},
+            };
+          }
+
+          // DB 저장
+          const insertData = {
+            region_code: source.region_code,
+            region_name: source.region_name,
+            region_type: 'metropolitan' as const,
+            title: announcement.title,
+            content: announcement.content,
+            source_url: announcement.source_url,
+            published_at: announcement.published_at,
+            application_period_start: analysisResult.extracted_info?.application_period_start || announcement.application_period_start || null,
+            application_period_end: analysisResult.extracted_info?.application_period_end || announcement.application_period_end || null,
+            budget: analysisResult.extracted_info?.budget || announcement.budget || null,
+            target_description: analysisResult.extracted_info?.target_description || announcement.target_description || null,
+            support_amount: analysisResult.extracted_info?.support_amount || announcement.support_amount || null,
+            is_relevant: analysisResult.is_relevant,
+            relevance_score: analysisResult.relevance_score,
+            keywords_matched: analysisResult.keywords_matched,
+          };
+
+          const { error } = await supabase
+            .from('subsidy_announcements')
+            .upsert(insertData, { onConflict: 'source_url' });
+
+          if (!error) {
+            savedCount++;
+            console.log(`[CRAWLER-P2] ✅ 저장: ${announcement.title.substring(0, 40)}...`);
+          } else {
+            console.error(`[CRAWLER-P2] ❌ 저장 실패: ${announcement.title.substring(0, 40)}...`, error.message);
+          }
+        } catch (announcementError) {
+          console.error(`[CRAWLER-P2] 공고 처리 중 에러:`, announcementError);
+          // 개별 공고 에러는 무시하고 계속 진행
+        }
+      }
+
+      // 성공 반환
+      return { success: true, announcements: announcements.length, savedCount };
+
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.warn(`[CRAWLER-P2] ${source.name} 시도 ${attempt}/${maxRetries} 실패:`, lastError.message);
+
+      // 재시도 전 대기 (Exponential Backoff: 2초, 4초, 8초)
+      if (attempt < maxRetries) {
+        const delayMs = 1000 * Math.pow(2, attempt);
+        console.log(`[CRAWLER-P2] ${source.name} ${delayMs}ms 후 재시도...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  // 모든 재시도 실패
+  console.error(`[CRAWLER-P2] ${source.name} 최종 실패 (${maxRetries}회 시도):`, lastError?.message);
+  return { success: false, announcements: 0, savedCount: 0 };
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   const startedAt = new Date().toISOString();
@@ -569,92 +688,42 @@ export async function POST(request: NextRequest) {
       console.log(`[CRAWLER] Phase 2 ${batchInfo} 시작...`);
       console.log(`[CRAWLER] 처리 센터: ${batchSources.map(s => s.name).join(', ')}`);
 
-      for (const source of batchSources) {
-      try {
-        const announcements = await crawlPhase2Source(source);
+      // ⚡ 병렬 처리 + 재시도 로직 (Option 2 최적화)
+      const crawlResults = await Promise.allSettled(
+        batchSources.map(source => crawlPhase2SourceWithRetry(source, supabase, force, 3))
+      );
 
-        // 🔑 크롤러가 이미 키워드 필터링을 적용하여 관련 공고만 반환
-        console.log(`[CRAWLER-P2] ${source.name}: ${announcements.length}개 관련 공고 처리 중`);
+      // 결과 집계
+      for (let i = 0; i < crawlResults.length; i++) {
+        const result = crawlResults[i];
+        const source = batchSources[i];
 
-        for (const announcement of announcements) {
-          // 중복 체크
-          const { data: existing } = await supabase
-            .from('subsidy_announcements')
-            .select('id')
-            .eq('source_url', announcement.source_url)
-            .single();
+        if (result.status === 'fulfilled') {
+          const { success, announcements, savedCount } = result.value;
 
-          if (existing && !force) {
-            console.log(`[CRAWLER-P2] 중복 건너뜀: ${announcement.title}`);
-            continue;
-          }
-
-          // Gemini AI를 사용한 관련성 분석 (Phase 2)
-          let analysisResult;
-          try {
-            console.log(`[CRAWLER-P2] Gemini 분석 시작: ${announcement.title.substring(0, 50)}...`);
-            analysisResult = await analyzeAnnouncement(
-              announcement.title,
-              announcement.content || ''
-            );
-            console.log(`[CRAWLER-P2] Gemini 분석 완료: 관련도 ${Math.round(analysisResult.relevance_score * 100)}%`);
-          } catch (geminiError) {
-            console.warn(`[CRAWLER-P2] Gemini 분석 실패, 키워드 폴백 사용:`, geminiError);
-            // 폴백: 키워드 기반 관련성 점수
-            const keywordsCount = announcement.keywords_matched?.length || 0;
-            analysisResult = {
-              is_relevant: true,  // 키워드 필터링 통과한 공고
-              relevance_score: Math.min(0.7 + keywordsCount * 0.1, 1.0),
-              keywords_matched: announcement.keywords_matched || [],
-              extracted_info: {},
-            };
-          }
-
-          const insertData = {
-            region_code: source.region_code,
-            region_name: source.region_name,
-            region_type: 'metropolitan' as const,
-            title: announcement.title,
-            content: announcement.content,
-            source_url: announcement.source_url,
-            published_at: announcement.published_at,
-            // Gemini AI 또는 크롤러에서 추출된 상세 정보 (우선순위: Gemini > 크롤러)
-            application_period_start: analysisResult.extracted_info?.application_period_start || announcement.application_period_start || null,
-            application_period_end: analysisResult.extracted_info?.application_period_end || announcement.application_period_end || null,
-            budget: analysisResult.extracted_info?.budget || announcement.budget || null,
-            target_description: analysisResult.extracted_info?.target_description || announcement.target_description || null,
-            support_amount: analysisResult.extracted_info?.support_amount || announcement.support_amount || null,
-            // Gemini AI 관련성 분석 결과
-            is_relevant: analysisResult.is_relevant,
-            relevance_score: analysisResult.relevance_score,
-            keywords_matched: analysisResult.keywords_matched,
-          };
-
-          const { error } = await supabase
-            .from('subsidy_announcements')
-            .upsert(insertData, { onConflict: 'source_url' });
-
-          if (!error) {
-            results.new_announcements++;
-            results.relevant_announcements++;
-            console.log(`[CRAWLER-P2] ✅ 저장 완료: ${announcement.title}`);
+          if (success) {
+            results.successful_regions++;
+            results.new_announcements += savedCount;
+            results.relevant_announcements += savedCount;
+            console.log(`[CRAWLER-P2] ✅ ${source.name} 완료: ${savedCount}개 저장 (총 ${announcements}개 발견)`);
           } else {
-            console.error(`[CRAWLER-P2] 저장 실패: ${announcement.title}`, error);
+            results.failed_regions++;
+            results.errors?.push({
+              region_code: source.id,
+              error: '크롤링 실패 (3회 재시도 후)',
+            });
+            console.error(`[CRAWLER-P2] ❌ ${source.name} 최종 실패`);
           }
+        } else {
+          // Promise rejected (예상치 못한 에러)
+          results.failed_regions++;
+          results.errors?.push({
+            region_code: source.id,
+            error: result.reason instanceof Error ? result.reason.message : '알 수 없는 오류',
+          });
+          console.error(`[CRAWLER-P2] ❌ ${source.name} 예외 발생:`, result.reason);
         }
-
-        results.successful_regions++;
-        console.log(`[CRAWLER-P2] ${source.name} 완료: ${announcements.length}개 관련 공고`);
-
-      } catch (error) {
-        results.failed_regions++;
-        results.errors?.push({
-          region_code: source.id,
-          error: error instanceof Error ? error.message : '알 수 없는 오류',
-        });
-        console.error(`[CRAWLER-P2] ${source.name} 실패:`, error);
       }
-    }
 
       // Phase 2 소스 수 반영 (배치 처리된 센터 수만 반영)
       results.total_regions += batchSources.length;
@@ -666,28 +735,50 @@ export async function POST(request: NextRequest) {
 
     results.duration_ms = Date.now() - startTime;
 
-    // Update crawl_run record with final statistics
+    // ⚡ DB 업데이트 (타임아웃 안전장치 포함)
     const finalStatus = results.failed_regions === 0 ? 'completed' : results.successful_regions > 0 ? 'partial' : 'failed';
+    const updateData = {
+      completed_at: new Date().toISOString(),
+      completed_batches: 1,
+      total_urls_crawled: results.total_regions,
+      successful_urls: results.successful_regions,
+      failed_urls: results.failed_regions,
+      total_announcements: results.new_announcements,
+      new_announcements: results.new_announcements,
+      relevant_announcements: results.relevant_announcements,
+      ai_verified_announcements: results.relevant_announcements,
+      total_processing_time_seconds: Math.floor(results.duration_ms / 1000),
+      status: finalStatus,
+      error_message: results.errors?.length ? JSON.stringify(results.errors) : null,
+    };
 
-    await supabase
+    console.log(`[CRAWLER] crawl_runs UPDATE 시작 (${runId})`);
+    const { error: updateError } = await supabase
       .from('crawl_runs')
-      .update({
-        completed_at: new Date().toISOString(),
-        completed_batches: 1,
-        total_urls_crawled: results.total_regions,
-        successful_urls: results.successful_regions,
-        failed_urls: results.failed_regions,
-        total_announcements: results.new_announcements,
-        new_announcements: results.new_announcements,
-        relevant_announcements: results.relevant_announcements,
-        ai_verified_announcements: results.relevant_announcements, // All relevant are AI-verified
-        total_processing_time_seconds: Math.floor(results.duration_ms / 1000),
-        status: finalStatus,
-        error_message: results.errors?.length ? results.errors.join('; ') : null,
-      })
+      .update(updateData)
       .eq('run_id', runId);
 
-    console.log(`[CRAWLER] 전체 크롤링 완료 (${runId}): ${results.new_announcements}개 공고, ${results.duration_ms}ms`);
+    if (updateError) {
+      console.error(`[CRAWLER] ❌ crawl_runs UPDATE 실패:`, updateError);
+      // UPDATE 실패해도 크롤링 결과는 반환 (GitHub Actions 성공 처리)
+    } else {
+      console.log(`[CRAWLER] ✅ crawl_runs UPDATE 성공`);
+    }
+
+    // ⚠️ 타임아웃 근접 경고 (Vercel Pro: 300초)
+    const durationSeconds = Math.floor(results.duration_ms / 1000);
+    if (durationSeconds > 240) {  // 80% (240초) 이상
+      console.warn(`[CRAWLER] ⚠️ 타임아웃 근접 경고: ${durationSeconds}초 (한계: 300초)`);
+    }
+
+    console.log(`[CRAWLER] 전체 크롤링 완료 (${runId}):`, {
+      새공고: results.new_announcements,
+      관련공고: results.relevant_announcements,
+      성공지역: results.successful_regions,
+      실패지역: results.failed_regions,
+      실행시간: `${durationSeconds}초`,
+      상태: finalStatus,
+    });
 
     return NextResponse.json({ ...results, run_id: runId });
 
