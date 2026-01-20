@@ -1,7 +1,7 @@
 {
   "functions": {
     "app/api/subsidy-crawler/direct/route.ts": {
-      "maxDuration": 90
+      "maxDuration": 60
     },
     "app/api/construction-reports/pdf/route.ts": {
       "maxDuration": 30

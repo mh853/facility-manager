@@ -12,7 +12,7 @@ import { smartExtractContent, validateContentQuality, detectPageType } from '@/l
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 90; // Vercel Pro: 90초 (Cold Start 대응 - Chromium 초기화 시간 고려)
+export const maxDuration = 60; // Vercel Pro 최대값: 60초 (목록 페이지 크롤링 개수 제한으로 대응)
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -113,9 +113,9 @@ async function crawlDirectUrl(url: string): Promise<{
 
     const page = await context.newPage();
 
-    // 페이지 로드 (15초 타임아웃 - Cold Start 고려)
+    // 페이지 로드 (10초 타임아웃 - Vercel 60초 제한 고려)
     await page.goto(url, {
-      timeout: 15000,
+      timeout: 10000,
       waitUntil: 'domcontentloaded',
     });
 
@@ -126,13 +126,15 @@ async function crawlDirectUrl(url: string): Promise<{
     const announcements: any[] = [];
 
     if (pageType.type === 'list' && pageType.detailLinks && pageType.detailLinks.length > 0) {
-      // 📋 목록 페이지: 각 상세 페이지 크롤링
-      console.log(`  📋 목록 페이지 감지 - ${pageType.detailLinks.length}개 링크 처리`);
+      // 📋 목록 페이지: 각 상세 페이지 크롤링 (최대 3개로 제한 - Vercel 60초 타임아웃 대응)
+      const maxDetailPages = 3;
+      const limitedLinks = pageType.detailLinks.slice(0, maxDetailPages);
+      console.log(`  📋 목록 페이지 감지 - ${pageType.detailLinks.length}개 링크 중 ${limitedLinks.length}개 처리`);
 
-      for (const link of pageType.detailLinks) {
+      for (const link of limitedLinks) {
         try {
           console.log(`  → 상세 페이지 크롤링: ${link}`);
-          await page.goto(link, { timeout: 15000, waitUntil: 'domcontentloaded' });
+          await page.goto(link, { timeout: 10000, waitUntil: 'domcontentloaded' });
 
           // 상세 페이지에서 콘텐츠 추출
           const extractionResult = await smartExtractContent(page, link);
