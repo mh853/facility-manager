@@ -12,7 +12,7 @@ import { smartExtractContent, validateContentQuality, detectPageType } from '@/l
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 60; // Vercel Pro: 60초 (Playwright 크롤링 타임아웃 대응)
+export const maxDuration = 90; // Vercel Pro: 90초 (Cold Start 대응 - Chromium 초기화 시간 고려)
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -113,9 +113,9 @@ async function crawlDirectUrl(url: string): Promise<{
 
     const page = await context.newPage();
 
-    // 페이지 로드 (8초 타임아웃)
+    // 페이지 로드 (15초 타임아웃 - Cold Start 고려)
     await page.goto(url, {
-      timeout: 8000,
+      timeout: 15000,
       waitUntil: 'domcontentloaded',
     });
 
@@ -132,7 +132,7 @@ async function crawlDirectUrl(url: string): Promise<{
       for (const link of pageType.detailLinks) {
         try {
           console.log(`  → 상세 페이지 크롤링: ${link}`);
-          await page.goto(link, { timeout: 8000, waitUntil: 'domcontentloaded' });
+          await page.goto(link, { timeout: 15000, waitUntil: 'domcontentloaded' });
 
           // 상세 페이지에서 콘텐츠 추출
           const extractionResult = await smartExtractContent(page, link);
