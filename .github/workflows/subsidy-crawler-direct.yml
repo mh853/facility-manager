@@ -173,23 +173,43 @@ jobs:
           RUN_ID="${{ needs.prepare.outputs.run_id }}"
           echo "📝 배치 결과 로깅: $RUN_ID / 배치 ${{ matrix.batch }}"
 
+          # 배치 결과 계산
+          SUCCESSFUL="${{ steps.crawl_batch.outputs.successful_urls || 0 }}"
+          FAILED="${{ steps.crawl_batch.outputs.failed_urls || 0 }}"
+          URLS_IN_BATCH=$((SUCCESSFUL + FAILED))
+
+          echo "📊 배치 ${{ matrix.batch }}: 성공=$SUCCESSFUL, 실패=$FAILED, 총=$URLS_IN_BATCH"
+
           # 배치 결과 로깅
-          curl -X POST "${{ env.API_BASE_URL }}/api/subsidy-crawler/batches" \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ env.API_BASE_URL }}/api/subsidy-crawler/batches" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
             -d "{
               \"run_id\": \"$RUN_ID\",
               \"batch_number\": ${{ matrix.batch }},
               \"url_ids\": [],
-              \"urls_in_batch\": ${{ steps.crawl_batch.outputs.successful_urls || 0 }} + ${{ steps.crawl_batch.outputs.failed_urls || 0 }},
+              \"urls_in_batch\": $URLS_IN_BATCH,
               \"completed_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
-              \"successful_urls\": ${{ steps.crawl_batch.outputs.successful_urls || 0 }},
-              \"failed_urls\": ${{ steps.crawl_batch.outputs.failed_urls || 0 }},
+              \"successful_urls\": $SUCCESSFUL,
+              \"failed_urls\": $FAILED,
               \"total_announcements\": ${{ steps.crawl_batch.outputs.new_count || 0 }},
               \"new_announcements\": ${{ steps.crawl_batch.outputs.new_count || 0 }},
               \"relevant_announcements\": ${{ steps.crawl_batch.outputs.relevant_count || 0 }},
               \"status\": \"${{ steps.crawl_batch.outputs.success == 'true' && 'completed' || 'failed' }}\"
-            }" || echo "⚠️ 배치 결과 로깅 실패 (계속 진행)"
+            }")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "📥 응답 코드: $HTTP_CODE"
+          echo "📥 응답 본문: $BODY"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ 배치 결과 로깅 실패! (HTTP $HTTP_CODE)"
+            echo "⚠️ 계속 진행하지만 이 배치 결과는 저장되지 않음"
+          else
+            echo "✅ 배치 ${{ matrix.batch }} 결과 저장 완료"
+          fi
 
       - name: ⚠️ 배치 ${{ matrix.batch }} 실패 시 재시도
         if: steps.crawl_batch.outputs.success != 'true'
