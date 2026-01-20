@@ -7,12 +7,12 @@ import { smartExtractContent, validateContentQuality, detectPageType } from '@/l
 // Direct URL Crawler API
 // ============================================================
 // 목적: 211개 직접 URL에서 보조금 공고 크롤링
-// 특징: Vercel Hobby 호환 (10초 제한), 배치 처리 (max 10 URLs)
+// 특징: Vercel Pro 호환 (60초 타임아웃), Playwright 크롤링, 배치 처리
 // ============================================================
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 10; // Vercel Hobby: 10초
+export const maxDuration = 60; // Vercel Pro: 60초 (Playwright 크롤링 타임아웃 대응)
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
