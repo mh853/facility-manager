@@ -3,7 +3,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { chromium } from 'playwright'
 import { generateFullHTML } from '@/lib/pdf-templates/construction-report-html'
 import fs from 'fs'
 
@@ -71,9 +70,14 @@ export async function GET(request: NextRequest) {
     fs.writeFileSync('/tmp/debug-construction-report.html', html, 'utf-8')
     console.log('[CONSTRUCTION-REPORTS-PDF] HTML 파일 저장: /tmp/debug-construction-report.html')
 
-    // Playwright로 PDF 생성
+    // Playwright로 PDF 생성 (Vercel 서버리스 호환)
+    const { chromium } = await import('playwright-core')
+    const chromiumPack = await import('@sparticuz/chromium')
+
     const browser = await chromium.launch({
-      headless: true
+      args: chromiumPack.default.args,
+      executablePath: await chromiumPack.default.executablePath(),
+      headless: chromiumPack.default.headless,
     })
 
     console.log('[CONSTRUCTION-REPORTS-PDF] Playwright 브라우저 시작')
