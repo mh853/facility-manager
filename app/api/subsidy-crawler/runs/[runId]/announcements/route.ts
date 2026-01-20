@@ -11,9 +11,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 interface AnnouncementItem {
   id: string;
@@ -62,8 +67,6 @@ export async function GET(
     const page_size = Math.min(100, Math.max(1, parseInt(searchParams.get('page_size') || '20', 10)));
     const relevant_only = searchParams.get('relevant_only') === 'true';
     const ai_verified_only = searchParams.get('ai_verified_only') === 'true';
-
-    const supabase = createClient();
 
     // Build query
     let query = supabase
