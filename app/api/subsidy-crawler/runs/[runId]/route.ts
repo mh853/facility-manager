@@ -123,6 +123,32 @@ export async function PATCH(
     if (total_processing_time_seconds !== undefined) updateData.total_processing_time_seconds = total_processing_time_seconds;
     if (completed_batches !== undefined) updateData.completed_batches = completed_batches;
 
+    // Auto-calculate successful_urls and failed_urls from batch results when completing
+    // This ensures crawl_runs table has accurate aggregated statistics
+    if (completed_at !== undefined) {
+      console.log(`[PATCH /runs/${runId}] Completing run - auto-calculating batch statistics...`);
+
+      const { data: batchStats, error: batchError } = await supabase
+        .from('crawl_batch_results')
+        .select('successful_urls, failed_urls')
+        .eq('run_id', runId);
+
+      if (batchError) {
+        console.warn(`[PATCH /runs/${runId}] Failed to fetch batch statistics:`, batchError);
+      } else if (batchStats && batchStats.length > 0) {
+        const totalSuccessful = batchStats.reduce((sum, batch) => sum + (batch.successful_urls || 0), 0);
+        const totalFailed = batchStats.reduce((sum, batch) => sum + (batch.failed_urls || 0), 0);
+
+        // Override with auto-calculated values (more accurate than manually provided)
+        updateData.successful_urls = totalSuccessful;
+        updateData.failed_urls = totalFailed;
+
+        console.log(`[PATCH /runs/${runId}] Auto-calculated: successful=${totalSuccessful}, failed=${totalFailed} from ${batchStats.length} batches`);
+      } else {
+        console.log(`[PATCH /runs/${runId}] No batch results found - keeping provided values or defaults`);
+      }
+    }
+
     // Update run
     const { data: updatedRun, error } = await supabase
       .from('crawl_runs')
