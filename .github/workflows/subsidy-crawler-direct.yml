@@ -128,6 +128,7 @@ jobs:
             "${{ env.API_BASE_URL }}/api/subsidy-crawler/direct?limit=${{ env.BATCH_SIZE }}")
 
           URLS=$(echo $URLS_RESPONSE | jq -r '.urls | map(.url) | @json')
+          URL_IDS=$(echo $URLS_RESPONSE | jq -r '.urls | map(.id) | @json')
           URL_COUNT=$(echo $URLS_RESPONSE | jq -r '.urls | length')
 
           echo "📥 배치 ${{ matrix.batch }} URL 수: ${URL_COUNT}개"
@@ -163,6 +164,7 @@ jobs:
           echo "relevant_count=$RELEVANT_COUNT" >> $GITHUB_OUTPUT
           echo "successful_urls=$SUCCESSFUL_URLS" >> $GITHUB_OUTPUT
           echo "failed_urls=$FAILED_URLS" >> $GITHUB_OUTPUT
+          echo "url_ids=$URL_IDS" >> $GITHUB_OUTPUT
 
           echo "✅ 배치 ${{ matrix.batch }} 완료: 신규 ${NEW_COUNT}건, 관련 ${RELEVANT_COUNT}건"
           echo "📊 성공: ${SUCCESSFUL_URLS}개 URL, 실패: ${FAILED_URLS}개 URL"
@@ -178,7 +180,11 @@ jobs:
           FAILED="${{ steps.crawl_batch.outputs.failed_urls || 0 }}"
           URLS_IN_BATCH=$((SUCCESSFUL + FAILED))
 
+          # URL IDs 가져오기 (크롤링 단계에서 output된 값)
+          URL_IDS='${{ steps.crawl_batch.outputs.url_ids }}'
+
           echo "📊 배치 ${{ matrix.batch }}: 성공=$SUCCESSFUL, 실패=$FAILED, 총=$URLS_IN_BATCH"
+          echo "📋 배치 ${{ matrix.batch }} URL IDs: $URL_IDS"
 
           # 배치 결과 로깅
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ env.API_BASE_URL }}/api/subsidy-crawler/batches" \
@@ -187,7 +193,7 @@ jobs:
             -d "{
               \"run_id\": \"$RUN_ID\",
               \"batch_number\": ${{ matrix.batch }},
-              \"url_ids\": [],
+              \"url_ids\": $URL_IDS,
               \"urls_in_batch\": $URLS_IN_BATCH,
               \"completed_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
               \"successful_urls\": $SUCCESSFUL,
