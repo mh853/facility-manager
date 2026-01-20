@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import AdminLayout from '@/components/ui/AdminLayout';
 
 // ============================================================
 // 크롤링 실행 모니터링 대시보드
@@ -39,6 +41,7 @@ interface RunsData {
 }
 
 export default function MonitoringDashboard() {
+  const router = useRouter();
   const [data, setData] = useState<RunsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [limit, setLimit] = useState(20);
@@ -66,135 +69,140 @@ export default function MonitoringDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">로딩 중...</p>
+      <AdminLayout title="📊 크롤링 모니터링">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">로딩 중...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   if (!data) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-gray-600">데이터를 불러올 수 없습니다.</p>
-          <button
-            onClick={loadRuns}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            다시 시도
-          </button>
+      <AdminLayout title="📊 크롤링 모니터링">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <p className="text-gray-600">데이터를 불러올 수 없습니다.</p>
+            <button
+              onClick={loadRuns}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              다시 시도
+            </button>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* 제목 */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">📊 크롤링 모니터링</h1>
+    <AdminLayout
+      title="📊 크롤링 모니터링"
+      actions={
         <button
           onClick={loadRuns}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           🔄 새로고침
         </button>
-      </div>
-
-      {/* 요약 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard
-          label="전체 실행"
-          value={data.statistics.total_runs}
-          icon="📈"
-        />
-        <StatCard
-          label="평균 성공률"
-          value={`${data.statistics.avg_success_rate.toFixed(1)}%`}
-          icon="✅"
-          color="green"
-        />
-        <StatCard
-          label="평균 관련도"
-          value={`${data.statistics.avg_relevance_rate.toFixed(1)}%`}
-          icon="🎯"
-          color="blue"
-        />
-        <StatCard
-          label="AI 검증률"
-          value={`${data.statistics.avg_ai_verification_rate.toFixed(1)}%`}
-          icon="🤖"
-          color="purple"
-        />
-      </div>
-
-      {/* 표시 개수 선택 */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm text-gray-600">표시 개수:</label>
-        <select
-          value={limit}
-          onChange={(e) => setLimit(Number(e.target.value))}
-          className="px-3 py-1 border border-gray-300 rounded-lg"
-        >
-          <option value={10}>10개</option>
-          <option value={20}>20개</option>
-          <option value={50}>50개</option>
-          <option value={100}>100개</option>
-        </select>
-      </div>
-
-      {/* 크롤링 실행 목록 */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-lg font-semibold text-gray-900">크롤링 실행 이력</h2>
+      }
+    >
+      <div className="space-y-6">
+        {/* 요약 통계 카드 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <StatCard
+            label="전체 실행"
+            value={data.statistics.total_runs}
+            icon="📈"
+          />
+          <StatCard
+            label="평균 성공률"
+            value={`${data.statistics.avg_success_rate.toFixed(1)}%`}
+            icon="✅"
+            color="green"
+          />
+          <StatCard
+            label="평균 관련도"
+            value={`${data.statistics.avg_relevance_rate.toFixed(1)}%`}
+            icon="🎯"
+            color="blue"
+          />
+          <StatCard
+            label="AI 검증률"
+            value={`${data.statistics.avg_ai_verification_rate.toFixed(1)}%`}
+            icon="🤖"
+            color="purple"
+          />
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  실행 ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  실행 시간
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  상태
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  배치 (완료/전체)
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  URL (성공/전체)
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  공고 (전체/관련/AI)
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  성공률
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {data.runs.map(run => (
-                <RunRow key={run.id} run={run} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      {/* 안내 메시지 */}
-      {data.runs.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          <p>아직 크롤링 실행 기록이 없습니다.</p>
-          <p className="text-sm mt-2">크롤링이 실행되면 여기에 표시됩니다.</p>
+        {/* 표시 개수 선택 */}
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600">표시 개수:</label>
+          <select
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+            className="px-3 py-1 border border-gray-300 rounded-lg"
+          >
+            <option value={10}>10개</option>
+            <option value={20}>20개</option>
+            <option value={50}>50개</option>
+            <option value={100}>100개</option>
+          </select>
         </div>
-      )}
-    </div>
+
+        {/* 크롤링 실행 목록 */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <h2 className="text-lg font-semibold text-gray-900">크롤링 실행 이력</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    실행 ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    실행 시간
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    상태
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    배치 (완료/전체)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    URL (성공/전체)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    공고 (전체/관련/AI)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    성공률
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {data.runs.map(run => (
+                  <RunRow key={run.id} run={run} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 안내 메시지 */}
+        {data.runs.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <p>아직 크롤링 실행 기록이 없습니다.</p>
+            <p className="text-sm mt-2">크롤링이 실행되면 여기에 표시됩니다.</p>
+          </div>
+        )}
+      </div>
+    </AdminLayout>
   );
 }
 
@@ -221,6 +229,8 @@ function StatCard({ label, value, icon, color }: {
 
 // 실행 행 컴포넌트
 function RunRow({ run }: { run: CrawlRun }) {
+  const router = useRouter();
+
   const statusColor = run.status === 'completed' ? 'text-green-600 bg-green-50' :
                       run.status === 'running' ? 'text-blue-600 bg-blue-50' :
                       run.status === 'failed' ? 'text-red-600 bg-red-50' :
@@ -239,7 +249,10 @@ function RunRow({ run }: { run: CrawlRun }) {
     : '0.0';
 
   return (
-    <tr className="hover:bg-gray-50 transition-colors">
+    <tr
+      onClick={() => router.push(`/admin/subsidy/monitoring/${run.run_id}`)}
+      className="hover:bg-gray-50 transition-colors cursor-pointer"
+    >
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm font-medium text-gray-900">{run.run_id}</div>
         <div className="text-xs text-gray-500">

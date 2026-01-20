@@ -170,7 +170,14 @@
       "Bash(npx tsx scripts/test-gemini-extraction.ts)",
       "Bash(PORT=3001 npm run dev:*)",
       "Bash(git diff:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(PGPASSWORD='your_password' psql:*)",
+      "mcp__serena__find_symbol",
+      "mcp__serena__activate_project",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__insert_before_symbol",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": [],
