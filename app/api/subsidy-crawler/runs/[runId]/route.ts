@@ -50,6 +50,26 @@ export async function GET(
       console.error('Error fetching batch results:', batchError);
     }
 
+    // Enrich batches with URL details
+    const enrichedBatches = await Promise.all((batches || []).map(async (batch) => {
+      if (!batch.url_ids || batch.url_ids.length === 0) {
+        return { ...batch, urls: [] };
+      }
+
+      // Fetch URL details for this batch
+      const { data: urls, error: urlError } = await supabase
+        .from('direct_url_sources')
+        .select('id, region_name, source_url, is_active')
+        .in('id', batch.url_ids);
+
+      if (urlError) {
+        console.error(`Error fetching URLs for batch ${batch.batch_number}:`, urlError);
+        return { ...batch, urls: [] };
+      }
+
+      return { ...batch, urls: urls || [] };
+    }));
+
     // Get AI verification summary for this run
     const { data: aiStats, error: aiError } = await supabase
       .from('ai_verification_log')
@@ -69,7 +89,7 @@ export async function GET(
       success: true,
       data: {
         run,
-        batches: batches || [],
+        batches: enrichedBatches || [],
         ai_verification_summary: aiSummary,
       },
     });

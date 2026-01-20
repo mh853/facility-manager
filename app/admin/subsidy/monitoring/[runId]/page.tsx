@@ -12,6 +12,13 @@ import AnnouncementsSection from './AnnouncementsSection';
 // 경로: /admin/subsidy/monitoring/[runId]
 // ============================================================
 
+interface UrlDetail {
+  id: string;
+  region_name: string;
+  source_url: string;
+  is_active: boolean;
+}
+
 interface BatchResult {
   id: string;
   batch_number: number;
@@ -26,6 +33,7 @@ interface BatchResult {
   avg_response_time_ms: number | null;
   started_at: string | null;
   completed_at: string | null;
+  urls: UrlDetail[];
 }
 
 interface RunDetail {
@@ -261,6 +269,8 @@ function SummaryItem({ label, value, color }: {
 
 // 배치 행 컴포넌트
 function BatchRow({ batch }: { batch: BatchResult }) {
+  const [expanded, setExpanded] = useState(false);
+
   const statusColor = batch.status === 'completed' ? 'text-green-600 bg-green-50' :
                       batch.status === 'running' ? 'text-blue-600 bg-blue-50' :
                       batch.status === 'failed' ? 'text-red-600 bg-red-50' :
@@ -270,43 +280,96 @@ function BatchRow({ batch }: { batch: BatchResult }) {
                      batch.status === 'running' ? '🔄' :
                      batch.status === 'failed' ? '❌' : '⏳';
 
+  const hasUrls = batch.urls && batch.urls.length > 0;
+
   return (
-    <tr className="hover:bg-gray-50 transition-colors">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className="text-lg font-bold text-gray-900">#{batch.batch_number}</span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
-          {statusIcon} {getStatusText(batch.status)}
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm">
-        <span className="text-green-600 font-medium">{batch.successful_urls}</span> /
-        <span className="text-gray-900 ml-1">{batch.urls_in_batch}</span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm">
-        {batch.total_announcements} /
-        <span className="text-blue-600 font-medium ml-1">{batch.new_announcements}</span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm">
-        <span className="text-blue-600 font-medium">{batch.relevant_announcements}</span> /
-        <span className="text-purple-600 font-medium ml-1">{batch.ai_verified_announcements}</span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {batch.avg_response_time_ms ? `${batch.avg_response_time_ms}ms` : 'N/A'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {batch.started_at && batch.completed_at ? (
-          <div>
-            {new Date(batch.started_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} ~
-            {new Date(batch.completed_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+    <>
+      <tr className="hover:bg-gray-50 transition-colors">
+        <td className="px-6 py-4 whitespace-nowrap">
+          <div className="flex items-center gap-2">
+            {hasUrls && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="text-blue-600 hover:text-blue-800 transition-colors"
+                aria-label={expanded ? '접기' : '펼치기'}
+              >
+                {expanded ? '▼' : '▶'}
+              </button>
+            )}
+            <span className="text-lg font-bold text-gray-900">#{batch.batch_number}</span>
           </div>
-        ) : batch.started_at ? (
-          <div>진행 중...</div>
-        ) : (
-          <div>대기 중</div>
-        )}
-      </td>
-    </tr>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+            {statusIcon} {getStatusText(batch.status)}
+          </span>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm">
+          <span className="text-green-600 font-medium">{batch.successful_urls}</span> /
+          <span className="text-gray-900 ml-1">{batch.urls_in_batch}</span>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm">
+          {batch.total_announcements} /
+          <span className="text-blue-600 font-medium ml-1">{batch.new_announcements}</span>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm">
+          <span className="text-blue-600 font-medium">{batch.relevant_announcements}</span> /
+          <span className="text-purple-600 font-medium ml-1">{batch.ai_verified_announcements}</span>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+          {batch.avg_response_time_ms ? `${batch.avg_response_time_ms}ms` : 'N/A'}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          {batch.started_at && batch.completed_at ? (
+            <div>
+              {new Date(batch.started_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} ~
+              {new Date(batch.completed_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          ) : batch.started_at ? (
+            <div>진행 중...</div>
+          ) : (
+            <div>대기 중</div>
+          )}
+        </td>
+      </tr>
+
+      {/* URL 목록 확장 행 */}
+      {expanded && hasUrls && (
+        <tr>
+          <td colSpan={7} className="px-6 py-4 bg-gray-50">
+            <div className="space-y-2">
+              <h4 className="font-semibold text-gray-900 mb-3">📋 크롤링한 URL 목록 ({batch.urls.length}개)</h4>
+              <div className="space-y-2">
+                {batch.urls.map((url, index) => (
+                  <div key={url.id} className="flex items-start gap-3 p-3 bg-white rounded border border-gray-200">
+                    <span className="text-sm font-medium text-gray-500 min-w-[30px]">{index + 1}.</span>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          {url.region_name}
+                        </span>
+                        {!url.is_active && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                            비활성
+                          </span>
+                        )}
+                      </div>
+                      <a
+                        href={url.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline break-all"
+                      >
+                        {url.source_url}
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
