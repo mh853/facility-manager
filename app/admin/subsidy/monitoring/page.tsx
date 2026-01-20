@@ -45,6 +45,8 @@ export default function MonitoringDashboard() {
   const [data, setData] = useState<RunsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [limit, setLimit] = useState(20);
+  const [crawling, setCrawling] = useState(false);
+  const [crawlError, setCrawlError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRuns();
@@ -64,6 +66,48 @@ export default function MonitoringDashboard() {
       console.error('Error loading runs:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleManualCrawl = async () => {
+    if (crawling) return;
+
+    setCrawling(true);
+    setCrawlError(null);
+
+    try {
+      const response = await fetch('/api/subsidy-crawler/manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          enable_phase2: true,
+          force: false,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // 크롤링 시작 성공
+        alert(`크롤링이 시작되었습니다!\n실행 ID: ${result.run_id}\n\n완료까지 최대 5분 소요될 수 있습니다.`);
+
+        // 5초 후 목록 새로고침
+        setTimeout(() => {
+          loadRuns();
+        }, 5000);
+      } else {
+        setCrawlError(result.error || '크롤링 시작에 실패했습니다.');
+        alert(`오류: ${result.error || '크롤링 시작에 실패했습니다.'}`);
+      }
+    } catch (error) {
+      console.error('Manual crawl error:', error);
+      const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+      setCrawlError(errorMsg);
+      alert(`오류: ${errorMsg}`);
+    } finally {
+      setCrawling(false);
     }
   };
 
@@ -102,12 +146,33 @@ export default function MonitoringDashboard() {
     <AdminLayout
       title="📊 크롤링 모니터링"
       actions={
-        <button
-          onClick={loadRuns}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          🔄 새로고침
-        </button>
+        <>
+          <button
+            onClick={handleManualCrawl}
+            disabled={crawling}
+            className={`px-4 py-2 text-white rounded-lg transition-colors ${
+              crawling
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700'
+            }`}
+          >
+            {crawling ? (
+              <>
+                <span className="inline-block animate-spin mr-2">⏳</span>
+                크롤링 실행 중...
+              </>
+            ) : (
+              <>▶️ 크롤링 시작</>
+            )}
+          </button>
+          <button
+            onClick={loadRuns}
+            disabled={crawling}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            🔄 새로고침
+          </button>
+        </>
       }
     >
       <div className="space-y-6">
