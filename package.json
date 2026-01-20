@@ -51,7 +51,7 @@
     "pg": "^8.16.3",
     "pizzip": "^3.2.0",
     "playwright-core": "^1.49.1",
-    "@sparticuz/chromium": "^135.0.0",
+    "@sparticuz/chromium": "^143.0.4",
     "react": "^18",
     "react-dom": "^18",
     "react-hot-toast": "^2.6.0",
