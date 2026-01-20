@@ -207,7 +207,10 @@ export default function MonitoringDashboard() {
       const result = await response.json();
 
       if (result.success) {
-        alert(`크롤링이 시작되었습니다!\n실행 ID: ${result.run_id}\n\n완료까지 최대 5분 소요될 수 있습니다.`);
+        const workflowList = result.workflows_triggered?.join('\n- ') || '알 수 없음';
+        alert(
+          `크롤링이 시작되었습니다!\n\n실행된 워크플로우:\n- ${workflowList}\n\n완료까지 최대 5분 소요될 수 있습니다.`
+        );
         // 5초 후 자동으로 데이터 새로고침
         setTimeout(() => {
           if (activeTab === 'runs') {
@@ -215,8 +218,8 @@ export default function MonitoringDashboard() {
           }
         }, 5000);
       } else {
-        setCrawlError(result.error || '크롤링 시작에 실패했습니다.');
-        alert(`오류: ${result.error || '크롤링 시작에 실패했습니다.'}`);
+        setCrawlError(result.error || result.message || '크롤링 시작에 실패했습니다.');
+        alert(`오류: ${result.error || result.message || '크롤링 시작에 실패했습니다.'}`);
       }
     } catch (error) {
       console.error('Manual crawl error:', error);
