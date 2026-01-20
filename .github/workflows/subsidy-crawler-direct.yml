@@ -186,23 +186,38 @@ jobs:
           echo "📊 배치 ${{ matrix.batch }}: 성공=$SUCCESSFUL, 실패=$FAILED, 총=$URLS_IN_BATCH"
           echo "📋 배치 ${{ matrix.batch }} URL IDs: $URL_IDS"
 
+          # jq로 안전한 JSON 생성
+          REQUEST_BODY=$(jq -n \
+            --arg run_id "$RUN_ID" \
+            --argjson batch_number "${{ matrix.batch }}" \
+            --argjson url_ids "$URL_IDS" \
+            --argjson urls_in_batch "$URLS_IN_BATCH" \
+            --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson successful_urls "$SUCCESSFUL" \
+            --argjson failed_urls "$FAILED" \
+            --argjson total_announcements "${{ steps.crawl_batch.outputs.new_count || 0 }}" \
+            --argjson new_announcements "${{ steps.crawl_batch.outputs.new_count || 0 }}" \
+            --argjson relevant_announcements "${{ steps.crawl_batch.outputs.relevant_count || 0 }}" \
+            --arg status "${{ steps.crawl_batch.outputs.success == 'true' && 'completed' || 'failed' }}" \
+            '{
+              run_id: $run_id,
+              batch_number: $batch_number,
+              url_ids: $url_ids,
+              urls_in_batch: $urls_in_batch,
+              completed_at: $completed_at,
+              successful_urls: $successful_urls,
+              failed_urls: $failed_urls,
+              total_announcements: $total_announcements,
+              new_announcements: $new_announcements,
+              relevant_announcements: $relevant_announcements,
+              status: $status
+            }')
+
           # 배치 결과 로깅
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ env.API_BASE_URL }}/api/subsidy-crawler/batches" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.CRAWLER_SECRET }}" \
-            -d "{
-              \"run_id\": \"$RUN_ID\",
-              \"batch_number\": ${{ matrix.batch }},
-              \"url_ids\": $URL_IDS,
-              \"urls_in_batch\": $URLS_IN_BATCH,
-              \"completed_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
-              \"successful_urls\": $SUCCESSFUL,
-              \"failed_urls\": $FAILED,
-              \"total_announcements\": ${{ steps.crawl_batch.outputs.new_count || 0 }},
-              \"new_announcements\": ${{ steps.crawl_batch.outputs.new_count || 0 }},
-              \"relevant_announcements\": ${{ steps.crawl_batch.outputs.relevant_count || 0 }},
-              \"status\": \"${{ steps.crawl_batch.outputs.success == 'true' && 'completed' || 'failed' }}\"
-            }")
+            -d "$REQUEST_BODY")
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
