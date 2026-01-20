@@ -25,7 +25,7 @@ const nextConfig = {
 
   experimental: {
     optimizePackageImports: ['lucide-react'],
-    serverComponentsExternalPackages: ['googleapis', 'sharp', 'canvas'],
+    serverComponentsExternalPackages: ['googleapis', 'sharp', 'canvas', 'playwright-core', '@sparticuz/chromium'],
     // Google Fonts 타임아웃 증가 (개발 환경 안정화)
     fetchCacheKeyPrefix: 'v1',
   },
