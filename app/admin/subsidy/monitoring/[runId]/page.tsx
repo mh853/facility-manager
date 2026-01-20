@@ -108,7 +108,7 @@ export default function RunDetailPage() {
           <div className="text-center">
             <p className="text-gray-600">실행 기록을 찾을 수 없습니다.</p>
             <button
-              onClick={() => router.push('/admin/subsidy/monitoring')}
+              onClick={() => router.push('/admin/subsidy/monitoring-dashboard')}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
               목록으로
@@ -137,7 +137,7 @@ export default function RunDetailPage() {
             🔄 새로고침
           </button>
           <button
-            onClick={() => router.push('/admin/subsidy/monitoring')}
+            onClick={() => router.push('/admin/subsidy/monitoring-dashboard')}
             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             ← 목록으로
