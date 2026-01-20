@@ -97,12 +97,14 @@ async function crawlDirectUrl(url: string): Promise<{
 }> {
   let browser;
   try {
-    const { chromium } = await import('playwright');
+    const { chromium } = await import('playwright-core');
+    const chromiumPack = await import('@sparticuz/chromium');
 
-    // 브라우저 실행 (headless 모드)
+    // 브라우저 실행 (Vercel Pro 호환)
     browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'], // Vercel 호환
+      args: chromiumPack.default.args,
+      executablePath: await chromiumPack.default.executablePath(),
+      headless: chromiumPack.default.headless,
     });
 
     const context = await browser.newContext({
