@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import AdminLayout from '@/components/ui/AdminLayout';
+import AnnouncementsSection from './AnnouncementsSection';
 
 // ============================================================
 // 크롤링 실행 상세 뷰
@@ -88,28 +90,32 @@ export default function RunDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">로딩 중...</p>
+      <AdminLayout title="📊 크롤링 실행 상세">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">로딩 중...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   if (!data) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-gray-600">실행 기록을 찾을 수 없습니다.</p>
-          <button
-            onClick={() => router.push('/admin/subsidy/monitoring')}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            목록으로
-          </button>
+      <AdminLayout title="📊 크롤링 실행 상세">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <p className="text-gray-600">실행 기록을 찾을 수 없습니다.</p>
+            <button
+              onClick={() => router.push('/admin/subsidy/monitoring')}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              목록으로
+            </button>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
@@ -119,14 +125,11 @@ export default function RunDetailPage() {
     : '0.0';
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">📊 크롤링 실행 상세</h1>
-          <p className="text-gray-600 mt-1">{run.run_id}</p>
-        </div>
-        <div className="flex gap-2">
+    <AdminLayout
+      title="📊 크롤링 실행 상세"
+      subtitle={run.run_id}
+      actions={
+        <>
           <button
             onClick={loadRunDetail}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -139,8 +142,10 @@ export default function RunDetailPage() {
           >
             ← 목록으로
           </button>
-        </div>
-      </div>
+        </>
+      }
+    >
+      <div className="space-y-6">
 
       {/* 실행 요약 */}
       <div className="bg-white rounded-lg shadow p-6">
@@ -214,7 +219,11 @@ export default function RunDetailPage() {
           </table>
         </div>
       </div>
-    </div>
+
+      {/* 발견된 공고 목록 */}
+      <AnnouncementsSection runId={runId} />
+      </div>
+    </AdminLayout>
   );
 }
 

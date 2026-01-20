@@ -394,6 +394,7 @@ async function crawlPhase2SourceWithRetry(
   source: Phase2Source,
   supabase: ReturnType<typeof createClient>,
   force: boolean,
+  runId: string,
   maxRetries = 3
 ): Promise<{ success: boolean; announcements: number; savedCount: number }> {
   let lastError: Error | null = null;
@@ -459,6 +460,7 @@ async function crawlPhase2SourceWithRetry(
             is_relevant: analysisResult.is_relevant,
             relevance_score: analysisResult.relevance_score,
             keywords_matched: analysisResult.keywords_matched,
+            crawl_run_id: runId, // Link to crawl_runs table
           };
 
           const { error } = await supabase
@@ -630,6 +632,7 @@ export async function POST(request: NextRequest) {
                 is_relevant: analysisResult.is_relevant,
                 relevance_score: analysisResult.relevance_score,
                 keywords_matched: analysisResult.keywords_matched,
+                crawl_run_id: runId, // Link to crawl_runs table
               };
 
               const { error } = await supabase
@@ -690,7 +693,7 @@ export async function POST(request: NextRequest) {
 
       // ⚡ 병렬 처리 + 재시도 로직 (Option 2 최적화)
       const crawlResults = await Promise.allSettled(
-        batchSources.map(source => crawlPhase2SourceWithRetry(source, supabase, force, 3))
+        batchSources.map(source => crawlPhase2SourceWithRetry(source, supabase, force, runId, 3))
       );
 
       // 결과 집계
