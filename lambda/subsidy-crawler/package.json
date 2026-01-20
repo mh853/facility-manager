@@ -1,0 +1,17 @@
+{
+  "name": "subsidy-crawler-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for subsidy crawling with Playwright",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "bash deploy-lambda.sh"
+  },
+  "dependencies": {
+    "playwright-core": "^1.49.1",
+    "@sparticuz/chromium": "^143.0.4",
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
