@@ -4635,6 +4635,14 @@ function BusinessManagementPage() {
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">보조금 승인일</label>
+                      <DateInput
+                        value={formData.subsidy_approval_date || ''}
+                        onChange={(value) => setFormData({...formData, subsidy_approval_date: value})}
+                      />
+                    </div>
+
                     </div>
                   </div>
                 </div>
