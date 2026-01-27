@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || 'all';
     const isRelevant = searchParams.get('isRelevant');
     const isRead = searchParams.get('isRead');
+    const isManual = searchParams.get('isManual');
     const regionCode = searchParams.get('regionCode');
     const regionType = searchParams.get('regionType');
     const search = searchParams.get('search');
@@ -46,6 +47,10 @@ export async function GET(request: NextRequest) {
 
     if (isRead !== null && isRead !== undefined) {
       query = query.eq('is_read', isRead === 'true');
+    }
+
+    if (isManual !== null && isManual !== undefined) {
+      query = query.eq('is_manual', isManual === 'true');
     }
 
     if (regionCode) {

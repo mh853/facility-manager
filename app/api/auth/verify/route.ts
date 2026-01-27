@@ -50,23 +50,30 @@ export async function POST(request: NextRequest) {
     // 사용자 존재 여부 재확인 (토큰은 유효하지만 사용자가 비활성화된 경우) - 직접 PostgreSQL 연결 사용
     const userId = decoded.id || decoded.userId;
 
-    const employee = await queryOne(
+    // employees 테이블에서 사용자 조회
+    const employeeData = await queryOne(
       'SELECT * FROM employees WHERE id = $1 AND is_active = true LIMIT 1',
       [userId]
     );
 
     console.log('📊 [AUTH] PostgreSQL 조회 결과:', {
-      found: !!employee,
-      permission_level: employee?.permission_level
+      found: !!employeeData,
+      permission_level: employeeData?.permission_level
     });
 
-    if (!employee) {
+    if (!employeeData) {
       console.log('❌ [AUTH] 사용자 재조회 실패: 존재하지 않거나 비활성 사용자');
       return NextResponse.json(
         { success: false, error: { code: 'USER_NOT_FOUND', message: '사용자를 찾을 수 없습니다.' } },
         { status: 401 }
       );
     }
+
+    // permission_level을 role로 매핑하여 반환 (프론트엔드 호환성)
+    const employee = {
+      ...employeeData,
+      role: employeeData.permission_level
+    };
 
     // 소셜 계정 정보 조회 - 직접 PostgreSQL 연결 사용
     const socialAccounts = await queryAll(
@@ -77,7 +84,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ [AUTH] 토큰 검증 성공:', {
       email: employee.email,
       name: employee.name,
-      permission_level: employee.permission_level, // 🔍 권한 레벨 로깅 추가
+      role: employee.role, // 🔍 권한 레벨 로깅 추가
       socialAccounts: socialAccounts?.length || 0
     });
 
@@ -86,15 +93,15 @@ export async function POST(request: NextRequest) {
       data: {
         user: employee,
         permissions: {
-          canViewAllTasks: employee.permission_level >= 1,
+          canViewAllTasks: employee.role >= 1,
           canCreateTasks: true,
           canEditTasks: true,
-          canDeleteTasks: employee.permission_level >= 1,
+          canDeleteTasks: employee.role >= 1,
           canViewReports: true,
-          canApproveReports: employee.permission_level >= 1,
-          canAccessAdminPages: employee.permission_level >= 3,
-          canViewSensitiveData: employee.permission_level >= 3,
-          canDeleteAutoMemos: employee.permission_level === 4 // 슈퍼 관리자만
+          canApproveReports: employee.role >= 1,
+          canAccessAdminPages: employee.role >= 3,
+          canViewSensitiveData: employee.role >= 3,
+          canDeleteAutoMemos: employee.role === 4 // 슈퍼 관리자만
         },
         socialAccounts: socialAccounts || []
       },

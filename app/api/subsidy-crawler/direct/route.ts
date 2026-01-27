@@ -97,8 +97,16 @@ async function crawlDirectUrl(url: string): Promise<{
 }> {
   let browser;
   try {
-    const { chromium } = await import('playwright-core');
-    const chromiumPack = await import('@sparticuz/chromium');
+    // 🔧 동적 import 에러 핸들링 강화
+    const { chromium } = await import('playwright-core').catch((err) => {
+      console.error('❌ playwright-core import 실패:', err);
+      throw new Error('Playwright Core를 로드할 수 없습니다. 패키지 설치를 확인하세요.');
+    });
+
+    const chromiumPack = await import('@sparticuz/chromium').catch((err) => {
+      console.error('❌ @sparticuz/chromium import 실패:', err);
+      throw new Error('Chromium 패키지를 로드할 수 없습니다. 패키지 설치를 확인하세요.');
+    });
 
     // 브라우저 실행 (Vercel Pro 호환)
     browser = await chromium.launch({
@@ -225,12 +233,19 @@ async function crawlDirectUrl(url: string): Promise<{
 
   } catch (error: any) {
     if (browser) {
-      await browser.close();
+      await browser.close().catch(() => {
+        // 브라우저 종료 실패는 무시 (이미 종료되었을 수 있음)
+      });
     }
+
+    // 🔧 에러 메시지 상세화
+    const errorMessage = error.message || 'Unknown error';
+    console.error(`❌ 크롤링 실패 [${url}]:`, errorMessage);
+
     return {
       success: false,
       announcements: [],
-      error: error.message || 'Unknown error',
+      error: errorMessage,
     };
   }
 }

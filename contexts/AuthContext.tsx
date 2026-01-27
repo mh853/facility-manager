@@ -316,7 +316,7 @@ export function withAuth<P extends object>(
     }
 
     // 권한 레벨 확인
-    if (requiredLevel && user.permission_level < requiredLevel) {
+    if (requiredLevel && user.role < requiredLevel) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-gray-100">
           <div className="text-center bg-white p-8 rounded-xl shadow-lg border border-gray-200 max-w-md">
@@ -325,7 +325,7 @@ export function withAuth<P extends object>(
             </div>
             <h1 className="text-xl font-bold text-gray-900 mb-4">접근 권한 부족</h1>
             <p className="text-gray-600 mb-2">이 페이지는 <strong>레벨 {requiredLevel}</strong> 이상의 권한이 필요합니다.</p>
-            <p className="text-sm text-gray-500 mb-6">현재 권한: 레벨 {user.permission_level}</p>
+            <p className="text-sm text-gray-500 mb-6">현재 권한: 레벨 {user.role}</p>
             <button
               onClick={() => router.back()}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

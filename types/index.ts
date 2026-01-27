@@ -474,9 +474,8 @@ export interface Employee {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: number;  // Actual DB column: 1=regular, 2=manager, 3=admin, 4=super admin
   department_id: string;
-  permission_level: number;
   is_active: boolean;
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 // ⚠️ UnifiedBusinessInfo는 page.tsx에 정의되어 있어 재정의 필요
 // 향후 types/index.ts로 이동 권장
@@ -17,16 +17,28 @@ export function useBusinessData() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 중복 로딩 방지를 위한 ref
+  const isLoadingRef = useRef(false);
+  const isMountedRef = useRef(true);
+
   /**
    * 사업장 데이터 로딩 함수
    * - Supabase business_info 테이블에서 직접 조회
    * - 파일 통계 포함
    */
   const loadAllBusinesses = useCallback(async () => {
+    // 이미 로딩 중이거나 컴포넌트가 언마운트된 경우 중복 실행 방지
+    if (isLoadingRef.current || !isMountedRef.current) {
+      console.log('⏭️ [useBusinessData] 중복 로딩 방지 - 이미 로딩 중이거나 언마운트됨');
+      return;
+    }
+
+    console.log('🔄 [useBusinessData] 최적화된 사업장 정보 로딩 시작...');
+    isLoadingRef.current = true;
+
     try {
       setIsLoading(true);
       setError(null);
-      console.log('🔄 [useBusinessData] 최적화된 사업장 정보 로딩 시작...');
 
       // 직접 business_info 테이블에서 사업장 정보 조회 (파일 통계 포함)
       const response = await fetch('/api/business-info-direct?includeFileStats=true');
@@ -211,20 +223,29 @@ export function useBusinessData() {
           additional_cost: business.additional_cost || null
         }));
 
-        setAllBusinesses(businessObjects);
-
-        console.log(`📊 [useBusinessData] 사업장 데이터 로딩 완료: 총 ${businessObjects.length}개`);
+        // 컴포넌트가 마운트된 상태에서만 상태 업데이트
+        if (isMountedRef.current) {
+          setAllBusinesses(businessObjects);
+          console.log(`📊 [useBusinessData] 사업장 데이터 로딩 완료: 총 ${businessObjects.length}개`);
+        }
       } else {
         console.error('[useBusinessData] Invalid data format:', data);
-        setAllBusinesses([]);
-        setError('데이터 형식이 올바르지 않습니다.');
+        if (isMountedRef.current) {
+          setAllBusinesses([]);
+          setError('데이터 형식이 올바르지 않습니다.');
+        }
       }
     } catch (error) {
       console.error('[useBusinessData] 사업장 데이터 로딩 오류:', error);
-      setAllBusinesses([]);
-      setError(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      if (isMountedRef.current) {
+        setAllBusinesses([]);
+        setError(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+      isLoadingRef.current = false;
     }
   }, []);
 
@@ -272,8 +293,16 @@ export function useBusinessData() {
 
   // 초기 데이터 로딩
   useEffect(() => {
+    isMountedRef.current = true;
     loadAllBusinesses();
-  }, [loadAllBusinesses]);
+
+    // 클린업 함수: 컴포넌트 언마운트 시 실행
+    return () => {
+      isMountedRef.current = false;
+      isLoadingRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 빈 배열로 변경 - 컴포넌트 마운트 시에만 실행
 
   return {
     allBusinesses,
