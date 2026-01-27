@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { BusinessInfo } from '@/lib/database-service'
 import type { BusinessMemo, CreateBusinessMemoInput, UpdateBusinessMemoInput } from '@/types/database'
 import { getBusinessTaskStatus, getBatchBusinessTaskStatuses, getTaskSummary } from '@/lib/business-task-utils'
@@ -354,6 +354,7 @@ function BusinessManagementPage() {
 
   // URL 파라미터 처리
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   // ⚡ 커스텀 훅 사용 (Phase 2.1 성능 최적화)
   const { allBusinesses, isLoading, error: businessDataError, refetch: refetchBusinesses, deleteBusiness } = useBusinessData()
@@ -446,6 +447,9 @@ function BusinessManagementPage() {
   // Revenue 모달 state
   const [showRevenueModal, setShowRevenueModal] = useState(false)
   const [selectedRevenueBusiness, setSelectedRevenueBusiness] = useState<UnifiedBusinessInfo | null>(null)
+
+  // 복귀 경로 상태 (Revenue → Business 네비게이션 추적)
+  const [returnPath, setReturnPath] = useState<string | null>(null)
 
   // ⚡ 주의: 초기 데이터 병렬 로딩은 커스텀 훅으로 이동됨 (useRevenueData, useBusinessData)
   // ⚡ 시설 통계 관련 함수들(calculateFacilityStats, loadBusinessFacilityStats, loadBusinessFacilities)은 useFacilityStats 훅으로 이동됨
@@ -1929,6 +1933,44 @@ function BusinessManagementPage() {
     }
   }, [allBusinesses.length, searchParams, selectedBusiness])
 
+  // URL 파라미터로 자동 모달 열기 (from Revenue page)
+  useEffect(() => {
+    const businessId = searchParams?.get('businessId')
+    const openModal = searchParams?.get('openModal')
+    const returnTo = searchParams?.get('returnTo') // ✅ 복귀 경로 감지
+
+    // 조건 체크
+    if (!businessId || openModal !== 'true' || allBusinesses.length === 0) {
+      return
+    }
+
+    // 해당 business 찾기
+    const targetBusiness = allBusinesses.find(b => b.id === businessId)
+
+    if (targetBusiness) {
+      console.log('🔗 [URL Navigation] 자동 모달 열기:', targetBusiness.사업장명 || targetBusiness.business_name)
+
+      // 모달 열기 (수정 모달)
+      setSelectedBusiness(targetBusiness)
+      setIsModalOpen(true)
+      setEditingBusiness(targetBusiness)
+      setFormData(targetBusiness)
+
+      // ✅ 복귀 경로 저장
+      if (returnTo) {
+        setReturnPath(returnTo)
+        console.log('🔙 [Return Path] 저장:', returnTo)
+      }
+
+      // URL 정리 (파라미터 제거)
+      window.history.replaceState({}, '', '/admin/business')
+    } else {
+      console.warn('⚠️ [URL Navigation] 사업장을 찾을 수 없음:', businessId)
+      // 파라미터만 제거
+      window.history.replaceState({}, '', '/admin/business')
+    }
+  }, [searchParams, allBusinesses])
+
   // 사업장 선택 시 메모와 업무 로드
   useEffect(() => {
     if (selectedBusiness) {
@@ -1956,6 +1998,23 @@ function BusinessManagementPage() {
       document.removeEventListener('keydown', handleEscKey)
     }
   }, [isDetailModalOpen, isModalOpen])
+
+  // 🔙 복귀 경로 핸들러 (Revenue → Business 네비게이션)
+  const handleReturnToSource = useCallback(() => {
+    if (returnPath === 'revenue' && selectedBusiness) {
+      console.log('🔙 [Return] Revenue 페이지로 복귀:', selectedBusiness.사업장명 || selectedBusiness.business_name);
+
+      // Revenue 페이지로 이동하면서 해당 사업장의 Revenue 모달 자동 열기
+      router.push(`/admin/revenue?businessId=${selectedBusiness.id}&openRevenueModal=true`);
+    } else {
+      // 일반 모달 닫기
+      console.log('❌ [Close] 모달 닫기 (복귀 경로 없음)');
+      setIsModalOpen(false);
+      setEditingBusiness(null);
+      setReturnPath(null);
+      setShowLocalGovSuggestions(false);
+    }
+  }, [returnPath, selectedBusiness, router]);
 
   // 🗄️ 캐시 관리 함수들
 
@@ -4155,14 +4214,13 @@ function BusinessManagementPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsModalOpen(false)
-                      setShowLocalGovSuggestions(false)
-                    }}
+                    onClick={handleReturnToSource}
                     className="flex items-center px-2 sm:px-3 py-1 sm:py-2 bg-white bg-opacity-20 text-white rounded-md sm:rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium border border-white border-opacity-30 hover:border-opacity-50"
+                    title={returnPath === 'revenue' ? '매출 관리로 돌아가기' : '취소'}
+
                   >
                     <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
-                    <span className="hidden sm:inline">취소</span>
+                    <span className="hidden sm:inline">{returnPath === 'revenue' ? '돌아가기' : '취소'}</span>
                     <span className="sm:hidden">✕</span>
                   </button>
                 </div>

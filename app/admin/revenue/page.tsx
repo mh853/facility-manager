@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { TokenManager } from '@/lib/api-client';
 import AdminLayout from '@/components/ui/AdminLayout';
@@ -80,6 +80,7 @@ interface DashboardStats {
 
 function RevenueDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [businesses, setBusinesses] = useState<BusinessInfo[]>([]);
   const [calculations, setCalculations] = useState<RevenueCalculation[]>([]);
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
@@ -145,6 +146,35 @@ function RevenueDashboard() {
       });
     }
   }, [pricesLoaded]);
+
+  // URL 파라미터로 자동 모달 열기 (from Business page)
+  useEffect(() => {
+    const businessId = searchParams?.get('businessId');
+    const openRevenueModal = searchParams?.get('openRevenueModal');
+
+    // 조건 체크
+    if (!businessId || openRevenueModal !== 'true' || businesses.length === 0) {
+      return;
+    }
+
+    // 해당 business 찾기
+    const targetBusiness = businesses.find(b => b.id === businessId);
+
+    if (targetBusiness) {
+      console.log('🔗 [URL Navigation] Revenue 모달 자동 열기:', targetBusiness.business_name);
+
+      // Revenue 모달 열기
+      setSelectedEquipmentBusiness(targetBusiness);
+      setShowEquipmentModal(true);
+
+      // URL 정리 (파라미터 제거)
+      window.history.replaceState({}, '', '/admin/revenue');
+    } else {
+      console.warn('⚠️ [URL Navigation] 사업장을 찾을 수 없음:', businessId);
+      // 파라미터만 제거
+      window.history.replaceState({}, '', '/admin/revenue');
+    }
+  }, [searchParams, businesses]);
 
   const getAuthHeaders = () => {
     const token = TokenManager.getToken();

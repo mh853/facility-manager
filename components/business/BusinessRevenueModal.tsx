@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { InvoiceDisplay } from './InvoiceDisplay';
 import { MemoSection } from './MemoSection';
 import { TokenManager } from '@/lib/api-client';
@@ -20,6 +21,7 @@ export default function BusinessRevenueModal({
   onClose,
   userPermission
 }: BusinessRevenueModalProps) {
+  const router = useRouter();
   const [calculatedData, setCalculatedData] = useState<CalculatedData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -304,6 +306,18 @@ export default function BusinessRevenueModal({
   const isReadOnly = userPermission < 2;
   const canEditAdjustment = userPermission >= 3;
 
+  // 사업장명 클릭 핸들러 - Business 페이지로 네비게이션
+  const handleBusinessNameClick = () => {
+    if (!business?.id) {
+      console.error('❌ [Navigation] Business ID가 없습니다.');
+      return;
+    }
+
+    console.log('🔗 [Navigation] Business 페이지로 이동:', business.business_name || business.사업장명);
+    // returnTo=revenue 파라미터 추가로 복귀 경로 추적
+    router.push(`/admin/business?businessId=${business.id}&openModal=true&returnTo=revenue`);
+  };
+
   // 모달이 닫혀있거나 business 데이터가 없으면 null 반환 (JSX 조건부 렌더링)
   if (!isOpen || !business) {
     return null;
@@ -339,8 +353,15 @@ export default function BusinessRevenueModal({
       <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col overflow-hidden">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <h3 className="text-xl font-bold text-gray-900">
-              {business.business_name || business.사업장명} - 기기 상세 정보
+            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <button
+                onClick={handleBusinessNameClick}
+                className="hover:text-blue-600 hover:underline transition-colors cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-1"
+                title="사업장 상세 정보로 이동 (수정 가능)"
+              >
+                {business.business_name || business.사업장명}
+              </button>
+              <span className="text-gray-500">- 기기 상세 정보</span>
             </h3>
             {isRefreshing && (
               <div className="flex items-center gap-2 text-sm text-blue-600">
