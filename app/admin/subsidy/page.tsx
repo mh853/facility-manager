@@ -3,8 +3,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AdminLayout from '@/components/ui/AdminLayout';
 import UrlDataManager from '@/components/admin/UrlDataManager';
+import ManualUploadModal from '@/components/subsidy/ManualUploadModal';
+import AnnouncementDetailModal from '@/components/subsidy/AnnouncementDetailModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBrowserClient } from '@supabase/ssr';
+import { TokenManager } from '@/lib/api-client';
 import type { SubsidyAnnouncement, SubsidyDashboardStats, AnnouncementStatus } from '@/types/subsidy';
 
 // 상태별 색상
@@ -22,6 +25,8 @@ export default function SubsidyAnnouncementsPage() {
   const [stats, setStats] = useState<SubsidyDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<SubsidyAnnouncement | null>(null);
+  const [showManualUploadModal, setShowManualUploadModal] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<SubsidyAnnouncement | null>(null);
 
   // Supabase 클라이언트 (단일 인스턴스, 컴포넌트 최상위에서 생성)
   const supabase = useMemo(() => createBrowserClient(
@@ -32,6 +37,7 @@ export default function SubsidyAnnouncementsPage() {
   // 필터 상태 (기본값: 관련 공고만 표시 - 75% 이상)
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterRelevant, setFilterRelevant] = useState('true');
+  const [filterManual, setFilterManual] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
@@ -40,9 +46,13 @@ export default function SubsidyAnnouncementsPage() {
   useEffect(() => {
     console.log('🔍 [Subsidy] User Info:', {
       user,
-      permission_level: user?.permission_level,
+      role: user?.role,
+      roleType: typeof user?.role,
       authLoading,
-      canSeeUrlManager: user && user.permission_level >= 4
+      canSeeUrlManager: user && user.role >= 4,
+      canSeeManualUpload: user && user.role >= 1,
+      roleCheck1: user?.role >= 1,
+      roleCheck4: user?.role >= 4
     });
   }, [user, authLoading]);
 
@@ -81,15 +91,17 @@ export default function SubsidyAnnouncementsPage() {
     }
   }, []);
 
+  // 데이터 로드 함수 (컴포넌트 레벨)
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([loadAllAnnouncements(), loadStats()]);
+    setLoading(false);
+  }, [loadAllAnnouncements, loadStats]);
+
   // 초기 로드
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([loadAllAnnouncements(), loadStats()]);
-      setLoading(false);
-    };
     loadData();
-  }, [loadAllAnnouncements, loadStats]);
+  }, [loadData]);
 
   // 클라이언트 사이드 필터링 (useMemo로 자동 적용)
   const filteredAnnouncements = useMemo(() => {
@@ -105,6 +117,13 @@ export default function SubsidyAnnouncementsPage() {
       filtered = filtered.filter(a => a.relevance_score && a.relevance_score >= 0.75);
     } else if (filterRelevant === 'false') {
       filtered = filtered.filter(a => !a.relevance_score || a.relevance_score < 0.75);
+    }
+
+    // 수동/자동 필터
+    if (filterManual === 'manual') {
+      filtered = filtered.filter(a => a.is_manual);
+    } else if (filterManual === 'crawled') {
+      filtered = filtered.filter(a => !a.is_manual);
     }
 
     // 검색어 필터 (실시간)
@@ -123,7 +142,7 @@ export default function SubsidyAnnouncementsPage() {
     }
 
     return filtered;
-  }, [allAnnouncements, filterStatus, filterRelevant, searchQuery]);
+  }, [allAnnouncements, filterStatus, filterRelevant, filterManual, searchQuery]);
 
   // 페이지네이션 적용
   const paginatedAnnouncements = useMemo(() => {
@@ -196,6 +215,191 @@ export default function SubsidyAnnouncementsPage() {
       );
       setStats(prev => prev ? { ...prev, unread_count: prev.unread_count + 1 } : prev);
     }
+  };
+
+  /**
+   * 공고 생성 - 낙관적 업데이트
+   * @param newAnnouncement - 생성할 공고 데이터
+   * @returns { success: boolean, data?: any, error?: string }
+   */
+  const createAnnouncement = useCallback(async (newAnnouncement: any) => {
+    console.log('➕ [createAnnouncement] 생성 시작');
+
+    // 1. 임시 ID 생성 (실제 ID는 API 응답에서)
+    const tempId = `temp-${Date.now()}`;
+    const tempAnnouncement: SubsidyAnnouncement = {
+      ...newAnnouncement,
+      id: tempId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_manual: true,
+      is_read: false,
+      status: 'new' as const,
+      relevance_score: null,
+      is_relevant: false,
+      keywords_matched: [],
+      crawled_at: null,
+      created_by: user?.id || null,
+    };
+
+    // 2. 낙관적 업데이트 (UI에 즉시 추가)
+    setAllAnnouncements(prev => [tempAnnouncement, ...prev]);
+
+    try {
+      // 3. API 호출
+      const token = TokenManager.getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다.');
+      }
+
+      const response = await fetch('/api/subsidy-announcements/manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newAnnouncement)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || '공고 등록에 실패했습니다.');
+      }
+
+      // 4. 성공: 임시 항목을 실제 데이터로 교체
+      setAllAnnouncements(prev =>
+        prev.map(a => a.id === tempId ? result.data : a)
+      );
+
+      // 5. 통계 새로고침
+      loadStats();
+
+      console.log('✅ [createAnnouncement] 생성 성공:', result.data.id);
+      return { success: true, data: result.data };
+
+    } catch (error) {
+      // 6. 실패: 임시 항목 제거 (롤백)
+      console.error('❌ [createAnnouncement] 생성 실패 - 자동 롤백:', error);
+      setAllAnnouncements(prev => prev.filter(a => a.id !== tempId));
+
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      return { success: false, error: errorMessage };
+    }
+  }, [user?.id, loadStats]);
+
+  /**
+   * 공고 수정 - 낙관적 업데이트
+   * @param id - 공고 ID
+   * @param updates - 수정할 데이터
+   * @returns { success: boolean, error?: string }
+   */
+  const updateAnnouncement = useCallback(async (id: string, updates: any) => {
+    console.log('📝 [updateAnnouncement] 수정 시작:', id);
+
+    // 1. 원본 데이터 백업 (롤백용)
+    const originalAnnouncements = [...allAnnouncements];
+
+    try {
+      // 2. 낙관적 업데이트 (UI에 즉시 반영)
+      setAllAnnouncements(prev =>
+        prev.map(a => a.id === id ? { ...a, ...updates, updated_at: new Date().toISOString() } : a)
+      );
+
+      // 3. API 호출
+      const token = TokenManager.getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다.');
+      }
+
+      const response = await fetch('/api/subsidy-announcements/manual', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ id, ...updates })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || '공고 수정에 실패했습니다.');
+      }
+
+      console.log('✅ [updateAnnouncement] 수정 성공:', id);
+      return { success: true };
+
+    } catch (error) {
+      // 4. 실패: 원본 데이터로 롤백
+      console.error('❌ [updateAnnouncement] 수정 실패 - 자동 롤백:', id, error);
+      setAllAnnouncements(originalAnnouncements);
+
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      return { success: false, error: errorMessage };
+    }
+  }, [allAnnouncements]);
+
+  /**
+   * 공고 삭제 - 낙관적 업데이트
+   * @param id - 삭제할 공고 ID
+   * @returns { success: boolean, message?: string, error?: string }
+   */
+  const deleteAnnouncement = useCallback(async (id: string) => {
+    console.log('🗑️ [deleteAnnouncement] 삭제 시작:', id);
+
+    // 1. 원본 데이터 백업 (롤백용)
+    const originalAnnouncements = [...allAnnouncements];
+
+    try {
+      // 2. 낙관적 업데이트 (UI에서 즉시 제거)
+      setAllAnnouncements(prev => prev.filter(a => a.id !== id));
+
+      // 3. API 호출
+      const token = TokenManager.getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다.');
+      }
+
+      const response = await fetch(`/api/subsidy-announcements/manual?id=${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || '삭제에 실패했습니다.');
+      }
+
+      // 4. 성공: 통계 새로고침
+      console.log('✅ [deleteAnnouncement] 삭제 성공:', id);
+      loadStats();
+
+      return { success: true, message: '삭제 완료' };
+
+    } catch (error) {
+      // 5. 실패: 원본 데이터로 자동 롤백
+      console.error('❌ [deleteAnnouncement] 삭제 실패 - 자동 롤백:', id, error);
+      setAllAnnouncements(originalAnnouncements);
+
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      return { success: false, error: errorMessage };
+    }
+  }, [allAnnouncements, loadStats]);
+
+  // 숫자 포맷팅 함수 (천단위 콤마)
+  const formatNumber = (value: string | null | undefined): string => {
+    if (!value) return '-';
+    // 숫자만 추출
+    const numbers = value.replace(/[^\d]/g, '');
+    if (!numbers) return value; // 숫자가 없으면 원본 반환
+    // 천단위 콤마 추가
+    const formatted = numbers.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    // "원" 문자가 있으면 유지
+    return value.includes('원') ? `${formatted}원` : formatted;
   };
 
   // 제목에서 실제 대상 지역명 추출
@@ -369,9 +573,29 @@ export default function SubsidyAnnouncementsPage() {
           </div>
         )}
 
-        {/* URL 데이터 관리 - 권한 4(시스템 관리자)만 접근 가능 */}
-        {!authLoading && user && user.permission_level >= 4 && (
+        {/* URL 데이터 관리 - 권한 4(슈퍼 관리자)만 접근 가능 */}
+        {!authLoading && user && user.role >= 4 && (
           <UrlDataManager onUploadComplete={loadStats} user={user} supabase={supabase} />
+        )}
+
+        {/* 수동 공고 등록 버튼 - 모든 인증된 사용자(권한 1~4) 접근 가능 */}
+        {!authLoading && user && user.role >= 1 && (
+          <div className="bg-white rounded-md md:rounded-lg shadow p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-sm sm:text-base mb-1">✍️ 수동 공고 등록</h3>
+                <p className="text-xs sm:text-sm text-gray-600">
+                  크롤링으로 수집되지 않은 공고를 직접 등록할 수 있습니다.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowManualUploadModal(true)}
+                className="px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs sm:text-sm font-medium whitespace-nowrap"
+              >
+                + 수동 등록
+              </button>
+            </div>
+          </div>
         )}
 
         {/* 디버깅: 권한 정보 표시 (개발 환경에서만) */}
@@ -381,8 +605,8 @@ export default function SubsidyAnnouncementsPage() {
             {authLoading ? ' 로딩 중...' : (
               user ? (
                 <>
-                  {' '}사용자 레벨: {user.permission_level} |
-                  URL 관리 접근: {user.permission_level >= 4 ? '✅ 가능' : '❌ 불가능'}
+                  {' '}사용자 Role: {user.role} |
+                  URL 관리 접근: {user.role >= 4 ? '✅ 가능' : '❌ 불가능'}
                 </>
               ) : ' ⚠️ 사용자 정보 없음'
             )}
@@ -422,6 +646,21 @@ export default function SubsidyAnnouncementsPage() {
                 <option value="true">관련 공고만 (75%↑)</option>
                 <option value="all">전체</option>
                 <option value="false">무관</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] sm:text-xs text-gray-500 mb-1">출처</label>
+              <select
+                value={filterManual}
+                onChange={e => {
+                  setFilterManual(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="border rounded px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm"
+              >
+                <option value="all">전체</option>
+                <option value="manual">✍️ 수동등록</option>
+                <option value="crawled">🤖 자동수집</option>
               </select>
             </div>
             <div className="flex-1">
@@ -479,10 +718,19 @@ export default function SubsidyAnnouncementsPage() {
 
                       {/* 메인 콘텐츠 */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 sm:gap-2 mb-0.5 sm:mb-1">
+                        <div className="flex items-center gap-1 sm:gap-2 mb-0.5 sm:mb-1 flex-wrap">
                           <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded ${statusColors[announcement.status].bg} ${statusColors[announcement.status].text}`}>
                             {statusColors[announcement.status].label}
                           </span>
+                          {announcement.is_manual ? (
+                            <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-medium">
+                              ✍️ 수동등록
+                            </span>
+                          ) : (
+                            <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                              🤖 자동수집
+                            </span>
+                          )}
                           <span className="text-[10px] sm:text-xs text-gray-500">
                             {extractRegionFromTitle(announcement.title, announcement.region_name)}
                           </span>
@@ -504,12 +752,19 @@ export default function SubsidyAnnouncementsPage() {
                             </span>
                           )}
                           {announcement.budget && (
-                            <span className="hidden sm:inline">예산: {announcement.budget}</span>
+                            <span className="hidden sm:inline">예산: {formatNumber(announcement.budget)}</span>
                           )}
-                          {announcement.relevance_score && (
-                            <span>
-                              관련도: {Math.round(announcement.relevance_score * 100)}%
+                          {announcement.is_manual ? (
+                            <span className="text-purple-600 font-semibold">
+                              관련도: 100% <span className="text-gray-500 font-normal">(수동등록)</span>
                             </span>
+                          ) : (
+                            announcement.relevance_score && (
+                              <span>
+                                관련도: {Math.round(announcement.relevance_score * 100)}%{' '}
+                                <span className="text-gray-500">(AI분석)</span>
+                              </span>
+                            )
                           )}
                         </div>
                       </div>
@@ -558,118 +813,40 @@ export default function SubsidyAnnouncementsPage() {
           )}
         </div>
 
-        {/* 상세 모달 */}
+        {/* 상세 모달 - 새로운 프리미엄 디자인 */}
         {selectedAnnouncement && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-md md:rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-              <div className="p-2 sm:p-3 border-b flex items-center justify-between">
-                <h2 className="font-bold text-sm sm:text-base md:text-lg">공고 상세</h2>
-                <button
-                  onClick={() => setSelectedAnnouncement(null)}
-                  className="text-gray-400 hover:text-gray-600 text-lg sm:text-xl"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="p-2 sm:p-3 md:p-4 overflow-y-auto max-h-[calc(90vh-140px)]">
-                <div className="mb-3 sm:mb-4">
-                  <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded ${statusColors[selectedAnnouncement.status].bg} ${statusColors[selectedAnnouncement.status].text}`}>
-                    {statusColors[selectedAnnouncement.status].label}
-                  </span>
-                  <span className="text-xs sm:text-sm text-gray-500 ml-2">
-                    {extractRegionFromTitle(selectedAnnouncement.title, selectedAnnouncement.region_name)}
-                  </span>
-                </div>
-
-                <h3 className="text-base sm:text-lg md:text-xl font-bold mb-3 sm:mb-4">
-                  {cleanTitle(selectedAnnouncement.title)}
-                </h3>
-
-                <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4 text-xs sm:text-sm">
-                  <div className="bg-gray-50 rounded p-2 sm:p-3">
-                    <div className="text-gray-500 text-[10px] sm:text-xs">신청기간</div>
-                    <div className="font-medium text-xs sm:text-sm">
-                      {formatDate(selectedAnnouncement.application_period_start)} ~{' '}
-                      {formatDate(selectedAnnouncement.application_period_end)}
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 rounded p-2 sm:p-3">
-                    <div className="text-gray-500 text-[10px] sm:text-xs">예산</div>
-                    <div className="font-medium text-xs sm:text-sm">
-                      {selectedAnnouncement.budget || '-'}
-                    </div>
-                  </div>
-                </div>
-
-                {selectedAnnouncement.target_description && (
-                  <div className="mb-3 sm:mb-4">
-                    <div className="text-xs sm:text-sm text-gray-500 mb-1">지원대상</div>
-                    <div className="bg-gray-50 rounded p-2 sm:p-3 text-xs sm:text-sm">
-                      {selectedAnnouncement.target_description}
-                    </div>
-                  </div>
-                )}
-
-                {selectedAnnouncement.support_amount && (
-                  <div className="mb-3 sm:mb-4">
-                    <div className="text-xs sm:text-sm text-gray-500 mb-1">지원금액</div>
-                    <div className="bg-gray-50 rounded p-2 sm:p-3 text-xs sm:text-sm">
-                      {selectedAnnouncement.support_amount}
-                    </div>
-                  </div>
-                )}
-
-                {selectedAnnouncement.keywords_matched && selectedAnnouncement.keywords_matched.length > 0 && (
-                  <div className="mb-3 sm:mb-4">
-                    <div className="text-xs sm:text-sm text-gray-500 mb-1">매칭 키워드</div>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedAnnouncement.keywords_matched.map((kw, i) => (
-                        <span
-                          key={i}
-                          className="text-[10px] sm:text-xs bg-blue-100 text-blue-700 px-1.5 sm:px-2 py-0.5 rounded"
-                        >
-                          {kw}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <a
-                  href={selectedAnnouncement.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-blue-600 hover:underline text-xs sm:text-sm mb-3 sm:mb-4"
-                >
-                  원문 보기 →
-                </a>
-              </div>
-
-              {/* 액션 버튼 */}
-              <div className="p-2 sm:p-3 md:p-4 border-t bg-gray-50">
-                <div className="flex flex-wrap gap-1 sm:gap-2">
-                  <span className="text-xs sm:text-sm text-gray-500 mr-1 sm:mr-2">상태 변경:</span>
-                  {(['new', 'reviewing', 'applied', 'expired', 'not_relevant'] as AnnouncementStatus[]).map(
-                    status => (
-                      <button
-                        key={status}
-                        onClick={() => updateAnnouncementStatus(selectedAnnouncement.id, status)}
-                        className={`text-[10px] sm:text-xs px-2 sm:px-3 py-0.5 sm:py-1 rounded border transition-colors ${
-                          selectedAnnouncement.status === status
-                            ? `${statusColors[status].bg} ${statusColors[status].text} border-current`
-                            : 'bg-white hover:bg-gray-100'
-                        }`}
-                      >
-                        {statusColors[status].label}
-                      </button>
-                    )
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <AnnouncementDetailModal
+            announcement={selectedAnnouncement}
+            currentUserId={user?.id}
+            userPermissionLevel={user?.role}
+            onClose={() => setSelectedAnnouncement(null)}
+            onDelete={deleteAnnouncement}
+            onEdit={(announcement) => {
+              setEditingAnnouncement(announcement);
+              setSelectedAnnouncement(null);
+            }}
+          />
         )}
+
+        {/* 수동 공고 등록/수정 모달 */}
+        <ManualUploadModal
+          isOpen={showManualUploadModal || editingAnnouncement !== null}
+          onClose={() => {
+            setShowManualUploadModal(false);
+            setEditingAnnouncement(null);
+          }}
+          editMode={editingAnnouncement !== null}
+          existingData={editingAnnouncement}
+          onSuccess={async (announcementData, editMode) => {
+            if (editMode) {
+              // 수정 모드: updateAnnouncement 호출
+              return await updateAnnouncement(editingAnnouncement!.id, announcementData);
+            } else {
+              // 생성 모드: createAnnouncement 호출
+              return await createAnnouncement(announcementData);
+            }
+          }}
+        />
       </div>
     </AdminLayout>
   );

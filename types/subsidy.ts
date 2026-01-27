@@ -30,6 +30,10 @@ export interface SubsidyAnnouncement {
   relevance_score?: number;
   keywords_matched?: string[];
 
+  // 수동 등록 정보
+  is_manual: boolean;
+  created_by?: string;  // User ID (UUID)
+
   // 상태
   status: AnnouncementStatus;
   is_read: boolean;
@@ -37,7 +41,7 @@ export interface SubsidyAnnouncement {
 
   // 타임스탬프
   published_at?: string;
-  crawled_at: string;
+  crawled_at?: string;  // nullable for manual entries
   created_at: string;
   updated_at: string;
 }
@@ -89,6 +93,7 @@ export interface AnnouncementFilters {
   status?: AnnouncementStatus | 'all';
   isRelevant?: boolean;
   isRead?: boolean;
+  isManual?: boolean;  // Filter by manual vs crawled
   regionCode?: string;
   regionType?: RegionType;
   search?: string;
@@ -111,6 +116,21 @@ export interface GeminiAnalysisResult {
     support_amount?: string;
   };
   reasoning?: string;
+}
+
+// 수동 공고 등록 요청
+export interface ManualAnnouncementRequest {
+  region_name: string;              // Required
+  title: string;                    // Required
+  source_url: string;               // Required
+  content?: string;
+  application_period_start?: string;
+  application_period_end?: string;
+  budget?: string;
+  support_amount?: string;
+  target_description?: string;
+  published_at?: string;
+  notes?: string;
 }
 
 // 크롤링 요청
