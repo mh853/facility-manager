@@ -1,8 +1,8 @@
 // AWS Lambda Handler for Subsidy Crawler
-// 기존 Vercel API 로직을 Lambda 환경에 맞게 변환
+// Puppeteer + @sparticuz/chromium 조합으로 Lambda 환경 최적화
 
-const { chromium } = require('playwright-core');
-const chromiumPack = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 
 // Supabase 클라이언트 (Lambda 환경용)
 const { createClient } = require('@supabase/supabase-js');
@@ -11,7 +11,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Gemini AI 분석 함수 (간소화 버전)
+// Gemini AI 분석 함수
 async function analyzeWithGemini(content) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   if (!GEMINI_API_KEY) {
@@ -46,9 +46,13 @@ async function analyzeWithGemini(content) {
 // 페이지 타입 감지
 async function detectPageType(page) {
   try {
-    const detailLinks = await page.$$eval('a[href*="view"], a[href*="detail"], a[href*="board"]', links =>
-      links.slice(0, 5).map(a => a.href).filter(href => href && href.startsWith('http'))
-    );
+    const detailLinks = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('a[href*="view"], a[href*="detail"], a[href*="board"]'));
+      return links
+        .slice(0, 5)
+        .map(a => a.href)
+        .filter(href => href && href.startsWith('http'));
+    });
 
     if (detailLinks.length >= 3) {
       return { type: 'list', confidence: 0.8, detailLinks };
@@ -95,48 +99,17 @@ function validateContentQuality(content) {
   return { isValid: true, score: hasKeywords ? 0.9 : 0.6 };
 }
 
-// 날짜 정규화
-function normalizeDate(dateStr) {
-  if (!dateStr) return null;
-
-  try {
-    // "2024-01-15" 형식
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return dateStr;
-    }
-
-    // "2024.01.15" 형식
-    if (/^\d{4}\.\d{2}\.\d{2}$/.test(dateStr)) {
-      return dateStr.replace(/\./g, '-');
-    }
-
-    // 기타 형식 파싱 시도
-    const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0];
-    }
-  } catch (error) {
-    console.error('[DATE] 파싱 오류:', error);
-  }
-
-  return null;
-}
-
 // 메인 크롤링 함수
 async function crawlUrl(url, browser) {
   console.log(`\n🔍 [${url}] 크롤링 시작`);
 
   try {
-    const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    });
+    const page = await browser.newPage();
 
-    const page = await context.newPage();
-
-    // 페이지 로드 (30초 타임아웃 - Lambda 15분 타임아웃 충분)
+    // 페이지 로드
     await page.goto(url, {
       timeout: 30000,
-      waitUntil: 'domcontentloaded'
+      waitForNavigation: 'domcontentloaded'
     });
 
     // 페이지 타입 감지
@@ -146,12 +119,12 @@ async function crawlUrl(url, browser) {
     const announcements = [];
 
     if (pageType.type === 'list' && pageType.detailLinks.length > 0) {
-      // 목록 페이지: 모든 상세 페이지 크롤링 (Lambda는 타임아웃 제한 없음)
+      // 목록 페이지: 모든 상세 페이지 크롤링
       console.log(`  📋 목록 페이지 - ${pageType.detailLinks.length}개 링크 처리`);
 
       for (const link of pageType.detailLinks) {
         try {
-          await page.goto(link, { timeout: 30000, waitUntil: 'domcontentloaded' });
+          await page.goto(link, { timeout: 30000, waitForNavigation: 'domcontentloaded' });
 
           const extractionResult = await smartExtractContent(page);
           const content = extractionResult.content;
@@ -197,7 +170,7 @@ async function crawlUrl(url, browser) {
       }
     }
 
-    await context.close();
+    await page.close();
 
     console.log(`  ✅ 완료 - ${announcements.length}개 공고 발견`);
 
@@ -247,11 +220,12 @@ exports.handler = async (event) => {
 
     console.log(`📦 배치 ${batch_number} - ${urls.length}개 URL 처리`);
 
-    // Chromium 브라우저 시작
-    const browser = await chromium.launch({
-      args: chromiumPack.args,
-      executablePath: await chromiumPack.executablePath(),
-      headless: chromiumPack.headless
+    // Chromium 브라우저 시작 (Lambda 최적화)
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless
     });
 
     console.log('🌐 Chromium 브라우저 시작 완료');

@@ -1,13 +1,13 @@
 {
   "name": "subsidy-crawler-lambda",
   "version": "1.0.0",
-  "description": "AWS Lambda function for subsidy crawling with Playwright",
+  "description": "AWS Lambda function for subsidy crawling with Puppeteer",
   "main": "index.js",
   "scripts": {
     "deploy": "bash deploy-lambda.sh"
   },
   "dependencies": {
-    "playwright-core": "^1.49.1",
+    "puppeteer-core": "^23.11.1",
     "@sparticuz/chromium": "^143.0.4",
     "@supabase/supabase-js": "^2.39.0"
   },

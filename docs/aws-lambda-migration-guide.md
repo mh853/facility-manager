@@ -1,6 +1,22 @@
 # AWS Lambda 크롤링 서버 구축 가이드
 
-## 1. AWS Lambda Function 생성
+> ⚠️ **중요: 이 가이드는 실패한 시도를 기록한 문서입니다**
+>
+> **실패 원인**: AWS Lambda 기본 환경에 Chromium 실행에 필요한 시스템 라이브러리(libnss3.so 등)가 없어 브라우저 실행 불가
+>
+> **시도한 방법**:
+> - ✅ Playwright + @sparticuz/chromium
+> - ✅ Puppeteer + @sparticuz/chromium
+> - ✅ 다양한 Lambda Layer 조합
+> - ❌ 모두 동일한 시스템 라이브러리 부족 오류 발생
+>
+> **대안**: 이 문서 하단의 "별도 크롤링 서버 구축 가이드" 참조 (Railway, DigitalOcean 등)
+>
+> **정리 방법**: `lambda/subsidy-crawler/cleanup-lambda.sh` 실행
+>
+> ---
+
+## 1. AWS Lambda Function 생성 (⚠️ 작동하지 않음)
 
 ### 1.1 Lambda 함수 설정
 ```yaml

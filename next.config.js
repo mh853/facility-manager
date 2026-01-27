@@ -30,6 +30,18 @@ const nextConfig = {
     fetchCacheKeyPrefix: 'v1',
   },
 
+  // Webpack 설정 - Playwright + Chromium 모듈 해석 문제 해결
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // 서버 사이드에서 Playwright와 Chromium을 외부 모듈로 처리
+      config.externals.push({
+        'playwright-core': 'commonjs playwright-core',
+        '@sparticuz/chromium': 'commonjs @sparticuz/chromium',
+      });
+    }
+    return config;
+  },
+
   // Google Fonts 로딩 타임아웃 설정
   env: {
     NEXT_FONT_GOOGLE_MOCKED_RESPONSES: process.env.NODE_ENV === 'development' ? 'true' : undefined,
