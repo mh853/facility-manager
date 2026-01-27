@@ -44,6 +44,7 @@ export default function BusinessRevenueModal({
 
   // API에서 최신 계산 결과 가져오기 (Hook은 항상 최상위에서 호출)
   // ⚠️ 중요: isOpen이 true로 변경될 때만 실행 (모달 열릴 때만)
+  // ✨ 최적화: SessionStorage 캐싱으로 복귀 시 로딩 시간 단축
   useEffect(() => {
     // 조건 체크는 Hook 내부에서 수행
     if (!isOpen || !business || !business.id) {
@@ -55,6 +56,31 @@ export default function BusinessRevenueModal({
       setError(null);
 
       try {
+        // 1️⃣ 캐시 확인
+        const cacheKey = `revenue_calc_${business.id}`;
+        const cached = sessionStorage.getItem(cacheKey);
+
+        if (cached) {
+          try {
+            const { data, timestamp } = JSON.parse(cached);
+            const age = Date.now() - timestamp;
+            const TTL = 5 * 60 * 1000; // 5분
+
+            if (age < TTL) {
+              console.log('✅ [CACHE-HIT] Revenue 계산 캐시 사용:', business.business_name || business.사업장명);
+              setCalculatedData(data);
+              setIsRefreshing(false);
+              return; // 캐시 사용, API 호출 생략
+            } else {
+              console.log('⏰ [CACHE-EXPIRED] 캐시 만료, 재계산:', business.business_name || business.사업장명);
+            }
+          } catch (e) {
+            console.warn('⚠️ [CACHE-ERROR] 캐시 파싱 실패:', e);
+          }
+        }
+
+        // 2️⃣ API 호출 (캐시 없거나 만료된 경우)
+        console.log('🔄 [API-CALL] Revenue 계산 API 호출:', business.business_name || business.사업장명);
         const token = TokenManager.getToken();
         const response = await fetch('/api/revenue/calculate', {
           method: 'POST',
@@ -72,11 +98,18 @@ export default function BusinessRevenueModal({
 
         if (data.success && data.data && data.data.calculation) {
           setCalculatedData(data.data.calculation);
+
+          // 3️⃣ 캐시 저장
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            data: data.data.calculation,
+            timestamp: Date.now()
+          }));
+          console.log('💾 [CACHE-SET] Revenue 계산 결과 캐시 저장:', business.business_name || business.사업장명);
         } else {
           setError(data.message || '계산 결과를 가져올 수 없습니다.');
         }
       } catch (err) {
-        console.error('매출 계산 오류:', err);
+        console.error('❌ [API-ERROR] 매출 계산 오류:', err);
         setError('계산 중 오류가 발생했습니다.');
       } finally {
         setIsRefreshing(false);
@@ -115,6 +148,13 @@ export default function BusinessRevenueModal({
       setSurveyFeeForm({ amount: 0 });
     }
   }, [calculatedData?.survey_fee_adjustment, business?.survey_fee_adjustment]);
+
+  // 🗑️ 캐시 무효화 유틸리티 함수
+  const invalidateRevenueCache = (businessId: string) => {
+    const cacheKey = `revenue_calc_${businessId}`;
+    sessionStorage.removeItem(cacheKey);
+    console.log('🗑️ [CACHE-INVALIDATE] Revenue 캐시 삭제:', businessId);
+  };
 
   // 영업비용 조정 저장 핸들러
   const handleSaveAdjustment = async () => {
@@ -166,6 +206,8 @@ export default function BusinessRevenueModal({
 
         if (calcData.success && calcData.data && calcData.data.calculation) {
           setCalculatedData(calcData.data.calculation);
+          // 캐시 무효화 - 데이터가 변경되었으므로
+          invalidateRevenueCache(business.id);
         } else {
           alert('조정은 저장되었으나 매출 재계산에 실패했습니다. 페이지를 새로고침해주세요.');
         }
@@ -281,6 +323,8 @@ export default function BusinessRevenueModal({
 
         if (calcData.success && calcData.data && calcData.data.calculation) {
           setCalculatedData(calcData.data.calculation);
+          // 캐시 무효화 - 데이터가 변경되었으므로
+          invalidateRevenueCache(business.id);
         }
 
         setIsEditingSurveyFee(false);
@@ -392,17 +436,51 @@ export default function BusinessRevenueModal({
         <div className="flex flex-1 overflow-hidden">
           {/* 왼쪽: 메인 콘텐츠 (스크롤 가능) */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {/* 에러 메시지 */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-sm text-red-800">
-                ⚠️ {error}
-                <br />
-                <span className="text-xs text-red-600 mt-1">기존 저장된 데이터를 표시합니다.</span>
-              </p>
-            </div>
-          )}
-          {/* 사업장 기본 정보 */}
+            {/* 로딩 중 - 스켈레톤 UI */}
+            {isRefreshing && !calculatedData ? (
+              <div className="space-y-6 animate-pulse">
+                {/* 매출 정보 스켈레톤 */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <div className="h-6 bg-gray-300 rounded w-1/4 mb-4"></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="h-20 bg-gray-200 rounded"></div>
+                    <div className="h-20 bg-gray-200 rounded"></div>
+                    <div className="h-20 bg-gray-200 rounded"></div>
+                    <div className="h-20 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+
+                {/* 기기 목록 스켈레톤 */}
+                <div>
+                  <div className="h-6 bg-gray-300 rounded w-1/4 mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-16 bg-gray-100 rounded"></div>
+                    <div className="h-16 bg-gray-100 rounded"></div>
+                    <div className="h-16 bg-gray-100 rounded"></div>
+                  </div>
+                </div>
+
+                {/* 로딩 메시지 */}
+                <div className="text-center text-gray-500 py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-lg font-medium">매출 정보를 불러오는 중...</p>
+                  <p className="text-sm text-gray-400 mt-2">잠시만 기다려주세요</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* 에러 메시지 */}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-red-800">
+                      ⚠️ {error}
+                      <br />
+                      <span className="text-xs text-red-600 mt-1">기존 저장된 데이터를 표시합니다.</span>
+                    </p>
+                  </div>
+                )}
+
+                {/* 사업장 기본 정보 */}
           <div className="bg-gray-50 rounded-lg p-4 space-y-2">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -1012,6 +1090,8 @@ export default function BusinessRevenueModal({
                   ℹ️ 현재 읽기 전용 모드입니다. 정보 수정은 권한 레벨 2 이상이 필요합니다.
                 </p>
               </div>
+            )}
+              </>
             )}
           </div>
 
