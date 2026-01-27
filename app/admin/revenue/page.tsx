@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1781,5 +1781,23 @@ function VirtualizedTable({
   );
 }
 
+// Suspense로 감싸서 useSearchParams() 사용 가능하게 함
+function RevenuePage() {
+  return (
+    <Suspense fallback={
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-4"></div>
+            <p className="text-gray-600">로딩 중...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    }>
+      <RevenueDashboard />
+    </Suspense>
+  );
+}
+
 // 새로운 AuthGuard 시스템 적용 완료
-export default RevenueDashboard;
+export default RevenuePage;
