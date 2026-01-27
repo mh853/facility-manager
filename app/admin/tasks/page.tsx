@@ -57,6 +57,7 @@ type TaskStatus =
   | 'application_submit' | 'document_supplement' | 'document_preparation' | 'pre_construction_inspection'
   // 착공 보완 세분화
   | 'pre_construction_supplement_1st' | 'pre_construction_supplement_2nd'
+  | 'construction_report_submit' // 🆕 착공신고서 제출
   | 'pre_completion_document_submit' | 'completion_inspection'
   // 준공 보완 세분화
   | 'completion_supplement_1st' | 'completion_supplement_2nd' | 'completion_supplement_3rd'
@@ -149,6 +150,8 @@ const subsidySteps: Array<{status: TaskStatus, label: string, color: string}> = 
   // 착공 보완 세분화
   { status: 'pre_construction_supplement_1st', label: '착공 보완 1차', color: 'rose' },
   { status: 'pre_construction_supplement_2nd', label: '착공 보완 2차', color: 'fuchsia' },
+  // 🆕 착공신고서 제출 단계
+  { status: 'construction_report_submit', label: '착공신고서 제출', color: 'blue' },
   { status: 'product_order', label: '제품 발주', color: 'cyan' },
   { status: 'product_shipment', label: '제품 출고', color: 'emerald' },
   { status: 'installation_schedule', label: '설치 협의', color: 'teal' },
