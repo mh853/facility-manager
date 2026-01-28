@@ -428,155 +428,159 @@ export default function ActiveAnnouncementsModal({
         className="relative bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden transform transition-all duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
-        <div className="sticky top-0 z-10 bg-gradient-to-br from-indigo-50 to-slate-50 border-b border-gray-200/60 px-6 py-5">
-          <div className="flex items-center justify-between mb-4">
+        {/* Modal Header - Mobile Optimized */}
+        <div className="sticky top-0 z-10 bg-gradient-to-br from-indigo-50 to-slate-50 border-b border-gray-200/60">
+          {/* Title Bar - Compact */}
+          <div className="flex items-center justify-between px-3 py-3">
             <div>
-              <h2 id="modal-title" className="text-2xl font-bold text-gray-900 tracking-tight">
-                📋 신청 가능한 공고
+              <h2 id="modal-title" className="text-base font-bold text-gray-900 tracking-tight flex items-center gap-1.5">
+                <span className="text-lg">📋</span>
+                신청 가능한 공고
               </h2>
-              <p id="modal-description" className="text-sm text-gray-600 mt-1">
+              <p id="modal-description" className="text-xs text-gray-600 mt-0.5">
                 현재 신청기간이 유효한 공고 목록입니다
               </p>
             </div>
 
             <button
               onClick={handleClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
               aria-label="닫기"
             >
-              <X className="w-6 h-6 text-gray-500" />
+              <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
 
-          {/* Stats Summary - Clickable Filters */}
-          <div className="flex gap-3 flex-wrap">
-            <button
-              onClick={() => handleUrgencyFilter('all')}
-              className={`
-                flex items-center gap-2 px-3 py-2 rounded-lg transition-all
-                ${selectedUrgency === 'all'
-                  ? 'bg-gray-100 border-2 border-gray-400 shadow-md'
-                  : 'bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:shadow-sm'}
-              `}
-            >
-              <span className="text-lg">📋</span>
-              <span className="text-sm font-medium text-gray-800">전체 {sortedAnnouncements.length}건</span>
-            </button>
-            <button
-              onClick={() => handleUrgencyFilter('urgent')}
-              className={`
-                flex items-center gap-2 px-3 py-2 rounded-lg transition-all
-                ${selectedUrgency === 'urgent'
-                  ? 'bg-red-100 border-2 border-red-400 shadow-md'
-                  : 'bg-red-50 border border-red-200 hover:bg-red-100 hover:shadow-sm'}
-              `}
-            >
-              <span className="text-lg">🔥</span>
-              <span className="text-sm font-medium text-red-800">긴급 {stats.urgent}건</span>
-            </button>
-            <button
-              onClick={() => handleUrgencyFilter('warning')}
-              className={`
-                flex items-center gap-2 px-3 py-2 rounded-lg transition-all
-                ${selectedUrgency === 'warning'
-                  ? 'bg-amber-100 border-2 border-amber-400 shadow-md'
-                  : 'bg-amber-50 border border-amber-200 hover:bg-amber-100 hover:shadow-sm'}
-              `}
-            >
-              <span className="text-lg">⚠️</span>
-              <span className="text-sm font-medium text-amber-800">주의 {stats.warning}건</span>
-            </button>
-            <button
-              onClick={() => handleUrgencyFilter('safe')}
-              className={`
-                flex items-center gap-2 px-3 py-2 rounded-lg transition-all
-                ${selectedUrgency === 'safe'
-                  ? 'bg-emerald-100 border-2 border-emerald-400 shadow-md'
-                  : 'bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:shadow-sm'}
-              `}
-            >
-              <span className="text-lg">✅</span>
-              <span className="text-sm font-medium text-emerald-800">여유 {stats.safe}건</span>
-            </button>
-            <button
-              onClick={() => handleUrgencyFilter('ongoing')}
-              className={`
-                flex items-center gap-2 px-3 py-2 rounded-lg transition-all
-                ${selectedUrgency === 'ongoing'
-                  ? 'bg-purple-100 border-2 border-purple-400 shadow-md'
-                  : 'bg-purple-50 border border-purple-200 hover:bg-purple-100 hover:shadow-sm'}
-              `}
-            >
-              <span className="text-lg">♾️</span>
-              <span className="text-sm font-medium text-purple-800">예산소진시 {stats.ongoing}건</span>
-            </button>
-
-            {/* 미공고 지자체 배지 */}
-            {registeredRegions && registeredRegions.length > 0 && (
+          {/* Stats Summary - Horizontal Scroll (Mobile Optimized) */}
+          <div className="px-3 pb-3 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-2 w-max">
               <button
-                onClick={() => setShowUnannounceModal(true)}
+                onClick={() => handleUrgencyFilter('all')}
                 className={`
-                  flex items-center gap-2 px-3 py-2 rounded-lg transition-all
-                  ${unannounceRegions.length === 0
-                    ? 'bg-green-50 border border-green-200 cursor-default opacity-75'
-                    : 'bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:shadow-sm'}
+                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all flex-shrink-0
+                  ${selectedUrgency === 'all'
+                    ? 'bg-gray-100 border-2 border-gray-400 shadow-sm'
+                    : 'bg-gray-50 border border-gray-200 active:bg-gray-100'}
                 `}
-                disabled={unannounceRegions.length === 0}
               >
-                <span className="text-lg">{unannounceRegions.length === 0 ? '✅' : '📭'}</span>
-                <span className={`text-sm font-medium ${unannounceRegions.length === 0 ? 'text-green-800' : 'text-slate-800'}`}>
-                  {unannounceRegions.length === 0 ? '전체 지자체 공고 있음' : `미공고 지자체 ${unannounceRegions.length}곳`}
-                </span>
+                <span className="text-base">📋</span>
+                <span className="text-xs font-medium text-gray-800">전체 {sortedAnnouncements.length}건</span>
               </button>
-            )}
-          </div>
-        </div>
+              <button
+                onClick={() => handleUrgencyFilter('urgent')}
+                className={`
+                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all flex-shrink-0
+                  ${selectedUrgency === 'urgent'
+                    ? 'bg-red-100 border-2 border-red-400 shadow-sm'
+                    : 'bg-red-50 border border-red-200 active:bg-red-100'}
+                `}
+              >
+                <span className="text-base">🔥</span>
+                <span className="text-xs font-medium text-red-800">긴급 {stats.urgent}건</span>
+              </button>
+              <button
+                onClick={() => handleUrgencyFilter('warning')}
+                className={`
+                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all flex-shrink-0
+                  ${selectedUrgency === 'warning'
+                    ? 'bg-amber-100 border-2 border-amber-400 shadow-sm'
+                    : 'bg-amber-50 border border-amber-200 active:bg-amber-100'}
+                `}
+              >
+                <span className="text-base">⚠️</span>
+                <span className="text-xs font-medium text-amber-800">주의 {stats.warning}건</span>
+              </button>
+              <button
+                onClick={() => handleUrgencyFilter('safe')}
+                className={`
+                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all flex-shrink-0
+                  ${selectedUrgency === 'safe'
+                    ? 'bg-emerald-100 border-2 border-emerald-400 shadow-sm'
+                    : 'bg-emerald-50 border border-emerald-200 active:bg-emerald-100'}
+                `}
+              >
+                <span className="text-base">✅</span>
+                <span className="text-xs font-medium text-emerald-800">여유 {stats.safe}건</span>
+              </button>
+              <button
+                onClick={() => handleUrgencyFilter('ongoing')}
+                className={`
+                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all flex-shrink-0
+                  ${selectedUrgency === 'ongoing'
+                    ? 'bg-purple-100 border-2 border-purple-400 shadow-sm'
+                    : 'bg-purple-50 border border-purple-200 active:bg-purple-100'}
+                `}
+              >
+                <span className="text-base">♾️</span>
+                <span className="text-xs font-medium text-purple-800">예산소진시 {stats.ongoing}건</span>
+              </button>
 
-        {/* Filter Bar */}
-        <div className="px-6 py-4 bg-white border-b border-gray-200/60">
-          <div className="flex flex-wrap gap-3 items-center">
-            {/* Search Input */}
-            <div className="flex-1 min-w-[240px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="제목, 지역, 키워드 검색..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
-                />
-              </div>
+              {/* 미공고 지자체 배지 */}
+              {registeredRegions && registeredRegions.length > 0 && (
+                <button
+                  onClick={() => setShowUnannounceModal(true)}
+                  className={`
+                    flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all flex-shrink-0
+                    ${unannounceRegions.length === 0
+                      ? 'bg-green-50 border border-green-200 cursor-default opacity-75'
+                      : 'bg-slate-50 border border-slate-200 active:bg-slate-100'}
+                  `}
+                  disabled={unannounceRegions.length === 0}
+                >
+                  <span className="text-base">{unannounceRegions.length === 0 ? '✅' : '📭'}</span>
+                  <span className={`text-xs font-medium whitespace-nowrap ${unannounceRegions.length === 0 ? 'text-green-800' : 'text-slate-800'}`}>
+                    {unannounceRegions.length === 0 ? '전체 지자체 공고 있음' : `미공고 ${unannounceRegions.length}곳`}
+                  </span>
+                </button>
+              )}
             </div>
+          </div>
 
-            {/* Region Filter */}
-            <select
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
-              className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm font-medium"
-            >
-              <option value="all">전체 지역</option>
-              {uniqueRegions.map(region => (
-                <option key={region} value={region}>{region}</option>
-              ))}
-            </select>
+          {/* Filter Bar - Compact One Line (Mobile Optimized) */}
+          <div className="px-3 py-2 bg-white border-t border-gray-200/40">
+            <div className="flex gap-2 items-center">
+              {/* Search Input */}
+              <div className="flex-1 min-w-0">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="제목, 지역, 키워드 검색..."
+                    className="w-full pl-7 pr-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-xs"
+                  />
+                </div>
+              </div>
 
-            {/* Sort Dropdown */}
-            <select
-              value={`${sortField}-${sortOrder}`}
-              onChange={(e) => {
-                const [field, order] = e.target.value.split('-');
-                setSortField(field as SortField);
-                setSortOrder(order as SortOrder);
-              }}
-              className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm font-medium"
-            >
-              <option value="dday-asc">마감일 임박순</option>
-              <option value="dday-desc">마감일 여유순</option>
-              <option value="budget-desc">예산 높은순</option>
-              <option value="budget-asc">예산 낮은순</option>
-            </select>
+              {/* Region Filter - Compact */}
+              <select
+                value={selectedRegion}
+                onChange={(e) => setSelectedRegion(e.target.value)}
+                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-xs font-medium bg-white flex-shrink-0"
+              >
+                <option value="all">전체</option>
+                {uniqueRegions.map(region => (
+                  <option key={region} value={region}>{region}</option>
+                ))}
+              </select>
+
+              {/* Sort Dropdown - Compact */}
+              <select
+                value={`${sortField}-${sortOrder}`}
+                onChange={(e) => {
+                  const [field, order] = e.target.value.split('-');
+                  setSortField(field as SortField);
+                  setSortOrder(order as SortOrder);
+                }}
+                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-xs font-medium bg-white flex-shrink-0"
+              >
+                <option value="dday-asc">마감임박</option>
+                <option value="dday-desc">마감여유</option>
+                <option value="budget-desc">예산↓</option>
+                <option value="budget-asc">예산↑</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -736,8 +740,8 @@ export default function ActiveAnnouncementsModal({
           )}
         </div>
 
-        {/* Mobile Cards */}
-        <div className="md:hidden overflow-auto max-h-[calc(90vh-280px)] divide-y divide-gray-200">
+        {/* Mobile Cards - Optimized for Maximum Content */}
+        <div className="md:hidden overflow-auto max-h-[calc(90vh-200px)] divide-y divide-gray-100">
           {sortedAnnouncements.map((announcement) => {
             const ddayInfo = calculateDday(announcement.application_period_end!);
 
@@ -745,14 +749,14 @@ export default function ActiveAnnouncementsModal({
               <div
                 key={announcement.id}
                 onClick={() => onAnnouncementClick(announcement)}
-                className="p-4 hover:bg-indigo-50/50 cursor-pointer transition-colors"
+                className="p-3 active:bg-indigo-50/50 cursor-pointer transition-colors"
               >
-                {/* Card Header */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
-                    <span className="text-xl flex-shrink-0">{ddayInfo.icon}</span>
+                {/* Card Header - Compact */}
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0 mr-2">
+                    <span className="text-base flex-shrink-0">{ddayInfo.icon}</span>
                     <span
-                      className="text-sm font-medium text-gray-900 truncate"
+                      className="text-xs font-medium text-gray-700 truncate"
                       title={extractRegion(announcement.title, announcement.region_name)}
                     >
                       {extractRegion(announcement.title, announcement.region_name)}
@@ -760,59 +764,46 @@ export default function ActiveAnnouncementsModal({
                   </div>
 
                   <span className={`
-                    px-2.5 py-1 rounded-full text-xs font-bold flex-shrink-0 whitespace-nowrap
+                    px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 whitespace-nowrap
                     ${ddayInfo.urgency === 'urgent' ? 'bg-red-100 text-red-800' : ''}
                     ${ddayInfo.urgency === 'warning' ? 'bg-amber-100 text-amber-800' : ''}
                     ${ddayInfo.urgency === 'safe' ? 'bg-emerald-100 text-emerald-800' : ''}
                     ${ddayInfo.urgency === 'ongoing' ? 'bg-purple-100 text-purple-800' : ''}
                   `}>
-                    {ddayInfo.icon} {ddayInfo.label}
+                    {ddayInfo.label}
                   </span>
                 </div>
 
-                {/* Card Title */}
+                {/* Card Title - Matching body text size */}
                 <h3
-                  className="text-sm font-semibold text-gray-900 line-clamp-2 mb-3"
+                  className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2 leading-snug"
                   title={cleanTitle(announcement.title)}
                 >
                   {cleanTitle(announcement.title)}
                 </h3>
 
-                {/* Card Meta */}
-                <div className="flex items-center justify-between text-xs text-gray-600 mb-3">
+                {/* Card Meta - Compact */}
+                <div className="flex items-center justify-between text-xs text-gray-600">
                   <span className="flex items-center gap-1 truncate flex-1 min-w-0 mr-2" title={formatBudget(announcement.budget)}>
                     💰 <span className="truncate">{formatBudget(announcement.budget)}</span>
                   </span>
                   <span className="flex items-center gap-1 flex-shrink-0">
                     {announcement.application_period_end ? (
-                      <span className="whitespace-nowrap">📅 ~{formatDate(announcement.application_period_end)}</span>
+                      <span className="whitespace-nowrap">~{formatDate(announcement.application_period_end)}</span>
                     ) : (
-                      <span className="text-purple-700 font-medium whitespace-nowrap">📅 ~예산소진시</span>
+                      <span className="text-purple-700 font-medium whitespace-nowrap">~예산소진시</span>
                     )}
                   </span>
-                </div>
-
-                {/* Card Footer */}
-                <div className="flex items-center justify-end">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAnnouncementClick(announcement);
-                    }}
-                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium"
-                  >
-                    상세보기
-                  </button>
                 </div>
               </div>
             );
           })}
 
           {sortedAnnouncements.length === 0 && (
-            <div className="p-12 text-center text-gray-500">
-              <div className="text-4xl mb-4">📋</div>
-              <p className="text-base">조회된 공고가 없습니다.</p>
-              <p className="text-sm mt-2">필터 조건을 변경해보세요.</p>
+            <div className="p-8 text-center text-gray-500">
+              <div className="text-3xl mb-3">📋</div>
+              <p className="text-sm">조회된 공고가 없습니다.</p>
+              <p className="text-xs mt-1.5 text-gray-400">필터 조건을 변경해보세요.</p>
             </div>
           )}
         </div>
