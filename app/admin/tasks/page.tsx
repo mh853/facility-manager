@@ -210,6 +210,7 @@ function TaskManagementPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const [isCompactMode, setIsCompactMode] = useState(false)
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false) // 🆕 완료된 업무 표시 여부
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showEditHistory, setShowEditHistory] = useState(false)
@@ -681,9 +682,13 @@ function TaskManagementPage() {
         (task.assignees && Array.isArray(task.assignees) &&
          task.assignees.some((assignee: any) => assignee.name === selectedAssignee))
 
-      return matchesSearch && matchesType && matchesPriority && matchesAssignee
+      // 🆕 완료된 업무 필터링 (진행률 100% = 완료)
+      const isCompleted = task.progressPercentage === 100
+      const matchesCompletionFilter = showCompletedTasks || !isCompleted
+
+      return matchesSearch && matchesType && matchesPriority && matchesAssignee && matchesCompletionFilter
     })
-  }, [tasksWithDelayStatus, searchTerm, selectedType, selectedPriority, selectedAssignee])
+  }, [tasksWithDelayStatus, searchTerm, selectedType, selectedPriority, selectedAssignee, showCompletedTasks])
 
   // 페이지네이션을 위한 현재 페이지 업무 목록
   const paginatedTasks = useMemo(() => {
@@ -1432,6 +1437,33 @@ function TaskManagementPage() {
                   <option key={assignee} value={assignee}>{assignee}</option>
                 ))}
               </select>
+
+              {/* 🆕 완료된 업무 토글 버튼 */}
+              <button
+                onClick={() => setShowCompletedTasks(!showCompletedTasks)}
+                className={`
+                  px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap
+                  ${showCompletedTasks
+                    ? 'bg-green-100 text-green-700 border-2 border-green-300 shadow-sm'
+                    : 'bg-gray-100 text-gray-600 border-2 border-gray-200 hover:bg-gray-200'
+                  }
+                `}
+              >
+                <div className="flex items-center gap-1.5">
+                  {showCompletedTasks ? (
+                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                  ) : (
+                    <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                  )}
+                  <span className="hidden sm:inline">완료 업무 {showCompletedTasks ? '숨기기' : '보기'}</span>
+                  <span className="sm:hidden">완료</span>
+                  {showCompletedTasks && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-green-200 text-green-800 rounded-full text-xs font-semibold">
+                      {tasks.filter(t => t.progressPercentage === 100).length}
+                    </span>
+                  )}
+                </div>
+              </button>
             </div>
 
             {/* 검색창 */}
