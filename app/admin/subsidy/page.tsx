@@ -5,6 +5,7 @@ import AdminLayout from '@/components/ui/AdminLayout';
 import UrlDataManager from '@/components/admin/UrlDataManager';
 import ManualUploadModal from '@/components/subsidy/ManualUploadModal';
 import AnnouncementDetailModal from '@/components/subsidy/AnnouncementDetailModal';
+import ActiveAnnouncementsModal from '@/components/subsidy/ActiveAnnouncementsModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBrowserClient } from '@supabase/ssr';
 import { TokenManager } from '@/lib/api-client';
@@ -20,13 +21,16 @@ const statusColors: Record<AnnouncementStatus, { bg: string; text: string; label
 };
 
 export default function SubsidyAnnouncementsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, permissions, loading: authLoading } = useAuth();
   const [allAnnouncements, setAllAnnouncements] = useState<SubsidyAnnouncement[]>([]);
   const [stats, setStats] = useState<SubsidyDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<SubsidyAnnouncement | null>(null);
   const [showManualUploadModal, setShowManualUploadModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<SubsidyAnnouncement | null>(null);
+  const [showActiveAnnouncementsModal, setShowActiveAnnouncementsModal] = useState(false);
+  const [fromActiveModal, setFromActiveModal] = useState(false); // 신청가능한공고 모달에서 온 것인지 추적
+  const [registeredRegions, setRegisteredRegions] = useState<string[]>([]); // URL 관리에 등록된 지역 목록
 
   // Supabase 클라이언트 (단일 인스턴스, 컴포넌트 최상위에서 생성)
   const supabase = useMemo(() => createBrowserClient(
@@ -91,10 +95,25 @@ export default function SubsidyAnnouncementsPage() {
     }
   }, []);
 
+  // 등록된 지역 목록 로드
+  const loadRegisteredRegions = useCallback(async () => {
+    try {
+      const response = await fetch('/api/subsidy-crawler/registered-regions');
+      const data = await response.json();
+
+      if (data.success) {
+        setRegisteredRegions(data.data);
+        console.log('[Subsidy] 등록된 지역 목록 로드:', data.data.length, '곳');
+      }
+    } catch (error) {
+      console.error('등록된 지역 로드 실패:', error);
+    }
+  }, []);
+
   // 데이터 로드 함수 (컴포넌트 레벨)
   const loadData = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadAllAnnouncements(), loadStats()]);
+    await Promise.all([loadAllAnnouncements(), loadStats(), loadRegisteredRegions()]);
     setLoading(false);
   }, [loadAllAnnouncements, loadStats]);
 
@@ -404,12 +423,18 @@ export default function SubsidyAnnouncementsPage() {
 
   // 제목에서 실제 대상 지역명 추출
   // 패턴: [출처지역] [대상지역] 제목... 또는 [대상지역] 제목...
-  // 첫 번째 대괄호가 광역시/특별시면 출처이므로 두 번째 대괄호 사용
-  const extractRegionFromTitle = (title: string, fallback: string): string => {
+  // 지역명 추출 (region_name 우선, 없으면 제목에서 추출)
+  const extractRegionFromTitle = (title: string, regionName: string): string => {
+    // region_name이 있으면 우선 사용 (IoT 같은 잘못된 추출 방지)
+    if (regionName && regionName.trim()) {
+      return regionName;
+    }
+
+    // region_name이 없으면 제목에서 추출
     // 모든 대괄호 내용 추출
     const bracketMatches = title.match(/\[([^\]]+)\]/g);
     if (!bracketMatches || bracketMatches.length === 0) {
-      return fallback;
+      return '미분류';
     }
 
     // 지역명 매핑 (약어 → 전체 지역명)
@@ -578,8 +603,8 @@ export default function SubsidyAnnouncementsPage() {
           <UrlDataManager onUploadComplete={loadStats} user={user} supabase={supabase} />
         )}
 
-        {/* 수동 공고 등록 버튼 - 모든 인증된 사용자(권한 1~4) 접근 가능 */}
-        {!authLoading && user && user.role >= 1 && (
+        {/* 수동 공고 등록 버튼 - 게스트 제외, 일반 사용자 이상(권한 1~4) 접근 가능 */}
+        {!authLoading && user && !permissions?.isGuest && (
           <div className="bg-white rounded-md md:rounded-lg shadow p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -598,8 +623,8 @@ export default function SubsidyAnnouncementsPage() {
           </div>
         )}
 
-        {/* 디버깅: 권한 정보 표시 (개발 환경에서만) */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* 디버깅: 권한 정보 표시 (시스템 관리자만) */}
+        {process.env.NODE_ENV === 'development' && user?.role === 4 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 mb-4 text-xs">
             <strong>🔍 권한 디버그:</strong>
             {authLoading ? ' 로딩 중...' : (
@@ -663,7 +688,7 @@ export default function SubsidyAnnouncementsPage() {
                 <option value="crawled">🤖 자동수집</option>
               </select>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-[200px]">
               <label className="block text-[10px] sm:text-xs text-gray-500 mb-1">검색 (실시간 필터링)</label>
               <input
                 type="text"
@@ -675,6 +700,20 @@ export default function SubsidyAnnouncementsPage() {
                 placeholder="제목, 지역명으로 검색..."
                 className="w-full border rounded px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm"
               />
+            </div>
+            {/* 신청 가능한 공고 버튼 */}
+            <div>
+              <label className="block text-[10px] sm:text-xs text-gray-500 mb-1 opacity-0">버튼</label>
+              <button
+                onClick={() => setShowActiveAnnouncementsModal(true)}
+                className="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all text-sm font-medium whitespace-nowrap shadow-md hover:shadow-lg flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <span className="hidden sm:inline">신청가능 공고</span>
+                <span className="sm:hidden">공고</span>
+              </button>
             </div>
           </div>
         </div>
@@ -819,7 +858,15 @@ export default function SubsidyAnnouncementsPage() {
             announcement={selectedAnnouncement}
             currentUserId={user?.id}
             userPermissionLevel={user?.role}
-            onClose={() => setSelectedAnnouncement(null)}
+            isGuest={permissions?.isGuest || false}
+            onClose={() => {
+              setSelectedAnnouncement(null);
+              // 신청가능한공고 모달에서 왔으면 다시 그 모달로 복귀
+              if (fromActiveModal) {
+                setShowActiveAnnouncementsModal(true);
+                setFromActiveModal(false);
+              }
+            }}
             onDelete={deleteAnnouncement}
             onEdit={(announcement) => {
               setEditingAnnouncement(announcement);
@@ -847,6 +894,25 @@ export default function SubsidyAnnouncementsPage() {
             }
           }}
         />
+
+        {/* 신청 가능한 공고 모달 */}
+        {showActiveAnnouncementsModal && (
+          <ActiveAnnouncementsModal
+            isOpen={showActiveAnnouncementsModal}
+            onClose={() => {
+              setShowActiveAnnouncementsModal(false);
+              setFromActiveModal(false);
+            }}
+            announcements={allAnnouncements}
+            registeredRegions={registeredRegions}
+            onAnnouncementClick={(announcement) => {
+              setSelectedAnnouncement(announcement);
+              markAsRead(announcement);
+              setShowActiveAnnouncementsModal(false);
+              setFromActiveModal(true); // 신청가능한공고 모달에서 왔음을 표시
+            }}
+          />
+        )}
       </div>
     </AdminLayout>
   );
