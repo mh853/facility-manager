@@ -593,14 +593,14 @@ export default function SubsidyAnnouncementsPage() {
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-3 mb-4 sm:mb-6">
             <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-3">
-              <div className="text-xs sm:text-xs text-gray-500">전체 공고</div>
-              <div className="text-base sm:text-lg md:text-xl font-bold text-gray-900">
+              <div className="text-xs sm:text-xs text-gray-500">관련 공고</div>
+              <div className="text-base sm:text-lg md:text-xl font-bold text-blue-600">
                 {stats.total_announcements}
               </div>
             </div>
             <div className="bg-white rounded-md md:rounded-lg shadow p-2 sm:p-3 md:p-3">
-              <div className="text-xs sm:text-xs text-gray-500">관련 공고</div>
-              <div className="text-base sm:text-lg md:text-xl font-bold text-blue-600">
+              <div className="text-xs sm:text-xs text-gray-500">높은 관련성</div>
+              <div className="text-base sm:text-lg md:text-xl font-bold text-blue-700">
                 {stats.relevant_announcements}
               </div>
             </div>

@@ -10,10 +10,13 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // GET: 대시보드 통계
 export async function GET(request: NextRequest) {
   try {
-    // 전체 공고 수
+    // 전체 관련 공고 수 (relevance_score >= 0.75)
+    // 주의: 실제로는 "관련 공고 전체"를 의미하며, 무관 공고는 제외됨
     const { count: totalCount } = await supabase
       .from('subsidy_announcements')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .eq('is_relevant', true)
+      .gte('relevance_score', 0.75);
 
     // 관련 공고 수 (relevance_score >= 0.75)
     const { count: relevantCount } = await supabase
