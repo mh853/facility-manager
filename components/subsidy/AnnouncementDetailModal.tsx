@@ -9,6 +9,7 @@ interface AnnouncementDetailModalProps {
   announcement: SubsidyAnnouncement;
   currentUserId?: string;
   userPermissionLevel?: number;
+  isGuest?: boolean; // 게스트 사용자 여부
   onClose: () => void;
   onDelete: (id: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   onEdit: (announcement: SubsidyAnnouncement) => void;
@@ -36,14 +37,15 @@ export default function AnnouncementDetailModal({
   announcement,
   currentUserId,
   userPermissionLevel = 1,
+  isGuest = false,
   onClose,
   onDelete,
   onEdit
 }: AnnouncementDetailModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // 수정/삭제 권한 체크
-  const canEdit = announcement.is_manual && (
+  // 수정/삭제 권한 체크 - 게스트는 수정/삭제 불가
+  const canEdit = !isGuest && announcement.is_manual && (
     announcement.created_by === currentUserId || userPermissionLevel >= 4
   );
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ManualAnnouncementRequest } from '@/types/subsidy';
 import { TokenManager } from '@/lib/api-client';
 
@@ -48,6 +48,42 @@ export default function ManualUploadModal({ isOpen, onClose, onSuccess, editMode
   });
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // editMode와 existingData가 변경될 때 폼 데이터 업데이트
+  useEffect(() => {
+    if (editMode && existingData) {
+      setFormData({
+        region_name: existingData.region_name || '',
+        title: existingData.title || '',
+        source_url: existingData.source_url || '',
+        content: existingData.content || '',
+        application_period_start: existingData.application_period_start || '',
+        application_period_end: existingData.application_period_end || '',
+        budget: existingData.budget || '',
+        support_amount: existingData.support_amount || '',
+        target_description: existingData.target_description || '',
+        published_at: existingData.published_at ? existingData.published_at.split('T')[0] : '',
+        notes: existingData.notes || ''
+      });
+    } else if (!isOpen) {
+      // 모달이 닫힐 때 폼 초기화
+      setFormData({
+        region_name: '',
+        title: '',
+        source_url: '',
+        content: '',
+        application_period_start: '',
+        application_period_end: '',
+        budget: '',
+        support_amount: '',
+        target_description: '',
+        published_at: '',
+        notes: ''
+      });
+      setValidationErrors({});
+      setError(null);
+    }
+  }, [editMode, existingData, isOpen]);
 
   if (!isOpen) return null;
 

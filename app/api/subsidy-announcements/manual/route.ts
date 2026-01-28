@@ -61,6 +61,20 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Block guests (level 0) from editing
+    if (userData.permission_level < 1) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'PERMISSION_DENIED',
+            message: '게스트는 공고를 수정할 수 없습니다.'
+          }
+        },
+        { status: 403 }
+      );
+    }
+
     // Parse request body
     const body = await request.json();
     const { id, ...updateData } = body;
@@ -173,6 +187,20 @@ export async function DELETE(request: NextRequest) {
     if (userError || !userData) {
       return NextResponse.json(
         { success: false, error: 'User not found' },
+        { status: 403 }
+      );
+    }
+
+    // Block guests (level 0) from deleting
+    if (userData.permission_level < 1) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'PERMISSION_DENIED',
+            message: '게스트는 공고를 삭제할 수 없습니다.'
+          }
+        },
         { status: 403 }
       );
     }
@@ -313,7 +341,13 @@ export async function POST(request: NextRequest) {
     if (userData.permission_level < 1) {
       console.error('[Manual Upload API] Insufficient permissions. Level:', userData.permission_level, 'Required: 1+');
       return NextResponse.json(
-        { success: false, error: 'Insufficient permissions. Authenticated user access required (permission_level 1+).' },
+        {
+          success: false,
+          error: {
+            code: 'PERMISSION_DENIED',
+            message: '게스트는 공고를 등록할 수 없습니다.'
+          }
+        },
         { status: 403 }
       );
     }
