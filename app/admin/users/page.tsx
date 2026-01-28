@@ -514,12 +514,19 @@ function UsersManagementPage() {
         }
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.message || '사용자 업데이트 실패');
+
+        // 권한 관련 에러 메시지 강조
+        if (response.status === 403) {
+          alert(`⚠️ 권한 부족\n\n${errorData.message}`);
+        } else {
+          alert(`❌ 업데이트 실패\n\n${errorData.message || '사용자 업데이트 중 오류가 발생했습니다.'}`);
+        }
+        return;
       }
     } catch (error) {
-      console.error('사용자 업데이트 오류:', error);
-      const errorMessage = error instanceof Error ? error.message : '사용자 업데이트 중 오류가 발생했습니다.';
-      alert(`사용자 업데이트 실패: ${errorMessage}`);
+      console.error('❌ [USER-EDIT] 사용자 업데이트 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : '네트워크 오류가 발생했습니다.';
+      alert(`❌ 시스템 오류\n\n${errorMessage}`);
     }
   };
 
@@ -797,9 +804,11 @@ function UsersManagementPage() {
 
   const getPermissionLabel = (level: number) => {
     switch (level) {
+      case 4: return { text: '시스템', color: 'text-purple-600 bg-purple-50 border-purple-200' };
       case 3: return { text: '관리자', color: 'text-red-600 bg-red-50 border-red-200' };
       case 2: return { text: '매니저', color: 'text-orange-600 bg-orange-50 border-orange-200' };
-      case 1: return { text: '일반사용자', color: 'text-blue-600 bg-blue-50 border-blue-200' };
+      case 1: return { text: '일반', color: 'text-blue-600 bg-blue-50 border-blue-200' };
+      case 0: return { text: '게스트', color: 'text-gray-600 bg-gray-50 border-gray-200' };
       default: return { text: '사용자', color: 'text-gray-600 bg-gray-50 border-gray-200' };
     }
   };
@@ -979,9 +988,12 @@ function UsersManagementPage() {
                     className="border border-gray-300 rounded-md px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                   >
                     <option value="all">모든 권한</option>
+                    {/* 시스템 권한은 시스템 관리자만 필터링 가능 */}
+                    {user?.permission_level === 4 && <option value={4}>시스템</option>}
                     <option value={3}>관리자</option>
                     <option value={2}>매니저</option>
-                    <option value={1}>일반사용자</option>
+                    <option value={1}>일반</option>
+                    <option value={0}>게스트</option>
                   </select>
 
                   <select
@@ -1290,10 +1302,22 @@ function UsersManagementPage() {
                       defaultValue={editingUser.permission_level}
                       className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm"
                     >
-                      <option value={1}>일반사용자</option>
-                      <option value={2}>매니저</option>
-                      <option value={3}>관리자</option>
+                      <option value={0}>게스트 (읽기 전용)</option>
+                      <option value={1}>일반 (기본 업무)</option>
+                      <option value={2}>매니저 (매출관리)</option>
+                      <option value={3}>관리자 (사용자 관리)</option>
+                      {/* 시스템 권한(4)은 시스템 관리자만 볼 수 있음 */}
+                      {user?.permission_level === 4 && (
+                        <option value={4}>시스템 (최고 권한)</option>
+                      )}
                     </select>
+
+                    {/* 권한 설명 추가 */}
+                    <p className="text-[8px] sm:text-[9px] md:text-xs text-gray-500 mt-1">
+                      {user?.permission_level === 4
+                        ? '시스템 권한은 최고 권한자만 설정 가능합니다.'
+                        : '관리자 권한까지 설정할 수 있습니다.'}
+                    </p>
                   </div>
                 </div>
 

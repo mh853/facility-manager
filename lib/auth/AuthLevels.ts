@@ -5,19 +5,19 @@
  * 레벨이 높을수록 더 많은 권한을 가짐
  */
 export enum AuthLevel {
-  /** 누구나 접근 가능 - 로그인 페이지, 홈페이지 등 */
-  PUBLIC = 0,
+  /** 게스트 - 로그인 필요, 읽기 전용 */
+  GUEST = 0,
 
-  /** 로그인 필요 - 일반 직원, 기본 업무 */
+  /** 일반 - 일반 직원, 기본 업무 */
   AUTHENTICATED = 1,
 
-  /** 관리자 권한 필요 - 매출관리, 시스템 설정 등 */
-  ADMIN = 2,
+  /** 매니저 - 관리자 권한, 매출관리, 시스템 설정 등 */
+  MANAGER = 2,
 
-  /** 슈퍼 관리자 권한 - 원가관리 등 */
-  SUPER_ADMIN = 3,
+  /** 관리자 - 슈퍼 관리자 권한, 원가관리 등 */
+  ADMIN = 3,
 
-  /** 시스템 관리자 권한 - 슈퍼 관리자가 수정 불가능한 시스템 설정 */
+  /** 시스템 - 시스템 관리자 권한, 최고 권한 */
   SYSTEM_ADMIN = 4
 }
 
@@ -25,11 +25,11 @@ export enum AuthLevel {
  * 권한 레벨 설명
  */
 export const AUTH_LEVEL_DESCRIPTIONS = {
-  [AuthLevel.PUBLIC]: '누구나 접근 가능',
-  [AuthLevel.AUTHENTICATED]: '일반 직원',
+  [AuthLevel.GUEST]: '게스트 (읽기 전용)',
+  [AuthLevel.AUTHENTICATED]: '일반',
+  [AuthLevel.MANAGER]: '매니저',
   [AuthLevel.ADMIN]: '관리자',
-  [AuthLevel.SUPER_ADMIN]: '슈퍼 관리자',
-  [AuthLevel.SYSTEM_ADMIN]: '시스템 관리자'
+  [AuthLevel.SYSTEM_ADMIN]: '시스템'
 } as const;
 
 /**

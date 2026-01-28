@@ -7,29 +7,25 @@ import { AuthLevel } from './AuthLevels';
  * 새로운 페이지 추가 시 이곳에 권한 레벨을 정의하세요
  */
 export const PAGE_AUTH_LEVELS = {
-  // PUBLIC 페이지 - 누구나 접근 가능
-  '/': AuthLevel.PUBLIC,
-  '/login': AuthLevel.PUBLIC,
-  '/about': AuthLevel.PUBLIC,
+  // GUEST 페이지 - 게스트 접근 가능 (로그인 필요, 읽기 전용)
+  '/': AuthLevel.GUEST,
+  '/admin/subsidy': AuthLevel.GUEST, // 보조금 공고 조회
 
-  // AUTHENTICATED 페이지 - 로그인 필요
+  // AUTHENTICATED 페이지 - 일반 사용자 (레벨 1 이상)
   '/admin/business': AuthLevel.AUTHENTICATED,
   '/admin/tasks': AuthLevel.AUTHENTICATED,
   '/admin/data-history': AuthLevel.AUTHENTICATED,
 
-  // ADMIN 페이지 - 관리자 권한 필요
-  '/admin/revenue': AuthLevel.ADMIN,
-  '/admin/air-permit': AuthLevel.ADMIN,
-  '/admin/users': AuthLevel.ADMIN,
+  // MANAGER 페이지 - 매니저 권한 필요 (레벨 2 이상)
+  '/admin/revenue': AuthLevel.MANAGER,
+  '/admin/air-permit': AuthLevel.MANAGER,
+  '/admin/users': AuthLevel.MANAGER,
 
-  // SUPER_ADMIN 페이지 - 슈퍼 관리자 권한 필요 (레벨 3 이상)
-  '/admin': AuthLevel.SUPER_ADMIN, // 관리자 대시보드 - 레벨 3 이상
-  '/admin/revenue/pricing': AuthLevel.SUPER_ADMIN,
-  '/admin/settings': AuthLevel.SUPER_ADMIN,
-  '/admin/system': AuthLevel.SUPER_ADMIN,
-
-  // 테스트 페이지 - 개발 환경에서만 접근 가능
-  '/admin/revenue/test': AuthLevel.PUBLIC, // 테스트용이므로 PUBLIC
+  // ADMIN 페이지 - 관리자 권한 필요 (레벨 3 이상)
+  '/admin': AuthLevel.ADMIN, // 관리자 대시보드
+  '/admin/revenue/pricing': AuthLevel.ADMIN,
+  '/admin/settings': AuthLevel.ADMIN,
+  '/admin/system': AuthLevel.ADMIN,
 } as const;
 
 /**

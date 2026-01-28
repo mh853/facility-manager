@@ -44,23 +44,44 @@ export class AuthGuard {
   private static configManager = AuthConfigManager.getInstance();
 
   /**
+   * 인증 없이 접근 가능한 페이지 목록
+   */
+  private static readonly AUTH_EXEMPT_PAGES = [
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/set-password',
+    '/change-password',
+    '/reset-password',
+    '/terms',
+    '/privacy',
+  ];
+
+  /**
+   * 인증 면제 페이지 여부 확인
+   */
+  private static isAuthExemptPage(pathname: string): boolean {
+    return this.AUTH_EXEMPT_PAGES.some(page => pathname.startsWith(page));
+  }
+
+  /**
    * 페이지 접근 권한 확인
    */
   static async checkPageAccess(pathname: string, user?: AuthUser | null): Promise<AuthResult> {
     const requiredLevel = PagePermissions.getRequiredLevel(pathname);
     const config = this.configManager.getConfig();
 
-    // 공개 페이지는 항상 허용
-    if (requiredLevel === AuthLevel.PUBLIC) {
+    // 1. 인증 면제 페이지는 로그인 없이 접근 가능
+    if (this.isAuthExemptPage(pathname)) {
       return {
         allowed: true,
-        userLevel: user?.permission_level ?? AuthLevel.PUBLIC,
-        requiredLevel,
+        userLevel: user?.permission_level ?? AuthLevel.GUEST,
+        requiredLevel: AuthLevel.GUEST,
         bypassed: false
       };
     }
 
-    // 개발 환경에서 인증 우회
+    // 2. 개발 환경에서 인증 우회
     if (config.bypassAuth && !this.configManager.isProduction()) {
       const devUserLevel = config.defaultUserLevel;
       return {
@@ -71,12 +92,12 @@ export class AuthGuard {
       };
     }
 
-    // 사용자 로그인 상태 확인
+    // 3. 모든 일반 페이지는 로그인 필요 (GUEST 레벨 이상)
     if (!user) {
       return {
         allowed: false,
         redirectTo: `/login?redirect=${encodeURIComponent(pathname)}`,
-        userLevel: AuthLevel.PUBLIC,
+        userLevel: AuthLevel.GUEST,
         requiredLevel,
         bypassed: false,
         error: '로그인이 필요합니다.'

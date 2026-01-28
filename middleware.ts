@@ -53,15 +53,15 @@ function setSecurityHeaders(response: NextResponse): void {
   }
 }
 
-// 공개 경로 확인 (로그인 없이 접근 가능한 페이지)
-function isPublicRoute(pathname: string): boolean {
-  const publicRoutes = [
-    '/', // 루트 페이지 공개 (로그인 불필요)
+// 인증 면제 경로 확인 (로그인 없이 접근 가능한 페이지)
+function isAuthExemptRoute(pathname: string): boolean {
+  const exemptRoutes = [
     '/login',
     '/signup',
     '/forgot-password',
     '/set-password',
     '/change-password',
+    '/reset-password',
     '/terms',
     '/privacy',
     '/api/health',
@@ -70,12 +70,7 @@ function isPublicRoute(pathname: string): boolean {
     '/favicon.ico'
   ];
 
-  // 실사관리 상세 페이지는 공개 (business/[businessName] 패턴)
-  if (pathname.startsWith('/business/')) {
-    return true;
-  }
-
-  return publicRoutes.some(route => pathname.startsWith(route));
+  return exemptRoutes.some(route => pathname.startsWith(route));
 }
 
 // 정적 파일 확인
@@ -182,8 +177,8 @@ async function protectAPIRoute(request: NextRequest): Promise<NextResponse | nul
 
 // 페이지 인증 및 권한 확인
 async function checkPageAuthentication(request: NextRequest): Promise<NextResponse | null> {
-  // httpOnly 쿠키에서 토큰 확인
-  const token = request.cookies.get('auth_token')?.value;
+  // 🔧 httpOnly 쿠키에서 session_token 확인 (auth_token에서 변경됨)
+  const token = request.cookies.get('session_token')?.value;
 
   // 🔍 디버깅: 쿠키 정보 로깅
   console.log(`🔍 [MIDDLEWARE] 페이지 인증 체크 - Path: ${request.nextUrl.pathname}`, {
@@ -202,46 +197,52 @@ async function checkPageAuthentication(request: NextRequest): Promise<NextRespon
     return NextResponse.redirect(loginUrl);
   }
 
-  // JWT 토큰 검증 및 권한 확인
+  // ✅ Edge Runtime 호환: JWT 검증을 간소화
+  // Edge Runtime에서는 Node.js crypto 모듈을 사용할 수 없으므로
+  // 쿠키 존재 여부만 확인하고, 실제 검증은 페이지/API 레벨에서 수행
+
+  // JWT 토큰 기본 구조 확인 (형식만 체크, 서명 검증 안 함)
   try {
-    const jwt = require('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
-
-    const decodedToken = jwt.verify(token, JWT_SECRET);
-
-    // ✅ 권한 레벨 확인 추가
-    const { pathname } = request.nextUrl;
-
-    // AuthGuard를 사용하여 페이지 권한 확인
-    const { AuthGuard } = require('@/lib/auth/AuthGuard');
-    const authResult = await AuthGuard.checkPageAccess(pathname, {
-      id: decodedToken.id,
-      name: decodedToken.name,
-      email: decodedToken.email,
-      permission_level: decodedToken.permission_level || 1
-    });
-
-    if (!authResult.allowed) {
-      // 권한 부족 시 접근 거부 페이지 또는 메인으로 리다이렉트
-      const redirectUrl = new URL(authResult.redirectTo || '/login', request.url);
-
-      console.warn(`[SECURITY] Permission denied for ${pathname} - User level: ${authResult.userLevel}, Required: ${authResult.requiredLevel}`);
-
-      return NextResponse.redirect(redirectUrl);
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      throw new Error('Invalid JWT structure');
     }
 
-    // 토큰이 유효하고 권한이 충분하면 계속 진행
+    // JWT payload 디코딩 (검증 없이)
+    const payload = JSON.parse(atob(parts[1]));
+
+    // 만료 시간 체크
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      throw new Error('Token expired');
+    }
+
+    console.log('✅ [MIDDLEWARE] JWT 구조 확인 완료:', {
+      path: request.nextUrl.pathname,
+      userId: payload.id || payload.userId,
+      permissionLevel: payload.permission_level
+    });
+
+    // 토큰이 유효한 형식이면 계속 진행
+    // 실제 서명 검증은 페이지/API에서 수행됨
     return null;
+
   } catch (error) {
+    // JWT 구조가 잘못되었거나 만료됨
+    console.error('❌ [MIDDLEWARE] JWT 기본 검증 실패:', {
+      path: request.nextUrl.pathname,
+      error: error instanceof Error ? error.message : String(error),
+      tokenPreview: token.substring(0, 20) + '...'
+    });
+
     // 토큰이 유효하지 않으면 로그인 페이지로 리다이렉트
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', request.nextUrl.pathname);
 
-    console.warn(`[SECURITY] Invalid token for ${request.nextUrl.pathname} from ${request.ip}`);
+    console.warn(`[SECURITY] Invalid token structure for ${request.nextUrl.pathname} from ${request.ip}`);
 
     // 유효하지 않은 쿠키 제거
     const response = NextResponse.redirect(loginUrl);
-    response.cookies.delete('auth_token');
+    response.cookies.delete('session_token');
 
     return response;
   }
@@ -277,8 +278,8 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // 일반 페이지 처리 - 인증이 필요한 페이지 확인
-  if (!isPublicRoute(pathname)) {
+  // 일반 페이지 처리 - 인증 면제 페이지가 아니면 인증 확인
+  if (!isAuthExemptRoute(pathname)) {
     const authResult = await checkPageAuthentication(request);
     if (authResult) {
       setSecurityHeaders(authResult);

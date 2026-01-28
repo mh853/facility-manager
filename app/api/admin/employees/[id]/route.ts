@@ -209,11 +209,63 @@ export async function PUT(
     updateValues.push(mobile?.trim() || null);
     paramIndex++;
 
-    // 권한 레벨은 명시적으로 전달된 경우에만 업데이트 (관리자만 가능)
-    if (permission_level !== undefined && permissionLevel >= 3 && !isSelfUpdate) {
+    // 권한 레벨 수정 요청이 있는지 확인 (0도 유효한 값이므로 !== null 체크)
+    if (permission_level !== undefined && permission_level !== null) {
+      // 자신의 권한은 수정 불가
+      if (isSelfUpdate) {
+        console.warn('⚠️ [PERMISSION-UPDATE] 자신의 권한 수정 시도 차단:', userId);
+        return NextResponse.json(
+          { success: false, message: '자신의 권한 레벨은 변경할 수 없습니다.' },
+          { status: 403 }
+        );
+      }
+
+      // 권한 수정 권한 확인 (레벨 3 이상 필요)
+      if (permissionLevel < 3) {
+        console.warn('⚠️ [PERMISSION-UPDATE] 권한 부족:', { userId, permissionLevel });
+        return NextResponse.json(
+          { success: false, message: '권한 수정 권한이 없습니다. 관리자 이상만 가능합니다.' },
+          { status: 403 }
+        );
+      }
+
+      // 시스템 권한(4) 설정은 시스템 권한자만 가능
+      if (permission_level === 4 && permissionLevel < 4) {
+        console.warn('⚠️ [PERMISSION-UPDATE] 시스템 권한 설정 시도 차단:', {
+          userId,
+          permissionLevel,
+          requestedLevel: permission_level
+        });
+        return NextResponse.json(
+          {
+            success: false,
+            message: '시스템 권한(레벨 4)은 시스템 관리자만 설정할 수 있습니다.'
+          },
+          { status: 403 }
+        );
+      }
+
+      // 유효한 권한 레벨 범위 확인 (0-4)
+      if (permission_level < 0 || permission_level > 4) {
+        console.warn('⚠️ [PERMISSION-UPDATE] 유효하지 않은 권한 레벨:', permission_level);
+        return NextResponse.json(
+          { success: false, message: '유효하지 않은 권한 레벨입니다 (0-4).' },
+          { status: 400 }
+        );
+      }
+
+      // 권한 레벨 업데이트
       updateFields.push(`permission_level = $${paramIndex}`);
       updateValues.push(permission_level);
       paramIndex++;
+
+      console.log('🔐 [PERMISSION-UPDATE] 권한 변경 요청:', {
+        targetUserId: params.id,
+        requestedBy: userId,
+        requestedByLevel: permissionLevel,
+        newPermissionLevel: permission_level,
+        previousLevel: currentEmployee?.permission_level
+      });
     }
     // 자신의 프로필 업데이트 시 권한 레벨 유지
     else if (currentEmployee) {
@@ -241,7 +293,12 @@ export async function PUT(
       );
     }
 
-    console.log('✅ [USER-UPDATE] 업데이트 성공:', params.id);
+    console.log('✅ [USER-UPDATE] 업데이트 성공:', {
+      userId: params.id,
+      updatedFields: updateFields,
+      permissionLevelChanged: permission_level !== undefined && permission_level !== null,
+      newPermissionLevel: updatedEmployee.permission_level
+    });
 
     return NextResponse.json({
       success: true,

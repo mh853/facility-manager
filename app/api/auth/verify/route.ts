@@ -20,12 +20,12 @@ export async function POST(request: NextRequest) {
       token = authHeader.substring(7); // "Bearer " 제거
       console.log('🔑 [AUTH] 헤더에서 토큰 발견');
     }
-    // 2. 쿠키에서 토큰 확인 (헤더에 없는 경우)
+    // 2. 쿠키에서 session_token 확인 (헤더에 없는 경우) - auth_token에서 변경됨
     else {
-      const cookieToken = request.cookies.get('auth_token')?.value;
+      const cookieToken = request.cookies.get('session_token')?.value;
       if (cookieToken) {
         token = cookieToken;
-        console.log('🍪 [AUTH] 쿠키에서 토큰 발견');
+        console.log('🍪 [AUTH] session_token 쿠키에서 토큰 발견');
       }
     }
 
@@ -93,15 +93,20 @@ export async function POST(request: NextRequest) {
       data: {
         user: employee,
         permissions: {
+          // 게스트 관련 권한
+          isGuest: employee.role === 0,
+          canViewSubsidyAnnouncements: employee.role >= 0, // 게스트도 조회 가능
+
+          // 기존 권한 (게스트는 false)
           canViewAllTasks: employee.role >= 1,
-          canCreateTasks: true,
-          canEditTasks: true,
+          canCreateTasks: employee.role >= 1,
+          canEditTasks: employee.role >= 1,
           canDeleteTasks: employee.role >= 1,
-          canViewReports: true,
+          canViewReports: employee.role >= 1,
           canApproveReports: employee.role >= 1,
           canAccessAdminPages: employee.role >= 3,
           canViewSensitiveData: employee.role >= 3,
-          canDeleteAutoMemos: employee.role === 4 // 슈퍼 관리자만
+          canDeleteAutoMemos: employee.role === 4 // 시스템 관리자만
         },
         socialAccounts: socialAccounts || []
       },
