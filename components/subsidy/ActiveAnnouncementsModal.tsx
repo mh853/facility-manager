@@ -3,9 +3,11 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { X, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import type { SubsidyAnnouncement } from '@/types/subsidy';
+import { setModalHideForToday } from '@/utils/modalHideControl';
 
 interface ActiveAnnouncementsModalProps {
   isOpen: boolean;
+  openMode?: 'auto' | 'manual' | null; // 모달 오픈 모드
   onClose: () => void;
   announcements: SubsidyAnnouncement[];
   registeredRegions?: string[]; // URL 관리에 등록된 지역 목록
@@ -25,6 +27,7 @@ interface DdayInfo {
 
 export default function ActiveAnnouncementsModal({
   isOpen,
+  openMode,
   onClose,
   announcements,
   registeredRegions,
@@ -36,6 +39,7 @@ export default function ActiveAnnouncementsModal({
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [selectedUrgency, setSelectedUrgency] = useState<UrgencyLevel | 'all'>('all');
   const [showUnannounceModal, setShowUnannounceModal] = useState(false); // 미공고 지자체 모달
+  const [hideForToday, setHideForToday] = useState(false); // 오늘 하루 그만보기 체크박스
 
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -47,6 +51,16 @@ export default function ActiveAnnouncementsModal({
     } else {
       setSelectedUrgency(urgency);
     }
+  };
+
+  // 모달 닫기 핸들러 (오늘 하루 그만보기 처리)
+  const handleClose = () => {
+    // auto 모드이고 체크박스가 체크된 경우에만 localStorage에 저장
+    if (openMode === 'auto' && hideForToday) {
+      setModalHideForToday();
+      console.log('[Modal] 오늘 하루 그만보기 설정 저장됨');
+    }
+    onClose();
   };
 
   // D-day 계산 및 긴급도 판정
@@ -396,7 +410,7 @@ export default function ActiveAnnouncementsModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
+      onClick={handleClose}
     >
       {/* Backdrop */}
       <div
@@ -427,7 +441,7 @@ export default function ActiveAnnouncementsModal({
             </div>
 
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               aria-label="닫기"
             >
@@ -806,12 +820,31 @@ export default function ActiveAnnouncementsModal({
         {/* Modal Footer */}
         <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              총 <span className="font-bold text-gray-900">{sortedAnnouncements.length}</span>건의 신청 가능한 공고
+            {/* Left: 오늘 하루 그만보기 체크박스 (auto 모드일 때만 표시) */}
+            <div className="flex items-center gap-4">
+              {openMode === 'auto' && (
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={hideForToday}
+                    onChange={(e) => setHideForToday(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2 cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-600 group-hover:text-gray-800 transition-colors select-none">
+                    오늘 하루 그만보기
+                  </span>
+                </label>
+              )}
+              {openMode !== 'auto' && (
+                <div className="text-sm text-gray-600">
+                  총 <span className="font-bold text-gray-900">{sortedAnnouncements.length}</span>건의 신청 가능한 공고
+                </div>
+              )}
             </div>
 
+            {/* Right: 닫기 버튼 */}
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium"
             >
               닫기

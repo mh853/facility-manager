@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createBrowserClient } from '@supabase/ssr';
 import { TokenManager } from '@/lib/api-client';
 import type { SubsidyAnnouncement, SubsidyDashboardStats, AnnouncementStatus } from '@/types/subsidy';
+import { shouldHideModal } from '@/utils/modalHideControl';
 
 // 상태별 색상
 const statusColors: Record<AnnouncementStatus, { bg: string; text: string; label: string }> = {
@@ -29,6 +30,7 @@ export default function SubsidyAnnouncementsPage() {
   const [showManualUploadModal, setShowManualUploadModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<SubsidyAnnouncement | null>(null);
   const [showActiveAnnouncementsModal, setShowActiveAnnouncementsModal] = useState(false);
+  const [modalOpenMode, setModalOpenMode] = useState<'auto' | 'manual' | null>(null); // 모달 오픈 모드
   const [fromActiveModal, setFromActiveModal] = useState(false); // 신청가능한공고 모달에서 온 것인지 추적
   const [registeredRegions, setRegisteredRegions] = useState<string[]>([]); // URL 관리에 등록된 지역 목록
 
@@ -121,6 +123,31 @@ export default function SubsidyAnnouncementsPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // 자동 팝업 로직 - 오늘 하루 그만보기 설정 확인
+  useEffect(() => {
+    // 로딩 중이거나 공고가 없으면 실행하지 않음
+    if (loading || allAnnouncements.length === 0) return;
+
+    // localStorage에서 오늘 하루 그만보기 설정 확인
+    if (shouldHideModal()) {
+      console.log('[Subsidy] 오늘 하루 그만보기 설정됨 - 자동 팝업 억제');
+      return;
+    }
+
+    // 신청 가능한 공고 개수 계산 (마감일이 없거나 오늘 이후인 공고)
+    const activeCount = allAnnouncements.filter(a => {
+      if (!a.application_period_end) return true;
+      return new Date(a.application_period_end) >= new Date();
+    }).length;
+
+    // 신청 가능한 공고가 있으면 자동으로 모달 표시
+    if (activeCount > 0) {
+      console.log('[Subsidy] 신청 가능한 공고 발견 - 자동 팝업 표시:', activeCount, '건');
+      setModalOpenMode('auto');
+      setShowActiveAnnouncementsModal(true);
+    }
+  }, [loading, allAnnouncements]);
 
   // 클라이언트 사이드 필터링 (useMemo로 자동 적용)
   const filteredAnnouncements = useMemo(() => {
@@ -705,7 +732,10 @@ export default function SubsidyAnnouncementsPage() {
             <div>
               <label className="block text-[10px] sm:text-xs text-gray-500 mb-1 opacity-0">버튼</label>
               <button
-                onClick={() => setShowActiveAnnouncementsModal(true)}
+                onClick={() => {
+                  setModalOpenMode('manual');
+                  setShowActiveAnnouncementsModal(true);
+                }}
                 className="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all text-sm font-medium whitespace-nowrap shadow-md hover:shadow-lg flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -899,9 +929,11 @@ export default function SubsidyAnnouncementsPage() {
         {showActiveAnnouncementsModal && (
           <ActiveAnnouncementsModal
             isOpen={showActiveAnnouncementsModal}
+            openMode={modalOpenMode}
             onClose={() => {
               setShowActiveAnnouncementsModal(false);
               setFromActiveModal(false);
+              setModalOpenMode(null);
             }}
             announcements={allAnnouncements}
             registeredRegions={registeredRegions}
@@ -910,6 +942,7 @@ export default function SubsidyAnnouncementsPage() {
               markAsRead(announcement);
               setShowActiveAnnouncementsModal(false);
               setFromActiveModal(true); // 신청가능한공고 모달에서 왔음을 표시
+              setModalOpenMode(null);
             }}
           />
         )}
