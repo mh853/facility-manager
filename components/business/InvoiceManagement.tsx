@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { BusinessInfo } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { AUTH_LEVEL_DESCRIPTIONS } from '@/lib/auth/AuthLevels';
 
 interface InvoiceManagementProps {
   business: BusinessInfo;
@@ -203,7 +204,7 @@ export const InvoiceManagement: React.FC<InvoiceManagementProps> = ({ business, 
     }
   ) => {
     if (!canEdit) {
-      alert('권한이 없습니다. 권한 레벨 1 이상 필요합니다.');
+      alert('권한이 없습니다. 일반 이상 권한이 필요합니다.');
       return;
     }
 

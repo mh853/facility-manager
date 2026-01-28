@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { TokenManager } from '@/lib/api-client';
 import AdminLayout from '@/components/ui/AdminLayout';
 import { ProtectedPage } from '@/components/auth/ProtectedPage';
-import { AuthLevel } from '@/lib/auth/AuthLevels';
+import { AuthLevel, AUTH_LEVEL_DESCRIPTIONS } from '@/lib/auth/AuthLevels';
 import StatsCard from '@/components/ui/StatsCard';
 import Modal, { ModalActions } from '@/components/ui/Modal';
 import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
@@ -964,7 +964,7 @@ function RevenueDashboard() {
                 if (userPermission >= 3) {
                   router.push('/admin/revenue/pricing');
                 } else {
-                  alert(`원가 관리는 권한 레벨 3 이상이 필요합니다. 현재 권한: ${userPermission}`);
+                  alert(`원가 관리는 관리자 이상 권한이 필요합니다. 현재 권한: ${AUTH_LEVEL_DESCRIPTIONS[userPermission as keyof typeof AUTH_LEVEL_DESCRIPTIONS]}`);
                 }
               }}
               disabled={userPermission < 3}
@@ -973,7 +973,7 @@ function RevenueDashboard() {
                   ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer'
                   : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-50'
               }`}
-              title={userPermission < 3 ? `권한 부족: 레벨 ${userPermission} (필요: 레벨 3+)` : '원가 관리 페이지로 이동'}
+              title={userPermission < 3 ? `권한 부족: ${AUTH_LEVEL_DESCRIPTIONS[userPermission as keyof typeof AUTH_LEVEL_DESCRIPTIONS]} (필요: 관리자 이상)` : '원가 관리 페이지로 이동'}
             >
               <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">원가 관리</span>

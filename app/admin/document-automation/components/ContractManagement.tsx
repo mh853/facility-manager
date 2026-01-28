@@ -17,6 +17,7 @@ import {
   Settings
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { AUTH_LEVEL_DESCRIPTIONS } from '@/lib/auth/AuthLevels'
 
 // Code Splitting: 모달 컴포넌트는 사용할 때만 로드
 const ContractPreviewModal = dynamic(() => import('./ContractPreviewModal'), {
@@ -404,7 +405,7 @@ export default function ContractManagement({ onDocumentCreated }: ContractManage
 
   const handleDeleteContract = async (contractId: string) => {
     if (!canDelete) {
-      alert('삭제 권한이 없습니다. (권한 4 이상 필요)')
+      alert('삭제 권한이 없습니다. (시스템 권한 필요)')
       return
     }
 
@@ -484,7 +485,7 @@ export default function ContractManagement({ onDocumentCreated }: ContractManage
       <div className="text-center py-12">
         <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-gray-700">접근 권한이 없습니다</h3>
-        <p className="text-sm text-gray-500 mt-2">계약서 관리는 권한 1 이상만 사용할 수 있습니다.</p>
+        <p className="text-sm text-gray-500 mt-2">계약서 관리는 일반 이상 권한이 필요합니다.</p>
       </div>
     )
   }
@@ -496,7 +497,7 @@ export default function ContractManagement({ onDocumentCreated }: ContractManage
         <div>
           <h2 className="text-2xl font-bold text-gray-900">계약서 관리</h2>
           <p className="text-sm text-gray-600 mt-1">
-            현재 권한: {userPermissionLevel}
+            현재 권한: {AUTH_LEVEL_DESCRIPTIONS[userPermissionLevel as keyof typeof AUTH_LEVEL_DESCRIPTIONS]}
             {canCreate && ' (생성/수정 가능)'}
             {canDelete && ' (삭제 가능)'}
           </p>

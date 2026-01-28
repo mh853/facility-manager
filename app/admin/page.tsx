@@ -12,7 +12,7 @@ import DashboardCustomizer from '@/components/dashboard/DashboardCustomizer'
 import { DashboardFilters } from '@/types/dashboard'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { AuthGuard, AuthUser } from '@/lib/auth/AuthGuard'
-import { AuthLevel } from '@/lib/auth/AuthLevels'
+import { AuthLevel, AUTH_LEVEL_DESCRIPTIONS } from '@/lib/auth/AuthLevels'
 
 interface Widget {
   id: string;
@@ -109,7 +109,7 @@ export default function AdminDashboard() {
         console.warn(`[ADMIN] Access denied - User level: ${authResult.userLevel}, Required: ${authResult.requiredLevel}`)
 
         // 권한 부족 메시지와 함께 메인 페이지로 리다이렉트
-        alert(`관리자 대시보드는 슈퍼 관리자 권한(레벨 3) 이상이 필요합니다.\n현재 권한: 레벨 ${authResult.userLevel}`)
+        alert(`관리자 대시보드는 슈퍼 관리자 권한(관리자) 이상이 필요합니다.\n현재 권한: ${AUTH_LEVEL_DESCRIPTIONS[authResult.userLevel as keyof typeof AUTH_LEVEL_DESCRIPTIONS]}`)
         router.push('/')
         return
       }

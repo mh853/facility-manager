@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { X, Shield } from 'lucide-react';
 import { authAPI, TokenManager } from '@/lib/api-client';
 import { Employee } from '@/types';
+import { AUTH_LEVEL_DESCRIPTIONS } from '@/lib/auth/AuthLevels';
 
 interface SocialAccount {
   id: string;
@@ -22,6 +23,11 @@ interface AuthContextType {
   user: Employee | null;
   socialAccounts: SocialAccount[] | null;
   permissions: {
+    // 게스트 관련 권한
+    isGuest: boolean;
+    canViewSubsidyAnnouncements: boolean;
+
+    // 기존 권한
     canViewAllTasks: boolean;
     canCreateTasks: boolean;
     canEditTasks: boolean;
@@ -30,7 +36,7 @@ interface AuthContextType {
     canApproveReports: boolean;
     canAccessAdminPages: boolean;
     canViewSensitiveData: boolean;
-    canDeleteAutoMemos: boolean; // 슈퍼 관리자만 자동 메모 삭제 가능
+    canDeleteAutoMemos: boolean; // 시스템 관리자만 자동 메모 삭제 가능
   } | null;
   loading: boolean;
   socialLogin: (token: string, userData: any, isNewUser: boolean) => Promise<{ success: boolean; error?: string }>;
@@ -262,6 +268,11 @@ export function usePermission() {
   const { permissions } = useAuth();
 
   return {
+    // 게스트 권한
+    isGuest: permissions?.isGuest || false,
+    canViewSubsidyAnnouncements: permissions?.canViewSubsidyAnnouncements || false,
+
+    // 기존 권한
     canViewAllTasks: permissions?.canViewAllTasks || false,
     canCreateTasks: permissions?.canCreateTasks || false,
     canEditTasks: permissions?.canEditTasks || false,
@@ -324,8 +335,8 @@ export function withAuth<P extends object>(
               <X className="w-8 h-8 text-red-600" />
             </div>
             <h1 className="text-xl font-bold text-gray-900 mb-4">접근 권한 부족</h1>
-            <p className="text-gray-600 mb-2">이 페이지는 <strong>레벨 {requiredLevel}</strong> 이상의 권한이 필요합니다.</p>
-            <p className="text-sm text-gray-500 mb-6">현재 권한: 레벨 {user.role}</p>
+            <p className="text-gray-600 mb-2">이 페이지는 <strong>{AUTH_LEVEL_DESCRIPTIONS[requiredLevel as keyof typeof AUTH_LEVEL_DESCRIPTIONS]}</strong> 이상의 권한이 필요합니다.</p>
+            <p className="text-sm text-gray-500 mb-6">현재 권한: {AUTH_LEVEL_DESCRIPTIONS[user.role as keyof typeof AUTH_LEVEL_DESCRIPTIONS]}</p>
             <button
               onClick={() => router.back()}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

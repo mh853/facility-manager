@@ -23,7 +23,7 @@ function LoginForm() {
   // 이미 로그인된 사용자는 리다이렉트
   useEffect(() => {
     if (user && !authLoading) {
-      const redirectTo = searchParams?.get('redirect') || '/admin'
+      const redirectTo = searchParams?.get('redirect') || '/'
       console.log('✅ 이미 로그인됨, 리다이렉트:', redirectTo)
       // ✅ 즉시 리다이렉트 (이미 로그인된 상태이므로 쿠키 존재 보장)
       window.location.href = redirectTo
@@ -76,7 +76,7 @@ function LoginForm() {
           setSuccessMessage('로그인되었습니다!')
 
           // ✅ 쿠키 설정 확인 후 리다이렉트 (폴링 방식)
-          const redirectTo = searchParams?.get('redirect') || '/admin'
+          const redirectTo = searchParams?.get('redirect') || '/'
           console.log('🔄 로그인 성공, 쿠키 확인 시작')
 
           let attempts = 0
