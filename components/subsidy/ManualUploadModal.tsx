@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ManualAnnouncementRequest } from '@/types/subsidy';
 import { TokenManager } from '@/lib/api-client';
+import { X } from 'lucide-react';
 
 interface ManualUploadModalProps {
   isOpen: boolean;
@@ -227,19 +228,24 @@ export default function ManualUploadModal({ isOpen, onClose, onSuccess, editMode
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">{editMode ? '✏️ 공고 수정' : '✍️ 수동 공고 등록'}</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl"
-              disabled={isSubmitting}
-            >
-              ×
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden transform transition-all animate-slideUp">
+        {/* Gradient Header */}
+        <div className="relative bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-full transition-colors"
+            disabled={isSubmitting}
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <h2 className="text-base md:text-lg font-bold leading-tight pr-12">
+            {editMode ? '✏️ 공고 수정' : '✍️ 수동 공고 등록'}
+          </h2>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
 
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -247,7 +253,7 @@ export default function ManualUploadModal({ isOpen, onClose, onSuccess, editMode
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="manual-upload-form" onSubmit={handleSubmit} className="space-y-4">
             {/* Region Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -432,30 +438,34 @@ export default function ManualUploadModal({ isOpen, onClose, onSuccess, editMode
               />
             </div>
 
-            {/* Form Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                disabled={isSubmitting}
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (editMode ? '수정 중...' : '등록 중...') : (editMode ? '수정하기' : '등록하기')}
-              </button>
-            </div>
           </form>
 
           <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
             <p className="text-sm text-purple-800">
               💡 <strong>수동 등록 공고는 자동으로 관련도 100%로 설정됩니다.</strong>
             </p>
+          </div>
+        </div>
+
+        {/* Fixed Footer with Actions */}
+        <div className="border-t border-gray-200 p-4 bg-gray-50">
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              disabled={isSubmitting}
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              form="manual-upload-form"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (editMode ? '수정 중...' : '등록 중...') : (editMode ? '수정하기' : '등록하기')}
+            </button>
           </div>
         </div>
       </div>
