@@ -308,7 +308,9 @@ import {
   Wallet,
   Receipt,
   CalendarClock,
-  ChevronDown
+  ChevronDown,
+  ChevronUp,
+  Check
 } from 'lucide-react'
 
 // 대한민국 지자체 목록
@@ -785,17 +787,19 @@ function BusinessManagementPage() {
   const [filterProjectYears, setFilterProjectYears] = useState<string[]>([])
   const [filterCurrentSteps, setFilterCurrentSteps] = useState<string[]>([])
 
-  // 제출일 필터 상태 (개별 항목)
+  // 상세 필터 상태 (제출일 + 설치완료)
   const [submissionDateFilters, setSubmissionDateFilters] = useState<{
     order_date: boolean;
     construction_report: boolean;
     greenlink_confirmation: boolean;
     attachment_completion: boolean;
+    installation_complete: boolean;
   }>({
     order_date: false,
     construction_report: false,
     greenlink_confirmation: false,
-    attachment_completion: false
+    attachment_completion: false,
+    installation_complete: false
   })
   const [isSubmissionFilterExpanded, setIsSubmissionFilterExpanded] = useState<boolean>(false)
 
@@ -807,13 +811,14 @@ function BusinessManagementPage() {
     }))
   }
 
-  // 제출일 필터 초기화 함수
+  // 상세 필터 초기화 함수
   const clearSubmissionFilters = () => {
     setSubmissionDateFilters({
       order_date: false,
       construction_report: false,
       greenlink_confirmation: false,
-      attachment_completion: false
+      attachment_completion: false,
+      installation_complete: false
     })
   }
 
@@ -1506,7 +1511,7 @@ function BusinessManagementPage() {
       })
     }
 
-    // 제출일 필터 적용 (개별 항목)
+    // 상세 필터 적용 (제출일 + 설치완료)
     if (hasActiveSubmissionFilter) {
       filtered = filtered.filter(b => {
         // 하나라도 활성화된 필터가 있으면, 해당 필터 조건을 만족해야 함
@@ -1523,6 +1528,9 @@ function BusinessManagementPage() {
         }
         if (submissionDateFilters.attachment_completion) {
           matchesFilter = matchesFilter && !!b.attachment_completion_submitted_at
+        }
+        if (submissionDateFilters.installation_complete) {
+          matchesFilter = matchesFilter && !!b.installation_date
         }
 
         return matchesFilter
@@ -3528,6 +3536,26 @@ function BusinessManagementPage() {
       )
     },
     {
+      key: 'sales_office' as string,
+      title: '영업점',
+      width: '90px',
+      render: (item: any) => {
+        const office = item.sales_office || item.영업점 || '-'
+
+        return (
+          <div className="text-center">
+            {office === '-' ? (
+              <span className="text-gray-400 text-xs">-</span>
+            ) : (
+              <span className="px-2 py-1 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                {searchQuery ? highlightSearchTerm(office, searchQuery) : office}
+              </span>
+            )}
+          </div>
+        )
+      }
+    },
+    {
       key: 'manufacturer' as string,
       title: '제조사',
       width: '100px',
@@ -3629,6 +3657,27 @@ function BusinessManagementPage() {
             <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getProgressStatusStyle(normalizedStatus)}`}>
               {normalizedStatus}
             </span>
+          </div>
+        )
+      }
+    },
+    {
+      key: 'installation_status' as string,
+      title: '설치완료',
+      width: '80px',
+      render: (item: any) => {
+        const hasInstallation = !!item.installation_date
+
+        return (
+          <div className="flex justify-center items-center">
+            {hasInstallation ? (
+              <div className="flex items-center gap-1">
+                <Check className="w-4 h-4 text-green-600" />
+                <span className="text-xs text-green-600 font-medium">완료</span>
+              </div>
+            ) : (
+              <span className="text-xs text-gray-400">-</span>
+            )}
           </div>
         )
       }
@@ -3987,20 +4036,22 @@ function BusinessManagementPage() {
                   </div>
                 </div>
 
-                {/* 제출일 필터 (접기/펼치기 지원) */}
+                {/* 상세 필터 (제출일 + 설치완료) */}
                 <div className="mt-3 pt-3 border-t border-gray-200">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <CalendarClock className="w-4 h-4 text-blue-600" />
-                      <h4 className="text-sm md:text-sm font-semibold text-gray-800">제출일 필터</h4>
+                      <Filter className="w-4 h-4 text-blue-600" />
+                      <h4 className="text-sm md:text-sm font-semibold text-gray-800">상세 필터</h4>
                       <button
                         onClick={() => setIsSubmissionFilterExpanded(!isSubmissionFilterExpanded)}
                         className="ml-1 text-gray-500 hover:text-gray-700 transition-colors"
                         aria-label={isSubmissionFilterExpanded ? '필터 접기' : '필터 펼치기'}
                       >
-                        <ChevronDown
-                          className={`w-4 h-4 transition-transform duration-200 ${isSubmissionFilterExpanded ? 'rotate-180' : ''}`}
-                        />
+                        {isSubmissionFilterExpanded ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                     {hasActiveSubmissionFilter && (
@@ -4013,8 +4064,8 @@ function BusinessManagementPage() {
                     )}
                   </div>
 
-                  {/* 제출일 필터 버튼들 (접기/펼치기 애니메이션) */}
-                  <div className={`grid grid-cols-2 md:grid-cols-4 gap-2 transition-all duration-300 overflow-hidden ${
+                  {/* 상세 필터 버튼들 (접기/펼치기 애니메이션) */}
+                  <div className={`grid grid-cols-2 md:grid-cols-5 gap-2 transition-all duration-300 overflow-hidden ${
                     isSubmissionFilterExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
                   }`}>
                     <button
@@ -4078,6 +4129,22 @@ function BusinessManagementPage() {
                           submissionDateFilters.attachment_completion ? 'bg-blue-500' : 'bg-gray-300'
                         }`} />
                         부착완료
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => toggleSubmissionFilter('installation_complete')}
+                      className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                        submissionDateFilters.installation_complete
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-300 hover:border-green-300 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          submissionDateFilters.installation_complete ? 'bg-green-500' : 'bg-gray-300'
+                        }`} />
+                        설치완료
                       </div>
                     </button>
                   </div>
