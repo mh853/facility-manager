@@ -17,6 +17,14 @@ function normalizeUTF8(str: string): string {
   return str.normalize('NFC');
 }
 
+// Date field normalization function - converts empty strings to null
+function normalizeDateField(value: any): string | null {
+  if (!value || value === '' || value === 'null' || value === 'undefined') {
+    return null;
+  }
+  return value;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -779,38 +787,38 @@ async function executeBatchUpload(
           additional_cost: business.additional_cost ? parseInt(business.additional_cost) : null,
           negotiation: normalizeUTF8(business.negotiation || ''),
           order_manager: normalizeUTF8(business.order_manager || ''),
-          order_request_date: business.order_request_date || null,
-          order_date: business.order_date || null,
-          shipment_date: business.shipment_date || null,
-          installation_date: business.installation_date || null,
+          order_request_date: normalizeDateField(business.order_request_date),
+          order_date: normalizeDateField(business.order_date),
+          shipment_date: normalizeDateField(business.shipment_date),
+          installation_date: normalizeDateField(business.installation_date),
           estimate_survey_manager: normalizeUTF8(business.estimate_survey_manager || ''),
-          estimate_survey_date: business.estimate_survey_date || null,
+          estimate_survey_date: normalizeDateField(business.estimate_survey_date),
           pre_construction_survey_manager: normalizeUTF8(business.pre_construction_survey_manager || ''),
-          pre_construction_survey_date: business.pre_construction_survey_date || null,
+          pre_construction_survey_date: normalizeDateField(business.pre_construction_survey_date),
           completion_survey_manager: normalizeUTF8(business.completion_survey_manager || ''),
-          completion_survey_date: business.completion_survey_date || null,
-          invoice_1st_date: business.invoice_1st_date || null,
+          completion_survey_date: normalizeDateField(business.completion_survey_date),
+          invoice_1st_date: normalizeDateField(business.invoice_1st_date),
           invoice_1st_amount: business.invoice_1st_amount ? parseInt(business.invoice_1st_amount) : null,
-          payment_1st_date: business.payment_1st_date || null,
+          payment_1st_date: normalizeDateField(business.payment_1st_date),
           payment_1st_amount: business.payment_1st_amount ? parseInt(business.payment_1st_amount) : null,
-          invoice_2nd_date: business.invoice_2nd_date || null,
+          invoice_2nd_date: normalizeDateField(business.invoice_2nd_date),
           invoice_2nd_amount: business.invoice_2nd_amount ? parseInt(business.invoice_2nd_amount) : null,
-          payment_2nd_date: business.payment_2nd_date || null,
+          payment_2nd_date: normalizeDateField(business.payment_2nd_date),
           payment_2nd_amount: business.payment_2nd_amount ? parseInt(business.payment_2nd_amount) : null,
-          invoice_additional_date: business.invoice_additional_date || null,
-          payment_additional_date: business.payment_additional_date || null,
+          invoice_additional_date: normalizeDateField(business.invoice_additional_date),
+          payment_additional_date: normalizeDateField(business.payment_additional_date),
           payment_additional_amount: business.payment_additional_amount ? parseInt(business.payment_additional_amount) : null,
-          invoice_advance_date: business.invoice_advance_date || null,
+          invoice_advance_date: normalizeDateField(business.invoice_advance_date),
           invoice_advance_amount: business.invoice_advance_amount ? parseInt(business.invoice_advance_amount) : null,
-          payment_advance_date: business.payment_advance_date || null,
+          payment_advance_date: normalizeDateField(business.payment_advance_date),
           payment_advance_amount: business.payment_advance_amount ? parseInt(business.payment_advance_amount) : null,
-          invoice_balance_date: business.invoice_balance_date || null,
+          invoice_balance_date: normalizeDateField(business.invoice_balance_date),
           invoice_balance_amount: business.invoice_balance_amount ? parseInt(business.invoice_balance_amount) : null,
-          payment_balance_date: business.payment_balance_date || null,
+          payment_balance_date: normalizeDateField(business.payment_balance_date),
           payment_balance_amount: business.payment_balance_amount ? parseInt(business.payment_balance_amount) : null,
-          construction_report_submitted_at: business.construction_report_submitted_at || null,
-          greenlink_confirmation_submitted_at: business.greenlink_confirmation_submitted_at || null,
-          attachment_completion_submitted_at: business.attachment_completion_submitted_at || null,
+          construction_report_submitted_at: normalizeDateField(business.construction_report_submitted_at),
+          greenlink_confirmation_submitted_at: normalizeDateField(business.greenlink_confirmation_submitted_at),
+          attachment_completion_submitted_at: normalizeDateField(business.attachment_completion_submitted_at),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           is_active: true,
