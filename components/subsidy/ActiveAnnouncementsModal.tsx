@@ -538,26 +538,26 @@ export default function ActiveAnnouncementsModal({
 
           {/* Filter Bar - Compact One Line (Mobile Optimized) */}
           <div className="px-3 py-2 bg-white border-t border-gray-200/40">
-            <div className="flex gap-2 items-center">
-              {/* Search Input */}
-              <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-12 gap-2 items-center">
+              {/* Search Input - Takes 6 columns on mobile */}
+              <div className="col-span-6">
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="제목, 지역, 키워드 검색..."
+                    placeholder="검색..."
                     className="w-full pl-7 pr-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-xs"
                   />
                 </div>
               </div>
 
-              {/* Region Filter - Compact */}
+              {/* Region Filter - 3 columns */}
               <select
                 value={selectedRegion}
                 onChange={(e) => setSelectedRegion(e.target.value)}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-xs font-medium bg-white flex-shrink-0"
+                className="col-span-3 px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-xs font-medium bg-white"
               >
                 <option value="all">전체</option>
                 {uniqueRegions.map(region => (
@@ -565,7 +565,7 @@ export default function ActiveAnnouncementsModal({
                 ))}
               </select>
 
-              {/* Sort Dropdown - Compact */}
+              {/* Sort Dropdown - 3 columns */}
               <select
                 value={`${sortField}-${sortOrder}`}
                 onChange={(e) => {
@@ -573,7 +573,7 @@ export default function ActiveAnnouncementsModal({
                   setSortField(field as SortField);
                   setSortOrder(order as SortOrder);
                 }}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-xs font-medium bg-white flex-shrink-0"
+                className="col-span-3 px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-xs font-medium bg-white"
               >
                 <option value="dday-asc">마감임박</option>
                 <option value="dday-desc">마감여유</option>
