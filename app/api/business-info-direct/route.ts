@@ -937,9 +937,9 @@ async function executeSingleBatch(
       .filter(f => f !== 'business_name' && f !== 'created_at')
       .map(field => {
         if (integerFields.includes(field)) {
-          // 숫자 필드: 0이 아닌 경우만 업데이트
+          // 숫자 필드: 0이 아닌 경우만 업데이트 (명시적 타입 캐스팅)
           return `${field} = CASE
-            WHEN EXCLUDED.${field} IS NOT NULL AND EXCLUDED.${field} != 0
+            WHEN EXCLUDED.${field} IS NOT NULL AND EXCLUDED.${field}::integer != 0
             THEN EXCLUDED.${field}
             ELSE business_info.${field}
           END`;
