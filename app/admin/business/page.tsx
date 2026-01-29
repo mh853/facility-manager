@@ -2147,6 +2147,8 @@ function BusinessManagementPage() {
         사업장명: data.data?.[0]?.business_name,
         담당자명: data.data?.[0]?.manager_name,
         담당자직급: data.data?.[0]?.manager_position,
+        설치일: data.data?.[0]?.installation_date,
+        그린링크제출일: data.data?.[0]?.greenlink_confirmation_submitted_at,
         계산서1차발행일: data.data?.[0]?.invoice_1st_date,
         계산서1차금액: data.data?.[0]?.invoice_1st_amount,
         견적실사담당자: data.data?.[0]?.estimate_survey_manager,
