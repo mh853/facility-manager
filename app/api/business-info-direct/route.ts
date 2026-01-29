@@ -73,7 +73,7 @@ export async function GET(request: Request) {
       main_board_replacement, multiple_stack,
       additional_cost, negotiation,
       revenue_source, order_date, order_manager, order_request_date, shipment_date,
-      subsidy_approval_date,
+      subsidy_approval_date, contract_sent_date,
       construction_report_submitted_at, greenlink_confirmation_submitted_at, attachment_completion_submitted_at,
       invoice_1st_date, invoice_1st_amount, payment_1st_date, payment_1st_amount,
       invoice_2nd_date, invoice_2nd_amount, payment_2nd_date, payment_2nd_amount,
@@ -350,6 +350,9 @@ export async function PUT(request: Request) {
     if (updateData.subsidy_approval_date !== undefined) {
       updateObject.subsidy_approval_date = updateData.subsidy_approval_date || null;
     }
+    if (updateData.contract_sent_date !== undefined) {
+      updateObject.contract_sent_date = updateData.contract_sent_date || null;
+    }
 
     // System and additional fields
     if (updateData.manufacturer !== undefined) {
@@ -619,6 +622,7 @@ export async function POST(request: Request) {
       first_report_date: businessData.first_report_date || null,
       operation_start_date: businessData.operation_start_date || null,
       subsidy_approval_date: businessData.subsidy_approval_date || null,
+      contract_sent_date: businessData.contract_sent_date || null,
 
       // System and additional fields
       manufacturer: businessData.manufacturer,
