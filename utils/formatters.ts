@@ -9,6 +9,21 @@ export function formatDate(dateString: string | Date): string {
   if (!dateString) return ''
 
   try {
+    // 문자열인 경우 ISO 8601 형식에서 날짜 부분만 추출
+    if (typeof dateString === 'string') {
+      // YYYY-MM-DD 형식이면 그대로 반환
+      const dateOnlyMatch = dateString.match(/^\d{4}-\d{2}-\d{2}$/)
+      if (dateOnlyMatch) {
+        return dateString
+      }
+
+      // ISO 8601 datetime 형식(YYYY-MM-DDTHH:mm:ss.sssZ)에서 날짜 부분만 추출
+      if (dateString.includes('T')) {
+        return dateString.split('T')[0]
+      }
+    }
+
+    // Date 객체인 경우 UTC 기준으로 포맷
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString
 
     // 유효하지 않은 날짜인 경우
@@ -16,9 +31,10 @@ export function formatDate(dateString: string | Date): string {
       return typeof dateString === 'string' ? dateString : ''
     }
 
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
+    // UTC 기준으로 날짜 추출 (타임존 변환 방지)
+    const year = date.getUTCFullYear()
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(date.getUTCDate()).padStart(2, '0')
 
     return `${year}-${month}-${day}`
   } catch (error) {

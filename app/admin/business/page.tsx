@@ -2183,6 +2183,7 @@ function BusinessManagementPage() {
           wireless_document: business.wireless_document,
           installation_support: business.installation_support,
           order_manager: business.order_manager,
+          contract_sent_date: business.contract_sent_date,
           order_date: business.order_date,
           shipment_date: business.shipment_date,
           inventory_check: business.inventory_check,
