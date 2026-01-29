@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import AdminLayout from '@/components/ui/AdminLayout'
 import { withAuth, useAuth } from '@/contexts/AuthContext'
 import { TokenManager } from '@/lib/api-client'
@@ -10,6 +11,7 @@ import TaskCard from './components/TaskCard'
 import TaskMobileModal from './components/TaskMobileModal'
 import TaskHistoryTimeline from '@/components/TaskHistoryTimeline'
 import BusinessInfoPanel from '@/components/tasks/BusinessInfoPanel'
+import SubsidyActiveBadge from '@/components/tasks/SubsidyActiveBadge'
 import {
   Plus,
   Search,
@@ -28,6 +30,7 @@ import {
   Edit,
   Trash2,
   Eye,
+  FileX,
   X,
   ChevronDown,
   ChevronLeft,
@@ -76,6 +79,8 @@ export interface Task {
   title: string
   businessName?: string
   businessId?: string // 사업장 ID 추가
+  localGovernment?: string // 지자체
+  constructionReportDate?: string // 착공신고서 제출일
   businessInfo?: {
     address: string
     contact: string
@@ -142,12 +147,15 @@ const subsidySteps: Array<{status: TaskStatus, label: string, color: string}> = 
   { status: 'customer_contact', label: '고객 상담', color: 'blue' },
   { status: 'site_inspection', label: '현장 실사', color: 'yellow' },
   { status: 'quotation', label: '견적서 작성', color: 'orange' },
+  // ✨ 새로운 단계 추가
+  { status: 'document_preparation', label: '신청서 작성 필요', color: 'amber' },
   { status: 'application_submit', label: '신청서 제출', color: 'purple' },
   // 보조금 승인 단계
   { status: 'approval_pending', label: '보조금 승인대기', color: 'sky' },
   { status: 'approved', label: '보조금 승인', color: 'lime' },
   { status: 'rejected', label: '보조금 탈락', color: 'red' },
-  { status: 'document_supplement', label: '서류 보완', color: 'pink' },
+  // 🔄 워딩 변경: 서류 보완 → 신청서 보완
+  { status: 'document_supplement', label: '신청서 보완', color: 'pink' },
   { status: 'pre_construction_inspection', label: '착공 전 실사', color: 'indigo' },
   // 착공 보완 세분화
   { status: 'pre_construction_supplement_1st', label: '착공 보완 1차', color: 'rose' },
@@ -156,9 +164,12 @@ const subsidySteps: Array<{status: TaskStatus, label: string, color: string}> = 
   { status: 'construction_report_submit', label: '착공신고서 제출', color: 'blue' },
   { status: 'product_order', label: '제품 발주', color: 'cyan' },
   { status: 'product_shipment', label: '제품 출고', color: 'emerald' },
-  { status: 'installation_schedule', label: '설치 협의', color: 'teal' },
-  { status: 'installation', label: '제품 설치', color: 'green' },
-  { status: 'pre_completion_document_submit', label: '준공실사 전 서류 제출', color: 'amber' },
+  // 🔄 워딩 변경: 설치 협의 → 설치예정
+  { status: 'installation_schedule', label: '설치예정', color: 'teal' },
+  // 🔄 워딩 변경: 제품 설치 → 설치완료
+  { status: 'installation', label: '설치완료', color: 'green' },
+  // 🔄 워딩 변경: 준공실사 전 서류 제출 → 준공도서 작성 필요
+  { status: 'pre_completion_document_submit', label: '준공도서 작성 필요', color: 'amber' },
   { status: 'completion_inspection', label: '준공 실사', color: 'violet' },
   // 준공 보완 세분화
   { status: 'completion_supplement_1st', label: '준공 보완 1차', color: 'slate' },
@@ -202,12 +213,17 @@ const calculateProgressPercentage = (type: TaskType, status: TaskStatus): number
 
 function TaskManagementPage() {
   const { user } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedType, setSelectedType] = useState<TaskType | 'all'>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [selectedPriority, setSelectedPriority] = useState<Priority | 'all'>('all')
   const [selectedAssignee, setSelectedAssignee] = useState<string | 'all'>('all')
+  const [selectedStatus, setSelectedStatus] = useState<TaskStatus | 'all'>('all') // 업무단계 필터
+  const [selectedLocalGov, setSelectedLocalGov] = useState<string | 'all'>('all') // 지자체 필터
+  const [showOnlyNoConstructionReport, setShowOnlyNoConstructionReport] = useState(false) // 착공신고서 미제출 필터
   const [assigneeFilterInitialized, setAssigneeFilterInitialized] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
@@ -241,6 +257,9 @@ function TaskManagementPage() {
   const [showEditBusinessDropdown, setShowEditBusinessDropdown] = useState(false)
   const [selectedBusinessIndex, setSelectedBusinessIndex] = useState(-1)
   const [editSelectedBusinessIndex, setEditSelectedBusinessIndex] = useState(-1)
+
+  // 🆕 활성 보조금 공고 상태
+  const [activeSubsidies, setActiveSubsidies] = useState<Record<string, any>>({})
 
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1)
@@ -289,6 +308,8 @@ function TaskManagementPage() {
           title: dbTask.title,
           businessName: dbTask.business_name,
           businessId: dbTask.business_id, // businessId 매핑 추가
+          localGovernment: dbTask.local_government, // 지자체 매핑 추가
+          constructionReportDate: dbTask.construction_report_date, // 착공신고서 제출일 매핑 추가
           type: dbTask.task_type,
           status: dbTask.status,
           priority: dbTask.priority,
@@ -315,10 +336,64 @@ function TaskManagementPage() {
     }
   }, [])
 
+  // 🆕 활성 보조금 공고 로딩
+  const loadActiveSubsidies = useCallback(async () => {
+    try {
+      console.log('🔍 [TASKS] 활성 보조금 공고 로딩 시작')
+      const response = await fetch('/api/active-subsidies')
+      const data = await response.json()
+
+      if (data.success && data.data?.activeRegions) {
+        // 지자체명을 키로 하는 Map 생성
+        const subsidiesMap = data.data.activeRegions.reduce((acc: any, subsidy: any) => {
+          acc[subsidy.region_name] = subsidy
+          return acc
+        }, {})
+
+        setActiveSubsidies(subsidiesMap)
+        console.log(`✅ [TASKS] ${data.data.activeRegions.length}개 지자체 활성 공고 로딩 완료`)
+      }
+    } catch (error) {
+      console.error('❌ [TASKS] 활성 보조금 공고 로딩 실패:', error)
+    }
+  }, [])
+
   // 페이지 로드 시 데이터 로딩
   useEffect(() => {
     loadTasks()
-  }, [loadTasks])
+    loadActiveSubsidies()
+  }, [loadTasks, loadActiveSubsidies])
+
+  // 🆕 5분마다 활성 보조금 공고 자동 갱신
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadActiveSubsidies()
+    }, 5 * 60 * 1000) // 5분
+
+    return () => clearInterval(interval)
+  }, [loadActiveSubsidies])
+
+  // ⚡ openModal 파라미터 처리 (최적화: useLayoutEffect로 즉시 실행)
+  useLayoutEffect(() => {
+    const openModalId = searchParams.get('openModal')
+
+    if (openModalId && tasks.length > 0) {
+      // 해당 업무 찾기
+      const task = tasks.find(t => t.id === openModalId)
+      if (task) {
+        // ⚡ 상태 업데이트를 한 번에 배치 처리
+        setEditingTask(task)
+        setShowEditModal(true)
+        // ✅ 사업장명 검색어도 함께 설정 (입력 필드 표시용)
+        setEditBusinessSearchTerm(task.businessName || '')
+      }
+
+      // URL 정리 (비동기로 처리하여 렌더링 블로킹 방지)
+      requestAnimationFrame(() => {
+        router.replace('/admin/tasks', { scroll: false })
+      })
+    }
+  }, [searchParams, tasks, router])
 
 
   // 필터 초기화는 사용자가 직접 선택하도록 변경 - 기본은 "전체"로 유지
@@ -673,11 +748,21 @@ function TaskManagementPage() {
 
   // 필터링된 업무 목록
   const filteredTasks = useMemo(() => {
+    // 🔥 완료 업무 보기가 활성화되면 다른 필터 무시하고 완료된 업무만 표시
+    if (showCompletedTasks) {
+      return tasksWithDelayStatus.filter(task => task.progressPercentage === 100)
+    }
+
+    // 일반 필터링 (완료되지 않은 업무만)
     return tasksWithDelayStatus.filter(task => {
+      // 완료된 업무 제외
+      if (task.progressPercentage === 100) return false
+
       const matchesSearch = searchTerm === '' ||
         task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         task.businessName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.assignee?.toLowerCase().includes(searchTerm.toLowerCase())
+        task.assignee?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        task.localGovernment?.toLowerCase().includes(searchTerm.toLowerCase())
 
       const matchesType = selectedType === 'all' || task.type === selectedType
       const matchesPriority = selectedPriority === 'all' || task.priority === selectedPriority
@@ -687,13 +772,20 @@ function TaskManagementPage() {
         (task.assignees && Array.isArray(task.assignees) &&
          task.assignees.some((assignee: any) => assignee.name === selectedAssignee))
 
-      // 🆕 완료된 업무 필터링 (진행률 100% = 완료)
-      const isCompleted = task.progressPercentage === 100
-      const matchesCompletionFilter = showCompletedTasks || !isCompleted
+      // 업무단계 필터
+      const matchesStatus = selectedStatus === 'all' || task.status === selectedStatus
 
-      return matchesSearch && matchesType && matchesPriority && matchesAssignee && matchesCompletionFilter
+      // 지자체 필터
+      const matchesLocalGov = selectedLocalGov === 'all' || task.localGovernment === selectedLocalGov
+
+      // 착공신고서 미제출 필터
+      const matchesConstructionReport = !showOnlyNoConstructionReport || !task.constructionReportDate
+
+      return matchesSearch && matchesType && matchesPriority && matchesAssignee &&
+             matchesStatus && matchesLocalGov && matchesConstructionReport
     })
-  }, [tasksWithDelayStatus, searchTerm, selectedType, selectedPriority, selectedAssignee, showCompletedTasks])
+  }, [tasksWithDelayStatus, searchTerm, selectedType, selectedPriority, selectedAssignee,
+      showCompletedTasks, selectedStatus, selectedLocalGov, showOnlyNoConstructionReport])
 
   // 페이지네이션을 위한 현재 페이지 업무 목록
   const paginatedTasks = useMemo(() => {
@@ -708,7 +800,8 @@ function TaskManagementPage() {
   // 검색/필터 변경 시 첫 페이지로 이동
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, selectedType, selectedPriority, selectedAssignee])
+  }, [searchTerm, selectedType, selectedPriority, selectedAssignee,
+      selectedStatus, selectedLocalGov, showOnlyNoConstructionReport])
 
   // 상태별 업무 그룹화
   const tasksByStatus = useMemo(() => {
@@ -820,6 +913,40 @@ function TaskManagementPage() {
 
     return Array.from(assigneeSet).sort()
   }, [tasks])
+
+  // 지자체 목록
+  const localGovList = useMemo(() => {
+    const localGovSet = new Set<string>()
+    tasks.forEach(task => {
+      if (task.localGovernment) {
+        localGovSet.add(task.localGovernment)
+      }
+    })
+    return Array.from(localGovSet).sort()
+  }, [tasks])
+
+  // 현재 선택된 타입의 업무단계 목록
+  const currentSteps = useMemo(() => {
+    if (selectedType === 'all') {
+      // 전체 타입일 때는 실제 등록된 업무들의 단계만 표시
+      const statusSet = new Set<TaskStatus>()
+      tasks.forEach(task => {
+        statusSet.add(task.status)
+      })
+
+      // 모든 단계 정의에서 라벨 가져오기
+      const allSteps = [...selfSteps, ...subsidySteps, ...etcSteps, ...asSteps]
+      const uniqueSteps = Array.from(statusSet).map(status => {
+        const step = allSteps.find(s => s.status === status)
+        return step || { status, label: status }
+      }).sort((a, b) => a.label.localeCompare(b.label))
+
+      return uniqueSteps
+    }
+    return selectedType === 'self' ? selfSteps :
+           selectedType === 'subsidy' ? subsidySteps :
+           selectedType === 'etc' ? etcSteps : asSteps
+  }, [selectedType, tasks])
 
   // 드래그 앤 드롭 핸들러
   const handleDragStart = useCallback((task: Task) => {
@@ -1412,10 +1539,13 @@ function TaskManagementPage() {
               {/* 업무 타입 */}
               <select
                 value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value as TaskType | 'all')}
+                onChange={(e) => {
+                  setSelectedType(e.target.value as TaskType | 'all')
+                  setSelectedStatus('all') // 타입 변경 시 업무단계 필터 리셋
+                }}
                 className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm"
               >
-                <option value="all">전체 타입</option>
+                <option value="all">타입</option>
                 <option value="self">자비</option>
                 <option value="subsidy">보조금</option>
                 <option value="etc">기타</option>
@@ -1428,7 +1558,7 @@ function TaskManagementPage() {
                 onChange={(e) => setSelectedPriority(e.target.value as Priority | 'all')}
                 className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm"
               >
-                <option value="all">전체 우선순위</option>
+                <option value="all">우선순위</option>
                 <option value="high">높음</option>
                 <option value="medium">보통</option>
                 <option value="low">낮음</option>
@@ -1440,33 +1570,77 @@ function TaskManagementPage() {
                 onChange={(e) => setSelectedAssignee(e.target.value)}
                 className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm"
               >
-                <option value="all">전체 담당자</option>
+                <option value="all">담당자</option>
                 {assignees.map(assignee => (
                   <option key={assignee} value={assignee}>{assignee}</option>
                 ))}
               </select>
 
+              {/* 업무단계 */}
+              <select
+                value={selectedStatus}
+                onChange={(e) => {
+                  setSelectedStatus(e.target.value as TaskStatus | 'all')
+                }}
+                className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm"
+              >
+                <option value="all">단계</option>
+                {currentSteps.map(step => (
+                  <option key={step.status} value={step.status}>{step.label}</option>
+                ))}
+              </select>
+
+              {/* 지자체 */}
+              <select
+                value={selectedLocalGov}
+                onChange={(e) => setSelectedLocalGov(e.target.value)}
+                className="px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm"
+              >
+                <option value="all">지자체</option>
+                {localGovList.map(localGov => (
+                  <option key={localGov} value={localGov}>{localGov}</option>
+                ))}
+              </select>
+
+              {/* 착공신고서 미제출 필터 버튼 */}
+              <button
+                onClick={() => setShowOnlyNoConstructionReport(!showOnlyNoConstructionReport)}
+                className={`
+                  px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap
+                  ${showOnlyNoConstructionReport
+                    ? 'bg-orange-100 text-orange-700 border-2 border-orange-300 shadow-sm'
+                    : 'bg-gray-100 text-gray-600 border-2 border-gray-200 hover:bg-gray-200'
+                  }
+                `}
+                title="착공신고서 제출일이 없는 사업장만 표시"
+              >
+                <div className="flex items-center gap-1">
+                  <FileX className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <span>착공미제출</span>
+                </div>
+              </button>
+
               {/* 🆕 완료된 업무 토글 버튼 */}
               <button
                 onClick={() => setShowCompletedTasks(!showCompletedTasks)}
                 className={`
-                  px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap
+                  px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap
                   ${showCompletedTasks
                     ? 'bg-green-100 text-green-700 border-2 border-green-300 shadow-sm'
                     : 'bg-gray-100 text-gray-600 border-2 border-gray-200 hover:bg-gray-200'
                   }
                 `}
+                title="완료된 업무만 표시"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   {showCompletedTasks ? (
-                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   ) : (
-                    <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <Eye className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   )}
-                  <span className="hidden sm:inline">완료 업무 {showCompletedTasks ? '숨기기' : '보기'}</span>
-                  <span className="sm:hidden">완료</span>
+                  <span>완료업무</span>
                   {showCompletedTasks && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-green-200 text-green-800 rounded-full text-xs font-semibold">
+                    <span className="ml-0.5 px-1 py-0.5 bg-green-200 text-green-800 rounded text-xs font-semibold">
                       {tasks.filter(t => t.progressPercentage === 100).length}
                     </span>
                   )}
@@ -1479,7 +1653,7 @@ function TaskManagementPage() {
               <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4" />
               <input
                 type="text"
-                placeholder="사업장명, 담당자, 설명으로 검색..."
+                placeholder="사업장명, 담당자, 지자체, 설명으로 검색..."
                 className="w-full pl-8 pr-3 py-1.5 sm:pl-10 sm:pr-4 sm:py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-sm"
                 onChange={(e) => debouncedSearch(e.target.value)}
               />
@@ -1524,6 +1698,7 @@ function TaskManagementPage() {
               }}
               onComplete={handleCompleteTask}
               isLoading={isLoading}
+              activeSubsidies={activeSubsidies}
             />
           </div>
 
@@ -1544,6 +1719,7 @@ function TaskManagementPage() {
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
                     <th className="text-left py-2 sm:py-2.5 px-2 sm:px-3 text-[10px] sm:text-xs font-semibold text-gray-800">사업장</th>
+                    <th className="text-left py-2 sm:py-2.5 px-2 sm:px-3 text-[10px] sm:text-xs font-semibold text-gray-800">지자체</th>
                     <th className="text-left py-2 sm:py-2.5 px-2 sm:px-3 text-[10px] sm:text-xs font-semibold text-gray-800 w-32 sm:w-80 max-w-32 sm:max-w-80">업무 설명</th>
                     <th className="text-left py-2 sm:py-2.5 px-2 sm:px-3 text-[10px] sm:text-xs font-semibold text-gray-800">업무 단계</th>
                     <th className="text-left py-2 sm:py-2.5 px-2 sm:px-3 text-[10px] sm:text-xs font-semibold text-gray-800">담당자</th>
@@ -1559,15 +1735,26 @@ function TaskManagementPage() {
                                    task.type === 'subsidy' ? subsidySteps :
                                    task.type === 'etc' ? etcSteps : asSteps).find(s => s.status === task.status)
                     return (
-                      <tr key={task.id} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
+                      <tr
+                        key={task.id}
+                        onClick={() => handleOpenEditModal(task)}
+                        className={`border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}
+                      >
                         <td className="py-2 sm:py-2.5 px-2 sm:px-3 text-[10px] sm:text-xs">
-                          <button
-                            onClick={() => handleOpenEditModal(task)}
-                            className="font-medium text-gray-900 hover:text-blue-600 transition-colors cursor-pointer text-left block truncate max-w-[120px] sm:max-w-none"
-                            title="클릭하여 수정"
-                          >
-                            {task.businessName}
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium text-gray-900 truncate max-w-[120px] sm:max-w-none">
+                              {task.businessName}
+                            </span>
+                            <SubsidyActiveBadge
+                              localGovernment={task.localGovernment}
+                              activeSubsidies={activeSubsidies}
+                              taskStatus={task.status}
+                              taskType={task.type}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2 sm:py-2.5 px-2 sm:px-3 text-[10px] sm:text-xs text-gray-600">
+                          {task.localGovernment || '-'}
                         </td>
                         <td className="py-2 sm:py-2.5 px-2 sm:px-3 text-[10px] sm:text-xs">
                           <div
@@ -1797,6 +1984,7 @@ function TaskManagementPage() {
             // handleDeleteTask에서 모달을 자동으로 닫으므로 별도 처리 불필요
             await handleDeleteTask(task.id)
           }}
+          activeSubsidies={activeSubsidies}
         />
       </div>
 
@@ -1875,6 +2063,7 @@ function TaskManagementPage() {
                             setShowEditModal(true)
                           }}
                           onComplete={handleCompleteTask}
+                          activeSubsidies={activeSubsidies}
                         />
                       </div>
                     ))}
@@ -2523,6 +2712,8 @@ function TaskManagementPage() {
                   key={editingTask.businessId || 'empty'}
                   businessId={editingTask.businessId || null}
                   businessName={editingTask.businessName}
+                  taskId={editingTask.id}
+                  onModalClose={() => setEditingTask(null)}
                 />
               </div>
             </div>

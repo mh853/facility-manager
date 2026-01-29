@@ -1,7 +1,7 @@
 // app/admin/business/page.tsx - 사업장 관리 페이지
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { BusinessInfo } from '@/lib/database-service'
 import type { BusinessMemo, CreateBusinessMemoInput, UpdateBusinessMemoInput } from '@/types/database'
@@ -451,8 +451,9 @@ function BusinessManagementPage() {
   const [showRevenueModal, setShowRevenueModal] = useState(false)
   const [selectedRevenueBusiness, setSelectedRevenueBusiness] = useState<UnifiedBusinessInfo | null>(null)
 
-  // 복귀 경로 상태 (Revenue → Business 네비게이션 추적)
+  // 복귀 경로 상태 (Revenue → Business, Tasks → Business 네비게이션 추적)
   const [returnPath, setReturnPath] = useState<string | null>(null)
+  const [returnTaskId, setReturnTaskId] = useState<string | null>(null)
 
   // ⚡ 주의: 초기 데이터 병렬 로딩은 커스텀 훅으로 이동됨 (useRevenueData, useBusinessData)
   // ⚡ 시설 통계 관련 함수들(calculateFacilityStats, loadBusinessFacilityStats, loadBusinessFacilities)은 useFacilityStats 훅으로 이동됨
@@ -836,16 +837,51 @@ function BusinessManagementPage() {
   // 업무 상태 매핑 유틸리티 함수들
   const getStatusDisplayName = (status: string): string => {
     const statusMap: { [key: string]: string } = {
-      'quotation': '견적',
-      'site_inspection': '현장조사',
-      'customer_contact': '고객연락',
-      'contract': '계약',
-      'installation': '설치',
-      'completion': '완료',
+      // 자비 업무 단계
+      'customer_contact': '고객 상담',
+      'site_inspection': '현장 실사',
+      'quotation': '견적서 작성',
+      'contract': '계약 체결',
+      'deposit_confirm': '계약금 확인',
+      'product_order': '제품 발주',
+      'product_shipment': '제품 출고',
+      'installation_schedule': '설치예정',
+      'installation': '설치완료',
+      'balance_payment': '잔금 입금',
+      'document_complete': '서류 발송 완료',
+      // 보조금 업무 단계
+      'document_preparation': '신청서 작성 필요',
+      'application_submit': '신청서 제출',
+      'approval_pending': '보조금 승인대기',
+      'approved': '보조금 승인',
+      'rejected': '보조금 탈락',
+      'document_supplement': '신청서 보완',
+      'pre_construction_inspection': '착공 전 실사',
+      'pre_construction_supplement_1st': '착공 보완 1차',
+      'pre_construction_supplement_2nd': '착공 보완 2차',
+      'construction_report_submit': '착공신고서 제출',
+      'pre_completion_document_submit': '준공도서 작성 필요',
+      'completion_inspection': '준공 실사',
+      'completion_supplement_1st': '준공 보완 1차',
+      'completion_supplement_2nd': '준공 보완 2차',
+      'completion_supplement_3rd': '준공 보완 3차',
+      'final_document_submit': '보조금지급신청서 제출',
+      'subsidy_payment': '보조금 입금',
+      // AS 업무 단계
+      'as_customer_contact': 'AS 고객 상담',
+      'as_site_inspection': 'AS 현장 확인',
+      'as_quotation': 'AS 견적 작성',
+      'as_contract': 'AS 계약 체결',
+      'as_part_order': 'AS 부품 발주',
+      'as_completed': 'AS 완료',
+      // 기타 단계
+      'etc_status': '기타',
+      // 기존 단계 (호환성)
       'pending': '대기',
       'in_progress': '진행중',
-      'on_hold': '보류',
-      'cancelled': '취소'
+      'completed': '완료',
+      'cancelled': '취소',
+      'on_hold': '보류'
     }
     return statusMap[status] || status
   }
@@ -1942,43 +1978,38 @@ function BusinessManagementPage() {
     }
   }, [allBusinesses.length, searchParams, selectedBusiness])
 
-  // URL 파라미터로 자동 모달 열기 (from Revenue page)
-  useEffect(() => {
-    const businessId = searchParams?.get('businessId')
-    const openModal = searchParams?.get('openModal')
-    const returnTo = searchParams?.get('returnTo') // ✅ 복귀 경로 감지
+  // ⚡ URL 파라미터로 자동 모달 열기 (최적화: useLayoutEffect로 즉시 실행)
+  useLayoutEffect(() => {
+    const openModalId = searchParams?.get('openModal')
+    const returnTo = searchParams?.get('returnTo')
+    const taskId = searchParams?.get('taskId')
 
     // 조건 체크
-    if (!businessId || openModal !== 'true' || allBusinesses.length === 0) {
+    if (!openModalId || allBusinesses.length === 0) {
       return
     }
 
-    // 해당 business 찾기
-    const targetBusiness = allBusinesses.find(b => b.id === businessId)
+    // 해당 business 찾기 (openModal 파라미터가 businessId)
+    const targetBusiness = allBusinesses.find(b => b.id === openModalId)
 
     if (targetBusiness) {
-      console.log('🔗 [URL Navigation] 자동 모달 열기:', targetBusiness.사업장명 || targetBusiness.business_name)
-
-      // 모달 열기 (수정 모달)
+      // ⚡ 상태 업데이트를 한 번에 배치 처리
       setSelectedBusiness(targetBusiness)
-      setIsModalOpen(true)
-      setEditingBusiness(targetBusiness)
-      setFormData(targetBusiness)
+      setIsDetailModalOpen(true)
 
-      // ✅ 복귀 경로 저장
-      if (returnTo) {
+      if (returnTo && taskId) {
         setReturnPath(returnTo)
-        console.log('🔙 [Return Path] 저장:', returnTo)
+        setReturnTaskId(taskId)
       }
 
-      // URL 정리 (파라미터 제거)
-      window.history.replaceState({}, '', '/admin/business')
+      // URL 정리 (비동기로 처리하여 렌더링 블로킹 방지)
+      requestAnimationFrame(() => {
+        router.replace('/admin/business', { scroll: false })
+      })
     } else {
-      console.warn('⚠️ [URL Navigation] 사업장을 찾을 수 없음:', businessId)
-      // 파라미터만 제거
-      window.history.replaceState({}, '', '/admin/business')
+      router.replace('/admin/business', { scroll: false })
     }
-  }, [searchParams, allBusinesses])
+  }, [searchParams, allBusinesses, router])
 
   // 사업장 선택 시 메모와 업무 로드
   useEffect(() => {
@@ -4233,7 +4264,18 @@ function BusinessManagementPage() {
           <BusinessDetailModal
             isOpen={isDetailModalOpen}
             business={selectedBusiness}
-            onClose={() => setIsDetailModalOpen(false)}
+            onClose={() => {
+              // ✨ 복귀 로직: admin/tasks로 돌아가야 하는 경우
+              if (returnPath === 'tasks' && returnTaskId) {
+                router.push(`/admin/tasks?openModal=${returnTaskId}`)
+                // 상태 초기화
+                setReturnPath(null)
+                setReturnTaskId(null)
+              } else {
+                // 기본 동작: 모달만 닫기
+                setIsDetailModalOpen(false)
+              }
+            }}
             onEdit={openEditModal}
             isAddingMemo={isAddingMemo}
             setIsAddingMemo={setIsAddingMemo}

@@ -14,6 +14,7 @@ import {
   Loader2,
   FileText
 } from 'lucide-react'
+import SubsidyActiveBadge from '@/components/tasks/SubsidyActiveBadge'
 
 // Task 타입 (부모에서 import할 예정)
 interface SelectedAssignee {
@@ -31,6 +32,7 @@ interface Task {
   id: string
   title: string
   businessName?: string
+  localGovernment?: string
   businessInfo?: {
     address: string
     contact: string
@@ -57,9 +59,10 @@ interface TaskCardProps {
   onClick: (task: Task) => void
   onEdit?: (task: Task) => void
   onComplete?: (taskId: string) => Promise<void>
+  activeSubsidies?: Record<string, any>
 }
 
-export default function TaskCard({ task, onClick, onEdit, onComplete }: TaskCardProps) {
+export default function TaskCard({ task, onClick, onEdit, onComplete, activeSubsidies = {} }: TaskCardProps) {
   const [isCompleting, setIsCompleting] = useState(false)
 
   // 우선순위 색상 설정
@@ -162,9 +165,19 @@ export default function TaskCard({ task, onClick, onEdit, onComplete }: TaskCard
       </div>
 
       {/* 사업장명 */}
-      <h3 className="font-semibold text-xs sm:text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">
-        {task.businessName || task.title}
-      </h3>
+      <div className="mb-2">
+        <div className="flex items-center gap-1">
+          <h3 className="font-semibold text-xs sm:text-sm text-gray-900 line-clamp-2 leading-tight">
+            {task.businessName || task.title}
+          </h3>
+          <SubsidyActiveBadge
+            localGovernment={task.localGovernment}
+            activeSubsidies={activeSubsidies}
+            taskStatus={task.status}
+            taskType={task.type}
+          />
+        </div>
+      </div>
 
       {/* 정보 그리드 */}
       <div className="space-y-1.5">

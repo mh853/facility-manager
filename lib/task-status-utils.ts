@@ -4,42 +4,55 @@
 
 // 업무 상태 한글 매핑
 export const TASK_STATUS_KR: { [key: string]: string } = {
-  // 자가 시설 설치 단계
-  'customer_contact': '고객 연락',
-  'site_inspection': '현장 조사',
+  // 자비 업무 단계
+  'customer_contact': '고객 상담',
+  'site_inspection': '현장 실사',
   'quotation': '견적서 작성',
-  'contract': '계약서 작성',
+  'contract': '계약 체결',
   'deposit_confirm': '계약금 확인',
-  'product_order': '제품 주문',
-  'product_shipment': '제품 배송',
-  'installation_schedule': '설치 일정 조율',
-  'installation': '설치 작업',
-  'balance_payment': '잔금 결제',
-  'document_complete': '서류 완료',
+  'product_order': '제품 발주',
+  'product_shipment': '제품 출고',
+  'installation_schedule': '설치예정',
+  'installation': '설치완료',
+  'balance_payment': '잔금 입금',
+  'document_complete': '서류 발송 완료',
 
-  // 보조금 전용 단계
+  // 보조금 업무 단계
+  'document_preparation': '신청서 작성 필요',
   'application_submit': '신청서 제출',
-  'document_supplement': '서류 보완',
-  'pre_construction_inspection': '착공 전 검사',
-  'pre_construction_supplement': '착공 전 보완',
+  'approval_pending': '보조금 승인대기',
+  'approved': '보조금 승인',
+  'rejected': '보조금 탈락',
+  'document_supplement': '신청서 보완',
+  'pre_construction_inspection': '착공 전 실사',
   'pre_construction_supplement_1st': '착공 보완 1차',
   'pre_construction_supplement_2nd': '착공 보완 2차',
-  'pre_construction_supplement_3rd': '착공 보완 3차',
-  'completion_inspection': '완공 검사',
-  'completion_supplement': '완공 보완',
-  'completion_supplement_1st': '완공 보완 1차',
-  'completion_supplement_2nd': '완공 보완 2차',
-  'completion_supplement_3rd': '완공 보완 3차',
-  'final_document_submit': '최종 서류 제출',
-  'subsidy_payment': '보조금 지급',
+  'construction_report_submit': '착공신고서 제출',
+  'pre_completion_document_submit': '준공도서 작성 필요',
+  'completion_inspection': '준공 실사',
+  'completion_supplement_1st': '준공 보완 1차',
+  'completion_supplement_2nd': '준공 보완 2차',
+  'completion_supplement_3rd': '준공 보완 3차',
+  'final_document_submit': '보조금지급신청서 제출',
+  'subsidy_payment': '보조금 입금',
 
-  // AS 전용 단계
+  // AS 업무 단계
   'as_customer_contact': 'AS 고객 상담',
   'as_site_inspection': 'AS 현장 확인',
   'as_quotation': 'AS 견적 작성',
   'as_contract': 'AS 계약 체결',
   'as_part_order': 'AS 부품 발주',
-  'as_completed': 'AS 완료'
+  'as_completed': 'AS 완료',
+
+  // 기타 단계
+  'etc_status': '기타',
+
+  // 기존 단계 (호환성)
+  'pending': '대기',
+  'in_progress': '진행중',
+  'completed': '완료',
+  'cancelled': '취소',
+  'on_hold': '보류'
 };
 
 // 업무 타입 한글 매핑

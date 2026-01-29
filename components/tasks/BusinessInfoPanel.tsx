@@ -2,6 +2,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { ExternalLink } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/utils/formatters'
 
 interface UnifiedBusinessInfo {
@@ -55,6 +57,8 @@ interface Memo {
 interface BusinessInfoPanelProps {
   businessId: string | null
   businessName?: string
+  taskId?: string // 현재 업무 ID (복귀용)
+  onModalClose?: () => void // 모달 닫기 콜백
 }
 
 // 기본 정보 섹션
@@ -253,7 +257,13 @@ function LoadingSpinner() {
 }
 
 // 메인 컴포넌트
-export default function BusinessInfoPanel({ businessId, businessName }: BusinessInfoPanelProps) {
+export default function BusinessInfoPanel({
+  businessId,
+  businessName,
+  taskId,
+  onModalClose
+}: BusinessInfoPanelProps) {
+  const router = useRouter()
   const [businessData, setBusinessData] = useState<UnifiedBusinessInfo | null>(null)
   const [memos, setMemos] = useState<Memo[]>([])
   const [loading, setLoading] = useState(false)
@@ -345,17 +355,49 @@ export default function BusinessInfoPanel({ businessId, businessName }: Business
     return <EmptyState message="사업장 정보를 찾을 수 없습니다." />
   }
 
+  // 사업장 상세보기 버튼 핸들러
+  const handleOpenBusinessDetail = () => {
+    if (!businessId || !taskId) return
+
+    // ⚡ 최적화: 네비게이션과 모달 닫기를 동시에 처리
+    const targetUrl = `/admin/business?openModal=${businessId}&returnTo=tasks&taskId=${taskId}`
+
+    // 네비게이션 시작 (즉시 실행)
+    router.push(targetUrl)
+
+    // 모달 닫기 (네비게이션과 동시에)
+    if (onModalClose) {
+      onModalClose()
+    }
+  }
+
   return (
     <div className="w-full h-full overflow-y-auto bg-gray-50 p-4">
       {/* 헤더 */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-lg mb-4 shadow-sm">
-        <h3 className="text-base font-bold flex items-center gap-2">
-          <span>📊</span>
-          <span>사업장 정보</span>
-        </h3>
-        <p className="text-xs text-blue-100 mt-1">
-          조회된 사업장의 상세 정보입니다.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold flex items-center gap-2">
+              <span>📊</span>
+              <span>사업장 정보</span>
+            </h3>
+            <p className="text-xs text-blue-100 mt-1">
+              조회된 사업장의 상세 정보입니다.
+            </p>
+          </div>
+
+          {/* 상세보기 버튼 */}
+          {businessId && taskId && (
+            <button
+              onClick={handleOpenBusinessDetail}
+              className="flex items-center gap-1 px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-xs font-medium transition-colors"
+              title="사업장 상세보기"
+            >
+              <span className="hidden sm:inline">상세보기</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 기본 정보 (작게) */}

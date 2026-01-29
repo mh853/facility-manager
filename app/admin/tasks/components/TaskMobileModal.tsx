@@ -15,6 +15,7 @@ import {
   History
 } from 'lucide-react'
 import TaskHistoryTimeline from '@/components/TaskHistoryTimeline'
+import SubsidyActiveBadge from '@/components/tasks/SubsidyActiveBadge'
 
 // Task 타입
 interface SelectedAssignee {
@@ -32,6 +33,7 @@ interface Task {
   id: string
   title: string
   businessName?: string
+  localGovernment?: string
   businessInfo?: {
     address: string
     contact: string
@@ -59,6 +61,7 @@ interface TaskMobileModalProps {
   onClose: () => void
   onEdit?: (task: Task) => void
   onDelete?: (task: Task) => void
+  activeSubsidies?: Record<string, any>
 }
 
 export default function TaskMobileModal({
@@ -66,7 +69,8 @@ export default function TaskMobileModal({
   isOpen,
   onClose,
   onEdit,
-  onDelete
+  onDelete,
+  activeSubsidies = {}
 }: TaskMobileModalProps) {
   const [showHistory, setShowHistory] = useState(false)
 
@@ -237,7 +241,15 @@ export default function TaskMobileModal({
                         사업장
                       </dt>
                       <dd className="text-sm font-semibold text-gray-900 flex-1">
-                        {task.businessName}
+                        <div className="flex items-center gap-1">
+                          {task.businessName}
+                          <SubsidyActiveBadge
+                            localGovernment={task.localGovernment}
+                            activeSubsidies={activeSubsidies}
+                            taskStatus={task.status}
+                            taskType={task.type}
+                          />
+                        </div>
                       </dd>
                     </div>
                   )}

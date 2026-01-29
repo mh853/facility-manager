@@ -708,9 +708,11 @@ export default function BusinessDetailModal({
                                     <div className="flex-1">
                                       <div className="flex items-center space-x-1 sm:space-x-2 mb-1 sm:mb-2">
                                         <ClipboardList className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />
-                                        <h4 className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base">{item.title}</h4>
-                                        <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[10px] md:text-xs font-medium rounded-full ${statusColors.badge} ${statusColors.text}`}>
+                                        <h4 className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base">
                                           {getStatusDisplayName(item.status || '')}
+                                        </h4>
+                                        <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[10px] md:text-xs font-medium rounded-full ${statusColors.badge} ${statusColors.text}`}>
+                                          {item.task_type === 'subsidy' ? '지원사업' : item.task_type === 'as' ? 'A/S' : '자체사업'}
                                         </span>
                                       </div>
                                       <p className="text-xs sm:text-sm text-gray-700 mb-2 sm:mb-3 leading-relaxed break-words">{item.description}</p>

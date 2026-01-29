@@ -107,29 +107,29 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     });
 
     // Direct PostgreSQL 쿼리 빌드
-    let whereClauses: string[] = ['is_active = true', 'is_deleted = false'];
+    let whereClauses: string[] = ['ftb.is_active = true', 'ftb.is_deleted = false'];
     let params: any[] = [];
     let paramIndex = 1;
 
     if (businessName) {
-      whereClauses.push(`business_name = $${paramIndex}`);
+      whereClauses.push(`ftb.business_name = $${paramIndex}`);
       params.push(businessName);
       paramIndex++;
     }
     if (taskType && taskType !== 'all') {
-      whereClauses.push(`task_type = $${paramIndex}`);
+      whereClauses.push(`ftb.task_type = $${paramIndex}`);
       params.push(taskType);
       paramIndex++;
     }
     if (status) {
-      whereClauses.push(`status = $${paramIndex}`);
+      whereClauses.push(`ftb.status = $${paramIndex}`);
       params.push(status);
       paramIndex++;
     }
     if (assignee) {
       console.log('🔍 [FACILITY-TASKS] assignee 필터 적용:', assignee);
       // 다중 담당자 지원: assignees JSON 배열에서 검색
-      whereClauses.push(`(assignee = $${paramIndex} OR assignees::text LIKE $${paramIndex + 1})`);
+      whereClauses.push(`(ftb.assignee = $${paramIndex} OR ftb.assignees::text LIKE $${paramIndex + 1})`);
       params.push(assignee);
       params.push(`%"name":"${assignee}"%`);
       paramIndex += 2;
@@ -139,37 +139,39 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 
     const queryText = `
       SELECT
-        id,
-        created_at,
-        updated_at,
-        title,
-        description,
-        business_name,
-        business_id,
-        task_type,
-        status,
-        priority,
-        assignee,
-        assignees,
-        primary_assignee_id,
-        assignee_updated_at,
-        start_date,
-        due_date,
-        completed_at,
-        notes,
-        created_by,
-        created_by_name,
-        last_modified_by,
-        last_modified_by_name,
-        is_active,
-        is_deleted,
-        address,
-        manager_name,
-        manager_contact,
-        local_government
-      FROM facility_tasks_with_business
+        ftb.id,
+        ftb.created_at,
+        ftb.updated_at,
+        ftb.title,
+        ftb.description,
+        ftb.business_name,
+        ftb.business_id,
+        ftb.task_type,
+        ftb.status,
+        ftb.priority,
+        ftb.assignee,
+        ftb.assignees,
+        ftb.primary_assignee_id,
+        ftb.assignee_updated_at,
+        ftb.start_date,
+        ftb.due_date,
+        ftb.completed_at,
+        ftb.notes,
+        ftb.created_by,
+        ftb.created_by_name,
+        ftb.last_modified_by,
+        ftb.last_modified_by_name,
+        ftb.is_active,
+        ftb.is_deleted,
+        ftb.address,
+        ftb.manager_name,
+        ftb.manager_contact,
+        ftb.local_government,
+        bi.construction_report_submitted_at as construction_report_date
+      FROM facility_tasks_with_business ftb
+      LEFT JOIN business_info bi ON ftb.business_name = bi.business_name
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY ftb.created_at DESC
     `;
 
     console.log('🗄️ [FACILITY-TASKS] Direct PostgreSQL 쿼리 실행 시작');
@@ -791,7 +793,7 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
     }
 
     // 상태 변경 시 자동 메모 및 알림 생성
-    await createAutoProgressNoteAndNotification(existingTask, updatedTask);
+    await createAutoProgressNoteAndNotification(existingTask, updatedTask, user);
 
     // 담당자 변경 시 다중 담당자 알림 업데이트 (PostgreSQL 함수 사용)
     const assigneesChanged = JSON.stringify(existingTask.assignees || []) !== JSON.stringify(updatedTask.assignees || []);
@@ -898,7 +900,7 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
 // 자동 메모 및 알림 생성 유틸리티 함수
 // ============================================================================
 
-async function createAutoProgressNoteAndNotification(existingTask: any, updatedTask: any) {
+async function createAutoProgressNoteAndNotification(existingTask: any, updatedTask: any, user: any) {
   try {
     const statusChanged = existingTask.status !== updatedTask.status;
     const assigneesChanged = JSON.stringify(existingTask.assignees || []) !== JSON.stringify(updatedTask.assignees || []);
@@ -955,26 +957,50 @@ async function createAutoProgressNote(params: {
 
   if (changeType === 'status_change' && oldStatus && newStatus) {
     const statusLabels: { [key: string]: string } = {
+      // 자비 업무 단계
+      'customer_contact': '고객 상담',
+      'site_inspection': '현장 실사',
+      'quotation': '견적서 작성',
+      'contract': '계약 체결',
+      'deposit_confirm': '계약금 확인',
+      'product_order': '제품 발주',
+      'product_shipment': '제품 출고',
+      'installation_schedule': '설치 협의',
+      'installation': '제품 설치',
+      'balance_payment': '잔금 입금',
+      'document_complete': '서류 발송 완료',
+      // 보조금 업무 단계
+      'document_preparation': '신청서 작성 필요',
+      'application_submit': '신청서 제출',
+      'approval_pending': '보조금 승인대기',
+      'approved': '보조금 승인',
+      'rejected': '보조금 탈락',
+      'document_supplement': '신청서 보완',
+      'pre_construction_inspection': '착공 전 실사',
+      'pre_construction_supplement_1st': '착공 보완 1차',
+      'pre_construction_supplement_2nd': '착공 보완 2차',
+      'construction_report_submit': '착공신고서 제출',
+      'pre_completion_document_submit': '준공도서 작성 필요',
+      'completion_inspection': '준공 실사',
+      'completion_supplement_1st': '준공 보완 1차',
+      'completion_supplement_2nd': '준공 보완 2차',
+      'completion_supplement_3rd': '준공 보완 3차',
+      'final_document_submit': '보조금지급신청서 제출',
+      'subsidy_payment': '보조금 입금',
+      // AS 업무 단계
+      'as_customer_contact': 'AS 고객 상담',
+      'as_site_inspection': 'AS 현장 확인',
+      'as_quotation': 'AS 견적 작성',
+      'as_contract': 'AS 계약 체결',
+      'as_part_order': 'AS 부품 발주',
+      'as_completed': 'AS 완료',
+      // 기타 단계
+      'etc_status': '기타',
+      // 기존 단계 (호환성)
       'pending': '대기',
       'in_progress': '진행중',
-      'quote_requested': '견적 요청',
-      'quote_received': '견적 수신',
-      'work_scheduled': '작업 예정',
-      'work_in_progress': '작업중',
       'completed': '완료',
       'cancelled': '취소',
-      'customer_contact': '고객연락',
-      'site_inspection': '현장조사',
-      'quotation': '견적',
-      'contract': '계약',
-      'deposit_confirm': '계약금확인',
-      'product_order': '제품 주문',
-      'product_shipment': '제품 배송',
-      'installation_schedule': '설치협의',
-      'installation': '설치',
-      'balance_payment': '잔금결제',
-      'document_complete': '서류완료',
-      'subsidy_payment': '보조금지급',
       'on_hold': '보류'
     };
 

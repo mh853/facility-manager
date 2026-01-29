@@ -65,17 +65,35 @@ const subsidySteps: Array<{status: TaskStatus, label: string, color: string}> = 
   { status: 'customer_contact', label: '고객 상담', color: 'blue' },
   { status: 'site_inspection', label: '현장 실사', color: 'yellow' },
   { status: 'quotation', label: '견적서 작성', color: 'orange' },
+  // ✨ 새로운 단계 추가
+  { status: 'document_preparation', label: '신청서 작성 필요', color: 'amber' },
   { status: 'application_submit', label: '신청서 제출', color: 'purple' },
-  { status: 'document_supplement', label: '서류 보완', color: 'red' },
+  // 보조금 승인 단계
+  { status: 'approval_pending', label: '보조금 승인대기', color: 'sky' },
+  { status: 'approved', label: '보조금 승인', color: 'lime' },
+  { status: 'rejected', label: '보조금 탈락', color: 'red' },
+  // 🔄 워딩 변경: 서류 보완 → 신청서 보완
+  { status: 'document_supplement', label: '신청서 보완', color: 'pink' },
   { status: 'pre_construction_inspection', label: '착공 전 실사', color: 'indigo' },
-  { status: 'pre_construction_supplement', label: '착공 보완', color: 'pink' },
+  // 착공 보완 세분화
+  { status: 'pre_construction_supplement_1st', label: '착공 보완 1차', color: 'rose' },
+  { status: 'pre_construction_supplement_2nd', label: '착공 보완 2차', color: 'fuchsia' },
+  // 🆕 착공신고서 제출 단계
+  { status: 'construction_report_submit', label: '착공신고서 제출', color: 'blue' },
   { status: 'product_order', label: '제품 발주', color: 'cyan' },
   { status: 'product_shipment', label: '제품 출고', color: 'emerald' },
-  { status: 'installation_schedule', label: '설치 협의', color: 'teal' },
-  { status: 'installation', label: '제품 설치', color: 'green' },
+  // 🔄 워딩 변경: 설치 협의 → 설치예정
+  { status: 'installation_schedule', label: '설치예정', color: 'teal' },
+  // 🔄 워딩 변경: 제품 설치 → 설치완료
+  { status: 'installation', label: '설치완료', color: 'green' },
+  // 🔄 워딩 변경: 준공실사 전 서류 제출 → 준공도서 작성 필요
+  { status: 'pre_completion_document_submit', label: '준공도서 작성 필요', color: 'amber' },
   { status: 'completion_inspection', label: '준공 실사', color: 'violet' },
-  { status: 'completion_supplement', label: '준공 보완', color: 'fuchsia' },
-  { status: 'final_document_submit', label: '서류 제출', color: 'rose' },
+  // 준공 보완 세분화
+  { status: 'completion_supplement_1st', label: '준공 보완 1차', color: 'slate' },
+  { status: 'completion_supplement_2nd', label: '준공 보완 2차', color: 'zinc' },
+  { status: 'completion_supplement_3rd', label: '준공 보완 3차', color: 'stone' },
+  { status: 'final_document_submit', label: '보조금지급신청서 제출', color: 'gray' },
   { status: 'subsidy_payment', label: '보조금 입금', color: 'green' }
 ]
 
@@ -98,7 +116,9 @@ const getColorClasses = (color: string) => {
     blue: { color: 'bg-blue-100 text-blue-700 border-blue-200', bgColor: 'bg-blue-50' },
     yellow: { color: 'bg-yellow-100 text-yellow-700 border-yellow-200', bgColor: 'bg-yellow-50' },
     orange: { color: 'bg-orange-100 text-orange-700 border-orange-200', bgColor: 'bg-orange-50' },
+    amber: { color: 'bg-amber-100 text-amber-700 border-amber-200', bgColor: 'bg-amber-50' },
     purple: { color: 'bg-purple-100 text-purple-700 border-purple-200', bgColor: 'bg-purple-50' },
+    sky: { color: 'bg-sky-100 text-sky-700 border-sky-200', bgColor: 'bg-sky-50' },
     indigo: { color: 'bg-indigo-100 text-indigo-700 border-indigo-200', bgColor: 'bg-indigo-50' },
     cyan: { color: 'bg-cyan-100 text-cyan-700 border-cyan-200', bgColor: 'bg-cyan-50' },
     emerald: { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', bgColor: 'bg-emerald-50' },
@@ -110,6 +130,9 @@ const getColorClasses = (color: string) => {
     violet: { color: 'bg-violet-100 text-violet-700 border-violet-200', bgColor: 'bg-violet-50' },
     fuchsia: { color: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200', bgColor: 'bg-fuchsia-50' },
     rose: { color: 'bg-rose-100 text-rose-700 border-rose-200', bgColor: 'bg-rose-50' },
+    slate: { color: 'bg-slate-100 text-slate-700 border-slate-200', bgColor: 'bg-slate-50' },
+    zinc: { color: 'bg-zinc-100 text-zinc-700 border-zinc-200', bgColor: 'bg-zinc-50' },
+    stone: { color: 'bg-stone-100 text-stone-700 border-stone-200', bgColor: 'bg-stone-50' },
     gray: { color: 'bg-gray-100 text-gray-700 border-gray-200', bgColor: 'bg-gray-50' }
   }
   return colorMap[color] || colorMap.gray

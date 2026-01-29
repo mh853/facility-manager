@@ -17,6 +17,7 @@ interface Task {
   id: string
   title: string
   businessName?: string
+  localGovernment?: string
   businessInfo?: {
     address: string
     contact: string
@@ -44,6 +45,7 @@ interface TaskCardListProps {
   onTaskEdit?: (task: Task) => void
   onComplete?: (taskId: string) => Promise<void>
   isLoading?: boolean
+  activeSubsidies?: Record<string, any>
 }
 
 export default function TaskCardList({
@@ -51,7 +53,8 @@ export default function TaskCardList({
   onTaskClick,
   onTaskEdit,
   onComplete,
-  isLoading
+  isLoading,
+  activeSubsidies = {}
 }: TaskCardListProps) {
   // 로딩 스켈레톤
   if (isLoading) {
@@ -120,6 +123,7 @@ export default function TaskCardList({
           onClick={onTaskClick}
           onEdit={onTaskEdit}
           onComplete={onComplete}
+          activeSubsidies={activeSubsidies}
         />
       ))}
     </div>
