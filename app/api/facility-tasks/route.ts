@@ -239,6 +239,7 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       title,
       description,
       business_name,
+      business_id, // 프론트엔드에서 전달받은 business_id
       task_type,
       status = 'customer_contact',
       priority = 'medium',
@@ -255,6 +256,7 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       permission: user.permission_level,
       title,
       business_name,
+      business_id,
       task_type,
       status
     });
@@ -262,6 +264,29 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     // 필수 필드 검증
     if (!title || !business_name || !task_type) {
       return createErrorResponse('제목, 사업장명, 업무 타입은 필수입니다', 400);
+    }
+
+    // business_id가 없으면 business_name으로 조회
+    let resolvedBusinessId = business_id;
+    if (!resolvedBusinessId && business_name) {
+      try {
+        const businessResult = await queryOne(
+          'SELECT id FROM business_info WHERE business_name = $1 AND is_active = true AND is_deleted = false',
+          [business_name]
+        );
+
+        if (businessResult) {
+          resolvedBusinessId = businessResult.id;
+          console.log('✅ [FACILITY-TASKS] business_name으로 business_id 조회 성공:', {
+            business_name,
+            business_id: resolvedBusinessId
+          });
+        } else {
+          console.warn('⚠️ [FACILITY-TASKS] 사업장을 찾을 수 없음:', business_name);
+        }
+      } catch (lookupError: any) {
+        console.error('🔴 [FACILITY-TASKS] business_id 조회 실패:', lookupError?.message);
+      }
     }
 
     // 업무 타입 검증
@@ -352,10 +377,10 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     // 새 업무 생성 - Direct PostgreSQL
     const insertQuery = `
       INSERT INTO facility_tasks (
-        title, description, business_name, task_type, status, priority,
+        title, description, business_name, business_id, task_type, status, priority,
         assignee, assignees, primary_assignee_id, start_date, due_date, notes,
         created_by, created_by_name, last_modified_by, last_modified_by_name
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING *
     `;
 
@@ -363,6 +388,7 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       title,
       description,
       business_name,
+      resolvedBusinessId, // business_id 추가
       task_type,
       status,
       priority,

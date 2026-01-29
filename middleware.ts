@@ -87,6 +87,7 @@ function isCSRFExemptAPI(pathname: string): boolean {
     '/api/subsidy-crawler',    // GitHub Actions 크롤러
     '/api/webhooks/',          // 외부 웹훅
     '/api/order-management',   // 발주 관리 API (Bearer 토큰 or 쿠키 인증)
+    '/api/migrate-business-id', // 마이그레이션 API (관리자 전용)
   ];
   return exemptPaths.some(path => pathname.startsWith(path));
 }

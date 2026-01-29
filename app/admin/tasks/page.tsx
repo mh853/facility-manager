@@ -9,6 +9,7 @@ import TaskCardList from './components/TaskCardList'
 import TaskCard from './components/TaskCard'
 import TaskMobileModal from './components/TaskMobileModal'
 import TaskHistoryTimeline from '@/components/TaskHistoryTimeline'
+import BusinessInfoPanel from '@/components/tasks/BusinessInfoPanel'
 import {
   Plus,
   Search,
@@ -74,6 +75,7 @@ export interface Task {
   id: string
   title: string
   businessName?: string
+  businessId?: string // 사업장 ID 추가
   businessInfo?: {
     address: string
     contact: string
@@ -258,7 +260,6 @@ function TaskManagementPage() {
   const loadTasks = useCallback(async () => {
     try {
       setIsLoading(true)
-      console.log('📋 시설 업무 목록 로딩 시작...')
 
       const token = TokenManager.getToken()
       const headers: HeadersInit = {
@@ -287,6 +288,7 @@ function TaskManagementPage() {
           id: dbTask.id,
           title: dbTask.title,
           businessName: dbTask.business_name,
+          businessId: dbTask.business_id, // businessId 매핑 추가
           type: dbTask.task_type,
           status: dbTask.status,
           priority: dbTask.priority,
@@ -317,6 +319,7 @@ function TaskManagementPage() {
   useEffect(() => {
     loadTasks()
   }, [loadTasks])
+
 
   // 필터 초기화는 사용자가 직접 선택하도록 변경 - 기본은 "전체"로 유지
   // useEffect(() => {
@@ -576,6 +579,7 @@ function TaskManagementPage() {
       setEditingTask(prev => prev ? {
         ...prev,
         businessName: business.name,
+        businessId: business.id, // businessId 추가
         type: taskType
       } : null)
       setEditBusinessSearchTerm(business.name)
@@ -585,6 +589,7 @@ function TaskManagementPage() {
       setCreateTaskForm(prev => ({
         ...prev,
         businessName: business.name,
+        businessId: business.id, // businessId 추가
         type: taskType
       }))
       setBusinessSearchTerm(business.name)
@@ -993,6 +998,7 @@ function TaskManagementPage() {
       const requestData = {
         title: autoTitle,
         business_name: businessSearchTerm || '기타',
+        business_id: createTaskForm.businessId || null, // businessId 추가
         task_type: createTaskForm.type,
         status: createTaskForm.status,
         priority: createTaskForm.priority,
@@ -1036,6 +1042,7 @@ function TaskManagementPage() {
         id: result.data.task.id,
         title: result.data.task.title,
         businessName: result.data.task.business_name,
+        businessId: result.data.task.business_id, // businessId 매핑 추가
         type: result.data.task.task_type,
         status: result.data.task.status,
         priority: result.data.task.priority,
@@ -1136,6 +1143,7 @@ function TaskManagementPage() {
       alert('이 업무를 수정할 권한이 없습니다. 담당자나 관리자만 수정할 수 있습니다.')
       return
     }
+
 
     setEditingTask(task)
     setEditBusinessSearchTerm(task.businessName || '')
@@ -2174,7 +2182,7 @@ function TaskManagementPage() {
       {/* 업무 상세/수정 모달 */}
       {showEditModal && editingTask && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 backdrop-blur-sm p-2 sm:p-4">
-          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[98vh] sm:max-h-[95vh] overflow-hidden">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-7xl max-h-[98vh] sm:max-h-[95vh] overflow-hidden">
             {/* 세련된 헤더 섹션 */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-6 py-3 sm:py-4 text-white">
               <div className="flex items-center justify-between">
@@ -2231,7 +2239,10 @@ function TaskManagementPage() {
               </div>
             </div>
 
-            <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(98vh-120px)] sm:max-h-[calc(95vh-120px)]">
+            {/* 2컬럼 레이아웃 (2:1 비율) */}
+            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] h-[calc(98vh-120px)] sm:h-[calc(95vh-120px)] overflow-hidden">
+              {/* 왼쪽: 업무 수정 폼 */}
+              <div className="p-3 sm:p-6 overflow-y-auto border-r border-gray-200 h-full">
               {/* 핵심 정보 카드들 */}
               <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-3 sm:mb-3">
                 {/* 진행 상태 카드 */}
@@ -2503,6 +2514,16 @@ function TaskManagementPage() {
 
                 {/* 하단 여백 */}
                 <div className="mt-4"></div>
+              </div>
+              </div>
+
+              {/* 오른쪽: 사업장 정보 패널 */}
+              <div className="overflow-y-auto bg-gray-50 h-full">
+                <BusinessInfoPanel
+                  key={editingTask.businessId || 'empty'}
+                  businessId={editingTask.businessId || null}
+                  businessName={editingTask.businessName}
+                />
               </div>
             </div>
           </div>
