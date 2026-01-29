@@ -1162,6 +1162,13 @@ export default function BusinessDetailModal({
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+                    {business.subsidy_approval_date && (
+                      <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                        <div className="text-xs sm:text-sm text-gray-600 mb-1">보조금 승인일</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{formatDate(business.subsidy_approval_date)}</div>
+                      </div>
+                    )}
+
                     {business.contract_sent_date && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">계약서 발송일</div>
@@ -1208,13 +1215,6 @@ export default function BusinessDetailModal({
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">부착완료통보서 제출일</div>
                         <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{formatDate(business.attachment_completion_submitted_at)}</div>
-                      </div>
-                    )}
-
-                    {business.subsidy_approval_date && (
-                      <div className="bg-white rounded-lg p-4 shadow-sm">
-                        <div className="text-sm text-gray-600 mb-1">보조금 승인일</div>
-                        <div className="text-base font-medium text-gray-900">{formatDate(business.subsidy_approval_date)}</div>
                       </div>
                     )}
                   </div>
