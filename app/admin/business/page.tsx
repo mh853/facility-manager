@@ -2365,6 +2365,8 @@ function BusinessManagementPage() {
         if (refreshedBusiness) {
           console.log('🔄 모달용 최신 데이터 조회 완료:', {
             사업장명: refreshedBusiness.사업장명,
+            보조금승인일: refreshedBusiness.subsidy_approval_date,
+            계약서발송일: refreshedBusiness.contract_sent_date,
             계산서1차발행일: refreshedBusiness.invoice_1st_date,
             계산서1차금액: refreshedBusiness.invoice_1st_amount,
             견적실사담당자: refreshedBusiness.estimate_survey_manager,
