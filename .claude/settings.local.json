@@ -190,7 +190,10 @@
       "mcp__playwright__browser_fill_form",
       "mcp__playwright__browser_run_code",
       "Bash(test:*)",
-      "Bash(npx ts-node:*)"
+      "Bash(npx ts-node:*)",
+      "mcp__serena__search_for_pattern",
+      "Bash(timeout 30 bash:*)",
+      "Bash([ -f .next/BUILD_ID ])"
     ],
     "deny": [],
     "ask": [],
