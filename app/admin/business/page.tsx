@@ -4713,6 +4713,14 @@ function BusinessManagementPage() {
                   <div className="bg-gray-50 rounded-lg p-3 sm:p-3 md:p-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
                     <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">계약서 발송일</label>
+                      <DateInput
+                        value={formData.contract_sent_date || ''}
+                        onChange={(value) => setFormData({...formData, contract_sent_date: value})}
+                      />
+                    </div>
+
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">발주일</label>
                       <DateInput
                         value={formData.order_date || ''}

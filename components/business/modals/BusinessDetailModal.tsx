@@ -58,6 +58,7 @@ interface UnifiedBusinessInfo {
   wireless_document?: string | null
   installation_support?: string | null
   order_manager?: string | null
+  contract_sent_date?: string | null
   order_date?: string | null
   shipment_date?: string | null
   inventory_check?: string | null
@@ -1161,6 +1162,13 @@ export default function BusinessDetailModal({
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+                    {business.contract_sent_date && (
+                      <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
+                        <div className="text-xs sm:text-sm text-gray-600 mb-1">계약서 발송일</div>
+                        <div className="text-xs sm:text-sm md:text-sm font-medium text-gray-900">{formatDate(business.contract_sent_date)}</div>
+                      </div>
+                    )}
+
                     {business.order_date && (
                       <div className="bg-white rounded-md sm:rounded-lg p-2 sm:p-3 md:p-4 shadow-sm">
                         <div className="text-xs sm:text-sm text-gray-600 mb-1">발주일</div>
