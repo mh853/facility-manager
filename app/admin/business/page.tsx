@@ -3024,6 +3024,7 @@ function BusinessManagementPage() {
 
       // 날짜 필드에서 시간 정보 제거 (YYYY-MM-DDTHH:mm:ss.sssZ → YYYY-MM-DD)
       const dateFields = [
+        'subsidy_approval_date', 'contract_sent_date',
         'order_request_date', 'order_date', 'shipment_date', 'installation_date',
         'construction_report_submitted_at', 'greenlink_confirmation_submitted_at',
         'attachment_completion_submitted_at',
