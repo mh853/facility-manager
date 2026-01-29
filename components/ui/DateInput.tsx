@@ -22,7 +22,9 @@ export default function DateInput({ value, onChange, className = '', placeholder
   // value prop이 변경되면 내부 상태 업데이트
   useEffect(() => {
     if (value) {
-      const parts = value.split('-')
+      // ISO 8601 datetime 형식(YYYY-MM-DDTHH:mm:ss.sssZ)에서 날짜 부분만 추출
+      const dateOnly = value.includes('T') ? value.split('T')[0] : value
+      const parts = dateOnly.split('-')
       if (parts.length === 3) {
         setYear(parts[0])
         setMonth(parts[1])
