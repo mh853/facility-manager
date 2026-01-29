@@ -10,7 +10,7 @@ import type { CalculatedData, OperatingCostAdjustment } from '@/types';
 interface BusinessRevenueModalProps {
   business: any;
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (dataChanged?: boolean) => void;
   userPermission: number;
 }
 
@@ -25,6 +25,16 @@ export default function BusinessRevenueModal({
   const [calculatedData, setCalculatedData] = useState<CalculatedData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ✅ 데이터 변경 추적 (영업비용 조정 또는 실사비 저장 시 true)
+  const [dataChanged, setDataChanged] = useState(false);
+
+  // 🎯 안정적인 business ID 추출 (의존성 배열용)
+  const businessId = business?.id;
+
+  // 🔧 이전 businessId 추적 (불필요한 재조회 방지)
+  const prevBusinessIdRef = React.useRef<string | undefined>();
+  const prevIsOpenRef = React.useRef<boolean>(false);
 
   // 영업비용 조정 상태
   const [isEditingAdjustment, setIsEditingAdjustment] = useState(false);
@@ -42,14 +52,38 @@ export default function BusinessRevenueModal({
   });
   const [isSavingSurveyFee, setIsSavingSurveyFee] = useState(false);
 
+  // 🔄 모달이 닫힐 때 ref 리셋
+  useEffect(() => {
+    if (!isOpen) {
+      prevIsOpenRef.current = false;
+      // businessId는 유지 (다음에 같은 사업장 열면 캐시 사용)
+    }
+  }, [isOpen]);
+
   // API에서 최신 계산 결과 가져오기 (Hook은 항상 최상위에서 호출)
   // ⚠️ 중요: isOpen이 true로 변경될 때만 실행 (모달 열릴 때만)
   // ✨ 최적화: SessionStorage 캐싱으로 복귀 시 로딩 시간 단축
   useEffect(() => {
     // 조건 체크는 Hook 내부에서 수행
-    if (!isOpen || !business || !business.id) {
+    if (!isOpen || !businessId) {
       return;
     }
+
+    // 🔒 중복 호출 방지: 이미 열려있는 상태에서 같은 business 재선택 시 스킵
+    const wasAlreadyOpen = prevIsOpenRef.current;
+    const sameBusinessId = prevBusinessIdRef.current === businessId;
+
+    if (wasAlreadyOpen && sameBusinessId) {
+      console.log('⏭️ [SKIP] 모달 이미 열려있음, 같은 사업장 → API 호출 생략:', business?.business_name);
+      return;
+    }
+
+    // Ref 업데이트
+    prevIsOpenRef.current = isOpen;
+    prevBusinessIdRef.current = businessId;
+
+    // ✅ 모달 열릴 때 dataChanged 초기화
+    setDataChanged(false);
 
     const fetchLatestCalculation = async () => {
       setIsRefreshing(true);
@@ -57,7 +91,7 @@ export default function BusinessRevenueModal({
 
       try {
         // 1️⃣ 캐시 확인
-        const cacheKey = `revenue_calc_${business.id}`;
+        const cacheKey = `revenue_calc_${businessId}`;
         const cached = sessionStorage.getItem(cacheKey);
 
         if (cached) {
@@ -67,20 +101,22 @@ export default function BusinessRevenueModal({
             const TTL = 5 * 60 * 1000; // 5분
 
             if (age < TTL) {
-              console.log('✅ [CACHE-HIT] Revenue 계산 캐시 사용:', business.business_name || business.사업장명);
+              console.log('✅ [CACHE-HIT] Revenue 계산 캐시 사용 (모달 열림):', business?.business_name || business?.사업장명);
               setCalculatedData(data);
               setIsRefreshing(false);
               return; // 캐시 사용, API 호출 생략
             } else {
-              console.log('⏰ [CACHE-EXPIRED] 캐시 만료, 재계산:', business.business_name || business.사업장명);
+              console.log('⏰ [CACHE-EXPIRED] 캐시 만료, 재계산:', business?.business_name || business?.사업장명);
             }
           } catch (e) {
             console.warn('⚠️ [CACHE-ERROR] 캐시 파싱 실패:', e);
           }
+        } else {
+          console.log('📭 [NO-CACHE] 캐시 없음, API 호출:', business?.business_name || business?.사업장명);
         }
 
         // 2️⃣ API 호출 (캐시 없거나 만료된 경우)
-        console.log('🔄 [API-CALL] Revenue 계산 API 호출:', business.business_name || business.사업장명);
+        console.log('🔄 [API-CALL] Revenue 계산 API 호출:', business?.business_name || business?.사업장명);
         const token = TokenManager.getToken();
         const response = await fetch('/api/revenue/calculate', {
           method: 'POST',
@@ -89,7 +125,7 @@ export default function BusinessRevenueModal({
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            business_id: business.id,
+            business_id: businessId,
             save_result: false
           })
         });
@@ -104,7 +140,7 @@ export default function BusinessRevenueModal({
             data: data.data.calculation,
             timestamp: Date.now()
           }));
-          console.log('💾 [CACHE-SET] Revenue 계산 결과 캐시 저장:', business.business_name || business.사업장명);
+          console.log('💾 [CACHE-SET] Revenue 계산 결과 캐시 저장:', business?.business_name || business?.사업장명);
         } else {
           setError(data.message || '계산 결과를 가져올 수 없습니다.');
         }
@@ -117,7 +153,7 @@ export default function BusinessRevenueModal({
     };
 
     fetchLatestCalculation();
-  }, [isOpen, business?.id]); // 🔧 FIX: business.id 추가 - 모달이 열리거나 사업장이 변경될 때 실행
+  }, [isOpen, businessId]); // ✅ 안정화: businessId만 의존성으로 사용
 
   // 영업비용 조정 값 로드 (기존 조정이 있으면 폼에 채우기)
   useEffect(() => {
@@ -208,6 +244,8 @@ export default function BusinessRevenueModal({
           setCalculatedData(calcData.data.calculation);
           // 캐시 무효화 - 데이터가 변경되었으므로
           invalidateRevenueCache(business.id);
+          // ✅ 데이터 변경 플래그 설정
+          setDataChanged(true);
         } else {
           alert('조정은 저장되었으나 매출 재계산에 실패했습니다. 페이지를 새로고침해주세요.');
         }
@@ -262,6 +300,8 @@ export default function BusinessRevenueModal({
 
         if (calcData.success && calcData.data && calcData.data.calculation) {
           setCalculatedData(calcData.data.calculation);
+          // ✅ 데이터 변경 플래그 설정
+          setDataChanged(true);
         } else {
           alert('조정은 삭제되었으나 매출 재계산에 실패했습니다. 페이지를 새로고침해주세요.');
         }
@@ -325,6 +365,8 @@ export default function BusinessRevenueModal({
           setCalculatedData(calcData.data.calculation);
           // 캐시 무효화 - 데이터가 변경되었으므로
           invalidateRevenueCache(business.id);
+          // ✅ 데이터 변경 플래그 설정
+          setDataChanged(true);
         }
 
         setIsEditingSurveyFee(false);
@@ -423,7 +465,7 @@ export default function BusinessRevenueModal({
             )}
           </div>
           <button
-            onClick={onClose}
+            onClick={() => onClose(dataChanged)}
             className="text-gray-400 hover:text-gray-600"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -866,11 +908,44 @@ export default function BusinessRevenueModal({
                         조정: {displayData.survey_fee_adjustment > 0 ? '+' : ''}{formatCurrency(displayData.survey_fee_adjustment)}
                       </div>
                     </div>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {calculatedData ? '최신 계산 적용' : '저장된 값'}
-                    </p>
-                  )}
+                  ) : null}
+
+                  {/* 실사 일정 표시 (YY-MM-DD 형식) */}
+                  {(() => {
+                    const formatCompactDate = (dateString: string | null): string => {
+                      if (!dateString) return '';
+                      const date = new Date(dateString);
+                      const year = String(date.getFullYear()).slice(-2);
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      return `${year}-${month}-${day}`;
+                    };
+
+                    const surveys = [
+                      { label: '견적', date: business.estimate_survey_date },
+                      { label: '착공', date: business.pre_construction_survey_date },
+                      { label: '준공', date: business.completion_survey_date }
+                    ].filter(s => s.date);
+
+                    if (surveys.length === 0) {
+                      return (
+                        <p className="text-xs text-gray-500 mt-1 italic">
+                          실사 일정 미등록
+                        </p>
+                      );
+                    }
+
+                    return (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {surveys.map((survey, idx) => (
+                          <span key={idx}>
+                            {idx > 0 && ', '}
+                            {survey.label}|{formatCompactDate(survey.date)}
+                          </span>
+                        ))}
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* 실사비용 조정 카드 */}
@@ -1107,7 +1182,7 @@ export default function BusinessRevenueModal({
 
         <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200">
           <button
-            onClick={onClose}
+            onClick={() => onClose(dataChanged)}
             className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             닫기

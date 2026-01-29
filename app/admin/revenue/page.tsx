@@ -11,6 +11,7 @@ import { AuthLevel, AUTH_LEVEL_DESCRIPTIONS } from '@/lib/auth/AuthLevels';
 import StatsCard from '@/components/ui/StatsCard';
 import Modal, { ModalActions } from '@/components/ui/Modal';
 import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
+import TwoStageDropdown from '@/components/ui/TwoStageDropdown';
 import { MANUFACTURER_NAMES_REVERSE, type ManufacturerName } from '@/constants/manufacturers';
 import { calculateBusinessRevenue, type PricingData } from '@/lib/revenue-calculator';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -84,7 +85,6 @@ function RevenueDashboard() {
   const [businesses, setBusinesses] = useState<BusinessInfo[]>([]);
   const [calculations, setCalculations] = useState<RevenueCalculation[]>([]);
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,7 +113,8 @@ function RevenueDashboard() {
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // 카테고리(진행구분) 필터
   const [selectedProjectYears, setSelectedProjectYears] = useState<string[]>([]); // 사업 진행 연도 필터
-  const [selectedMonths, setSelectedMonths] = useState<string[]>([]); // 월별 필터 (1-12)
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([]); // 월별 필터 (1-12) - 설치일 기준
+  const [selectedSurveyMonths, setSelectedSurveyMonths] = useState<string[]>([]); // 실사 월 필터 ['견적|1', '착공|2', '준공|9']
   const [showReceivablesOnly, setShowReceivablesOnly] = useState(false); // 미수금 필터
   const [showUninstalledOnly, setShowUninstalledOnly] = useState(false); // 미설치 필터
   const [sortField, setSortField] = useState<string>('business_name');
@@ -129,13 +130,19 @@ function RevenueDashboard() {
 
 
   useEffect(() => {
+    console.log('🔄 [COMPONENT-LIFECYCLE] Revenue 페이지 마운트됨');
     // 가격 데이터 먼저 로드
     loadPricingData();
+
+    return () => {
+      console.log('🔄 [COMPONENT-LIFECYCLE] Revenue 페이지 언마운트됨');
+    };
   }, []);
 
   useEffect(() => {
     // 가격 데이터가 로드되면 사업장 데이터와 계산 결과를 병렬로 로드
     if (pricesLoaded) {
+      console.log('🔄 [COMPONENT-LIFECYCLE] pricesLoaded=true → 데이터 로드 시작');
       Promise.all([
         loadBusinesses(),
         loadCalculations()
@@ -184,10 +191,102 @@ function RevenueDashboard() {
     };
   };
 
-  // 동적 가격 데이터 로드 (병렬 처리로 성능 최적화)
+  // 🚀 SessionStorage 캐싱 유틸리티
+  const CACHE_KEYS = {
+    PRICING: 'revenue_pricing_cache',
+    BUSINESSES: 'revenue_businesses_cache',
+    CALCULATIONS: 'revenue_calculations_cache',
+    CACHE_TIME: 'revenue_cache_time'
+  };
+  const CACHE_DURATION = 5 * 60 * 1000; // 5분
+
+  const getCachedData = (key: string) => {
+    try {
+      console.log(`🔍 [CACHE-DEBUG] ${key} 조회 시작`);
+
+      const cacheTime = sessionStorage.getItem(CACHE_KEYS.CACHE_TIME);
+      if (!cacheTime) {
+        console.log(`❌ [CACHE-DEBUG] ${key} → CACHE_TIME 없음 (첫 로드)`);
+        return null;
+      }
+
+      const elapsed = Date.now() - parseInt(cacheTime);
+      console.log(`⏱️ [CACHE-DEBUG] ${key} → 캐시 시간: ${(elapsed / 1000).toFixed(1)}초 전 (만료: ${CACHE_DURATION / 1000}초)`);
+
+      if (elapsed > CACHE_DURATION) {
+        console.log(`⏰ [CACHE] 캐시 만료됨 (5분 초과) → 클리어`);
+        clearCache();
+        return null;
+      }
+
+      const cached = sessionStorage.getItem(key);
+      if (cached) {
+        console.log(`✅ [CACHE] ${key} 캐시 히트 (${(elapsed / 1000).toFixed(1)}초 전)`);
+        return JSON.parse(cached);
+      } else {
+        console.log(`❌ [CACHE-DEBUG] ${key} → 데이터 없음 (다른 키는 있지만 이 키는 없음)`);
+      }
+    } catch (error) {
+      console.warn('⚠️ [CACHE] 캐시 읽기 오류:', error);
+    }
+    return null;
+  };
+
+  const setCachedData = (key: string, data: any) => {
+    try {
+      const dataSize = JSON.stringify(data).length;
+      const dataSizeKB = (dataSize / 1024).toFixed(1);
+
+      // 🚨 5MB 초과 시 캐싱 생략 (SessionStorage 용량 제한)
+      if (dataSize > 5 * 1024 * 1024) {
+        console.warn(`⚠️ [CACHE] ${key} 데이터가 너무 큼 (${dataSizeKB} KB) → 캐싱 생략`);
+        return;
+      }
+
+      sessionStorage.setItem(key, JSON.stringify(data));
+      sessionStorage.setItem(CACHE_KEYS.CACHE_TIME, Date.now().toString());
+      console.log(`💾 [CACHE] ${key} 캐시 저장 완료 (크기: ${dataSizeKB} KB, 시간: ${new Date().toLocaleTimeString()})`);
+    } catch (error) {
+      // QuotaExceededError 처리
+      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+        console.warn(`⚠️ [CACHE] ${key} SessionStorage 용량 초과 → 캐싱 불가 (데이터가 너무 큼)`);
+        // 기존 캐시 클리어 후 재시도하지 않음 (다른 페이지 캐시 유지)
+      } else {
+        console.warn('⚠️ [CACHE] 캐시 저장 오류:', error);
+      }
+    }
+  };
+
+  const clearCache = () => {
+    console.log('🗑️ [CACHE] 캐시 클리어 시작');
+    console.trace('🔍 [CACHE-DEBUG] clearCache() 호출 스택:');
+    Object.values(CACHE_KEYS).forEach(key => sessionStorage.removeItem(key));
+    console.log('✅ [CACHE] 캐시 클리어 완료');
+  };
+
+  // 동적 가격 데이터 로드 (병렬 처리 + SessionStorage 캐싱)
   const loadPricingData = async () => {
     try {
       const startTime = performance.now();
+
+      // 🚀 캐시 확인
+      const cachedPricing = getCachedData(CACHE_KEYS.PRICING);
+      if (cachedPricing) {
+        setOfficialPrices(cachedPricing.official);
+        setManufacturerPrices(cachedPricing.manufacturer);
+        setSalesOfficeSettings(cachedPricing.salesOffice);
+        setSurveyCostSettings(cachedPricing.surveyCost);
+        setBaseInstallationCosts(cachedPricing.installation);
+        setCommissionRates(cachedPricing.commission);
+        setPricesLoaded(true);
+        setCostSettingsLoaded(true);
+        setCommissionRatesLoaded(true);
+
+        const endTime = performance.now();
+        console.log(`⚡ [PRICING] 캐시에서 로드 완료 (${(endTime - startTime).toFixed(0)}ms)`);
+        return;
+      }
+
       console.log('⚡ [PRICING] 가격 데이터 병렬 로드 시작');
 
       // ✅ 성능 개선: 6개 API를 병렬로 호출 (3초+ → 0.5초)
@@ -295,6 +394,47 @@ function RevenueDashboard() {
       setPricesLoaded(true);
       setCostSettingsLoaded(true);
 
+      // 🚀 캐시 저장
+      const pricingCache = {
+        official: govData.success ? Object.fromEntries(
+          govData.data.pricing.map((item: any) => [item.equipment_type, item.official_price])
+        ) : {},
+        manufacturer: manuData.success ? (() => {
+          const manuPrices: Record<string, Record<string, number>> = {};
+          manuData.data.pricing.forEach((item: any) => {
+            const normalizedManufacturer = item.manufacturer.toLowerCase().trim();
+            if (!manuPrices[normalizedManufacturer]) {
+              manuPrices[normalizedManufacturer] = {};
+            }
+            manuPrices[normalizedManufacturer][item.equipment_type] = Number(item.cost_price) || 0;
+          });
+          return manuPrices;
+        })() : {},
+        salesOffice: salesOfficeData.success ? salesOfficeData.data.settings.reduce((acc: any, item: any) => {
+          acc[item.sales_office] = { sales_cost_rate: item.sales_cost_rate };
+          return acc;
+        }, {}) : {},
+        surveyCost: surveyCostData.success ? surveyCostData.data.costs.reduce((acc: any, item: any) => {
+          acc[item.survey_type] = item.cost;
+          return acc;
+        }, {}) : {},
+        installation: installCostData.success ? installCostData.data.costs.reduce((acc: any, item: any) => {
+          acc[item.equipment_type] = item.installation_cost;
+          return acc;
+        }, {}) : {},
+        commission: commissionData.success ? (() => {
+          const rates: Record<string, Record<string, number>> = {};
+          commissionData.data.offices.forEach((office: any) => {
+            rates[office.sales_office] = {};
+            office.rates.forEach((rate: any) => {
+              rates[office.sales_office][rate.manufacturer] = rate.commission_rate;
+            });
+          });
+          return rates;
+        })() : {}
+      };
+      setCachedData(CACHE_KEYS.PRICING, pricingCache);
+
       const endTime = performance.now();
       console.log(`✅ [PRICING] 가격 데이터 병렬 로드 완료 (${(endTime - startTime).toFixed(0)}ms)`);
     } catch (error) {
@@ -383,8 +523,20 @@ function RevenueDashboard() {
   // 🔧 Fallback 계산 함수 완전 제거 - DB 저장 결과만 사용
 
   const loadBusinesses = async () => {
-    console.log('📊 [LOAD-BUSINESSES] 사업장 데이터 로드 시작');
+    const startTime = performance.now();
+
     try {
+      // 🚀 캐시 확인
+      const cachedBusinesses = getCachedData(CACHE_KEYS.BUSINESSES);
+      if (cachedBusinesses) {
+        setBusinesses(cachedBusinesses);
+        const endTime = performance.now();
+        console.log(`⚡ [LOAD-BUSINESSES] 캐시에서 ${cachedBusinesses.length}개 로드 완료 (${(endTime - startTime).toFixed(0)}ms)`);
+        return;
+      }
+
+      console.log('📊 [LOAD-BUSINESSES] 사업장 데이터 로드 시작');
+
       // ✅ 전체 사업장 데이터 조회 (매출 계산을 위해 전체 데이터 필요)
       // 기본 limit: 2000개 (현재 1509개 사업장 커버)
       const response = await fetch('/api/business-info-direct', {
@@ -398,7 +550,12 @@ function RevenueDashboard() {
 
         // 🔧 기존 클라이언트 계산 로직 제거, businesses를 그대로 저장
         setBusinesses(businessData);
-        console.log('✅ [LOAD-BUSINESSES] businesses 상태 업데이트 완료');
+
+        // 🚀 캐시 저장
+        setCachedData(CACHE_KEYS.BUSINESSES, businessData);
+
+        const endTime = performance.now();
+        console.log(`✅ [LOAD-BUSINESSES] 사업장 로드 완료 (${(endTime - startTime).toFixed(0)}ms)`);
 
         // ⚠️ 자동 재계산 비활성화: 관리자가 수동으로 "전체 재계산" 버튼을 사용
         // 페이지 로드 시 DB에 저장된 기존 계산 결과만 표시
@@ -450,22 +607,43 @@ function RevenueDashboard() {
 
   const loadCalculations = async () => {
     console.log('📊 [LOAD-CALCULATIONS] 계산 결과 로드 시작');
+    console.log('🔍 [LOAD-CALCULATIONS-DEBUG] 현재 SessionStorage 상태:', {
+      hasCalculationsCache: !!sessionStorage.getItem(CACHE_KEYS.CALCULATIONS),
+      hasCacheTime: !!sessionStorage.getItem(CACHE_KEYS.CACHE_TIME),
+      cacheTime: sessionStorage.getItem(CACHE_KEYS.CACHE_TIME),
+      elapsed: sessionStorage.getItem(CACHE_KEYS.CACHE_TIME)
+        ? `${((Date.now() - parseInt(sessionStorage.getItem(CACHE_KEYS.CACHE_TIME)!)) / 1000).toFixed(1)}초`
+        : 'N/A',
+      cacheExpired: sessionStorage.getItem(CACHE_KEYS.CACHE_TIME)
+        ? (Date.now() - parseInt(sessionStorage.getItem(CACHE_KEYS.CACHE_TIME)!)) > CACHE_DURATION
+        : true
+    });
+
     setLoading(true);
     try {
+      // 🚀 캐시 확인 (페이지 재방문 시 API 호출 생략)
+      const cachedCalculations = getCachedData(CACHE_KEYS.CALCULATIONS);
+      if (cachedCalculations) {
+        setCalculations(cachedCalculations);
+        console.log('✅ [LOAD-CALCULATIONS] 캐시에서 로드 완료:', cachedCalculations.length, '개 (API 호출 생략)');
+        setLoading(false);
+        return;
+      }
+
+      console.log('⚠️ [LOAD-CALCULATIONS-DEBUG] 캐시 미스 → API 호출 진행');
+
       const params = new URLSearchParams();
       // 다중 선택 필터는 클라이언트에서 처리하므로 서버 필터는 제거
       if (selectedOffices.length === 1) params.append('sales_office', selectedOffices[0]);
-      // 캐시 버스팅을 위한 타임스탬프 추가
-      params.append('_t', Date.now().toString());
+      // ✅ 캐시 사용 시에는 타임스탬프 제거 (불필요)
       // limit 파라미터 제거 (API 기본값 10000 사용)
 
-      console.log('📊 [LOAD-CALCULATIONS] 요청 파라미터:', params.toString());
+      console.log('📊 [LOAD-CALCULATIONS] API 호출 시작 (캐시 없음)');
 
       const response = await fetch(`/api/revenue/calculate?${params}`, {
         headers: {
-          ...getAuthHeaders(),
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
+          ...getAuthHeaders()
+          // ✅ Cache-Control 제거 (SessionStorage 캐싱 사용)
         }
       });
       const data = await response.json();
@@ -473,7 +651,11 @@ function RevenueDashboard() {
       if (data.success) {
         const calculations = data.data.calculations || [];
         setCalculations(calculations);
-        console.log('✅ [LOAD-CALCULATIONS] 계산 결과 로드 완료:', calculations.length, '개');
+
+        // 💾 캐시 저장
+        setCachedData(CACHE_KEYS.CALCULATIONS, calculations);
+
+        console.log('✅ [LOAD-CALCULATIONS] API 로드 완료:', calculations.length, '개 (캐시 저장 완료)');
         // calculateStats는 useEffect에서 필터링된 데이터로 자동 계산됨
       }
     } catch (error) {
@@ -525,6 +707,9 @@ function RevenueDashboard() {
 
       console.log('🔄 [RECALCULATE-ALL] 전체 재계산 시작...');
       setLoading(true);
+
+      // 🗑️ 캐시 클리어 (최신 데이터로 갱신하기 위해)
+      clearCache();
 
       const response = await fetch('/api/revenue/recalculate', {
         method: 'POST',
@@ -728,21 +913,27 @@ function RevenueDashboard() {
     calc.sales_office.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // 🎯 PricingData 안정화 (객체 참조 변경 방지)
+  const pricingData = useMemo<PricingData>(() => ({
+    officialPrices,
+    manufacturerPrices,
+    salesOfficeSettings,
+    surveyCostSettings,
+    baseInstallationCosts
+  }), [
+    officialPrices,
+    manufacturerPrices,
+    salesOfficeSettings,
+    surveyCostSettings,
+    baseInstallationCosts
+  ]);
+
   // ✅ 실시간 매출 계산 (useMemo로 성능 최적화)
   const filteredBusinesses = useMemo(() => {
     // 가격 데이터가 로드되지 않았으면 빈 배열 반환
     if (!pricesLoaded || !costSettingsLoaded) {
       return [];
     }
-
-    // PricingData 구성
-    const pricingData: PricingData = {
-      officialPrices,
-      manufacturerPrices,
-      salesOfficeSettings,
-      surveyCostSettings,
-      baseInstallationCosts
-    };
 
     return businesses.filter(business => {
       // 검색어 필터
@@ -772,7 +963,32 @@ function RevenueDashboard() {
         }
       }
 
-      return searchMatch && officeMatch && regionMatch && categoryMatch && yearMatch && monthMatch;
+      // 실사 월 필터 ['견적|1', '착공|2', '준공|9']
+      let surveyMonthMatch = true;
+      if (selectedSurveyMonths.length > 0) {
+        surveyMonthMatch = false;
+
+        for (const selection of selectedSurveyMonths) {
+          const [type, monthStr] = selection.split('|');
+          const targetMonth = parseInt(monthStr, 10);
+
+          let surveyDate: string | null = null;
+          if (type === '견적') surveyDate = business.estimate_survey_date;
+          else if (type === '착공') surveyDate = business.pre_construction_survey_date;
+          else if (type === '준공') surveyDate = business.completion_survey_date;
+
+          if (surveyDate) {
+            const date = new Date(surveyDate);
+            const surveyMonth = date.getMonth() + 1;
+            if (surveyMonth === targetMonth) {
+              surveyMonthMatch = true;
+              break;
+            }
+          }
+        }
+      }
+
+      return searchMatch && officeMatch && regionMatch && categoryMatch && yearMatch && monthMatch && surveyMonthMatch;
     }).map(business => {
       // ✅ 실시간 계산 적용 (Admin 대시보드와 동일한 계산식)
       const calculatedData = calculateBusinessRevenue(business, pricingData);
@@ -863,28 +1079,27 @@ function RevenueDashboard() {
     businesses,
     pricesLoaded,
     costSettingsLoaded,
-    officialPrices,
-    manufacturerPrices,
-    salesOfficeSettings,
-    surveyCostSettings,
-    baseInstallationCosts,
+    pricingData, // 🎯 안정화된 객체 사용
     searchTerm,
     selectedOffices,
     selectedRegions,
     selectedCategories,
     selectedProjectYears,
     selectedMonths,
+    selectedSurveyMonths,
     revenueFilter,
     showReceivablesOnly,
     showUninstalledOnly
   ]);
 
-  // ✅ 실시간 계산 결과로 통계 계산 (filteredBusinesses 기반)
-  useEffect(() => {
+  // ✅ 실시간 계산 결과로 통계 계산 (filteredBusinesses에서 직접 계산)
+  const stats = useMemo(() => {
     if (!filteredBusinesses.length) {
-      setStats(null);
-      return;
+      return null;
     }
+
+    // 💡 로그 제거: 통계 계산은 매우 가벼운 작업이므로 매번 계산해도 무방
+    // 필터가 변경되었다는 것은 사용자가 의도적으로 데이터를 조회한 것이므로 정상 동작
 
     const totalRevenue = filteredBusinesses.reduce((sum, biz) => sum + biz.total_revenue, 0);
     const totalProfit = filteredBusinesses.reduce((sum, biz) => sum + biz.net_profit, 0);
@@ -904,13 +1119,13 @@ function RevenueDashboard() {
     const topOffice = Object.entries(officeStats)
       .sort(([,a], [,b]) => b.profit - a.profit)[0]?.[0] || '';
 
-    setStats({
+    return {
       total_businesses: filteredBusinesses.length,
       total_revenue: totalRevenue,
       total_profit: totalProfit,
       average_margin: avgMargin + '%',
       top_performing_office: topOffice
-    });
+    };
   }, [filteredBusinesses]);
 
   const salesOffices = [...new Set(businesses.map(b => b.sales_office).filter(Boolean))];
@@ -1188,13 +1403,13 @@ function RevenueDashboard() {
           </h3>
           <div className="space-y-2 sm:space-y-3">
             {/* 첫 번째 행: MultiSelectDropdown 필터들 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
               <MultiSelectDropdown
                 label="영업점"
                 options={salesOffices}
                 selectedValues={selectedOffices}
                 onChange={(values) => { setSelectedOffices(values); setCurrentPage(1); }}
-                placeholder="전체 영업점"
+                placeholder="전체"
                 inline
               />
 
@@ -1203,7 +1418,7 @@ function RevenueDashboard() {
                 options={regions.sort()}
                 selectedValues={selectedRegions}
                 onChange={(values) => { setSelectedRegions(values); setCurrentPage(1); }}
-                placeholder="전체 지역"
+                placeholder="전체"
                 inline
               />
 
@@ -1217,20 +1432,29 @@ function RevenueDashboard() {
               />
 
               <MultiSelectDropdown
-                label="사업 진행 연도"
+                label="사업연도"
                 options={projectYears.map(year => String(year))}
                 selectedValues={selectedProjectYears}
                 onChange={(values) => { setSelectedProjectYears(values); setCurrentPage(1); }}
-                placeholder="전체 연도"
+                placeholder="전체"
                 inline
               />
 
               <MultiSelectDropdown
-                label="설치 월"
+                label="설치월"
                 options={['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']}
                 selectedValues={selectedMonths}
                 onChange={(values) => { setSelectedMonths(values); setCurrentPage(1); }}
-                placeholder="전체 월"
+                placeholder="전체"
+                inline
+              />
+
+              <TwoStageDropdown
+                label="실사월"
+                stage1Options={['견적', '착공', '준공']}
+                stage2Options={['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']}
+                onChange={(values) => { setSelectedSurveyMonths(values); setCurrentPage(1); }}
+                placeholder="전체"
                 inline
               />
             </div>
@@ -1538,6 +1762,14 @@ function RevenueDashboard() {
                               {formatCurrency(business.net_profit ?? 0)}
                             </div>
                           </div>
+                          {selectedSurveyMonths.length > 0 && (
+                            <div className="col-span-2 bg-blue-50 p-1.5 sm:p-2 rounded">
+                              <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5">실사비용</div>
+                              <div className="font-mono font-bold text-blue-600 text-[10px] sm:text-xs md:text-sm">
+                                {formatCurrency(business.survey_costs || 0)}
+                              </div>
+                            </div>
+                          )}
                           {showReceivablesOnly && business.total_receivables > 0 && (
                             <div className="col-span-2 bg-red-50 p-1.5 sm:p-2 rounded">
                               <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5">미수금</div>
@@ -1556,6 +1788,7 @@ function RevenueDashboard() {
                 <VirtualizedTable
                   businesses={sortedBusinesses}
                   showReceivablesOnly={showReceivablesOnly}
+                  selectedSurveyMonths={selectedSurveyMonths}
                   sortField={sortField}
                   sortOrder={sortOrder}
                   handleSort={handleSort}
@@ -1574,17 +1807,21 @@ function RevenueDashboard() {
         <BusinessRevenueModal
           business={selectedEquipmentBusiness}
           isOpen={showEquipmentModal}
-          onClose={async () => {
+          onClose={async (dataChanged = false) => {
             console.log('🔄 [MODAL-CLOSE] 모달 닫기 시작');
             setShowEquipmentModal(false);
 
-            // 모달 닫을 때 사업장 데이터와 계산 결과 모두 재조회
-            console.log('🔄 [MODAL-CLOSE] 데이터 재조회 시작...');
-            await Promise.all([
-              loadBusinesses(),
-              loadCalculations()
-            ]);
-            console.log('✅ [MODAL-CLOSE] 데이터 재조회 완료');
+            // ✅ 데이터가 실제로 변경된 경우에만 재조회
+            if (dataChanged) {
+              console.log('🔄 [MODAL-CLOSE] 데이터 변경 감지 → 재조회 시작...');
+              await Promise.all([
+                loadBusinesses(),
+                loadCalculations()
+              ]);
+              console.log('✅ [MODAL-CLOSE] 데이터 재조회 완료');
+            } else {
+              console.log('✅ [MODAL-CLOSE] 데이터 변경 없음 → 재조회 생략');
+            }
           }}
           userPermission={userPermission}
         />
@@ -1597,6 +1834,7 @@ function RevenueDashboard() {
 function VirtualizedTable({
   businesses,
   showReceivablesOnly,
+  selectedSurveyMonths,
   sortField,
   sortOrder,
   handleSort,
@@ -1606,6 +1844,7 @@ function VirtualizedTable({
 }: {
   businesses: any[];
   showReceivablesOnly: boolean;
+  selectedSurveyMonths: string[];
   sortField: string;
   sortOrder: 'asc' | 'desc';
   handleSort: (field: string) => void;
@@ -1622,9 +1861,24 @@ function VirtualizedTable({
     overscan: 5,
   });
 
-  const columnWidths = showReceivablesOnly
-    ? ['18%', '9%', '7%', '8%', '8%', '11%', '11%', '11%', '7%', '10%']  // 총합 100%
-    : ['20%', '10%', '8%', '9%', '9%', '12%', '12%', '12%', '8%'];  // 총합 100%
+  // 🔧 동적 컬럼 폭 계산 (미수금 / 실사비용 필터에 따라 조정)
+  const showSurveyCostsColumn = selectedSurveyMonths.length > 0;
+
+  const columnWidths = (() => {
+    if (showReceivablesOnly && showSurveyCostsColumn) {
+      // 미수금 + 실사비용 둘 다 표시
+      return ['17%', '8%', '7%', '7%', '7%', '10%', '10%', '10%', '6%', '9%', '9%']; // 총합 100%
+    } else if (showReceivablesOnly) {
+      // 미수금만 표시
+      return ['18%', '9%', '7%', '8%', '8%', '11%', '11%', '11%', '7%', '10%'];  // 총합 100%
+    } else if (showSurveyCostsColumn) {
+      // 실사비용만 표시
+      return ['18%', '9%', '7%', '8%', '8%', '11%', '11%', '11%', '7%', '10%'];  // 총합 100%
+    } else {
+      // 기본 (둘 다 표시 안 함)
+      return ['20%', '10%', '8%', '9%', '9%', '12%', '12%', '12%', '8%'];  // 총합 100%
+    }
+  })();
 
   return (
     <div className="hidden md:block">
@@ -1676,7 +1930,15 @@ function VirtualizedTable({
           >
             이익금액 {sortField === 'net_profit' && (sortOrder === 'asc' ? '↑' : '↓')}
           </div>
-          <div className={`${showReceivablesOnly ? 'border-r' : ''} border-gray-300 px-2 py-2 flex items-center justify-end text-right text-xs font-semibold`}>이익률</div>
+          <div className={`${showReceivablesOnly || showSurveyCostsColumn ? 'border-r' : ''} border-gray-300 px-2 py-2 flex items-center justify-end text-right text-xs font-semibold`}>이익률</div>
+          {showSurveyCostsColumn && (
+            <div
+              className={`${showReceivablesOnly ? 'border-r' : ''} px-2 py-2 flex items-center justify-end text-right cursor-pointer hover:bg-gray-100 bg-blue-50 text-xs font-semibold`}
+              onClick={() => handleSort('survey_costs')}
+            >
+              실사비용 {sortField === 'survey_costs' && (sortOrder === 'asc' ? '↑' : '↓')}
+            </div>
+          )}
           {showReceivablesOnly && (
             <div
               className="px-2 py-2 flex items-center justify-end text-right cursor-pointer hover:bg-gray-100 bg-red-50 text-xs font-semibold"
@@ -1754,7 +2016,7 @@ function VirtualizedTable({
                     {formatCurrency(business.net_profit ?? 0)}
                   </span>
                 </div>
-                <div className={`${showReceivablesOnly ? 'border-r' : ''} border-gray-300 px-2 py-2 flex items-center justify-end text-right text-xs`}>
+                <div className={`${showReceivablesOnly || showSurveyCostsColumn ? 'border-r' : ''} border-gray-300 px-2 py-2 flex items-center justify-end text-right text-xs`}>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                     parseFloat(profitMargin) >= 10 ? 'bg-green-100 text-green-800' :
                     parseFloat(profitMargin) >= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
@@ -1762,6 +2024,13 @@ function VirtualizedTable({
                     {profitMargin}%
                   </span>
                 </div>
+                {showSurveyCostsColumn && (
+                  <div className={`${showReceivablesOnly ? 'border-r' : ''} px-2 py-2 flex items-center justify-end text-right font-mono font-bold bg-blue-50 text-xs`}>
+                    <span className="text-blue-600">
+                      {formatCurrency(business.survey_costs || 0)}
+                    </span>
+                  </div>
+                )}
                 {showReceivablesOnly && (
                   <div className="px-2 py-2 flex items-center justify-end text-right font-mono font-bold bg-red-50 text-xs">
                     <span className={`${
