@@ -2564,6 +2564,8 @@ function BusinessManagementPage() {
         order_manager: freshData.order_manager || '',
 
         // 일정 관리
+        subsidy_approval_date: freshData.subsidy_approval_date || '',
+        contract_sent_date: freshData.contract_sent_date || '',
         order_request_date: freshData.order_request_date || '',
         order_date: freshData.order_date || '',
         shipment_date: freshData.shipment_date || '',
