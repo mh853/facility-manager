@@ -108,6 +108,7 @@ interface UnifiedBusinessInfo {
   first_report_date?: string | null;
   operation_start_date?: string | null;
   subsidy_approval_date?: string | null;
+  contract_sent_date?: string | null;
   expansion_pack?: number | null;
   other_equipment?: string | null;
   additional_cost?: number | null;
