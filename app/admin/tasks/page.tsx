@@ -897,6 +897,30 @@ function TaskManagementPage() {
       })
     }
 
+    // 🐛 DEBUG: Kanban board debugging for dealer filter
+    if (selectedType === 'dealer') {
+      console.log('🐛 [KANBAN DEBUG] ==================');
+      console.log('🎯 Selected Type:', selectedType);
+      console.log('📋 Dealer Steps Definition:', dealerSteps);
+      console.log('📊 uniqueSteps (should equal dealerSteps):', uniqueSteps);
+      console.log('🔢 uniqueSteps.length:', uniqueSteps.length);
+      console.log('🔢 Expected: 4, Actual:', uniqueSteps.length);
+
+      const dealerTasks = filteredTasks.filter((t: any) => t.type === 'dealer');
+      const uniqueStatuses = new Set(dealerTasks.map((t: any) => t.status));
+      console.log('🏷️ Unique Statuses in Dealer Tasks:', Array.from(uniqueStatuses));
+      console.log('📦 Dealer Tasks Detail:', dealerTasks.map((t: any) => ({
+        id: t.id,
+        business: t.businessName,
+        type: t.type,
+        status: t.status,
+        title: t.title
+      })));
+
+      console.log('🗂️ Grouped Keys:', Object.keys(grouped));
+      console.log('==================');
+    }
+
     return { grouped, steps: uniqueSteps }
   }, [filteredTasks, selectedType])
 
