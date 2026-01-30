@@ -833,6 +833,11 @@ function TaskManagementPage() {
 
   // 상태별 업무 그룹화
   const tasksByStatus = useMemo(() => {
+    console.log('🔍 [CRITICAL] selectedType VALUE:', selectedType, typeof selectedType)
+    console.log('🔍 [CRITICAL] selectedType === "dealer":', selectedType === 'dealer')
+    console.log('🔍 [CRITICAL] filteredTasks count:', filteredTasks.length)
+    console.log('🔍 [CRITICAL] filteredTasks types:', filteredTasks.map(t => t.type))
+
     const steps = selectedType === 'all' ? [...selfSteps, ...subsidySteps, ...dealerSteps, ...etcSteps, ...asSteps] :
                   selectedType === 'self' ? selfSteps :
                   selectedType === 'subsidy' ? subsidySteps :
