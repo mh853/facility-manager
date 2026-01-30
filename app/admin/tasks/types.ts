@@ -3,7 +3,7 @@ import { SelectedAssignee } from '@/components/ui/MultiAssigneeSelector'
 
 // ==================== 기본 타입 ====================
 
-export type TaskType = 'self' | 'subsidy' | 'etc' | 'as'
+export type TaskType = 'self' | 'subsidy' | 'etc' | 'as' | 'dealer'
 
 export type TaskStatus =
   // 공통 단계
@@ -23,6 +23,9 @@ export type TaskStatus =
   // AS 전용 단계
   | 'as_customer_contact' | 'as_site_inspection' | 'as_quotation' | 'as_contract'
   | 'as_part_order' | 'as_completed'
+  // 대리점 단계 (단순화)
+  | 'dealer_order_received' | 'dealer_invoice_issued'
+  | 'dealer_payment_confirmed' | 'dealer_product_ordered'
   // 기타 단계
   | 'etc_status'
 
@@ -148,6 +151,14 @@ export const asSteps: StepInfo[] = [
   { status: 'as_completed', label: 'AS 완료', color: 'green' }
 ]
 
+// 상태별 단계 정의 (대리점) - 단순화
+export const dealerSteps: StepInfo[] = [
+  { status: 'dealer_order_received', label: '발주 수신', color: 'blue' },
+  { status: 'dealer_invoice_issued', label: '계산서 발행', color: 'yellow' },
+  { status: 'dealer_payment_confirmed', label: '입금 확인', color: 'green' },
+  { status: 'dealer_product_ordered', label: '제품 발주', color: 'emerald' }
+]
+
 // ==================== 유틸리티 함수 ====================
 
 /**
@@ -159,6 +170,7 @@ export const asSteps: StepInfo[] = [
 export const calculateProgressPercentage = (type: TaskType, status: TaskStatus): number => {
   const steps = type === 'self' ? selfSteps :
                 type === 'subsidy' ? subsidySteps :
+                type === 'dealer' ? dealerSteps :
                 type === 'etc' ? etcSteps : asSteps
 
   const currentStepIndex = steps.findIndex(step => step.status === status)
@@ -183,6 +195,8 @@ export const getStepsByType = (type: TaskType): StepInfo[] => {
       return selfSteps
     case 'subsidy':
       return subsidySteps
+    case 'dealer':
+      return dealerSteps
     case 'as':
       return asSteps
     case 'etc':

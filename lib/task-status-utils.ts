@@ -44,6 +44,12 @@ export const TASK_STATUS_KR: { [key: string]: string } = {
   'as_part_order': 'AS 부품 발주',
   'as_completed': 'AS 완료',
 
+  // 대리점 업무 단계 (단순화)
+  'dealer_order_received': '발주 수신',
+  'dealer_invoice_issued': '계산서 발행',
+  'dealer_payment_confirmed': '입금 확인',
+  'dealer_product_ordered': '제품 발주',
+
   // 기타 단계
   'etc_status': '기타',
 
@@ -59,7 +65,8 @@ export const TASK_STATUS_KR: { [key: string]: string } = {
 export const TASK_TYPE_KR: { [key: string]: string } = {
   'self': '자가시설',
   'subsidy': '보조금',
-  'as': 'A/S'
+  'as': 'A/S',
+  'dealer': '대리점'
 };
 
 // 우선순위 한글 매핑
@@ -153,7 +160,13 @@ export function getStatusColor(status: string): string {
     'as_quotation': 'bg-orange-100 text-orange-800',
     'as_contract': 'bg-purple-100 text-purple-800',
     'as_part_order': 'bg-cyan-100 text-cyan-800',
-    'as_completed': 'bg-green-100 text-green-800'
+    'as_completed': 'bg-green-100 text-green-800',
+
+    // 대리점 전용 단계 (단순화)
+    'dealer_order_received': 'bg-blue-100 text-blue-800',
+    'dealer_invoice_issued': 'bg-yellow-100 text-yellow-800',
+    'dealer_payment_confirmed': 'bg-green-100 text-green-800',
+    'dealer_product_ordered': 'bg-emerald-100 text-emerald-800'
   };
 
   return colorMap[status] || 'bg-gray-100 text-gray-800';

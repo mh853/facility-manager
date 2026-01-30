@@ -51,7 +51,7 @@ import {
 } from 'lucide-react'
 
 // 업무 타입 정의
-type TaskType = 'self' | 'subsidy' | 'etc' | 'as'
+type TaskType = 'self' | 'subsidy' | 'etc' | 'as' | 'dealer'
 type TaskStatus =
   // 공통 단계
   | 'pending' | 'site_survey' | 'customer_contact' | 'site_inspection' | 'quotation' | 'contract'
@@ -71,6 +71,9 @@ type TaskStatus =
   // AS 전용 단계
   | 'as_customer_contact' | 'as_site_inspection' | 'as_quotation' | 'as_contract'
   | 'as_part_order' | 'as_completed'
+  // 대리점 단계 (단순화)
+  | 'dealer_order_received' | 'dealer_invoice_issued'
+  | 'dealer_payment_confirmed' | 'dealer_product_ordered'
   // 기타 단계
   | 'etc_status'
 
@@ -705,6 +708,7 @@ function TaskManagementPage() {
     const thresholds = {
       self: { warning: 7, critical: 14, overdue: 21 },
       subsidy: { warning: 10, critical: 20, overdue: 30 },
+      dealer: { warning: 7, critical: 14, overdue: 21 },
       etc: { warning: 5, critical: 10, overdue: 15 },
       as: { warning: 3, critical: 7, overdue: 10 }
     }
@@ -1072,7 +1076,8 @@ function TaskManagementPage() {
     const badgeMap = {
       self: { label: '자비', color: 'bg-blue-100 text-blue-800 border-blue-200' },
       subsidy: { label: '보조금', color: 'bg-green-100 text-green-800 border-green-200' },
-      as: { label: 'AS', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+      dealer: { label: '대리점', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+      as: { label: 'AS', color: 'bg-purple-100 text-purple-800 border-purple-200' },
       etc: { label: '기타', color: 'bg-gray-100 text-gray-800 border-gray-200' }
     }
     return badgeMap[taskType as keyof typeof badgeMap] || badgeMap.etc
@@ -1562,8 +1567,9 @@ function TaskManagementPage() {
                 <option value="all">타입</option>
                 <option value="self">자비</option>
                 <option value="subsidy">보조금</option>
-                <option value="etc">기타</option>
+                <option value="dealer">대리점</option>
                 <option value="as">AS</option>
+                <option value="etc">기타</option>
               </select>
 
               {/* 우선순위 */}
@@ -2249,8 +2255,9 @@ function TaskManagementPage() {
                     >
                       <option value="self">자비</option>
                       <option value="subsidy">보조금</option>
-                      <option value="etc">기타</option>
+                      <option value="dealer">대리점</option>
                       <option value="as">AS</option>
+                      <option value="etc">기타</option>
                     </select>
                   </div>
 
@@ -2568,8 +2575,9 @@ function TaskManagementPage() {
                     >
                       <option value="self">자비</option>
                       <option value="subsidy">보조금</option>
-                      <option value="etc">기타</option>
+                      <option value="dealer">대리점</option>
                       <option value="as">AS</option>
+                      <option value="etc">기타</option>
                     </select>
                   </div>
 

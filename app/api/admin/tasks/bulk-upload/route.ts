@@ -59,6 +59,7 @@ const REVERSE_TASK_TYPE_MAP: { [key: string]: string } = {
   '자가': 'self',
   '자가시설': 'self',
   '보조금': 'subsidy',
+  '대리점': 'dealer',
   'AS': 'as',
   'A/S': 'as'
 };
