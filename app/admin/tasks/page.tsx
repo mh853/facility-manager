@@ -199,10 +199,19 @@ const asSteps: Array<{status: TaskStatus, label: string, color: string}> = [
   { status: 'as_completed', label: 'AS 완료', color: 'green' }
 ]
 
+// 상태별 단계 정의 (대리점) - 단순화
+const dealerSteps: Array<{status: TaskStatus, label: string, color: string}> = [
+  { status: 'dealer_order_received', label: '발주 수신', color: 'blue' },
+  { status: 'dealer_invoice_issued', label: '계산서 발행', color: 'yellow' },
+  { status: 'dealer_payment_confirmed', label: '입금 확인', color: 'green' },
+  { status: 'dealer_product_ordered', label: '제품 발주', color: 'emerald' }
+]
+
 // 진행률 자동 계산 함수
 const calculateProgressPercentage = (type: TaskType, status: TaskStatus): number => {
   const steps = type === 'self' ? selfSteps :
                 type === 'subsidy' ? subsidySteps :
+                type === 'dealer' ? dealerSteps :
                 type === 'etc' ? etcSteps : asSteps
 
   const currentStepIndex = steps.findIndex(step => step.status === status)
@@ -812,9 +821,10 @@ function TaskManagementPage() {
 
   // 상태별 업무 그룹화
   const tasksByStatus = useMemo(() => {
-    const steps = selectedType === 'all' ? [...selfSteps, ...subsidySteps, ...etcSteps, ...asSteps] :
+    const steps = selectedType === 'all' ? [...selfSteps, ...subsidySteps, ...dealerSteps, ...etcSteps, ...asSteps] :
                   selectedType === 'self' ? selfSteps :
                   selectedType === 'subsidy' ? subsidySteps :
+                  selectedType === 'dealer' ? dealerSteps :
                   selectedType === 'etc' ? etcSteps : asSteps
 
     // 전체 보기일 때 중복 단계 제거
@@ -839,6 +849,7 @@ function TaskManagementPage() {
           // 업무의 실제 타입에 맞는 단계 정보를 찾기
           const correctSteps = task.type === 'self' ? selfSteps :
                              task.type === 'subsidy' ? subsidySteps :
+                             task.type === 'dealer' ? dealerSteps :
                              task.type === 'etc' ? etcSteps : asSteps
 
           // 해당 타입의 단계 중에서 현재 상태와 일치하는 단계 찾기
@@ -942,7 +953,7 @@ function TaskManagementPage() {
       })
 
       // 모든 단계 정의에서 라벨 가져오기
-      const allSteps = [...selfSteps, ...subsidySteps, ...etcSteps, ...asSteps]
+      const allSteps = [...selfSteps, ...subsidySteps, ...dealerSteps, ...etcSteps, ...asSteps]
       const uniqueSteps = Array.from(statusSet).map(status => {
         const step = allSteps.find(s => s.status === status)
         return step || { status, label: status }
@@ -952,6 +963,7 @@ function TaskManagementPage() {
     }
     return selectedType === 'self' ? selfSteps :
            selectedType === 'subsidy' ? subsidySteps :
+           selectedType === 'dealer' ? dealerSteps :
            selectedType === 'etc' ? etcSteps : asSteps
   }, [selectedType, tasks])
 
@@ -1106,6 +1118,7 @@ function TaskManagementPage() {
       if (duplicateTask) {
         const steps = createTaskForm.type === 'self' ? selfSteps :
                      createTaskForm.type === 'subsidy' ? subsidySteps :
+                     createTaskForm.type === 'dealer' ? dealerSteps :
                      createTaskForm.type === 'as' ? asSteps : etcSteps;
         const statusInfo = steps.find(s => s.status === createTaskForm.status);
         const statusLabel = statusInfo?.label || createTaskForm.status;
@@ -1126,6 +1139,7 @@ function TaskManagementPage() {
       // 현재 단계명을 title로 자동 설정
       const steps = createTaskForm.type === 'self' ? selfSteps :
                    createTaskForm.type === 'subsidy' ? subsidySteps :
+                   createTaskForm.type === 'dealer' ? dealerSteps :
                    createTaskForm.type === 'as' ? asSteps : etcSteps;
       const currentStep = steps.find(s => s.status === createTaskForm.status);
       const autoTitle = currentStep?.label || createTaskForm.status;
@@ -1308,6 +1322,7 @@ function TaskManagementPage() {
       if (duplicateTask) {
         const steps = editingTask.type === 'self' ? selfSteps :
                      editingTask.type === 'subsidy' ? subsidySteps :
+                     editingTask.type === 'dealer' ? dealerSteps :
                      editingTask.type === 'as' ? asSteps : etcSteps;
         const statusInfo = steps.find(s => s.status === editingTask.status);
         const statusLabel = statusInfo?.label || editingTask.status;
@@ -1753,6 +1768,7 @@ function TaskManagementPage() {
                   {paginatedTasks.map((task, index) => {
                     const step = (task.type === 'self' ? selfSteps :
                                    task.type === 'subsidy' ? subsidySteps :
+                                   task.type === 'dealer' ? dealerSteps :
                                    task.type === 'etc' ? etcSteps : asSteps).find(s => s.status === task.status)
                     return (
                       <tr
@@ -2289,6 +2305,7 @@ function TaskManagementPage() {
                   >
                     {(createTaskForm.type === 'self' ? selfSteps :
                      createTaskForm.type === 'subsidy' ? subsidySteps :
+                     createTaskForm.type === 'dealer' ? dealerSteps :
                      createTaskForm.type === 'etc' ? etcSteps : asSteps).map(step => (
                       <option key={step.status} value={step.status}>{step.label}</option>
                     ))}
@@ -2467,6 +2484,7 @@ function TaskManagementPage() {
                     <p className="text-xs sm:text-xs font-medium text-gray-900 truncate">
                       {(editingTask.type === 'self' ? selfSteps :
                        editingTask.type === 'subsidy' ? subsidySteps :
+                       editingTask.type === 'dealer' ? dealerSteps :
                        editingTask.type === 'etc' ? etcSteps : asSteps)
                        .find(s => s.status === editingTask.status)?.label || editingTask.status}
                     </p>
@@ -2609,6 +2627,7 @@ function TaskManagementPage() {
                   >
                     {(editingTask.type === 'self' ? selfSteps :
                      editingTask.type === 'subsidy' ? subsidySteps :
+                     editingTask.type === 'dealer' ? dealerSteps :
                      editingTask.type === 'etc' ? etcSteps : asSteps).map(step => (
                       <option key={step.status} value={step.status}>{step.label}</option>
                     ))}
