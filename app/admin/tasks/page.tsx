@@ -12,6 +12,7 @@ import TaskMobileModal from './components/TaskMobileModal'
 import TaskHistoryTimeline from '@/components/TaskHistoryTimeline'
 import BusinessInfoPanel from '@/components/tasks/BusinessInfoPanel'
 import SubsidyActiveBadge from '@/components/tasks/SubsidyActiveBadge'
+import BulkUploadModal from '@/components/tasks/BulkUploadModal'
 import {
   Plus,
   Search,
@@ -45,7 +46,8 @@ import {
   Target,
   TrendingUp,
   FileText,
-  History
+  History,
+  Upload
 } from 'lucide-react'
 
 // 업무 타입 정의
@@ -232,6 +234,7 @@ function TaskManagementPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showEditHistory, setShowEditHistory] = useState(false)
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
@@ -1409,14 +1412,25 @@ function TaskManagementPage() {
           </div>
 
           {/* 핵심 액션 - 모든 화면에서 표시 */}
-          <button
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 md:px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="sm:hidden">추가</span>
-            <span className="hidden sm:inline">새 업무</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {user?.permission_level === 4 && (
+              <button
+                onClick={() => setShowBulkUploadModal(true)}
+                className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 md:px-3 rounded-lg hover:bg-green-700 transition-colors text-sm"
+              >
+                <Upload className="w-4 h-4" />
+                <span className="hidden md:inline">엑셀 일괄 등록</span>
+              </button>
+            )}
+            <button
+              onClick={handleOpenCreateModal}
+              className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 md:px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="sm:hidden">추가</span>
+              <span className="hidden sm:inline">새 업무</span>
+            </button>
+          </div>
         </div>
       }
     >
@@ -2719,6 +2733,17 @@ function TaskManagementPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 엑셀 일괄 등록 모달 */}
+      {showBulkUploadModal && (
+        <BulkUploadModal
+          onClose={() => setShowBulkUploadModal(false)}
+          onSuccess={() => {
+            setShowBulkUploadModal(false)
+            fetchTasks() // 업무 목록 새로고침
+          }}
+        />
       )}
     </AdminLayout>
   );

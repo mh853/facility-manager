@@ -413,6 +413,30 @@ export const POST = withApiHandler(async (request: NextRequest) => {
 
     const newTask = insertResult.rows[0];
 
+    // 🆕 업무 메모 → 사업장 메모 동기화 (이력 누적)
+    if (notes && notes.trim() !== '' && resolvedBusinessId) {
+      try {
+        const { addTaskMemoToBusinessHistory } = await import('@/lib/task-memo-sync');
+        const syncResult = await addTaskMemoToBusinessHistory({
+          taskId: newTask.id,
+          businessId: resolvedBusinessId,
+          businessName: business_name,
+          notes: notes,
+          status: status,
+          taskType: task_type,
+          userId: user.id,
+          userName: user.name
+        });
+
+        if (syncResult.success) {
+          console.log('✅ [FACILITY-TASKS] 업무 메모 → 사업장 메모 동기화 완료:', syncResult.memoId);
+        } else {
+          console.warn('⚠️ [FACILITY-TASKS] 메모 동기화 실패 (계속 진행):', syncResult.error);
+        }
+      } catch (syncError) {
+        console.error('⚠️ [FACILITY-TASKS] 메모 동기화 오류 (계속 진행):', syncError);
+      }
+    }
 
     // 🆕 업무 생성 시 첫 단계 이력 기록
     try {
@@ -813,6 +837,43 @@ export const PUT = withApiHandler(async (request: NextRequest) => {
         console.log('✅ [NOTIFICATION] 담당자 변경 알림 업데이트:', updateResult);
       } catch (notificationError) {
         console.error('❌ [NOTIFICATION] 담당자 변경 알림 업데이트 실패:', notificationError);
+      }
+    }
+
+    // 🆕 메모 변경 감지 및 사업장 메모 동기화 (이력 누적)
+    const notesChanged = notes !== undefined && existingTask.notes !== updatedTask.notes;
+    if (notesChanged && updatedTask.notes && updatedTask.notes.trim() !== '') {
+      try {
+        // business_name으로 business_id 조회
+        const businessInfo = await queryOne(
+          `SELECT id FROM business_info
+           WHERE business_name = $1 AND is_active = true AND is_deleted = false`,
+          [updatedTask.business_name]
+        );
+
+        if (!businessInfo) {
+          console.warn('⚠️ [FACILITY-TASKS] 메모 동기화 - 사업장 조회 실패:', updatedTask.business_name);
+        } else {
+          const { addTaskMemoToBusinessHistory } = await import('@/lib/task-memo-sync');
+          const syncResult = await addTaskMemoToBusinessHistory({
+            taskId: updatedTask.id,
+            businessId: businessInfo.id,
+            businessName: updatedTask.business_name,
+            notes: updatedTask.notes,
+            status: updatedTask.status,
+            taskType: updatedTask.task_type,
+            userId: user.id,
+            userName: user.name
+          });
+
+          if (syncResult.success) {
+            console.log('✅ [FACILITY-TASKS] 업무 메모 수정 → 사업장 메모 동기화 완료:', syncResult.memoId);
+          } else {
+            console.warn('⚠️ [FACILITY-TASKS] 메모 동기화 실패 (계속 진행):', syncResult.error);
+          }
+        }
+      } catch (syncError) {
+        console.error('⚠️ [FACILITY-TASKS] 메모 동기화 오류 (계속 진행):', syncError);
       }
     }
 

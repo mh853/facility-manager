@@ -52,6 +52,9 @@ interface Memo {
   content: string
   author: string | null
   created_at: string
+  source_type?: string // 'manual' or 'task_sync'
+  task_status?: string | null
+  task_type?: string | null
 }
 
 interface BusinessInfoPanelProps {
@@ -223,7 +226,14 @@ function MemoSection({ memos }: { memos: Memo[] }) {
           memos.map((memo, idx) => (
             <div key={memo.id || idx} className="bg-gray-50 p-2 rounded text-xs border border-gray-100">
               <div className="flex justify-between items-start mb-1">
-                <span className="font-medium text-gray-700">{memo.author || '작성자'}</span>
+                <div className="flex items-center gap-1.5">
+                  {memo.source_type === 'task_sync' && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                      업무
+                    </span>
+                  )}
+                  <span className="font-medium text-gray-700">{memo.author || '작성자'}</span>
+                </div>
                 <span className="text-gray-500 text-[10px]">{formatDate(memo.created_at)}</span>
               </div>
               <p className="text-gray-600 whitespace-pre-wrap">{memo.content}</p>
