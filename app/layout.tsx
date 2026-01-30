@@ -31,7 +31,10 @@ export const viewport = {
 };
 
 export const metadata = {
-  title: '시설 관리 시스템',
+  title: {
+    template: '%s - 시설 관리 시스템',
+    default: '시설 관리 시스템',
+  },
   description: '실사관리 시스템 - 시설 정보 관리 및 보고서 작성',
   keywords: '시설관리, 실사, 보고서, 시설정보',
   authors: [{ name: '시설관리팀' }],
@@ -58,14 +61,6 @@ export const metadata = {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'default',
     'format-detection': 'telephone=no',
-  },
-  
-  // 오픈 그래프
-  openGraph: {
-    title: '시설 관리 시스템',
-    description: '실사관리 시스템 - 시설 정보 관리 및 보고서 작성',
-    type: 'website',
-    locale: 'ko_KR',
   },
   
   // 로봇 설정
