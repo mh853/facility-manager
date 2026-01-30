@@ -1,6 +1,10 @@
 // app/admin/business/page.tsx - 사업장 관리 페이지
 'use client'
 
+// 🔥 배포 환경에서 동적 렌더링 강제 - 사업장 등록 후 즉시 반영
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { BusinessInfo } from '@/lib/database-service'
