@@ -64,6 +64,7 @@ function isAuthExemptRoute(pathname: string): boolean {
     '/reset-password',
     '/terms',
     '/privacy',
+    '/business/', // 카카오톡 링크 미리보기용 (Open Graph 크롤링)
     '/api/health',
     '/api/supabase-test',
     '/_next',
