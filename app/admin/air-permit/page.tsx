@@ -342,7 +342,9 @@ function AirPermitManagementPage() {
       }, 10000)
       
       // 1. 모든 대기필증 조회 (사업장 정보 포함)
+      // 🔥 배포 환경에서 캐싱 방지
       const airPermitResponse = await fetch('/api/air-permit', {
+        cache: 'no-store',
         signal: abortController.signal
       })
       
@@ -457,7 +459,10 @@ function AirPermitManagementPage() {
   const loadAirPermits = async (businessId: string) => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/air-permit?businessId=${businessId}&details=true`)
+      // 🔥 배포 환경에서 캐싱 방지 - 수정 후 즉시 반영
+      const response = await fetch(`/api/air-permit?businessId=${businessId}&details=true`, {
+        cache: 'no-store'
+      })
       const result = await response.json()
       
       if (response.ok) {
@@ -543,7 +548,10 @@ function AirPermitManagementPage() {
     setIsLoadingBusinesses(true)
     try {
       // includeAll=true 파라미터로 전체 사업장 조회
-      const response = await fetch('/api/business-list?includeAll=true')
+      // 🔥 배포 환경에서 캐싱 방지
+      const response = await fetch('/api/business-list?includeAll=true', {
+        cache: 'no-store'
+      })
       const result = await response.json()
 
       if (response.ok) {
