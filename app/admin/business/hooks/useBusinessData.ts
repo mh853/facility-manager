@@ -41,7 +41,10 @@ export function useBusinessData() {
       setError(null);
 
       // 직접 business_info 테이블에서 사업장 정보 조회 (파일 통계 포함)
-      const response = await fetch('/api/business-info-direct?includeFileStats=true');
+      // 🔥 배포 환경에서 캐싱 방지 - 사업장 등록 후 즉시 반영
+      const response = await fetch('/api/business-info-direct?includeFileStats=true', {
+        cache: 'no-store'
+      });
       if (!response.ok) {
         throw new Error('사업장 데이터를 불러오는데 실패했습니다.');
       }
