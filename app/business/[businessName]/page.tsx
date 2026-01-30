@@ -37,6 +37,32 @@ export default function BusinessDetailPage() {
   const [systemType, setSystemType] = useState<SystemType>('presurvey');
   const [currentPhase, setCurrentPhase] = useState<SystemPhase>('presurvey');
   const isHydrated = useIsHydrated();
+
+  // 동적 메타 태그 업데이트 (카카오톡 링크 미리보기용)
+  useEffect(() => {
+    if (businessName) {
+      const title = `${businessName} - 시설 관리 시스템`;
+      const description = `${businessName}의 시설 정보 관리 및 보고서`;
+
+      // Document title
+      document.title = title;
+
+      // Open Graph meta tags
+      const updateMetaTag = (property: string, content: string) => {
+        let meta = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement;
+        if (!meta) {
+          meta = document.createElement('meta');
+          meta.setAttribute('property', property);
+          document.head.appendChild(meta);
+        }
+        meta.setAttribute('content', content);
+      };
+
+      updateMetaTag('og:title', title);
+      updateMetaTag('og:description', description);
+      updateMetaTag('og:url', `https://facility.blueon-iot.com/business/${encodeURIComponent(businessName)}`);
+    }
+  }, [businessName]);
   
   const [facilities, setFacilities] = useState<FacilitiesData | null>(null);
   const [facilityNumbering, setFacilityNumbering] = useState<any>(null); // 대기필증 관리 시설번호
