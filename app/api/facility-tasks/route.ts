@@ -921,8 +921,26 @@ export const DELETE = withApiHandler(async (request: NextRequest) => {
       return createErrorResponse('시설 업무를 찾을 수 없습니다', 404);
     }
 
-    // 권한 체크: 관리자가 아니면 본인이 생성한 업무만 삭제 가능
-    if (user.permission_level < 4 && existingTask.created_by !== user.id) {
+    // 슈퍼 관리자 화이트리스트 (모든 업무 삭제 가능)
+    const SUPER_ADMIN_EMAILS = ['psm19911@naver.com'];
+
+    // 권한 체크: 슈퍼 관리자, 관리자(레벨 4+), 또는 본인이 생성한 업무만 삭제 가능
+    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email);
+    const isAdmin = user.permission_level >= 4;
+    const isOwner = existingTask.created_by === user.id;
+
+    const canDelete = isSuperAdmin || isAdmin || isOwner;
+
+    if (!canDelete) {
+      console.warn('❌ [FACILITY-TASKS] 삭제 권한 부족:', {
+        user: user.name,
+        email: user.email,
+        level: user.permission_level,
+        taskCreator: existingTask.created_by_name,
+        isSuperAdmin,
+        isAdmin,
+        isOwner
+      });
       return createErrorResponse('이 업무를 삭제할 권한이 없습니다', 403);
     }
 
