@@ -317,6 +317,18 @@ function TaskManagementPage() {
       console.log('✅ 업무 목록 로딩 성공:', result.data?.tasks?.length || 0, '개')
 
       if (result.success && result.data?.tasks) {
+        // 🔍 대리점 업무 디버깅
+        const dealerTasks = result.data.tasks.filter((t: any) => t.task_type === 'dealer')
+        if (dealerTasks.length > 0) {
+          console.log('🔍 [DEBUG] 대리점 업무 데이터:', dealerTasks.map((t: any) => ({
+            id: t.id,
+            business_name: t.business_name,
+            task_type: t.task_type,
+            status: t.status,
+            title: t.title
+          })))
+        }
+
         // 데이터베이스 형식을 UI 형식으로 변환
         const convertedTasks: Task[] = result.data.tasks.map((dbTask: any) => ({
           id: dbTask.id,
@@ -1703,6 +1715,7 @@ function TaskManagementPage() {
                 <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
                   {selectedType === 'self' ? '자비' :
                    selectedType === 'subsidy' ? '보조금' :
+                   selectedType === 'dealer' ? '대리점' :
                    selectedType === 'etc' ? '기타' : 'AS'}
                 </span>
               )}

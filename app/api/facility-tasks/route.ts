@@ -70,7 +70,7 @@ export interface FacilityTask {
   description?: string;
   business_name: string;
   business_id?: string;
-  task_type: 'self' | 'subsidy';
+  task_type: 'self' | 'subsidy' | 'etc' | 'as' | 'dealer';
   status: string;
   priority: 'low' | 'medium' | 'high';
   assignee?: string; // 기존 호환성 유지
