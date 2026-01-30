@@ -294,9 +294,10 @@ WHERE task_type = 'dealer';
 - [ ] `/app/admin/tasks/types.ts` - dealerSteps 4단계로 변경
 - [ ] `/app/admin/tasks/page.tsx` - TaskStatus 인라인 타입 4단계로 변경
 
-### 데이터 마이그레이션 (선택)
-- [ ] 기존 대리점 업무가 있는지 확인
-- [ ] 있다면 4단계로 마이그레이션 쿼리 실행
+### 데이터 마이그레이션 (필수)
+- [x] 기존 대리점 업무 상태 확인 쿼리 작성
+- [ ] `/database/migrate-dealer-status.sql` 실행 (Supabase에서)
+- [ ] 마이그레이션 결과 검증
 
 ### 테스트
 - [ ] 대리점 업무 생성 테스트
