@@ -513,80 +513,139 @@ export async function PUT(request: NextRequest) {
 
     // Step 6: 배출구 정보 업데이트 (있는 경우만)
     if (hasOutletsData) {
-      console.log('💾 [AIR-PERMIT] PUT - 배출구 전체 업데이트 시작');
+      console.log('💾 [AIR-PERMIT] PUT - 배출구 UPSERT 업데이트 시작');
 
-      // 기존 배출구 삭제 (cascade로 시설도 삭제됨)
-      await pgQuery(
-        `UPDATE discharge_outlets
-         SET is_deleted = true, updated_at = NOW()
-         WHERE air_permit_id = $1`,
-        [id]
-      );
-
-      // 새 배출구 및 시설 생성
+      // 🔥 UPSERT 패턴: 기존 배출구는 UPDATE, 새 배출구는 INSERT
       for (const outlet of outlets) {
-        const outletQuery = `
-          INSERT INTO discharge_outlets (
-            air_permit_id, outlet_number, outlet_name, additional_info,
-            is_active, is_deleted
-          ) VALUES ($1, $2, $3, $4, $5, $6)
-          RETURNING *
-        `;
+        let outletId = outlet.id;
+        let outletResult;
 
-        const outletResult = await pgQuery(outletQuery, [
-          id,
-          outlet.outlet_number || null,
-          outlet.outlet_name || null,
-          JSON.stringify(outlet.additional_info || {}),
-          true,
-          false
-        ]);
+        if (outletId && outletId !== 'new') {
+          // 기존 배출구 UPDATE
+          console.log(`🔄 기존 배출구 업데이트: ${outletId}`);
+          outletResult = await pgQuery(
+            `UPDATE discharge_outlets
+             SET outlet_number = $1, outlet_name = $2, additional_info = $3, updated_at = NOW()
+             WHERE id = $4 AND air_permit_id = $5
+             RETURNING *`,
+            [
+              outlet.outlet_number || null,
+              outlet.outlet_name || null,
+              JSON.stringify(outlet.additional_info || {}),
+              outletId,
+              id
+            ]
+          );
+        } else {
+          // 새 배출구 INSERT
+          console.log(`➕ 새 배출구 생성`);
+          outletResult = await pgQuery(
+            `INSERT INTO discharge_outlets (
+              air_permit_id, outlet_number, outlet_name, additional_info,
+              is_active, is_deleted
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *`,
+            [
+              id,
+              outlet.outlet_number || null,
+              outlet.outlet_name || null,
+              JSON.stringify(outlet.additional_info || {}),
+              true,
+              false
+            ]
+          );
+        }
 
         if (outletResult.rows && outletResult.rows.length > 0) {
-          const createdOutlet = outletResult.rows[0];
+          const upsertedOutlet = outletResult.rows[0];
+          outletId = upsertedOutlet.id;
 
-          // 배출시설 생성
+          // 🔥 배출시설 UPSERT
           const dischargeFacilities = outlet.discharge_facilities || [];
           for (const facility of dischargeFacilities) {
-            await pgQuery(
-              `INSERT INTO discharge_facilities (
-                outlet_id, facility_name, capacity, quantity, additional_info,
-                is_active, is_deleted
-               ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-              [
-                createdOutlet.id,
-                facility.facility_name || facility.name || null,
-                facility.capacity || null,
-                facility.quantity || null,
-                JSON.stringify(facility.additional_info || {}),
-                true,
-                false
-              ]
-            );
+            const facilityId = facility.id;
+
+            if (facilityId && facilityId !== 'new') {
+              // 기존 배출시설 UPDATE
+              console.log(`  🔄 기존 배출시설 업데이트: ${facilityId}`);
+              await pgQuery(
+                `UPDATE discharge_facilities
+                 SET facility_name = $1, capacity = $2, quantity = $3, additional_info = $4, updated_at = NOW()
+                 WHERE id = $5 AND outlet_id = $6`,
+                [
+                  facility.facility_name || facility.name || null,
+                  facility.capacity || null,
+                  facility.quantity || null,
+                  JSON.stringify(facility.additional_info || {}),
+                  facilityId,
+                  outletId
+                ]
+              );
+            } else {
+              // 새 배출시설 INSERT
+              console.log(`  ➕ 새 배출시설 생성`);
+              await pgQuery(
+                `INSERT INTO discharge_facilities (
+                  outlet_id, facility_name, capacity, quantity, additional_info,
+                  is_active, is_deleted
+                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                  outletId,
+                  facility.facility_name || facility.name || null,
+                  facility.capacity || null,
+                  facility.quantity || null,
+                  JSON.stringify(facility.additional_info || {}),
+                  true,
+                  false
+                ]
+              );
+            }
           }
 
-          // 방지시설 생성
+          // 🔥 방지시설 UPSERT
           const preventionFacilities = outlet.prevention_facilities || [];
           for (const facility of preventionFacilities) {
-            await pgQuery(
-              `INSERT INTO prevention_facilities (
-                outlet_id, facility_name, capacity, quantity, additional_info,
-                is_active, is_deleted
-               ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-              [
-                createdOutlet.id,
-                facility.facility_name || facility.name || null,
-                facility.capacity || null,
-                facility.quantity || null,
-                JSON.stringify(facility.additional_info || {}),
-                true,
-                false
-              ]
-            );
+            const facilityId = facility.id;
+
+            if (facilityId && facilityId !== 'new') {
+              // 기존 방지시설 UPDATE
+              console.log(`  🔄 기존 방지시설 업데이트: ${facilityId}`);
+              await pgQuery(
+                `UPDATE prevention_facilities
+                 SET facility_name = $1, capacity = $2, quantity = $3, additional_info = $4, updated_at = NOW()
+                 WHERE id = $5 AND outlet_id = $6`,
+                [
+                  facility.facility_name || facility.name || null,
+                  facility.capacity || null,
+                  facility.quantity || null,
+                  JSON.stringify(facility.additional_info || {}),
+                  facilityId,
+                  outletId
+                ]
+              );
+            } else {
+              // 새 방지시설 INSERT
+              console.log(`  ➕ 새 방지시설 생성`);
+              await pgQuery(
+                `INSERT INTO prevention_facilities (
+                  outlet_id, facility_name, capacity, quantity, additional_info,
+                  is_active, is_deleted
+                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                  outletId,
+                  facility.facility_name || facility.name || null,
+                  facility.capacity || null,
+                  facility.quantity || null,
+                  JSON.stringify(facility.additional_info || {}),
+                  true,
+                  false
+                ]
+              );
+            }
           }
         }
       }
-      console.log('✅ [AIR-PERMIT] PUT - 배출구 업데이트 완료');
+      console.log('✅ [AIR-PERMIT] PUT - 배출구 UPSERT 업데이트 완료');
     }
 
     // Step 7: 최종 데이터 조회
