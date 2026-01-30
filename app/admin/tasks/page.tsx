@@ -317,15 +317,22 @@ function TaskManagementPage() {
       console.log('✅ 업무 목록 로딩 성공:', result.data?.tasks?.length || 0, '개')
 
       if (result.success && result.data?.tasks) {
-        // 🔍 대리점 업무 디버깅
-        const dealerTasks = result.data.tasks.filter((t: any) => t.task_type === 'dealer')
-        if (dealerTasks.length > 0) {
-          console.log('🔍 [DEBUG] 대리점 업무 데이터:', dealerTasks.map((t: any) => ({
-            id: t.id,
-            business_name: t.business_name,
-            task_type: t.task_type,
-            status: t.status,
-            title: t.title
+        // 🔍 업무 타입별 분포 디버깅
+        const typeDistribution = result.data.tasks.reduce((acc: any, t: any) => {
+          acc[t.task_type] = (acc[t.task_type] || 0) + 1
+          return acc
+        }, {})
+        console.log('📊 [DATA LOAD] 타입별 분포:', typeDistribution)
+
+        // 자비 업무 상세 확인
+        const selfTasks = result.data.tasks.filter((t: any) => t.task_type === 'self')
+        console.log('📋 [DATA LOAD] 자비 업무 개수:', selfTasks.length)
+        if (selfTasks.length > 0) {
+          console.log('📋 [DATA LOAD] 자비 업무 샘플 (최대 5개):', selfTasks.slice(0, 5).map((t: any) => ({
+            id: t.id.slice(0, 8),
+            business: t.business_name,
+            type: t.task_type,
+            status: t.status
           })))
         }
 
@@ -833,10 +840,24 @@ function TaskManagementPage() {
 
   // 상태별 업무 그룹화
   const tasksByStatus = useMemo(() => {
-    console.log('🔍 [CRITICAL] selectedType VALUE:', selectedType, typeof selectedType)
-    console.log('🔍 [CRITICAL] selectedType === "dealer":', selectedType === 'dealer')
-    console.log('🔍 [CRITICAL] filteredTasks count:', filteredTasks.length)
-    console.log('🔍 [CRITICAL] filteredTasks types:', filteredTasks.map(t => t.type))
+    console.log('🔍 [FILTER DEBUG] ==================')
+    console.log('🎯 selectedType:', selectedType)
+    console.log('📊 filteredTasks count:', filteredTasks.length)
+    console.log('📦 filteredTasks types distribution:',
+      filteredTasks.reduce((acc: any, t) => {
+        acc[t.type] = (acc[t.type] || 0) + 1
+        return acc
+      }, {})
+    )
+    if (filteredTasks.length > 0) {
+      console.log('📋 Sample tasks:', filteredTasks.slice(0, 3).map(t => ({
+        id: t.id.slice(0, 8),
+        type: t.type,
+        status: t.status,
+        business: t.businessName
+      })))
+    }
+    console.log('==================')
 
     const steps = selectedType === 'all' ? [...selfSteps, ...subsidySteps, ...dealerSteps, ...etcSteps, ...asSteps] :
                   selectedType === 'self' ? selfSteps :
