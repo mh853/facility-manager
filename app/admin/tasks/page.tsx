@@ -314,7 +314,8 @@ function TaskManagementPage() {
       }
 
       const result = await response.json()
-      console.log('✅ 업무 목록 로딩 성공:', result.data?.tasks?.length || 0, '개')
+      console.log('✅ [API] 업무 목록 로딩 성공:', result.data?.tasks?.length || 0, '개')
+      console.log('✅ [API] Response success:', result.success, 'has tasks:', !!result.data?.tasks)
 
       if (result.success && result.data?.tasks) {
         // 🔍 업무 타입별 분포 디버깅
@@ -358,6 +359,12 @@ function TaskManagementPage() {
           description: dbTask.description || undefined,
           notes: dbTask.notes || undefined
         }))
+
+        console.log('✅ [STATE] setTasks 호출:', convertedTasks.length, '개')
+        console.log('✅ [STATE] 타입별 분포:', convertedTasks.reduce((acc: any, t) => {
+          acc[t.type] = (acc[t.type] || 0) + 1
+          return acc
+        }, {}))
 
         setTasks(convertedTasks)
         setLastRefresh(new Date())
@@ -771,7 +778,8 @@ function TaskManagementPage() {
 
   // 업무 목록 실시간 지연 상태 업데이트
   const tasksWithDelayStatus = useMemo(() => {
-    return tasks.map(task => {
+    console.log('🔄 [MEMO] tasksWithDelayStatus 계산 중... tasks.length:', tasks.length)
+    const result = tasks.map(task => {
       const { delayStatus, delayDays } = calculateDelayStatus(task)
       return {
         ...task,
@@ -779,17 +787,30 @@ function TaskManagementPage() {
         delayDays
       }
     })
+    console.log('🔄 [MEMO] tasksWithDelayStatus 완료:', result.length, '개')
+    return result
   }, [tasks, calculateDelayStatus])
 
   // 필터링된 업무 목록
   const filteredTasks = useMemo(() => {
+    console.log('🔍 [FILTER] 필터링 시작... tasksWithDelayStatus.length:', tasksWithDelayStatus.length)
+    console.log('🔍 [FILTER] 필터 조건:', {
+      selectedType,
+      selectedPriority,
+      selectedAssignee,
+      selectedStatus,
+      selectedLocalGov,
+      showCompletedTasks,
+      showOnlyNoConstructionReport
+    })
+
     // 🔥 완료 업무 보기가 활성화되면 다른 필터 무시하고 완료된 업무만 표시
     if (showCompletedTasks) {
       return tasksWithDelayStatus.filter(task => task.progressPercentage === 100)
     }
 
     // 일반 필터링 (완료되지 않은 업무만)
-    return tasksWithDelayStatus.filter(task => {
+    const result = tasksWithDelayStatus.filter(task => {
       // 완료된 업무 제외
       if (task.progressPercentage === 100) return false
 
@@ -816,9 +837,29 @@ function TaskManagementPage() {
       // 착공신고서 미제출 필터
       const matchesConstructionReport = !showOnlyNoConstructionReport || !task.constructionReportDate
 
-      return matchesSearch && matchesType && matchesPriority && matchesAssignee &&
-             matchesStatus && matchesLocalGov && matchesConstructionReport
+      const passed = matchesSearch && matchesType && matchesPriority && matchesAssignee &&
+                     matchesStatus && matchesLocalGov && matchesConstructionReport
+
+      // 디버깅: 자비 타입이고 필터링에 실패한 경우 로그
+      if (task.type === 'self' && !passed) {
+        console.log('❌ [FILTER] 자비 업무 필터링 실패:', {
+          id: task.id.slice(0, 8),
+          business: task.businessName,
+          progress: task.progressPercentage,
+          matchesType,
+          matchesPriority,
+          matchesAssignee,
+          matchesStatus,
+          matchesLocalGov,
+          matchesConstructionReport
+        })
+      }
+
+      return passed
     })
+
+    console.log('🔍 [FILTER] 필터링 완료:', result.length, '개')
+    return result
   }, [tasksWithDelayStatus, searchTerm, selectedType, selectedPriority, selectedAssignee,
       showCompletedTasks, selectedStatus, selectedLocalGov, showOnlyNoConstructionReport])
 
