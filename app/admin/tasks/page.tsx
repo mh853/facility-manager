@@ -2101,7 +2101,7 @@ function TaskManagementPage() {
                 )}
               </button>
             </div>
-            <div className="flex gap-2 sm:gap-3 md:gap-4 overflow-x-auto pb-2 sm:pb-3 md:pb-4">
+            <div key={`kanban-${selectedType}`} className="flex gap-2 sm:gap-3 md:gap-4 overflow-x-auto pb-2 sm:pb-3 md:pb-4">
               {tasksByStatus.steps.map((step) => (
                 <div
                   key={step.status}
